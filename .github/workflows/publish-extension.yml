@@ -1,0 +1,66 @@
+name: Publish extension release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish extension
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        shell: pwsh
+        run: npm.cmd ci
+
+      - name: Build extension package
+        shell: pwsh
+        run: npm.cmd run package:extension
+
+      - name: Create or update GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $manifest = Get-Content -Raw -LiteralPath "public/manifest.json" | ConvertFrom-Json
+          $expectedTag = "v$($manifest.version)"
+
+          if ($env:EVENT_NAME -eq "workflow_dispatch") {
+            $releaseTag = $expectedTag
+          } else {
+            $releaseTag = $env:REF_NAME
+            if ($releaseTag -ne $expectedTag) {
+              throw "Tag '$releaseTag' does not match public/manifest.json version '$expectedTag'."
+            }
+          }
+
+          $zipPath = "artifacts/site-hub-extension.zip"
+          if (-not (Test-Path -LiteralPath $zipPath -PathType Leaf)) {
+            throw "Extension package was not created at $zipPath."
+          }
+
+          gh release view $releaseTag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $releaseTag $zipPath --clobber
+          } else {
+            gh release create $releaseTag $zipPath --target $env:COMMIT_SHA --title "Mysimple extension $releaseTag" --generate-notes
+          }

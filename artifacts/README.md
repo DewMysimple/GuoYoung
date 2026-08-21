@@ -7,6 +7,16 @@
 - `site-hub-extension/`：可直接在扩展管理页加载的解压目录。该目录保持在 `artifacts` 根目录。
 - `site-hub-extension.zip`：扩展安装包。打包脚本继续覆盖此固定路径。
 
+## GitHub Release 发布
+
+扩展安装包通过 GitHub Release 发布，不把构建产物塞进源码提交历史：
+
+1. 更新 `public/manifest.json` 的版本号并提交源码。
+2. 在提交上创建同版本标签，例如 `git tag v1.1.20`，再执行 `git push origin v1.1.20`。
+3. `.github/workflows/publish-extension.yml` 会在 Windows runner 上执行依赖安装、扩展构建和打包，并将 `site-hub-extension.zip` 上传为对应 Release 的资产。
+
+也可以在 GitHub 的 **Actions → Publish extension release → Run workflow** 手动运行；手动运行会读取当前 manifest 版本并创建或更新对应 Release。解压目录仅用于本地“加载已解压的扩展”，不会上传到 Release，也不会被 Git 跟踪。
+
 ## 正式验收资料
 
 ```text
