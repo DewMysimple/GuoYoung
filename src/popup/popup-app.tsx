@@ -148,6 +148,12 @@ export function PopupApp() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string }>();
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(undefined), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const groups = useMemo(
     () => state?.groups.slice().sort((a, b) => a.order - b.order) ?? [],
     [state],

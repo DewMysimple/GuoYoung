@@ -259,9 +259,11 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 8,
+    version: 9,
     groups: DEFAULT_GROUPS.map((group) => ({ ...group })),
     sites: DEFAULT_SITES.map((item) => ({ ...item })),
+    deletedSites: [],
+    trashRetentionDays: 30,
     themePreference: "system",
     brand: { ...DEFAULT_BRAND },
     appearance: { ...DEFAULT_APPEARANCE },

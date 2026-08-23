@@ -8,6 +8,7 @@ import {
 import {
   reindexSites,
   reorderGroups as reorderGroupItems,
+  reorderGroupBlock,
   reorderSites,
   reorderSitesGlobally,
 } from "../lib/site-utils";
@@ -15,6 +16,12 @@ import {
   addGroupToState,
   addSiteToState,
   deleteGroupFromState,
+  permanentlyDeleteTrashedSiteFromState,
+  purgeExpiredTrashFromState,
+  restoreAllTrashedSitesFromState,
+  restoreTrashedSiteFromState,
+  setTrashRetentionInState,
+  trashSiteFromState,
   updateSiteInState,
 } from "../lib/site-state";
 import { addSearchHistory, removeSearchHistory } from "../lib/search-history";
@@ -22,12 +29,12 @@ import type {
   AppearanceSettings,
   BrandSettings,
   CategoryIcon,
-  GroupDeletionStrategy,
   SiteCollectionState,
   SiteFormValues,
   SiteItem,
   SiteDisplayMode,
   ThemePreference,
+  TrashRetentionDays,
   WallpaperSettings,
 } from "../types";
 
@@ -42,6 +49,11 @@ interface SiteHubApi {
     values: SiteFormValues & { url: string; customIconUrl?: string },
   ) => void;
   deleteSite: (id: string) => void;
+  restoreSite: (id: string) => void;
+  restoreAllSites: () => void;
+  permanentlyDeleteSite: (id: string) => void;
+  emptyTrash: () => void;
+  setTrashRetentionDays: (days: TrashRetentionDays) => void;
   reorder: (
     activeId: string,
     overId: string,
@@ -51,7 +63,8 @@ interface SiteHubApi {
   addGroup: (name: string, icon: CategoryIcon, beforeGroupId?: string) => string;
   updateGroup: (id: string, name: string, icon: CategoryIcon) => void;
   reorderGroups: (activeId: string, beforeGroupId: string | null) => void;
-  deleteGroup: (id: string, strategy: GroupDeletionStrategy) => void;
+  reorderGroupBlock: (activeIds: string[], beforeGroupId: string | null) => void;
+  deleteGroup: (id: string) => void;
   reset: () => void;
   replaceState: (state: SiteCollectionState) => void;
   setThemePreference: (preference: ThemePreference) => void;
@@ -139,6 +152,39 @@ export function useSiteHub(): SiteHubApi {
     void store.save(state);
   }, [isLoading, state]);
 
+  useEffect(() => {
+    if (isLoading) return;
+    const purge = () => {
+      setState((current) => purgeExpiredTrashFromState(current));
+    };
+    purge();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") purge();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    if (state.trashRetentionDays === null || state.deletedSites.length === 0) {
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibility);
+      };
+    }
+    const retentionMs = state.trashRetentionDays * 24 * 60 * 60 * 1000;
+    const nextExpiry = Math.min(
+      ...state.deletedSites.map(
+        (entry) => Date.parse(entry.deletedAt) + retentionMs,
+      ),
+    );
+    const delay = Math.min(
+      2_147_483_647,
+      Math.max(0, nextExpiry - Date.now() + 100),
+    );
+    const timer = window.setTimeout(purge, delay);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [isLoading, state.deletedSites, state.trashRetentionDays]);
+
   const addSite = useCallback<SiteHubApi["addSite"]>((values) => {
     setState((current) => addSiteToState(current, values));
     setRecovered(false);
@@ -150,14 +196,36 @@ export function useSiteHub(): SiteHubApi {
   }, []);
 
   const deleteSite = useCallback((id: string) => {
-    setState((current) => ({
-      ...current,
-      sites: reindexSites(
-        current.sites
-          .filter((site) => site.id !== id)
-          .map((site) => ({ ...site })),
-      ),
-    }));
+    setState((current) => trashSiteFromState(current, id));
+    setRecovered(false);
+  }, []);
+
+  const restoreSite = useCallback((id: string) => {
+    setState((current) => restoreTrashedSiteFromState(current, id));
+    setRecovered(false);
+  }, []);
+
+  const restoreAllSites = useCallback(() => {
+    setState((current) => restoreAllTrashedSitesFromState(current));
+    setRecovered(false);
+  }, []);
+
+  const permanentlyDeleteSite = useCallback((id: string) => {
+    setState((current) => permanentlyDeleteTrashedSiteFromState(current, id));
+    setRecovered(false);
+  }, []);
+
+  const emptyTrash = useCallback(() => {
+    setState((current) =>
+      current.deletedSites.length
+        ? { ...current, deletedSites: [] }
+        : current,
+    );
+    setRecovered(false);
+  }, []);
+
+  const setTrashRetentionDays = useCallback((days: TrashRetentionDays) => {
+    setState((current) => setTrashRetentionInState(current, days));
     setRecovered(false);
   }, []);
 
@@ -229,8 +297,19 @@ export function useSiteHub(): SiteHubApi {
     [],
   );
 
-  const deleteGroup = useCallback<SiteHubApi["deleteGroup"]>((id, strategy) => {
-    setState((current) => deleteGroupFromState(current, id, strategy));
+  const reorderGroupsBlock = useCallback<SiteHubApi["reorderGroupBlock"]>(
+    (activeIds, beforeGroupId) => {
+      setState((current) => ({
+        ...current,
+        groups: reorderGroupBlock(current.groups, activeIds, beforeGroupId),
+      }));
+      setRecovered(false);
+    },
+    [],
+  );
+
+  const deleteGroup = useCallback<SiteHubApi["deleteGroup"]>((id) => {
+    setState((current) => deleteGroupFromState(current, id));
     setRecovered(false);
   }, []);
 
@@ -244,6 +323,8 @@ export function useSiteHub(): SiteHubApi {
       wallpaper: current.wallpaper,
       searchHistory: current.searchHistory,
       displayMode: current.displayMode,
+      deletedSites: current.deletedSites,
+      trashRetentionDays: current.trashRetentionDays,
     }));
     setRecovered(false);
   }, []);
@@ -253,6 +334,8 @@ export function useSiteHub(): SiteHubApi {
     setState((current) => ({
       ...nextState,
       searchHistory: current.searchHistory,
+      deletedSites: current.deletedSites,
+      trashRetentionDays: current.trashRetentionDays,
     }));
     setRecovered(false);
   }, []);
@@ -315,11 +398,17 @@ export function useSiteHub(): SiteHubApi {
     addSite,
     updateSite,
     deleteSite,
+    restoreSite,
+    restoreAllSites,
+    permanentlyDeleteSite,
+    emptyTrash,
+    setTrashRetentionDays,
     reorder,
     commitSites,
     addGroup,
     updateGroup,
     reorderGroups,
+    reorderGroupBlock: reorderGroupsBlock,
     deleteGroup,
     reset,
     replaceState,

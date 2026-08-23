@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   DndContext,
@@ -34,7 +34,7 @@ interface GroupDialogProps {
   onOpenChange: (open: boolean) => void;
   onUpdate: (id: string, name: string, icon: CategoryIcon) => void;
   onReorder: (activeId: string, overId: string) => void;
-  onRequestDelete: (group: SiteGroup) => void;
+  onDelete: (group: SiteGroup) => void;
 }
 
 interface GroupDraft {
@@ -114,7 +114,7 @@ export function GroupDialog({
   onOpenChange,
   onUpdate,
   onReorder,
-  onRequestDelete,
+  onDelete,
 }: GroupDialogProps) {
   const titleId = useId();
   const orderedGroups = useMemo(
@@ -124,13 +124,24 @@ export function GroupDialog({
   const [selectedId, setSelectedId] = useState("");
   const [drafts, setDrafts] = useState<Record<string, GroupDraft>>({});
   const [error, setError] = useState("");
+  const [armedDeleteGroupId, setArmedDeleteGroupId] = useState<string | null>(
+    null,
+  );
+  const armedDeleteTimerRef = useRef<number | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (armedDeleteTimerRef.current !== null) {
+        window.clearTimeout(armedDeleteTimerRef.current);
+        armedDeleteTimerRef.current = null;
+      }
+      setArmedDeleteGroupId(null);
+      return;
+    }
     setSelectedId(
       orderedGroups.some((group) => group.id === initialGroupId)
         ? initialGroupId!
@@ -145,7 +156,61 @@ export function GroupDialog({
       ),
     );
     setError("");
+    setArmedDeleteGroupId(null);
   }, [initialGroupId, open]);
+
+  function clearArmedDelete() {
+    if (armedDeleteTimerRef.current !== null) {
+      window.clearTimeout(armedDeleteTimerRef.current);
+      armedDeleteTimerRef.current = null;
+    }
+    setArmedDeleteGroupId(null);
+  }
+
+  function requestDelete(group: SiteGroup) {
+    if (armedDeleteGroupId === group.id) {
+      clearArmedDelete();
+      onDelete(group);
+      return;
+    }
+    clearArmedDelete();
+    setArmedDeleteGroupId(group.id);
+    armedDeleteTimerRef.current = window.setTimeout(() => {
+      armedDeleteTimerRef.current = null;
+      setArmedDeleteGroupId(null);
+    }, 2000);
+  }
+
+  useEffect(() => {
+    if (!armedDeleteGroupId) return;
+    const handlePointer = (event: PointerEvent) => {
+      const button =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>("[data-delete-group-id]")
+          : null;
+      if (button?.dataset.deleteGroupId !== armedDeleteGroupId) {
+        clearArmedDelete();
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") clearArmedDelete();
+    };
+    window.addEventListener("pointerdown", handlePointer, true);
+    window.addEventListener("keydown", handleKey, true);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointer, true);
+      window.removeEventListener("keydown", handleKey, true);
+    };
+  }, [armedDeleteGroupId]);
+
+  useEffect(
+    () => () => {
+      if (armedDeleteTimerRef.current !== null) {
+        window.clearTimeout(armedDeleteTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const selected =
     orderedGroups.find((group) => group.id === selectedId) ?? orderedGroups[0];
@@ -243,6 +308,7 @@ export function GroupDialog({
                         }
                         selected={selected?.id === group.id}
                         onSelect={() => {
+                          clearArmedDelete();
                           setSelectedId(group.id);
                           setError("");
                         }}
@@ -268,10 +334,24 @@ export function GroupDialog({
                     {!selected.isProtected && (
                       <button
                         type="button"
-                        className="button group-editor-delete"
-                        onClick={() => onRequestDelete(selected)}
+                        className={`button group-editor-delete ${
+                          armedDeleteGroupId === selected.id
+                            ? "is-delete-armed"
+                            : ""
+                        }`}
+                        data-delete-group-id={selected.id}
+                        aria-pressed={armedDeleteGroupId === selected.id}
+                        aria-label={
+                          armedDeleteGroupId === selected.id
+                            ? "再次点击删除这个分组"
+                            : "删除这个分组"
+                        }
+                        onClick={() => requestDelete(selected)}
                       >
-                        <Trash size={17} />删除这个分组
+                        <Trash size={17} />
+                        {armedDeleteGroupId === selected.id
+                          ? "再次点击删除"
+                          : "删除这个分组"}
                       </button>
                     )}
                   </div>

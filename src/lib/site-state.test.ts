@@ -4,6 +4,12 @@ import {
   addGroupToState,
   addSiteToState,
   deleteGroupFromState,
+  permanentlyDeleteTrashedSiteFromState,
+  purgeExpiredTrashFromState,
+  restoreAllTrashedSitesFromState,
+  restoreTrashedSiteFromState,
+  setTrashRetentionInState,
+  trashSiteFromState,
   updateSiteInState,
 } from "./site-state";
 import { getSitesInGroup } from "./site-utils";
@@ -46,7 +52,7 @@ describe("site state operations", () => {
       customIconUrl: "",
       iconSource: "auto",
     }, "postgres");
-    expect(withSite.version).toBe(8);
+    expect(withSite.version).toBe(9);
     expect(withSite.groups.find((group) => group.id === "database-group")?.name).toBe("数据库");
     expect(withSite.sites.find((site) => site.id === "postgres")?.groupId).toBe("database-group");
   });
@@ -67,51 +73,33 @@ describe("site state operations", () => {
       "develop",
     ]);
     expect(ordered.at(-1)?.id).toBe(OTHER_GROUP_ID);
-    expect(result.version).toBe(8);
+    expect(result.version).toBe(9);
   });
 
-  it("deletes a group and appends its sites to Other", () => {
+  it("deletes a group and moves its sites to trash", () => {
     const initial = createDefaultState();
     const sourceSites = initial.sites.filter((site) => site.groupId === "learning");
     const result = deleteGroupFromState(
       initial,
       "learning",
-      "move-to-other",
       "2026-08-09T12:30:00.000Z",
     );
 
     expect(result.groups.some((group) => group.id === "learning")).toBe(false);
-    expect(result.sites).toHaveLength(initial.sites.length);
+    expect(result.sites).toHaveLength(initial.sites.length - sourceSites.length);
     expect(
-      result.sites
-        .filter((site) => sourceSites.some((source) => source.id === site.id))
-        .map((site) => ({ groupId: site.groupId, updatedAt: site.updatedAt })),
+      result.deletedSites.map((entry) => ({
+        id: entry.site.id,
+        groupId: entry.originalGroupId,
+        deletedAt: entry.deletedAt,
+      })),
     ).toEqual(
-      sourceSites.map(() => ({
-        groupId: OTHER_GROUP_ID,
-        updatedAt: "2026-08-09T12:30:00.000Z",
+      sourceSites.map((site) => ({
+        id: site.id,
+        groupId: "learning",
+        deletedAt: "2026-08-09T12:30:00.000Z",
       })),
     );
-    expect(getSitesInGroup(result.sites, OTHER_GROUP_ID).map((site) => site.order)).toEqual(
-      sourceSites.map((_, index) => index),
-    );
-  });
-
-  it("deletes a group together with all of its sites and reindexes the remainder", () => {
-    const initial = createDefaultState();
-    const removedIds = new Set(
-      initial.sites
-        .filter((site) => site.groupId === "learning")
-        .map((site) => site.id),
-    );
-    const result = deleteGroupFromState(
-      initial,
-      "learning",
-      "delete-sites",
-    );
-
-    expect(result.groups.some((group) => group.id === "learning")).toBe(false);
-    expect(result.sites.some((site) => removedIds.has(site.id))).toBe(false);
     expect(result.sites.map((site) => site.globalOrder).sort((a, b) => a - b)).toEqual(
       result.sites.map((_, index) => index),
     );
@@ -120,7 +108,58 @@ describe("site state operations", () => {
   it("does not delete the protected Other group", () => {
     const initial = createDefaultState();
     expect(
-      deleteGroupFromState(initial, OTHER_GROUP_ID, "delete-sites"),
+      deleteGroupFromState(initial, OTHER_GROUP_ID),
     ).toBe(initial);
+  });
+
+  it("restores a deleted site to its original group and appends it", () => {
+    const initial = createDefaultState();
+    const trashed = trashSiteFromState(initial, "github", "2026-08-01T00:00:00.000Z");
+    const restored = restoreTrashedSiteFromState(trashed, "github");
+
+    expect(restored.deletedSites).toHaveLength(0);
+    expect(getSitesInGroup(restored.sites, "develop").at(-1)?.id).toBe("github");
+  });
+
+  it("restores to Other when the original group no longer exists", () => {
+    const initial = createDefaultState();
+    const trashed = trashSiteFromState(initial, "github", "2026-08-01T00:00:00.000Z");
+    const withoutDevelop = {
+      ...trashed,
+      groups: trashed.groups.filter((group) => group.id !== "develop"),
+    };
+    const restored = restoreTrashedSiteFromState(withoutDevelop, "github");
+
+    expect(restored.sites.find((site) => site.id === "github")?.groupId).toBe(
+      OTHER_GROUP_ID,
+    );
+  });
+
+  it("restores all links and supports permanent deletion", () => {
+    const first = trashSiteFromState(createDefaultState(), "google");
+    const second = trashSiteFromState(first, "github");
+    const permanentlyDeleted = permanentlyDeleteTrashedSiteFromState(second, "google");
+    expect(permanentlyDeleted.deletedSites.map((entry) => entry.site.id)).toEqual([
+      "github",
+    ]);
+    expect(restoreAllTrashedSitesFromState(permanentlyDeleted).deletedSites).toEqual([]);
+  });
+
+  it("purges expired links while allowing never-expire retention", () => {
+    const trashed = trashSiteFromState(
+      createDefaultState(),
+      "google",
+      "2026-07-01T00:00:00.000Z",
+    );
+    const expired = purgeExpiredTrashFromState(
+      trashed,
+      Date.parse("2026-08-23T00:00:00.000Z"),
+    );
+    expect(expired.deletedSites).toHaveLength(0);
+
+    const never = setTrashRetentionInState(trashed, null);
+    expect(
+      purgeExpiredTrashFromState(never, Date.parse("2027-08-23T00:00:00.000Z")),
+    ).toBe(never);
   });
 });

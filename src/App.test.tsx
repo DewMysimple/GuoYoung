@@ -273,7 +273,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":8');
+      expect(stored).toContain('"version":9');
     });
   });
 
@@ -448,6 +448,32 @@ describe("App", () => {
     expect(
       screen.queryByRole("heading", { level: 3, name: "搜索" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("offers site multi-select at every grouped heading and keeps group selection exclusive", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "显示" }));
+    await user.click(
+      screen.getByRole("menuitemradio", { name: "按分组显示" }),
+    );
+
+    expect(screen.queryByRole("button", { name: "多选" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /多选 .+ 网站/ })).toHaveLength(6);
+    await user.click(screen.getByRole("button", { name: "多选 搜索 网站" }));
+    expect(screen.getByRole("button", { name: "完成 搜索 网站" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "选择 Google" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "完成 设计 网站" }));
+    expect(screen.queryByRole("button", { name: "选择 Google" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "选择 搜索 分组" }));
+    await user.click(screen.getByRole("button", { name: "选择 设计 分组" }));
+    expect(screen.getByRole("button", { name: "取消选择 搜索 分组" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "多选 搜索 网站" })).toBeDisabled();
   });
 
   it("creates groups before or after a header and limits Other to before", async () => {
@@ -984,7 +1010,7 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers both group deletion outcomes and moves sites to Other", async () => {
+  it("deletes a group after two clicks and moves its sites to trash", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -1008,43 +1034,36 @@ describe("App", () => {
     await user.click(
       within(dialog).getByRole("button", { name: "删除这个分组" }),
     );
-    const confirm = screen.getByRole("alertdialog", { name: "删除这个分组？" });
-    expect(within(confirm).getByText(/有 1 个网站，请选择如何处理/)).toBeInTheDocument();
     expect(
-      within(confirm).getByRole("button", {
-        name: /移动到“其他”并删除分组/,
-      }),
-    ).toBeInTheDocument();
+      screen.queryByRole("alertdialog", { name: "删除这个分组？" }),
+    ).not.toBeInTheDocument();
     expect(
-      within(confirm).getByRole("button", { name: /连同网站一起删除/ }),
-    ).toBeInTheDocument();
-    const moveAndDelete = within(confirm).getByRole("button", {
-      name: "移动到“其他”并删除分组",
-    });
-    await user.click(moveAndDelete);
-    expect(confirm).toBeInTheDocument();
-    expect(
-      within(confirm).getByRole("button", {
-        name: "再次点击移动到“其他”并删除分组",
+      within(dialog).getByRole("button", {
+        name: "再次点击删除这个分组",
       }),
     ).toHaveClass("is-delete-armed");
     await user.click(
-      within(confirm).getByRole("button", {
-        name: "再次点击移动到“其他”并删除分组",
+      within(dialog).getByRole("button", {
+        name: "再次点击删除这个分组",
       }),
     );
     expect(
       screen.queryByRole("dialog", { name: "管理分组" }),
     ).not.toBeInTheDocument();
 
-    expect(screen.getByRole("tab", { name: /其他 1/ })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: /全部/ })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    expect(screen.getByRole("link", { name: "打开 Canva" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "打开 Canva" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "打开设置" }));
+    await user.click(screen.getByRole("tab", { name: "数据" }));
+    await user.click(screen.getByRole("button", { name: "查看" }));
+    expect(screen.getByText("Canva")).toBeInTheDocument();
   });
 
-  it("deletes every site with a group when the destructive outcome is chosen", async () => {
+  it("returns to All after deleting the focused group", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -1055,29 +1074,9 @@ describe("App", () => {
     await user.click(
       within(dialog).getByRole("button", { name: "删除这个分组" }),
     );
-
-    const confirm = screen.getByRole("alertdialog", { name: "删除这个分组？" });
     await user.click(
-      within(confirm).getByRole("button", {
-        name: "移动到“其他”并删除分组",
-      }),
-    );
-    await user.click(
-      within(confirm).getByRole("button", { name: "连同网站一起删除" }),
-    );
-    expect(
-      within(confirm).getByRole("button", {
-        name: "移动到“其他”并删除分组",
-      }),
-    ).not.toHaveClass("is-delete-armed");
-    expect(
-      within(confirm).getByRole("button", {
-        name: "再次点击连同网站一起删除",
-      }),
-    ).toHaveClass("is-delete-armed");
-    await user.click(
-      within(confirm).getByRole("button", {
-        name: "再次点击连同网站一起删除",
+      within(dialog).getByRole("button", {
+        name: "再次点击删除这个分组",
       }),
     );
     expect(
@@ -1092,7 +1091,7 @@ describe("App", () => {
     expect(screen.queryByRole("link", { name: "打开 维基百科" })).not.toBeInTheDocument();
   });
 
-  it("requires two clicks and resets after timeout when deleting an empty group", async () => {
+  it("resets the direct group deletion after two seconds", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -1103,39 +1102,31 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "管理分组" }));
     dialog = screen.getByRole("dialog", { name: "管理分组" });
     await user.click(within(dialog).getByRole("button", { name: /空分组 0 个网站/ }));
-    await user.click(
-      within(dialog).getByRole("button", { name: "删除这个分组" }),
-    );
-
-    const confirm = screen.getByRole("alertdialog", { name: "删除这个分组？" });
-    expect(
-      within(confirm).getByRole("button", { name: "删除空分组" }),
-    ).toBeInTheDocument();
-    expect(
-      within(confirm).queryByRole("button", { name: /移动到“其他”/ }),
-    ).not.toBeInTheDocument();
-
     vi.useFakeTimers();
     try {
       fireEvent.click(
-        within(confirm).getByRole("button", { name: "删除空分组" }),
+        within(dialog).getByRole("button", { name: "删除这个分组" }),
       );
       expect(
-        within(confirm).getByRole("button", { name: "再次点击删除空分组" }),
+        within(dialog).getByRole("button", {
+          name: "再次点击删除这个分组",
+        }),
       ).toHaveClass("is-delete-armed");
-      await act(() => vi.advanceTimersByTimeAsync(2000));
+      await act(() => vi.advanceTimersByTimeAsync(2001));
       expect(
-        within(confirm).getByRole("button", { name: "删除空分组" }),
+        within(dialog).getByRole("button", { name: "删除这个分组" }),
       ).not.toHaveClass("is-delete-armed");
     } finally {
       vi.useRealTimers();
     }
 
     await user.click(
-      within(confirm).getByRole("button", { name: "删除空分组" }),
+      within(dialog).getByRole("button", { name: "删除这个分组" }),
     );
     await user.click(
-      within(confirm).getByRole("button", { name: "再次点击删除空分组" }),
+      within(dialog).getByRole("button", {
+        name: "再次点击删除这个分组",
+      }),
     );
     expect(
       screen.queryByRole("dialog", { name: "管理分组" }),

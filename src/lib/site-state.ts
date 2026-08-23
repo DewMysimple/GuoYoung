@@ -1,10 +1,10 @@
 import type {
   CategoryIcon,
-  GroupDeletionStrategy,
   SiteCollectionState,
   SiteFormValues,
   SiteGroup,
   SiteItem,
+  TrashRetentionDays,
 } from "../types";
 import { OTHER_GROUP_ID } from "../data/defaults";
 import { reindexSites } from "./site-utils";
@@ -108,43 +108,133 @@ export function addGroupToState(
 export function deleteGroupFromState(
   state: SiteCollectionState,
   id: string,
-  strategy: GroupDeletionStrategy,
   now = new Date().toISOString(),
 ): SiteCollectionState {
   const target = state.groups.find((group) => group.id === id);
   if (!target || target.isProtected) return state;
-
-  const other = state.groups.find(
-    (group) => group.id === OTHER_GROUP_ID && group.isProtected,
-  );
-  if (strategy === "move-to-other" && !other) return state;
-
-  let otherOrder = state.sites.filter(
-    (site) => site.groupId === OTHER_GROUP_ID,
-  ).length;
-  const sites =
-    strategy === "delete-sites"
-      ? state.sites
-          .filter((site) => site.groupId !== id)
-          .map((site) => ({ ...site }))
-      : state.sites.map((site) =>
-          site.groupId === id
-            ? {
-                ...site,
-                groupId: OTHER_GROUP_ID,
-                order: otherOrder++,
-                updatedAt: now,
-              }
-            : { ...site },
-        );
+  const removedSites = state.sites.filter((site) => site.groupId === id);
+  const deletedSites = [
+    ...state.deletedSites,
+    ...removedSites.map((site) => ({
+      site: { ...site },
+      deletedAt: now,
+      originalGroupId: target.id,
+      originalGroupName: target.name,
+    })),
+  ];
 
   return {
     ...state,
     groups: normalizeGroupOrder(
       state.groups.filter((group) => group.id !== id),
     ),
-    sites: reindexSites(sites),
+    sites: reindexSites(
+      state.sites
+        .filter((site) => site.groupId !== id)
+        .map((site) => ({ ...site })),
+    ),
+    deletedSites,
   };
+}
+
+export function trashSiteFromState(
+  state: SiteCollectionState,
+  id: string,
+  now = new Date().toISOString(),
+): SiteCollectionState {
+  const site = state.sites.find((item) => item.id === id);
+  if (!site) return state;
+  const group = state.groups.find((item) => item.id === site.groupId);
+  return {
+    ...state,
+    sites: reindexSites(
+      state.sites.filter((item) => item.id !== id).map((item) => ({ ...item })),
+    ),
+    deletedSites: [
+      ...state.deletedSites,
+      {
+        site: { ...site },
+        deletedAt: now,
+        originalGroupId: site.groupId,
+        originalGroupName: group?.name ?? "未知分组",
+      },
+    ],
+  };
+}
+
+export function restoreTrashedSiteFromState(
+  state: SiteCollectionState,
+  id: string,
+  now = new Date().toISOString(),
+): SiteCollectionState {
+  const record = state.deletedSites.find((item) => item.site.id === id);
+  if (!record || state.sites.some((site) => site.id === id)) return state;
+  const targetGroupId = state.groups.some(
+    (group) => group.id === record.originalGroupId,
+  )
+    ? record.originalGroupId
+    : OTHER_GROUP_ID;
+  const restored: SiteItem = {
+    ...record.site,
+    groupId: targetGroupId,
+    order: state.sites.filter((site) => site.groupId === targetGroupId).length,
+    globalOrder: state.sites.length,
+    updatedAt: now,
+  };
+  return {
+    ...state,
+    sites: reindexSites([...state.sites.map((site) => ({ ...site })), restored]),
+    deletedSites: state.deletedSites.filter((item) => item.site.id !== id),
+  };
+}
+
+export function restoreAllTrashedSitesFromState(
+  state: SiteCollectionState,
+  now = new Date().toISOString(),
+): SiteCollectionState {
+  return state.deletedSites.reduce(
+    (current, record) =>
+      restoreTrashedSiteFromState(current, record.site.id, now),
+    state,
+  );
+}
+
+export function permanentlyDeleteTrashedSiteFromState(
+  state: SiteCollectionState,
+  id: string,
+): SiteCollectionState {
+  if (!state.deletedSites.some((item) => item.site.id === id)) return state;
+  return {
+    ...state,
+    deletedSites: state.deletedSites.filter((item) => item.site.id !== id),
+  };
+}
+
+export function purgeExpiredTrashFromState(
+  state: SiteCollectionState,
+  now = Date.now(),
+): SiteCollectionState {
+  if (state.trashRetentionDays === null || state.deletedSites.length === 0) {
+    return state;
+  }
+  const cutoff = now - state.trashRetentionDays * 24 * 60 * 60 * 1000;
+  const deletedSites = state.deletedSites.filter(
+    (item) => Date.parse(item.deletedAt) > cutoff,
+  );
+  return deletedSites.length === state.deletedSites.length
+    ? state
+    : { ...state, deletedSites };
+}
+
+export function setTrashRetentionInState(
+  state: SiteCollectionState,
+  trashRetentionDays: TrashRetentionDays,
+  now = Date.now(),
+): SiteCollectionState {
+  return purgeExpiredTrashFromState(
+    { ...state, trashRetentionDays },
+    now,
+  );
 }
 
 export function findSiteByUrl(

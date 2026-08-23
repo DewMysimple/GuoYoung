@@ -10,6 +10,7 @@ import {
   isDuplicateUrl,
   normalizeUrl,
   moveSitesToGroupEnd,
+  reorderGroupBlock,
   reorderGroups,
   reorderSites,
   reorderSitesGlobally,
@@ -176,6 +177,32 @@ describe("site utilities", () => {
 
   it("moves an ordinary group to the end before protected groups", () => {
     const reordered = reorderGroups(DEFAULT_GROUPS, "search", null);
+    expect(reordered.at(-2)?.id).toBe("search");
+    expect(reordered.at(-1)?.id).toBe("other");
+  });
+
+  it("moves non-contiguous selected groups as one stable block", () => {
+    const reordered = reorderGroupBlock(
+      DEFAULT_GROUPS,
+      ["search", "design"],
+      "media",
+    );
+    expect(reordered.map((group) => group.id)).toEqual([
+      "develop",
+      "search",
+      "design",
+      "media",
+      "learn",
+      "other",
+    ]);
+  });
+
+  it("ignores protected groups in a block and keeps Other last", () => {
+    const reordered = reorderGroupBlock(
+      DEFAULT_GROUPS,
+      ["other", "search"],
+      null,
+    );
     expect(reordered.at(-2)?.id).toBe("search");
     expect(reordered.at(-1)?.id).toBe("other");
   });

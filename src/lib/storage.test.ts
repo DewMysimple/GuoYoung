@@ -54,7 +54,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(8);
+    expect(result.state.version).toBe(9);
     expect(result.state.appearance.cardWidth).toBe(160);
     expect(result.state.searchHistory).toEqual([]);
     expect(result.state.groups).toHaveLength(6);
@@ -75,7 +75,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(8);
+    expect(result.state.version).toBe(9);
     expect(result.state.groups.at(-1)).toMatchObject({
       id: "other",
       name: "其他",
@@ -95,7 +95,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(8);
+    expect(result.state.version).toBe(9);
     expect(
       result.state.sites
         .slice()
@@ -122,7 +122,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(8);
+    expect(result.state.version).toBe(9);
     expect(result.state.wallpaper).toMatchObject({
       positionX: 100,
       positionY: 100,
@@ -152,7 +152,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(8);
+    expect(result.state.version).toBe(9);
     expect(result.state.displayMode).toBe("flat");
     expect(result.state.appearance).toMatchObject({
       brandFontScale: 100,
@@ -185,7 +185,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(8);
+    expect(result.state.version).toBe(9);
     expect(result.state.brand.name).toBe("Mysimple");
     expect(result.state.appearance).toMatchObject({
       pagePadding: 20,
@@ -194,6 +194,20 @@ describe("local storage", () => {
       cardPadding: 12,
       siteIconScale: 100,
     });
+  });
+
+  it("upgrades version 8 with an empty 30-day recycle bin", () => {
+    const defaults = createDefaultState();
+    const { deletedSites: _deletedSites, trashRetentionDays: _trashRetentionDays, ...legacy } =
+      defaults;
+    const result = loadState(
+      memoryStorage(JSON.stringify({ ...legacy, version: 8 })),
+    );
+
+    expect(result.recovered).toBe(false);
+    expect(result.state.version).toBe(9);
+    expect(result.state.deletedSites).toEqual([]);
+    expect(result.state.trashRetentionDays).toBe(30);
   });
 
   it("merges a duplicate Other group without losing its sites", () => {

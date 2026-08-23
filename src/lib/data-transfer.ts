@@ -17,6 +17,7 @@ export function createExportPayload(
 ): SiteHubExport {
   const exportableState: SiteCollectionState = {
     ...state,
+    deletedSites: [],
     searchHistory: [],
     wallpaper:
       state.wallpaper.source === "local"

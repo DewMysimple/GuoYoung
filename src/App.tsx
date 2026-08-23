@@ -56,7 +56,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { AddSiteCard } from "./components/add-site-card";
 import { BrandMark } from "./components/brand-mark";
 import { ConfirmDialog } from "./components/confirm-dialog";
-import { DeleteGroupDialog } from "./components/delete-group-dialog";
 import { GroupDialog } from "./components/group-dialog";
 import {
   GroupDropGrid,
@@ -217,10 +216,16 @@ export function App() {
     addSite,
     updateSite,
     deleteSite,
+    restoreSite,
+    restoreAllSites,
+    permanentlyDeleteSite,
+    emptyTrash,
+    setTrashRetentionDays,
     commitSites,
     addGroup,
     updateGroup,
     reorderGroups,
+    reorderGroupBlock,
     deleteGroup,
     reset,
     replaceState,
@@ -261,7 +266,6 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingSite, setEditingSite] = useState<SiteItem | null>(null);
   const [armedDeleteSiteId, setArmedDeleteSiteId] = useState<string | null>(null);
-  const [deletingGroup, setDeletingGroup] = useState<SiteGroup | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [pendingImport, setPendingImport] =
     useState<SiteCollectionState | null>(null);
@@ -284,6 +288,9 @@ export function App() {
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [batchDragIds, setBatchDragIds] = useState<string[]>([]);
@@ -330,6 +337,7 @@ export function App() {
   const batchDragIdsRef = useRef<string[]>([]);
   const armedDeleteTimerRef = useRef<number | null>(null);
   const activeGroupSortIdRef = useRef<string | null>(null);
+  const activeGroupSortIdsRef = useRef<string[]>([]);
   const activeGroupSortAxisRef = useRef<GroupSortAxis | null>(null);
   const groupSortIntentRef = useRef<GroupSortIntent | null>(null);
   const groupSortOrderRef = useRef<string[]>([]);
@@ -387,7 +395,8 @@ export function App() {
   const isSearching = Boolean(query.trim());
   const isGroupedView =
     activeGroupId === "all" && state.displayMode === "grouped";
-  const dragDisabled = isSearching;
+  const groupSelectionActive = selectedGroupIds.size > 0;
+  const dragDisabled = isSearching || groupSelectionActive;
   const canReorderSites = sortMode === "manual";
   const siteDragMode: SiteDragMode = dragDisabled
     ? "disabled"
@@ -401,7 +410,6 @@ export function App() {
     newGroupDialogOpen ||
     groupDialogOpen ||
     settingsOpen ||
-    Boolean(deletingGroup) ||
     resetOpen ||
     Boolean(pendingImport);
   const groupSortDisabled =
@@ -456,6 +464,11 @@ export function App() {
   }, [isSearching]);
 
   useEffect(() => {
+    if (isGroupedView && !isSearching) return;
+    setSelectedGroupIds(new Set());
+  }, [isGroupedView, isSearching]);
+
+  useEffect(() => {
     function handleOutsidePointer(event: PointerEvent) {
       if (!viewControlsRef.current?.contains(event.target as Node)) {
         setSortMenuOpen(false);
@@ -478,6 +491,7 @@ export function App() {
       if (event.key !== "Escape") return;
       setAddMenuOpen(false);
       clearArmedDelete();
+      setSelectedGroupIds(new Set());
     }
     window.addEventListener("pointerdown", handleOutsidePointer);
     window.addEventListener("keydown", handleEscape);
@@ -486,6 +500,12 @@ export function App() {
       window.removeEventListener("keydown", handleEscape);
     };
   }, [armedDeleteSiteId]);
+
+  useEffect(() => {
+    if (!transferNotice) return;
+    const timer = window.setTimeout(() => setTransferNotice(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [transferNotice]);
 
   function captureStableDropGeometry() {
     const readRect = (
@@ -1425,6 +1445,10 @@ export function App() {
     if (armedDeleteSiteId === site.id) {
       clearArmedDelete();
       deleteSite(site.id);
+      setTransferNotice({
+        kind: "success",
+        message: `“${site.name}”已移入回收站。`,
+      });
       setSelectedSiteIds((current) => {
         if (!current.has(site.id)) return current;
         const next = new Set(current);
@@ -1453,9 +1477,24 @@ export function App() {
 
   function toggleMultiSelectMode() {
     clearArmedDelete();
+    setSelectedGroupIds(new Set());
     setMultiSelectMode((current) => {
       if (current) setSelectedSiteIds(new Set());
       return !current;
+    });
+  }
+
+  function toggleGroupSelection(groupId: string) {
+    clearArmedDelete();
+    if (multiSelectMode) {
+      setMultiSelectMode(false);
+      setSelectedSiteIds(new Set());
+    }
+    setSelectedGroupIds((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
     });
   }
 
@@ -1480,7 +1519,20 @@ export function App() {
     clearArmedDelete();
     setGroupDialogOpen(false);
     setManagedGroupId(undefined);
+    const activeIds =
+      axis === "vertical" && selectedGroupIds.has(groupId)
+        ? groups
+            .filter(
+              (group) =>
+                !group.isProtected && selectedGroupIds.has(group.id),
+            )
+            .map((group) => group.id)
+        : [groupId];
+    if (axis === "vertical" && !selectedGroupIds.has(groupId)) {
+      setSelectedGroupIds(new Set());
+    }
     activeGroupSortIdRef.current = groupId;
+    activeGroupSortIdsRef.current = activeIds;
     activeGroupSortAxisRef.current = axis;
     groupSortOrderRef.current = groups
       .filter((group) => !group.isProtected)
@@ -1506,9 +1558,27 @@ export function App() {
       intent &&
       intent.activeGroupId === activeGroupSortIdRef.current
     ) {
-      reorderGroups(intent.activeGroupId, intent.beforeGroupId);
+      const activeIds = activeGroupSortIdsRef.current.length
+        ? activeGroupSortIdsRef.current
+        : [intent.activeGroupId];
+      const activeSet = new Set(activeIds);
+      let beforeGroupId = intent.beforeGroupId;
+      if (beforeGroupId && activeSet.has(beforeGroupId)) {
+        const targetIndex = groupSortOrderRef.current.indexOf(beforeGroupId);
+        beforeGroupId =
+          groupSortOrderRef.current.find(
+            (groupId, index) => index > targetIndex && !activeSet.has(groupId),
+          ) ?? null;
+      }
+      if (activeIds.length > 1) {
+        reorderGroupBlock(activeIds, beforeGroupId);
+      } else {
+        reorderGroups(intent.activeGroupId, beforeGroupId);
+      }
     }
+    const wasBatch = activeGroupSortIdsRef.current.length > 1;
     activeGroupSortIdRef.current = null;
+    activeGroupSortIdsRef.current = [];
     activeGroupSortAxisRef.current = null;
     groupSortOrderRef.current = [];
     groupSortKeyboardRef.current = false;
@@ -1517,6 +1587,7 @@ export function App() {
     setActiveGroupSortId(null);
     setActiveGroupSortAxis(null);
     setGroupSortIntent(null);
+    if (wasBatch) setSelectedGroupIds(new Set());
     stopTabsAutoScroll();
   }
 
@@ -1587,6 +1658,7 @@ export function App() {
   function selectGroup(groupId: GroupFilter) {
     clearArmedDelete();
     setActiveGroupId(groupId);
+    setSelectedGroupIds(new Set());
     if (multiSelectMode) {
       setMultiSelectMode(false);
       setSelectedSiteIds(new Set());
@@ -1596,7 +1668,25 @@ export function App() {
   function openGroupManager(groupId?: string) {
     setAddMenuOpen(false);
     setManagedGroupId(groupId);
+    setSelectedGroupIds(new Set());
     setGroupDialogOpen(true);
+  }
+
+  function handleGroupDelete(group: SiteGroup) {
+    const siteCount = state.sites.filter(
+      (site) => site.groupId === group.id,
+    ).length;
+    deleteGroup(group.id);
+    if (activeGroupId === group.id) setActiveGroupId("all");
+    setGroupDialogOpen(false);
+    setManagedGroupId(undefined);
+    setTransferNotice({
+      kind: "success",
+      message:
+        siteCount > 0
+          ? `“${group.name}”已删除，${siteCount} 个链接已移入回收站。`
+          : `“${group.name}”已删除。`,
+    });
   }
 
   function cancelGroupManagementForSort() {
@@ -1733,9 +1823,6 @@ export function App() {
 
   const collectionTitle =
     activeGroupId === "all" ? "全部网站" : (activeGroup?.name ?? "网站");
-  const deletingGroupSiteCount = deletingGroup
-    ? state.sites.filter((site) => site.groupId === deletingGroup.id).length
-    : 0;
   const appStyle = {
     "--accent": effectiveAppearance.accentColor,
     "--accent-strong": `color-mix(in srgb, ${effectiveAppearance.accentColor} 84%, black)`,
@@ -2332,6 +2419,7 @@ export function App() {
                   )}
                 </div>
               )}
+              {!isGroupedView && (
               <button
                 type="button"
                 className={`view-control-button multi-select-button ${
@@ -2350,6 +2438,7 @@ export function App() {
                     : "多选"}
                 </span>
               </button>
+              )}
             </div>
           </div>
 
@@ -2397,7 +2486,10 @@ export function App() {
                             count={sites.length}
                             disabled={groupSortDisabled}
                             insertDisabled={Boolean(
-                              activeGroupSortId || activeDragId || isSearching,
+                              activeGroupSortId ||
+                                activeDragId ||
+                                isSearching ||
+                                groupSelectionActive,
                             )}
                             onInsert={(position) => {
                               const beforeGroupId =
@@ -2410,6 +2502,14 @@ export function App() {
                               });
                             }}
                             onManage={() => openGroupManager(group.id)}
+                            groupSelected={selectedGroupIds.has(group.id)}
+                            groupSelectionActive={groupSelectionActive}
+                            onToggleGroupSelected={() =>
+                              toggleGroupSelection(group.id)
+                            }
+                            siteSelectionMode={multiSelectMode}
+                            selectedSiteCount={selectedSiteCount}
+                            onToggleSiteSelectionMode={toggleMultiSelectMode}
                           >
                           <SortableContext
                             items={
@@ -2582,6 +2682,7 @@ export function App() {
                         axis="vertical"
                         group={activeSortedGroup}
                         count={activeSortedGroupCount}
+                        batchCount={activeGroupSortIdsRef.current.length || 1}
                       />
                     ) : activeDraggedSite && activeDraggedGroup ? (
                         <SiteCardDragPreview
@@ -2646,7 +2747,7 @@ export function App() {
         }}
         onUpdate={updateGroup}
         onReorder={reorderManagedGroups}
-        onRequestDelete={setDeletingGroup}
+        onDelete={handleGroupDelete}
       />
 
       <SettingsPanel
@@ -2670,6 +2771,41 @@ export function App() {
           setResetOpen(true);
         }}
         onClearHistory={clearSearchHistory}
+        onRestoreSite={(id) => {
+          const name = state.deletedSites.find((entry) => entry.site.id === id)
+            ?.site.name;
+          restoreSite(id);
+          setTransferNotice({
+            kind: "success",
+            message: name ? `“${name}”已恢复。` : "链接已恢复。",
+          });
+        }}
+        onRestoreAllSites={() => {
+          const count = state.deletedSites.length;
+          restoreAllSites();
+          setTransferNotice({
+            kind: "success",
+            message: `已恢复 ${count} 个链接。`,
+          });
+        }}
+        onPermanentDeleteSite={(id) => {
+          permanentlyDeleteSite(id);
+          setTransferNotice({ kind: "success", message: "链接已永久删除。" });
+        }}
+        onEmptyTrash={() => {
+          emptyTrash();
+          setTransferNotice({ kind: "success", message: "回收站已清空。" });
+        }}
+        onTrashRetentionChange={(days) => {
+          setTrashRetentionDays(days);
+          setTransferNotice({
+            kind: "success",
+            message:
+              days === null
+                ? "回收站已设为永不自动清理。"
+                : `回收站将在 ${days} 天后自动清理。`,
+          });
+        }}
         wallpaperLoadError={wallpaperError}
       />
 
@@ -2680,28 +2816,6 @@ export function App() {
         accept=".json,application/json"
         aria-label="选择要导入的收藏文件"
         onChange={handleImportFile}
-      />
-
-      <DeleteGroupDialog
-        open={Boolean(deletingGroup)}
-        group={deletingGroup}
-        siteCount={deletingGroupSiteCount}
-        onOpenChange={(open) => {
-          if (!open) setDeletingGroup(null);
-        }}
-        onDelete={(strategy) => {
-          if (deletingGroup) {
-            deleteGroup(deletingGroup.id, strategy);
-            if (activeGroupId === deletingGroup.id) {
-              setActiveGroupId(
-                strategy === "move-to-other" ? OTHER_GROUP_ID : "all",
-              );
-            }
-          }
-          setDeletingGroup(null);
-          setGroupDialogOpen(false);
-          setManagedGroupId(undefined);
-        }}
       />
 
       <ConfirmDialog

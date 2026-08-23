@@ -7,12 +7,14 @@ interface GroupSortDragPreviewProps {
   axis: GroupSortAxis;
   group: SiteGroup;
   count: number;
+  batchCount?: number;
 }
 
 export function GroupSortDragPreview({
   axis,
   group,
   count,
+  batchCount = 1,
 }: GroupSortDragPreviewProps) {
   return (
     <div
@@ -23,8 +25,10 @@ export function GroupSortDragPreview({
       <span className="group-sort-preview-icon">
         <CategoryIcon name={group.icon} size={axis === "horizontal" ? 16 : 18} />
       </span>
-      <strong>{group.name}</strong>
-      <span className="group-sort-preview-count">{count}</span>
+      <strong>{batchCount > 1 ? `${group.name} 等` : group.name}</strong>
+      <span className="group-sort-preview-count">
+        {batchCount > 1 ? `${batchCount} 个分组` : count}
+      </span>
       <DotsSixVertical
         className="group-sort-preview-grip"
         size={17}

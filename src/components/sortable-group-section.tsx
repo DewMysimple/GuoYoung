@@ -1,6 +1,12 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { DotsSixVertical, DotsThree, Plus } from "@phosphor-icons/react";
+import {
+  Check,
+  CheckSquare,
+  DotsSixVertical,
+  DotsThree,
+  Plus,
+} from "@phosphor-icons/react";
 import {
   useEffect,
   useRef,
@@ -19,6 +25,12 @@ interface SortableGroupSectionProps {
   insertDisabled: boolean;
   onInsert: (position: "before" | "after") => void;
   onManage: () => void;
+  groupSelected: boolean;
+  groupSelectionActive: boolean;
+  onToggleGroupSelected: () => void;
+  siteSelectionMode: boolean;
+  selectedSiteCount: number;
+  onToggleSiteSelectionMode: () => void;
   children: ReactNode;
 }
 
@@ -29,6 +41,12 @@ export function SortableGroupSection({
   insertDisabled,
   onInsert,
   onManage,
+  groupSelected,
+  groupSelectionActive,
+  onToggleGroupSelected,
+  siteSelectionMode,
+  selectedSiteCount,
+  onToggleSiteSelectionMode,
   children,
 }: SortableGroupSectionProps) {
   const sortable = useSortable({
@@ -85,7 +103,7 @@ export function SortableGroupSection({
       ref={sortable.setNodeRef}
       className={`grouped-site-section ${
         sortable.isDragging ? "is-group-sorting" : ""
-      }`}
+      } ${groupSelected ? "is-group-selected" : ""}`}
       style={{
         transform: CSS.Transform.toString(sortable.transform),
         transition: sortable.isDragging ? "none" : sortable.transition,
@@ -94,12 +112,15 @@ export function SortableGroupSection({
       data-group-sort-section-id={group.id}
     >
       <header
-        className={`grouped-site-header ${canSort ? "is-sortable" : ""}`}
-        data-group-sort-handle={canSort ? "true" : undefined}
-        aria-label={canSort ? `拖动 ${group.name} 分组调整顺序` : undefined}
-        {...pointerListeners}
+        className="grouped-site-header"
       >
-        <div className="group-add-control" ref={insertControlRef}>
+        <div
+          className={`grouped-site-header-main ${canSort ? "is-sortable" : ""}`}
+          data-group-sort-handle={canSort ? "true" : undefined}
+          aria-label={canSort ? `拖动 ${group.name} 分组调整顺序` : undefined}
+          {...pointerListeners}
+        >
+          <div className="group-add-control" ref={insertControlRef}>
           <button
             type="button"
             className="group-add-trigger"
@@ -152,31 +173,83 @@ export function SortableGroupSection({
               )}
             </div>
           )}
-        </div>
-        <span className="grouped-site-icon">
-          <CategoryIcon name={group.icon} size={17} />
-        </span>
-        <h3 id={`group-row-${group.id}`}>{group.name}</h3>
-        <span className="grouped-site-count">{count}</span>
-        {canSort && (
-          <span className="grouped-site-sort-grip" aria-hidden="true">
-            <DotsSixVertical size={17} weight="bold" />
+          </div>
+          <span className="grouped-site-icon">
+            <CategoryIcon name={group.icon} size={17} />
           </span>
-        )}
+          <h3 id={`group-row-${group.id}`}>{group.name}</h3>
+          <span className="grouped-site-count">{count}</span>
+          {!group.isProtected && (
+            <button
+              type="button"
+              className={`grouped-site-select-group ${
+                groupSelected ? "is-selected" : ""
+              } ${groupSelectionActive ? "is-visible" : ""}`}
+              aria-label={`${groupSelected ? "取消选择" : "选择"} ${group.name} 分组`}
+              aria-pressed={groupSelected}
+              title="选择分组后可成组拖动"
+              onPointerDown={stopSortPointer}
+              onMouseDown={stopSortPointer}
+              onTouchStart={stopSortPointer}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleGroupSelected();
+              }}
+            >
+              {groupSelected && <Check size={13} weight="bold" />}
+            </button>
+          )}
+          {canSort && (
+            <span className="grouped-site-sort-grip" aria-hidden="true">
+              <DotsSixVertical size={17} weight="bold" />
+            </span>
+          )}
+          <button
+            type="button"
+            className="grouped-site-manage"
+            aria-label={`管理 ${group.name} 分组`}
+            title={`管理 ${group.name} 分组`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onManage();
+            }}
+          >
+            <DotsThree size={18} weight="bold" />
+          </button>
+        </div>
         <button
           type="button"
-          className="grouped-site-manage"
-          aria-label={`管理 ${group.name} 分组`}
-          title={`管理 ${group.name} 分组`}
-          onPointerDown={(event) => event.stopPropagation()}
-          onMouseDown={(event) => event.stopPropagation()}
-          onTouchStart={(event) => event.stopPropagation()}
+          className={`grouped-site-multi-select ${
+            siteSelectionMode ? "active" : ""
+          }`}
+          aria-pressed={siteSelectionMode}
+          aria-label={`${
+            siteSelectionMode
+              ? selectedSiteCount > 0
+                ? `完成 ${selectedSiteCount}`
+                : "完成"
+              : "多选"
+          } ${group.name} 网站`}
+          disabled={groupSelectionActive}
+          onPointerDown={stopSortPointer}
+          onMouseDown={stopSortPointer}
+          onTouchStart={stopSortPointer}
           onClick={(event) => {
             event.stopPropagation();
-            onManage();
+            onToggleSiteSelectionMode();
           }}
         >
-          <DotsThree size={18} weight="bold" />
+          <CheckSquare size={15} />
+          <span>
+            {siteSelectionMode
+              ? selectedSiteCount > 0
+                ? `完成 ${selectedSiteCount}`
+                : "完成"
+              : "多选"}
+          </span>
         </button>
       </header>
       {children}

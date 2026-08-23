@@ -239,37 +239,46 @@ export function reorderGroups(
   activeId: string,
   beforeGroupId: string | null,
 ): SiteGroup[] {
+  return reorderGroupBlock(groups, [activeId], beforeGroupId);
+}
+
+export function reorderGroupBlock(
+  groups: SiteGroup[],
+  activeIds: string[],
+  beforeGroupId: string | null,
+): SiteGroup[] {
   const protectedGroups = groups
     .filter((group) => group.isProtected)
     .sort((a, b) => a.order - b.order);
   const ordinaryGroups = groups
     .filter((group) => !group.isProtected)
     .sort((a, b) => a.order - b.order);
-  const from = ordinaryGroups.findIndex((group) => group.id === activeId);
-  if (from < 0) {
+  const activeSet = new Set(activeIds);
+  const moved = ordinaryGroups.filter((group) => activeSet.has(group.id));
+  if (moved.length === 0) {
     return [...ordinaryGroups, ...protectedGroups].map((group, order) => ({
       ...group,
       order,
     }));
   }
-
-  const [moved] = ordinaryGroups.splice(from, 1);
+  const remaining = ordinaryGroups.filter((group) => !activeSet.has(group.id));
   const to =
     beforeGroupId === null
-      ? ordinaryGroups.length
-      : ordinaryGroups.findIndex((group) => group.id === beforeGroupId);
+      ? remaining.length
+      : remaining.findIndex((group) => group.id === beforeGroupId);
   if (to < 0) {
-    ordinaryGroups.splice(from, 0, moved);
     return [...ordinaryGroups, ...protectedGroups].map((group, order) => ({
       ...group,
       order,
     }));
   }
-  ordinaryGroups.splice(to, 0, {
-    ...moved,
-    updatedAt: new Date().toISOString(),
-  });
-  return [...ordinaryGroups, ...protectedGroups].map((group, order) => ({
+  const now = new Date().toISOString();
+  remaining.splice(
+    to,
+    0,
+    ...moved.map((group) => ({ ...group, updatedAt: now })),
+  );
+  return [...remaining, ...protectedGroups].map((group, order) => ({
     ...group,
     order,
   }));

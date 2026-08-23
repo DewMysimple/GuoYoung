@@ -34,8 +34,6 @@ export interface SiteGroup {
   updatedAt: string;
 }
 
-export type GroupDeletionStrategy = "move-to-other" | "delete-sites";
-
 export type SiteIconSource =
   | "auto"
   | "browser"
@@ -56,6 +54,15 @@ export interface SiteItem {
   globalOrder: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export type TrashRetentionDays = 7 | 30 | 90 | null;
+
+export interface TrashedSite {
+  site: SiteItem;
+  deletedAt: string;
+  originalGroupId: string;
+  originalGroupName: string;
 }
 
 export type ThemePreference = "system" | "light" | "dark";
@@ -130,9 +137,11 @@ export interface SearchHistoryEntry {
 }
 
 export interface SiteCollectionState {
-  version: 8;
+  version: 9;
   groups: SiteGroup[];
   sites: SiteItem[];
+  deletedSites: TrashedSite[];
+  trashRetentionDays: TrashRetentionDays;
   themePreference: ThemePreference;
   brand: BrandSettings;
   appearance: AppearanceSettings;

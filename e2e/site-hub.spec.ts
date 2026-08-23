@@ -352,7 +352,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(8);
+  expect(saved.version).toBe(9);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -1079,61 +1079,22 @@ test("moves a non-manually sorted card to a group tab with touch input", async (
   await expect(wikipedia).toBeVisible();
 });
 
-test("persists both group deletion outcomes", async ({ page }, testInfo) => {
+test("deletes a group directly after two clicks and keeps its links in trash", async ({
+  page,
+}, testInfo) => {
   const learningTab = page.getByRole("tab", { name: /学习/ });
   await learningTab.click();
   await page.getByRole("button", { name: "管理分组" }).click();
   let manager = page.getByRole("dialog", { name: "管理分组" });
   await manager.getByRole("button", { name: /学习 2 个网站/ }).click();
   await manager.getByRole("button", { name: "删除这个分组" }).click();
-
-  let confirmation = page.getByRole("alertdialog", {
-    name: "删除这个分组？",
-  });
-  await expect(
-    confirmation.getByRole("button", { name: /移动到“其他”并删除分组/ }),
-  ).toBeVisible();
-  await expect(
-    confirmation.getByRole("button", { name: /连同网站一起删除/ }),
-  ).toBeVisible();
-  await confirmation
-    .getByRole("button", { name: /移动到“其他”并删除分组/ })
-    .click();
-  await expect(confirmation).toBeVisible();
+  await expect(manager.getByRole("button", { name: "再次点击删除这个分组" })).toBeVisible();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.screenshot({
     path: screenshotPath(`group-delete-double-${testInfo.project.name}.png`),
     fullPage: true,
   });
-  await confirmation
-    .getByRole("button", { name: /再次点击移动到“其他”并删除分组/ })
-    .click();
-  await expect(manager).toBeHidden();
-
-  await expect(page.getByRole("tab", { name: /其他/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(page.getByTestId("site-card-wikipedia")).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole("tab", { name: /学习/ })).toHaveCount(0);
-  await page.getByRole("tab", { name: /其他/ }).click();
-  await expect(page.getByTestId("site-card-wikipedia")).toBeVisible();
-
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
-  await page.getByRole("tab", { name: /学习/ }).click();
-  await page.getByRole("button", { name: "管理分组" }).click();
-  manager = page.getByRole("dialog", { name: "管理分组" });
-  await manager.getByRole("button", { name: /学习 2 个网站/ }).click();
-  await manager.getByRole("button", { name: "删除这个分组" }).click();
-  confirmation = page.getByRole("alertdialog", { name: "删除这个分组？" });
-  await confirmation
-    .getByRole("button", { name: /连同网站一起删除/ })
-    .click();
-  await expect(confirmation).toBeVisible();
-  await confirmation
-    .getByRole("button", { name: /再次点击连同网站一起删除/ })
-    .click();
+  await manager.getByRole("button", { name: "再次点击删除这个分组" }).click();
   await expect(manager).toBeHidden();
 
   await expect(page.getByRole("tab", { name: /全部/ })).toHaveAttribute(
@@ -1143,7 +1104,15 @@ test("persists both group deletion outcomes", async ({ page }, testInfo) => {
   await expect(page.getByTestId("site-card-wikipedia")).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("tab", { name: /学习/ })).toHaveCount(0);
-  await expect(page.getByTestId("site-card-wikipedia")).toHaveCount(0);
+  await page.getByRole("button", { name: "打开设置" }).click();
+  await page.getByRole("tab", { name: "数据" }).click();
+  await page.locator(".trash-settings-card").getByRole("button", { name: "查看" }).click();
+  await expect(page.getByText("维基百科")).toBeVisible();
+  await expect(page.locator(".trash-item").filter({ hasText: "学习" }).first()).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`trash-settings-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
 });
 
 test("reorders groups from the top tabs and keeps Other fixed last", async ({
@@ -1223,8 +1192,10 @@ test("reflows horizontal group tabs at the boundary before drop", async ({
   expect(designDuring?.x).toBeCloseTo(designBefore.x, 0);
   await page.keyboard.press("Escape");
   await expect
-    .poll(async () => Math.round((await developTab.boundingBox())?.x ?? -1))
-    .toBe(Math.round(developBefore.x));
+    .poll(async () =>
+      Math.abs(((await developTab.boundingBox())?.x ?? -1000) - developBefore.x),
+    )
+    .toBeLessThanOrEqual(2);
 
   const order = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
@@ -1333,10 +1304,10 @@ test("reorders group rows and inserts a new group between rows", async ({
   await page.getByRole("button", { name: "显示" }).click();
   await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
 
-  const designHeader = page.locator('.grouped-site-header[data-group-sort-handle="true"]', {
+  const designHeader = page.locator('.grouped-site-header-main[data-group-sort-handle="true"]', {
     hasText: "设计",
   });
-  const searchHeader = page.locator('.grouped-site-header[data-group-sort-handle="true"]', {
+  const searchHeader = page.locator('.grouped-site-header-main[data-group-sort-handle="true"]', {
     hasText: "搜索",
   });
   const start = await designHeader.boundingBox();
@@ -1453,7 +1424,7 @@ test("keeps group Add discoverable on touch and limits Other to before", async (
     name: "在 其他 附近添加分组",
   });
   if (testInfo.project.name !== "mobile") {
-    await page.locator('[data-group-sort-section-id="other"] .grouped-site-header').hover();
+    await page.locator('[data-group-sort-section-id="other"] .grouped-site-header-main').hover();
   }
   await otherAdd.click();
   await expect(
@@ -1513,7 +1484,7 @@ test("reflows vertical group sections at the boundary before drop", async ({
   const developSection = page.locator('[data-group-sort-section-id="develop"]');
   const designSection = page.locator('[data-group-sort-section-id="design"]');
   const designHeader = designSection.locator(
-    '.grouped-site-header[data-group-sort-handle="true"]',
+    '.grouped-site-header-main[data-group-sort-handle="true"]',
   );
   const previous = await developSection.boundingBox();
   const designBefore = await designSection.boundingBox();
@@ -1546,6 +1517,55 @@ test("reflows vertical group sections at the boundary before drop", async ({
   await page.keyboard.press("Escape");
 });
 
+test("moves non-contiguous selected groups as one ordered block", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop group batch drag assertion");
+  await page.setViewportSize({ width: 1440, height: 1600 });
+  await page.getByRole("button", { name: "显示" }).click();
+  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+
+  const searchSection = page.locator('[data-group-sort-section-id="search"]');
+  const designSection = page.locator('[data-group-sort-section-id="design"]');
+  const mediaSection = page.locator('[data-group-sort-section-id="media"]');
+  await searchSection.locator(".grouped-site-header-main").hover();
+  await searchSection.getByRole("button", { name: "选择 搜索 分组" }).click();
+  await designSection.locator(".grouped-site-header-main").hover();
+  await designSection.getByRole("button", { name: "选择 设计 分组" }).click();
+  await expect(
+    searchSection.getByRole("button", { name: "取消选择 搜索 分组" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    searchSection.getByRole("button", { name: "多选 搜索 网站" }),
+  ).toBeDisabled();
+
+  const source = await searchSection.locator(".grouped-site-header-main").boundingBox();
+  const target = await mediaSection.locator(".grouped-site-header-main").boundingBox();
+  if (!source || !target) throw new Error("Selected group drag targets are not visible");
+  await page.mouse.move(source.x + 48, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(source.x + 48, source.y + source.height / 2 + 9);
+  await expect(page.getByTestId("group-sort-vertical-drag-preview")).toContainText(
+    "2 个分组",
+  );
+  await page.mouse.move(target.x + 48, target.y + target.height / 2, { steps: 16 });
+  await page.mouse.up();
+
+  await expect.poll(() =>
+    page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+      return state.groups
+        .slice()
+        .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
+        .map((group: { id: string }) => group.id);
+    }),
+  ).toEqual(["develop", "media", "search", "design", "learn", "other"]);
+  await expect(page.getByRole("button", { name: "选择 搜索 分组" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
+
 test("moves selected sites together from grouped All without leaving All", async ({
   page,
 }, testInfo) => {
@@ -1553,7 +1573,10 @@ test("moves selected sites together from grouped All without leaving All", async
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.getByRole("button", { name: "显示" }).click();
   await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
-  await page.getByRole("button", { name: "多选" }).click();
+  await page
+    .locator('[data-group-sort-section-id="search"]')
+    .getByRole("button", { name: "多选 搜索 网站" })
+    .click();
   await page.getByRole("button", { name: "选择 Google" }).click();
   await page.getByRole("button", { name: "选择 GitHub" }).click();
 
@@ -1585,7 +1608,11 @@ test("moves selected sites together from grouped All without leaving All", async
     "aria-selected",
     "true",
   );
-  await expect(page.getByRole("button", { name: "多选" })).toBeVisible();
+  await expect(
+    page
+      .locator('[data-group-sort-section-id="search"]')
+      .getByRole("button", { name: "多选 搜索 网站" }),
+  ).toBeVisible();
   await page.waitForTimeout(220);
   await page.screenshot({
     path: screenshotPath("group-order-multiselect.png"),

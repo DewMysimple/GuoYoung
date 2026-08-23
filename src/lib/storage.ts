@@ -20,12 +20,15 @@ import type {
   SiteDisplayMode,
   SiteItem,
   ThemePreference,
+  TrashedSite,
+  TrashRetentionDays,
   WallpaperFit,
   WallpaperSettings,
   WallpaperSource,
 } from "../types";
 import { isBrandLogoDataUrl, isHttpImageUrl } from "./brand-logo";
 import { reindexSites } from "./site-utils";
+import { purgeExpiredTrashFromState } from "./site-state";
 
 export const STORAGE_KEY = "site-hub:v1";
 
@@ -38,6 +41,7 @@ const layoutPresets: LayoutPreset[] = [
 ];
 const brandLogoSources: BrandLogoSource[] = ["default", "local", "url"];
 const displayModes: SiteDisplayMode[] = ["flat", "grouped"];
+const trashRetentionOptions: TrashRetentionDays[] = [7, 30, 90, null];
 const wallpaperSources: WallpaperSource[] = ["none", "url", "local"];
 const wallpaperFits: WallpaperFit[] = ["cover", "contain"];
 const legacyWallpaperPositions = [
@@ -407,6 +411,39 @@ function isSiteItem(value: unknown, groupIds: Set<string>): value is SiteItem {
   );
 }
 
+function normalizeDeletedSites(value: unknown): TrashedSite[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value
+    .filter((entry): entry is TrashedSite => {
+      if (!entry || typeof entry !== "object") return false;
+      const candidate = entry as unknown as Record<string, unknown>;
+      const site = candidate.site;
+      if (!site || typeof site !== "object") return false;
+      const siteCandidate = site as Record<string, unknown>;
+      return (
+        hasBaseSiteFields(siteCandidate) &&
+        typeof siteCandidate.groupId === "string" &&
+        typeof siteCandidate.globalOrder === "number" &&
+        typeof candidate.deletedAt === "string" &&
+        Number.isFinite(Date.parse(candidate.deletedAt)) &&
+        typeof candidate.originalGroupId === "string" &&
+        typeof candidate.originalGroupName === "string"
+      );
+    })
+    .filter((entry) => {
+      if (seen.has(entry.site.id)) return false;
+      seen.add(entry.site.id);
+      return true;
+    })
+    .map((entry) => ({
+      site: { ...entry.site },
+      deletedAt: entry.deletedAt,
+      originalGroupId: entry.originalGroupId,
+      originalGroupName: entry.originalGroupName,
+    }));
+}
+
 function baseStateIsValid(value: Record<string, unknown>): boolean {
   if (
     !Array.isArray(value.groups) ||
@@ -432,8 +469,12 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 8 &&
+    state.version === 9 &&
     baseStateIsValid(state) &&
+    Array.isArray(state.deletedSites) &&
+    trashRetentionOptions.includes(
+      state.trashRetentionDays as TrashRetentionDays,
+    ) &&
     Boolean(state.appearance) &&
     Boolean(state.brand) &&
     Boolean(state.wallpaper) &&
@@ -480,18 +521,24 @@ function repairDuplicateOtherGroups(
   return { ...state, groups, sites: reindexSites(sites) };
 }
 
-function upgradeToVersion8(
+function upgradeToVersion9(
   legacy: Record<string, unknown>,
 ): SiteCollectionState | undefined {
   if (!baseStateIsValid(legacy)) return undefined;
   return {
-    version: 8,
+    version: 9,
     groups: (legacy.groups as SiteGroup[]).map((group) => ({ ...group })),
     sites: (legacy.sites as SiteItem[]).map((site, index) => ({
       ...site,
       globalOrder:
         typeof site.globalOrder === "number" ? site.globalOrder : index,
     })),
+    deletedSites: normalizeDeletedSites(legacy.deletedSites),
+    trashRetentionDays: trashRetentionOptions.includes(
+      legacy.trashRetentionDays as TrashRetentionDays,
+    )
+      ? (legacy.trashRetentionDays as TrashRetentionDays)
+      : 30,
     themePreference: legacy.themePreference as ThemePreference,
     brand: normalizeBrand(legacy.brand),
     appearance: normalizeAppearance(legacy.appearance),
@@ -541,7 +588,7 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
         ),
       };
     }
-    return upgradeToVersion8(value);
+    return upgradeToVersion9(value);
   }
 
   if (
@@ -563,7 +610,7 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
       (site, globalOrder) => ({ ...site, globalOrder }),
     );
     if (!sites.every((site) => isSiteItem(site, groupIds))) return undefined;
-    return upgradeToVersion8({
+    return upgradeToVersion9({
       version: 4,
       groups,
       sites,
@@ -598,7 +645,7 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
       createdAt: site.createdAt as string,
       updatedAt: site.updatedAt as string,
     }));
-    return upgradeToVersion8({
+    return upgradeToVersion9({
       version: 4,
       groups: DEFAULT_GROUPS.map((group) => ({ ...group })),
       sites,
@@ -620,18 +667,20 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const migrated =
-        candidate.version === 8
-          ? upgradeToVersion8(candidate)
+        candidate.version === 9 || candidate.version === 8
+          ? upgradeToVersion9(candidate)
           : migrateLegacy(candidate);
       if (migrated) {
         return {
-          state: repairDuplicateOtherGroups({
-            ...migrated,
-            brand: normalizeBrand(migrated.brand),
-            appearance: normalizeAppearance(migrated.appearance),
-            wallpaper: normalizeWallpaper(migrated.wallpaper),
-            searchHistory: normalizeSearchHistory(migrated.searchHistory),
-          }),
+          state: purgeExpiredTrashFromState(
+            repairDuplicateOtherGroups({
+              ...migrated,
+              brand: normalizeBrand(migrated.brand),
+              appearance: normalizeAppearance(migrated.appearance),
+              wallpaper: normalizeWallpaper(migrated.wallpaper),
+              searchHistory: normalizeSearchHistory(migrated.searchHistory),
+            }),
+          ),
           recovered: false,
         };
       }
