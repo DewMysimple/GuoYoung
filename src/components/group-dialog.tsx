@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   DndContext,
@@ -233,6 +234,30 @@ export function GroupDialog({
     if (!pointer || !list || collisions.length === 0) return collisions;
 
     const listRect = list.getBoundingClientRect();
+    const editorRect = list.parentElement
+      ?.querySelector<HTMLElement>(".group-manager-editor")
+      ?.getBoundingClientRect();
+    if (
+      editorRect &&
+      pointer.x >= editorRect.left &&
+      pointer.x <= editorRect.right &&
+      pointer.y >= editorRect.top &&
+      pointer.y <= editorRect.bottom
+    ) {
+      return [];
+    }
+    // The editor is beside the sortable list, but it is not a drop target.
+    // closestCenter otherwise keeps returning the nearest row even when the
+    // pointer has already crossed into the editor, which makes an apparent
+    // drop on the form reorder a seemingly unrelated group. Keep a small
+    // left-side boundary tolerance for the absolute-top path, while ending
+    // the sortable corridor before the editor starts.
+    if (
+      pointer.x < listRect.left - 28 ||
+      pointer.x > listRect.right + 8
+    ) {
+      return [];
+    }
     const sortableGroups = orderedGroups.filter((group) => !group.isProtected);
     const firstId = sortableGroups[0]?.id;
     const lastId = sortableGroups[sortableGroups.length - 1]?.id;
@@ -525,23 +550,26 @@ export function GroupDialog({
                       />
                     ))}
                   </SortableContext>
-                  <DragOverlay dropAnimation={null}>
-                    {activeDragGroupId
-                      ? (() => {
-                          const activeGroup = orderedGroups.find(
-                            (group) => group.id === activeDragGroupId,
-                          );
-                          return activeGroup ? (
-                            <GroupDragPreview
-                              group={activeGroup}
-                              count={
-                                siteCountByGroup.get(activeGroup.id) ?? 0
-                              }
-                            />
-                          ) : null;
-                        })()
-                      : null}
-                  </DragOverlay>
+                  {createPortal(
+                    <DragOverlay dropAnimation={null}>
+                      {activeDragGroupId
+                        ? (() => {
+                            const activeGroup = orderedGroups.find(
+                              (group) => group.id === activeDragGroupId,
+                            );
+                            return activeGroup ? (
+                              <GroupDragPreview
+                                group={activeGroup}
+                                count={
+                                  siteCountByGroup.get(activeGroup.id) ?? 0
+                                }
+                              />
+                            ) : null;
+                          })()
+                        : null}
+                    </DragOverlay>,
+                    document.body,
+                  )}
                 </DndContext>
               </div>
 

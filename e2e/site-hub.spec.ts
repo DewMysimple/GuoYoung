@@ -661,7 +661,7 @@ test("cancels a group manager drag when the browser window loses focus", async (
   });
   await expect(item).toHaveClass(/is-dragging/);
   await expect(item).toHaveCSS("opacity", "0");
-  await expect(dialog.locator(".group-list-item-drag-preview")).toBeVisible();
+  await expect(page.locator(".group-list-item-drag-preview")).toBeVisible();
 
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
   await expect(dialog.locator(".group-list-item.is-dragging")).toHaveCount(0);
@@ -677,6 +677,126 @@ test("keeps the group manager drag handle safe from native touch scrolling", asy
 
   await expect(handle).toHaveCSS("touch-action", "none");
   await expect(handle).toHaveCSS("user-select", "none");
+});
+
+test("keeps the manager overlay above dialog clipping and ignores the editor as a drop target", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop group manager drag assertion");
+  await page.setViewportSize({ width: 1177, height: 960 });
+  await page.getByRole("button", { name: "管理分组" }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  const list = dialog.locator(".group-manager-list");
+  const editor = dialog.locator(".group-manager-editor");
+  const handle = dialog.getByRole("button", { name: "拖动 搜索" });
+  const dialogBox = await dialog.boundingBox();
+  const editorBox = await editor.boundingBox();
+  const handleBox = await handle.boundingBox();
+  if (!dialogBox || !editorBox || !handleBox) {
+    throw new Error("Group manager geometry is unavailable");
+  }
+  const beforeOrder = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    return state.groups
+      .slice()
+      .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
+      .map((group: { id: string }) => group.id);
+  });
+
+  await page.mouse.move(
+    handleBox.x + handleBox.width / 2,
+    handleBox.y + handleBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    editorBox.x + editorBox.width * 0.72,
+    editorBox.y + editorBox.height / 2,
+    { steps: 14 },
+  );
+
+  const preview = page.locator(".group-list-item-drag-preview");
+  await expect(preview).toBeVisible();
+  await expect
+    .poll(() => preview.evaluate((element) => Boolean(element.closest('[role="dialog"]'))))
+    .toBe(false);
+  await page.mouse.move(
+    dialogBox.x + dialogBox.width + 60,
+    editorBox.y + editorBox.height / 2,
+    { steps: 6 },
+  );
+  const previewBox = await preview.boundingBox();
+  if (!previewBox) throw new Error("Group drag preview is not measurable");
+  expect(previewBox.x + previewBox.width).toBeGreaterThan(
+    dialogBox.x + dialogBox.width,
+  );
+  await page.screenshot({
+    path: screenshotPath(`group-manager-editor-corridor-v1.1.51-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+
+  await page.mouse.up();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+        return state.groups
+          .slice()
+          .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
+          .map((group: { id: string }) => group.id);
+      }),
+    )
+    .toEqual(beforeOrder);
+  await expect(list.locator(".group-list-item.is-dragging")).toHaveCount(0);
+});
+
+test("does not reorder when a touch drag enters the stacked manager editor", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "Mobile group manager drag assertion");
+  await page.getByRole("button", { name: "管理分组" }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  const scroll = dialog.locator(".group-dialog-scroll");
+  const editor = dialog.locator(".group-manager-editor");
+  const handle = dialog.getByRole("button", { name: "拖动 搜索" });
+  const handleBox = await handle.boundingBox();
+  if (!handleBox) throw new Error("Group drag handle is not visible");
+  const beforeOrder = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    return state.groups
+      .slice()
+      .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
+      .map((group: { id: string }) => group.id);
+  });
+
+  await page.mouse.move(
+    handleBox.x + handleBox.width / 2,
+    handleBox.y + handleBox.height / 2,
+  );
+  await page.mouse.down();
+  await scroll.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  const editorBox = await editor.boundingBox();
+  if (!editorBox) throw new Error("Stacked manager editor is not measurable");
+  await page.mouse.move(
+    editorBox.x + editorBox.width / 2,
+    editorBox.y + editorBox.height / 2,
+    { steps: 14 },
+  );
+  await expect(page.locator(".group-list-item-drag-preview")).toBeVisible();
+  await page.mouse.up();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+        return state.groups
+          .slice()
+          .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
+          .map((group: { id: string }) => group.id);
+      }),
+    )
+    .toEqual(beforeOrder);
 });
 
 test("keeps the manager list top boundary droppable outside the dialog", async ({
@@ -702,7 +822,7 @@ test("keeps the manager list top boundary droppable outside the dialog", async (
     handleBox.y - 24,
     { steps: 8 },
   );
-  await expect(dialog.locator(".group-list-item-drag-preview")).toBeVisible();
+  await expect(page.locator(".group-list-item-drag-preview")).toBeVisible();
 
   // The pointer is deliberately above the list (the real failing path).
   // The first group must still be the live collision target.
