@@ -700,6 +700,33 @@ test("keeps the manager list top boundary droppable outside the dialog", async (
   await expect(dialog.locator(".group-list-copy strong").first()).toHaveText("影音");
 });
 
+test("responds at the manager list top edge before leaving the dialog", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop group manager drag assertion");
+  await page.setViewportSize({ width: 1177, height: 960 });
+  await page.getByRole("button", { name: "管理分组" }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  const list = dialog.locator(".group-manager-list");
+  const handle = dialog.getByRole("button", { name: "拖动 影音" });
+  const listBox = await list.boundingBox();
+  const handleBox = await handle.boundingBox();
+  if (!listBox || !handleBox) throw new Error("Group manager geometry is unavailable");
+
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y - 24, { steps: 8 });
+  // The pointer is still inside the dialog, just inside the list's top
+  // boundary. It should already resolve to the first sortable group.
+  await page.mouse.move(listBox.x + listBox.width / 2, listBox.y + 8, { steps: 12 });
+  await page.screenshot({
+    path: screenshotPath(`group-manager-top-edge-v1.1.49-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+  await page.mouse.up();
+  await expect(dialog.locator(".group-list-copy strong").first()).toHaveText("影音");
+});
+
 test("imports a group resource package into the selected manager group", async ({
   page,
 }) => {

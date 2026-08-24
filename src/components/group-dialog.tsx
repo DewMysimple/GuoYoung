@@ -236,13 +236,22 @@ export function GroupDialog({
     const sortableGroups = orderedGroups.filter((group) => !group.isProtected);
     const firstId = sortableGroups[0]?.id;
     const lastId = sortableGroups[sortableGroups.length - 1]?.id;
-    // Keep a deterministic boundary target when the pointer leaves the list.
-    // Without this, closestCenter can select a distant row and make the
-    // absolute top/bottom feel like it has a dead zone.
+    const firstRect = firstId ? args.droppableRects.get(firstId) : undefined;
+    const lastRect = lastId ? args.droppableRects.get(lastId) : undefined;
+    // Treat the first/last row midpoint as the live boundary.  The pointer
+    // should not have to travel all the way into the page chrome before the
+    // absolute edge becomes responsive; this also keeps the behavior stable
+    // when the list itself shifts by a few pixels during a drag.
+    const topBoundary = firstRect
+      ? firstRect.top + firstRect.height / 2
+      : listRect.top + 28;
+    const bottomBoundary = lastRect
+      ? lastRect.bottom - lastRect.height / 2
+      : listRect.bottom - 28;
     const boundaryId =
-      pointer.y < listRect.top && firstId
+      pointer.y <= topBoundary && firstId
         ? firstId
-        : pointer.y > listRect.bottom && lastId
+        : pointer.y >= bottomBoundary && lastId
           ? lastId
           : null;
     if (!boundaryId) return collisions;
@@ -360,15 +369,33 @@ export function GroupDialog({
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") cancelDragOnContextLoss();
     };
+    const handlePointerExit = (event: MouseEvent | PointerEvent) => {
+      if (!activeDragRef.current || event.relatedTarget !== null) return;
+      const outsideViewport =
+        event.clientX < 0 ||
+        event.clientY < 0 ||
+        event.clientX > window.innerWidth ||
+        event.clientY > window.innerHeight;
+      if (outsideViewport) cancelDragOnContextLoss();
+    };
+    const handleWindowLeave = () => cancelDragOnContextLoss();
     window.addEventListener("blur", cancelDragOnContextLoss);
     window.addEventListener("pagehide", cancelDragOnContextLoss);
     window.addEventListener("pointercancel", cancelDragOnContextLoss, true);
+    window.addEventListener("mouseout", handlePointerExit, true);
+    window.addEventListener("pointerout", handlePointerExit, true);
+    window.addEventListener("mouseleave", handleWindowLeave);
+    window.addEventListener("pointerleave", handleWindowLeave);
     window.addEventListener("pointermove", scheduleGroupListAutoScroll, true);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       window.removeEventListener("blur", cancelDragOnContextLoss);
       window.removeEventListener("pagehide", cancelDragOnContextLoss);
       window.removeEventListener("pointercancel", cancelDragOnContextLoss, true);
+      window.removeEventListener("mouseout", handlePointerExit, true);
+      window.removeEventListener("pointerout", handlePointerExit, true);
+      window.removeEventListener("mouseleave", handleWindowLeave);
+      window.removeEventListener("pointerleave", handleWindowLeave);
       window.removeEventListener("pointermove", scheduleGroupListAutoScroll, true);
       document.removeEventListener("visibilitychange", handleVisibility);
       stopGroupListAutoScroll();
