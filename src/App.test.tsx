@@ -552,6 +552,29 @@ describe("App", () => {
     expect(document.querySelector(".is-group-selected")).toBeNull();
   });
 
+  it("enters group multi-select when a group title is double-clicked", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "显示" }));
+    await user.click(
+      screen.getByRole("menuitemradio", { name: "按分组显示" }),
+    );
+
+    await user.dblClick(screen.getByRole("heading", { level: 3, name: "搜索" }));
+
+    const searchSection = screen
+      .getByRole("heading", { level: 3, name: "搜索" })
+      .closest(".grouped-site-section");
+    expect(searchSection).toHaveClass("is-group-selected");
+    expect(
+      screen.getByRole("button", { name: "取消选择 搜索 分组" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "切换到链接多选 搜索 网站" }),
+    ).toHaveTextContent("切换");
+  });
+
   it("creates groups before or after a header and limits Other to before", async () => {
     const user = userEvent.setup();
     render(<App />);

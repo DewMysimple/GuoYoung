@@ -1642,6 +1642,27 @@ export function App() {
     });
   }
 
+  function enterGroupSelectionFromDoubleClick(groupId: string) {
+    clearArmedDelete();
+    if (
+      !isGroupedView ||
+      multiSelectMode ||
+      selectedSiteIds.size > 0 ||
+      groups.find((group) => group.id === groupId)?.isProtected
+    ) {
+      return;
+    }
+    setSelectedSiteIds(new Set());
+    setSelectionArmed(true);
+    setSelectionTarget("groups");
+    setMultiSelectMode(false);
+    setSelectedGroupIds((current) => {
+      const next = new Set(current);
+      next.add(groupId);
+      return next;
+    });
+  }
+
   function reorderManagedGroups(activeId: string, overId: string) {
     const ordinaryGroupIds = groups
       .filter((group) => !group.isProtected)
@@ -2686,6 +2707,9 @@ export function App() {
                             }
                             onToggleGroupSelected={() =>
                               toggleGroupSelection(group.id)
+                            }
+                            onEnterGroupSelection={() =>
+                              enterGroupSelectionFromDoubleClick(group.id)
                             }
                             siteSelectionMode={multiSelectMode}
                             groupSelectionActive={groupSelectionActive}

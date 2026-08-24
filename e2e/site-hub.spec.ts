@@ -1864,6 +1864,28 @@ test("enters grouped selection from the clicked element and switches only from t
   });
 });
 
+test("double-clicking a grouped title enters group multi-select", async ({
+  page,
+}, testInfo) => {
+  await page.getByRole("button", { name: "显示" }).click();
+  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+
+  const searchSection = page.locator('[data-group-sort-section-id="search"]');
+  await searchSection.getByRole("heading", { level: 3, name: "搜索" }).dblclick();
+
+  await expect(searchSection).toHaveClass(/is-group-selected/);
+  await expect(
+    searchSection.getByRole("button", { name: "取消选择 搜索 分组" }),
+  ).toBeVisible();
+  await expect(
+    searchSection.getByRole("button", { name: "切换到链接多选 搜索 网站" }),
+  ).toHaveText("切换");
+  await page.screenshot({
+    path: screenshotPath(`selection-double-click-groups-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+});
+
 test("moves selected sites together from grouped All without leaving All", async ({
   page,
 }, testInfo) => {
