@@ -1484,6 +1484,15 @@ test("ignores Space and Enter on grouped section headers", async ({ page }, test
   test.skip(testInfo.project.name === "mobile", "Desktop keyboard regression assertion");
   await page.getByRole("button", { name: "显示" }).click();
   await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+  const headerMain = page.locator(
+    '[data-group-sort-section-id="design"] .grouped-site-header-main',
+  );
+  await expect(headerMain).toHaveCSS("user-select", "none");
+  await expect(headerMain).toHaveCSS("cursor", "grab");
+  await page.screenshot({
+    path: screenshotPath(`grouped-header-no-text-selection-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
   const header = page.locator(
     '[data-group-sort-section-id="design"] .grouped-site-header',
   );

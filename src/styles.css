@@ -1297,6 +1297,10 @@ label:has(input:focus-visible) {
   min-width: 0;
   align-items: center;
   gap: 9px;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .grouped-site-header-main.is-sortable {
