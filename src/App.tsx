@@ -1442,6 +1442,28 @@ export function App() {
   );
 
   useEffect(() => {
+    const releaseDndPointer = () => {
+      // MouseSensor/TouchSensor keep their own active state outside React.
+      // Releasing a synthetic pointer event lets dnd-kit finish its sensor
+      // cleanup after our refs have already been reset without committing a
+      // stale drop intent.
+      document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      document.dispatchEvent(new Event("touchcancel", { bubbles: true }));
+    };
+    const cancelDragOnWindowLoss = () => {
+      if (activeGroupSortIdRef.current) {
+        // dnd-kit may not receive the pointer-up once the browser window loses
+        // focus. Clear the preview and intent immediately instead of leaving
+        // the floating group card behind until the next in-page event.
+        finishGroupSort(false);
+        releaseDndPointer();
+        return;
+      }
+      if (activeDragIdRef.current) {
+        handleDragCancel();
+        releaseDndPointer();
+      }
+    };
     const handlePointerMove = (event: PointerEvent | MouseEvent) => {
       if (activeDragIdRef.current || activeGroupSortIdRef.current) {
         dragPointerXRef.current = event.clientX;
@@ -1479,10 +1501,14 @@ export function App() {
       capture: true,
       passive: true,
     });
+    window.addEventListener("blur", cancelDragOnWindowLoss);
+    document.addEventListener("visibilitychange", cancelDragOnWindowLoss);
     return () => {
       window.removeEventListener("pointermove", handlePointerMove, true);
       window.removeEventListener("mousemove", handlePointerMove, true);
       window.removeEventListener("touchmove", handleTouchMove, true);
+      window.removeEventListener("blur", cancelDragOnWindowLoss);
+      document.removeEventListener("visibilitychange", cancelDragOnWindowLoss);
       stopGroupOverlapTracking();
       stopTabsAutoScroll();
     };

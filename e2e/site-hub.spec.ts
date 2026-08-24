@@ -100,6 +100,28 @@ test("drags beyond 50px without waiting and keeps the order after refresh", asyn
   expect(await visibleIds()).toEqual(reorderedIds);
 });
 
+test("cancels a site drag when the browser window loses focus", async ({
+  page,
+}, testInfo) => {
+  const googleCard = page.getByTestId("site-card-google");
+  const start = await googleCard.boundingBox();
+  if (!start) throw new Error("Drag source is not visible");
+
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(start.x + start.width / 2 + 51, start.y + start.height / 2);
+  await expect(page.getByTestId("site-card-drag-preview")).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`site-drag-focus-loss-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(page.getByTestId("site-card-drag-preview")).toBeHidden();
+  await expect(page.locator(".site-card.is-dragging")).toHaveCount(0);
+  await page.mouse.up();
+});
+
 test("uses card overlap and moves the target frame before drop", async ({
   page,
 }) => {
@@ -1207,6 +1229,29 @@ test("reflows horizontal group tabs at the boundary before drop", async ({
   expect(order.slice(0, 3)).toEqual(["search", "develop", "design"]);
 });
 
+test("cancels a group drag when the browser window loses focus", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop group drag assertion");
+  const searchTab = page.locator('[data-group-sort-tab-id="search"]');
+  const start = await searchTab.boundingBox();
+  if (!start) throw new Error("Group tab is not visible");
+
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(start.x + start.width / 2 + 9, start.y + start.height / 2);
+  await expect(page.getByTestId("group-sort-horizontal-drag-preview")).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`group-drag-focus-loss-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(page.getByTestId("group-sort-horizontal-drag-preview")).toBeHidden();
+  await expect(searchTab).not.toHaveClass(/is-group-sorting/);
+  await page.mouse.up();
+});
+
 test("previews and commits group sorting with the keyboard", async ({
   page,
 }, testInfo) => {
@@ -1500,8 +1545,9 @@ test("reflows vertical group sections at the boundary before drop", async ({
   await expect(designSection).toHaveClass(/is-group-sorting/);
   await expect(designSection.locator(".grouped-site-header")).toHaveCSS(
     "opacity",
-    "0.48",
+    "0.68",
   );
+  await expect(designSection).toHaveCSS("border-radius", "18px");
   await expect(page.getByTestId("group-sort-vertical-drag-preview")).toBeVisible();
 
   await page.mouse.move(source.x + 90, previous.y + previous.height + 1);
@@ -1638,6 +1684,7 @@ test("enters grouped selection from the clicked element and switches only from t
       searchSection.evaluate((section) => getComputedStyle(section).backgroundColor),
     )
     .not.toBe("rgba(0, 0, 0, 0)");
+  await expect(searchSection).toHaveCSS("border-radius", "18px");
   await expect(
     searchSection.getByRole("button", { name: "取消选择 搜索 分组" }),
   ).toBeVisible();

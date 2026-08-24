@@ -901,7 +901,7 @@ label:has(input:focus-visible) {
 
 .category-tab.is-group-sorting svg,
 .category-tab.is-group-sorting > span {
-  opacity: 0.3;
+  opacity: 0.52;
 }
 
 .category-tab.is-long-press-pending {
@@ -1203,15 +1203,15 @@ label:has(input:focus-visible) {
 }
 
 .grouped-site-section.is-group-sorting {
-  border-radius: calc(var(--radius-card) + 5px);
+  border-radius: calc(var(--radius-card) + 2px);
   outline: 2px dashed color-mix(in srgb, var(--accent) 76%, var(--border));
   outline-offset: 6px;
-  background: color-mix(in srgb, var(--accent-soft) 14%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 18%, transparent);
   box-shadow: none;
 }
 
 .grouped-site-section.is-group-sorting > * {
-  opacity: 0.48;
+  opacity: 0.68;
 }
 
 .grouped-site-sections.is-group-sort-active .group-add-trigger {
@@ -1606,10 +1606,12 @@ label:has(input:focus-visible) {
 }
 
 .grouped-site-section.is-group-selected {
-  border-radius: calc(var(--radius-card) + 5px);
-  outline: 2px dashed color-mix(in srgb, var(--accent) 76%, transparent);
+  border-radius: calc(var(--radius-card) + 2px);
+  outline: 2px dashed color-mix(in srgb, var(--accent) 88%, transparent);
   outline-offset: 7px;
-  background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface));
+  background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .grouped-site-section.is-group-selected .grouped-site-header-main {
