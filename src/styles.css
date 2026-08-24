@@ -1611,9 +1611,8 @@ label:has(input:focus-visible) {
   outline: 2px dashed color-mix(in srgb, var(--accent) 88%, transparent);
   outline-offset: 7px;
   background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
-  box-shadow:
-    0 0 0 7px color-mix(in srgb, var(--accent-soft) 64%, var(--surface)),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 0 0 7px
+    color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
 }
 
 .grouped-site-section.is-group-selected .grouped-site-header-main {

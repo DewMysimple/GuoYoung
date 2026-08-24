@@ -1713,6 +1713,9 @@ test("enters grouped selection from the clicked element and switches only from t
     )
     .not.toBe("rgba(0, 0, 0, 0)");
   await expect(searchSection).toHaveCSS("border-radius", "18px");
+  await expect
+    .poll(() => searchSection.evaluate((section) => getComputedStyle(section).boxShadow))
+    .not.toContain("inset");
   await expect(
     searchSection.getByRole("button", { name: "取消选择 搜索 分组" }),
   ).toBeVisible();
