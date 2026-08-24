@@ -2884,6 +2884,12 @@ label:has(input:focus-visible) {
   border-radius: 8px;
   color: var(--text-faint);
   background: transparent;
+  /* PointerSensor needs the activator itself to opt out of native touch
+     scrolling; keep the surrounding list scrollable while dragging only
+     from this handle. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .group-drag-handle:hover:not(:disabled) {

@@ -668,6 +668,17 @@ test("cancels a group manager drag when the browser window loses focus", async (
   await page.mouse.up();
 });
 
+test("keeps the group manager drag handle safe from native touch scrolling", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "管理分组" }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  const handle = dialog.getByRole("button", { name: "拖动 搜索" });
+
+  await expect(handle).toHaveCSS("touch-action", "none");
+  await expect(handle).toHaveCSS("user-select", "none");
+});
+
 test("keeps the manager list top boundary droppable outside the dialog", async ({
   page,
 }, testInfo) => {
