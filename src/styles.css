@@ -1206,8 +1206,9 @@ label:has(input:focus-visible) {
   border-radius: calc(var(--radius-card) + 2px);
   outline: 2px dashed color-mix(in srgb, var(--accent) 76%, var(--border));
   outline-offset: 6px;
-  background: color-mix(in srgb, var(--accent-soft) 18%, transparent);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
+  box-shadow: 0 0 0 6px
+    color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
 }
 
 .grouped-site-section.is-group-sorting > * {
@@ -1609,9 +1610,10 @@ label:has(input:focus-visible) {
   border-radius: calc(var(--radius-card) + 2px);
   outline: 2px dashed color-mix(in srgb, var(--accent) 88%, transparent);
   outline-offset: 7px;
-  background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface));
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--accent) 16%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
+  box-shadow:
+    0 0 0 7px color-mix(in srgb, var(--accent-soft) 64%, var(--surface)),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .grouped-site-section.is-group-selected .grouped-site-header-main {

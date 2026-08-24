@@ -1567,6 +1567,34 @@ test("reflows vertical group sections at the boundary before drop", async ({
   await page.keyboard.press("Escape");
 });
 
+test("fills the grouped drag source inside its dashed outline", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop group surface screenshot");
+  await page.setViewportSize({ width: 1440, height: 1600 });
+  await page.getByRole("button", { name: "显示" }).click();
+  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+
+  const designSection = page.locator('[data-group-sort-section-id="design"]');
+  const designHeader = designSection.locator(
+    '.grouped-site-header-main[data-group-sort-handle="true"]',
+  );
+  const source = await designHeader.boundingBox();
+  if (!source) throw new Error("Grouped section is not visible");
+
+  await page.mouse.move(source.x + 90, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(source.x + 90, source.y + source.height / 2 - 9);
+  await expect(designSection).toHaveClass(/is-group-sorting/);
+  await expect(designSection).toHaveCSS("border-radius", "18px");
+  await expect(designSection).toHaveCSS("background-color", /rgb/);
+  await page.screenshot({
+    path: screenshotPath(`group-drag-section-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+  await page.keyboard.press("Escape");
+});
+
 test("moves non-contiguous selected groups as one ordered block", async ({
   page,
 }, testInfo) => {
