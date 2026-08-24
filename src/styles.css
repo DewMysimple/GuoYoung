@@ -1203,7 +1203,7 @@ label:has(input:focus-visible) {
 }
 
 .grouped-site-section.is-group-sorting {
-  border-radius: calc(var(--radius-card) + 2px);
+  border-radius: calc(var(--radius-card) - 1px);
   outline: 2px dashed color-mix(in srgb, var(--accent) 76%, var(--border));
   outline-offset: 6px;
   background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
@@ -1611,7 +1611,7 @@ label:has(input:focus-visible) {
 }
 
 .grouped-site-section.is-group-selected {
-  border-radius: calc(var(--radius-card) + 2px);
+  border-radius: calc(var(--radius-card) - 1px);
   outline: 2px dashed color-mix(in srgb, var(--accent) 88%, transparent);
   outline-offset: 7px;
   background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
