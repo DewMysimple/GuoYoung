@@ -640,6 +640,74 @@ test("opens the exact group manager from long press and grouped heading", async 
   await expect(dialog.getByLabel("分组名称")).toHaveValue("学习");
 });
 
+test("cancels a group manager drag when the browser window loses focus", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop group manager drag assertion");
+  await page.getByRole("button", { name: "管理分组" }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  const handle = dialog.getByRole("button", { name: "拖动 搜索" });
+  const item = handle.locator("..");
+  await expect(handle).toBeVisible();
+  const transition = await item.evaluate((element) => getComputedStyle(element).transitionProperty);
+  expect(transition).not.toContain("transform");
+
+  const box = await handle.boundingBox();
+  if (!box) throw new Error("Group drag handle is not visible");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 16, {
+    steps: 4,
+  });
+  await expect(item).toHaveClass(/is-dragging/);
+
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(dialog.locator(".group-list-item.is-dragging")).toHaveCount(0);
+  await page.mouse.up();
+});
+
+test("imports a group resource package into the selected manager group", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "管理分组" }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  await dialog.getByRole("button", { name: "导入资源" }).click();
+  const payload = {
+    format: "site-hub-group-export",
+    exportVersion: 1,
+    exportedAt: "2026-08-24T00:00:00.000Z",
+    group: { name: "共享设计", icon: "pen-nib" },
+    sites: [
+      {
+        name: "Shared Example",
+        url: "https://shared-example.com",
+        iconSource: "auto",
+        order: 0,
+      },
+    ],
+  };
+  await page
+    .locator('input[aria-label="选择要导入的分组资源包"]')
+    .setInputFiles({
+      name: "shared-design.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(payload)),
+    });
+  const confirm = page.getByRole("alertdialog", { name: "导入分组资源？" });
+  await expect(confirm).toContainText("新增 1 个");
+  await confirm.getByRole("button", { name: "确认导入" }).click();
+  await expect.poll(() =>
+    page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+      return state.sites.some(
+        (site: { name: string; groupId: string }) =>
+          site.name === "Shared Example" && site.groupId === "search",
+      );
+    }),
+  ).toBe(true);
+  await expect(dialog).toBeVisible();
+});
+
 test("selects a brand icon for one site and keeps it after refresh", async ({
   page,
 }) => {

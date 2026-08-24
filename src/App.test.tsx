@@ -12,7 +12,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { clearFaviconResolutionCache } from "./components/favicon";
 import { createDefaultState } from "./data/defaults";
-import { serializeExport } from "./lib/data-transfer";
+import { createGroupExportPayload, serializeExport } from "./lib/data-transfer";
 import { STORAGE_KEY } from "./lib/storage";
 import { App } from "./App";
 
@@ -1068,6 +1068,56 @@ describe("App", () => {
         .getByRole("button", { name: "删除这个分组" })
         .closest(".group-editor-summary"),
     ).toBeInTheDocument();
+  });
+
+  it("imports a group resource package into the selected group without replacing the collection", async () => {
+    const user = userEvent.setup();
+    const payload = createGroupExportPayload(createDefaultState(), "design");
+    payload.sites = [
+      {
+        name: "Shared Example",
+        url: "https://shared-example.com",
+        iconSource: "auto",
+        order: 0,
+      },
+      {
+        name: "Google duplicate",
+        url: "https://www.google.com",
+        order: 1,
+      },
+    ];
+    const file = new File([JSON.stringify(payload)], "design.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(file, "text", {
+      value: () => Promise.resolve(JSON.stringify(payload)),
+    });
+
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "管理分组" }));
+    const dialog = screen.getByRole("dialog", { name: "管理分组" });
+    await user.click(within(dialog).getByRole("button", { name: "导入资源" }));
+    const importInput = screen.getByLabelText("选择要导入的分组资源包");
+    Object.defineProperty(importInput, "files", {
+      configurable: true,
+      value: [file],
+    });
+    fireEvent.change(importInput);
+
+    const confirm = await screen.findByRole("alertdialog", {
+      name: "导入分组资源？",
+    });
+    expect(within(confirm).getByText(/新增 1 个，重复跳过 1 个/)).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "确认导入" }));
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(stored.sites.some((site: { name: string; groupId: string }) =>
+      site.name === "Shared Example" && site.groupId === "search",
+    )).toBe(true);
+    expect(stored.sites.filter((site: { url: string }) =>
+      site.url.toLocaleLowerCase() === "https://www.google.com",
+    )).toHaveLength(1);
+    expect(screen.getByRole("dialog", { name: "管理分组" })).toBeInTheDocument();
   });
 
   it("keeps Other protected in group management", async () => {

@@ -11,7 +11,9 @@ import {
   setTrashRetentionInState,
   trashSiteFromState,
   updateSiteInState,
+  mergeGroupImportIntoState,
 } from "./site-state";
+import { createGroupExportPayload } from "./data-transfer";
 import { getSitesInGroup } from "./site-utils";
 
 describe("site state operations", () => {
@@ -161,5 +163,61 @@ describe("site state operations", () => {
     expect(
       purgeExpiredTrashFromState(never, Date.parse("2027-08-23T00:00:00.000Z")),
     ).toBe(never);
+  });
+
+  it("appends a group package, skips global URL duplicates, and preserves the target group", () => {
+    const initial = createDefaultState();
+    const payload = createGroupExportPayload(initial, "design", "2026-08-24T00:00:00.000Z");
+    payload.sites = [
+      payload.sites[0],
+      { ...payload.sites[0], name: "Figma duplicate" },
+      {
+        name: "Example",
+        url: "https://example.com",
+        iconSource: "auto",
+        order: 2,
+      },
+      {
+        name: "Google duplicate in another group",
+        url: "https://www.google.com",
+        order: 3,
+      },
+    ];
+    const target = initial.groups.find((group) => group.id === "develop")!;
+    const result = mergeGroupImportIntoState(
+      initial,
+      target.id,
+      payload,
+      "2026-08-24T12:00:00.000Z",
+    );
+
+    expect(result.added).toBe(1);
+    expect(result.skipped).toBe(3);
+    expect(result.state.groups.find((group) => group.id === target.id)).toEqual(target);
+    expect(getSitesInGroup(result.state.sites, target.id).at(-1)).toMatchObject({
+      name: "Example",
+      url: "https://example.com",
+      groupId: target.id,
+      createdAt: "2026-08-24T12:00:00.000Z",
+    });
+    expect(result.state.deletedSites).toEqual(initial.deletedSites);
+  });
+
+  it("allows importing websites into the protected Other group without changing its metadata", () => {
+    const initial = createDefaultState();
+    const payload = createGroupExportPayload(initial, "design");
+    payload.sites = payload.sites.map((site, index) => ({
+      ...site,
+      url: `https://shared-${index}.example.com`,
+    }));
+    const result = mergeGroupImportIntoState(initial, OTHER_GROUP_ID, payload);
+    expect(result.added).toBe(payload.sites.length);
+    expect(result.state.groups.find((group) => group.id === OTHER_GROUP_ID)).toEqual(
+      initial.groups.find((group) => group.id === OTHER_GROUP_ID),
+    );
+    expect(getSitesInGroup(result.state.sites, OTHER_GROUP_ID)).toHaveLength(
+      initial.sites.filter((site) => site.groupId === OTHER_GROUP_ID).length +
+        payload.sites.length,
+    );
   });
 });

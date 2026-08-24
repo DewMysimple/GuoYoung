@@ -94,7 +94,10 @@ import {
 } from "./lib/group-sort";
 import {
   downloadExport,
+  downloadGroupExport,
+  parseGroupImportFile,
   parseImportFile,
+  type GroupExportPayload,
 } from "./lib/data-transfer";
 import {
   filterSites,
@@ -110,6 +113,7 @@ import type {
   SiteGroup,
   SiteItem,
 } from "./types";
+import { mergeGroupImportIntoState } from "./lib/site-state";
 
 type GroupFilter = "all" | string;
 type SiteSortMode = "manual" | "name-asc" | "name-desc" | "newest" | "oldest";
@@ -229,6 +233,7 @@ export function App() {
     reorderGroups,
     reorderGroupBlock,
     deleteGroup,
+    importGroup,
     reset,
     replaceState,
     saveSettings,
@@ -275,6 +280,12 @@ export function App() {
   const [resetOpen, setResetOpen] = useState(false);
   const [pendingImport, setPendingImport] =
     useState<SiteCollectionState | null>(null);
+  const [pendingGroupImport, setPendingGroupImport] = useState<{
+    targetGroupId: string;
+    payload: GroupExportPayload;
+    added: number;
+    skipped: number;
+  } | null>(null);
   const [transferNotice, setTransferNotice] = useState<{
     kind: "success" | "error";
     message: string;
@@ -309,6 +320,8 @@ export function App() {
   const [groupSortIntent, setGroupSortIntent] =
     useState<GroupSortIntent | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const groupImportInputRef = useRef<HTMLInputElement>(null);
+  const groupImportTargetRef = useRef<string | null>(null);
   const viewControlsRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const dragSitesPreviewRef = useRef<SiteItem[] | null>(null);
@@ -1962,6 +1975,28 @@ export function App() {
     }
   }
 
+  function handleGroupExport(groupId: string) {
+    const group = groups.find((item) => item.id === groupId);
+    if (!group) return;
+    try {
+      downloadGroupExport(state, groupId);
+      setTransferNotice({
+        kind: "success",
+        message: `“${group.name}”资源包已导出。`,
+      });
+    } catch {
+      setTransferNotice({
+        kind: "error",
+        message: "分组资源导出失败，请检查浏览器的下载权限。",
+      });
+    }
+  }
+
+  function requestGroupImport(groupId: string) {
+    groupImportTargetRef.current = groupId;
+    groupImportInputRef.current?.click();
+  }
+
   function openSettingsPanel(
     section: SettingsSection = "appearance",
     trashOpen = false,
@@ -1994,6 +2029,34 @@ export function App() {
           error instanceof Error
             ? error.message
             : "无法读取这个收藏文件。",
+      });
+    }
+  }
+
+  async function handleGroupImportFile(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = "";
+    const targetGroupId = groupImportTargetRef.current;
+    groupImportTargetRef.current = null;
+    if (!file || !targetGroupId) return;
+
+    try {
+      const payload = parseGroupImportFile(await file.text());
+      const preview = mergeGroupImportIntoState(state, targetGroupId, payload);
+      setPendingGroupImport({
+        targetGroupId,
+        payload,
+        added: preview.added,
+        skipped: preview.skipped,
+      });
+    } catch (error) {
+      setTransferNotice({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "无法读取这个分组资源包。",
       });
     }
   }
@@ -2962,6 +3025,8 @@ export function App() {
         onUpdate={updateGroup}
         onReorder={reorderManagedGroups}
         onDelete={handleGroupDelete}
+        onExportGroup={handleGroupExport}
+        onImportGroup={requestGroupImport}
       />
 
       <SettingsPanel
@@ -3040,6 +3105,15 @@ export function App() {
         onChange={handleImportFile}
       />
 
+      <input
+        ref={groupImportInputRef}
+        className="visually-hidden"
+        type="file"
+        accept=".json,application/json"
+        aria-label="选择要导入的分组资源包"
+        onChange={handleGroupImportFile}
+      />
+
       <ConfirmDialog
         open={resetOpen}
         title="恢复默认收藏？"
@@ -3077,6 +3151,42 @@ export function App() {
             });
           }
           setPendingImport(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingGroupImport)}
+        title="导入分组资源？"
+        description={
+          pendingGroupImport
+            ? (() => {
+                const target = groups.find(
+                  (group) => group.id === pendingGroupImport.targetGroupId,
+                );
+                return `来源分组“${pendingGroupImport.payload.group.name}”，将追加到“${
+                  target?.name ?? "当前分组"
+                }”。共 ${pendingGroupImport.payload.sites.length} 个网站，新增 ${
+                  pendingGroupImport.added
+                } 个，重复跳过 ${pendingGroupImport.skipped} 个。目标分组名称和图标保持不变。`;
+              })()
+            : ""
+        }
+        confirmLabel="确认导入"
+        onOpenChange={(open) => {
+          if (!open) setPendingGroupImport(null);
+        }}
+        onConfirm={() => {
+          if (pendingGroupImport) {
+            const result = importGroup(
+              pendingGroupImport.targetGroupId,
+              pendingGroupImport.payload,
+            );
+            setTransferNotice({
+              kind: "success",
+              message: `已导入 ${result.added} 个网站，跳过 ${result.skipped} 个重复链接。`,
+            });
+          }
+          setPendingGroupImport(null);
         }}
       />
     </div>

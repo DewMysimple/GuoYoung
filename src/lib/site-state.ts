@@ -7,12 +7,19 @@ import type {
   TrashRetentionDays,
 } from "../types";
 import { OTHER_GROUP_ID } from "../data/defaults";
-import { reindexSites } from "./site-utils";
+import type { GroupExportPayload } from "./data-transfer";
+import { normalizeUrl, reindexSites } from "./site-utils";
 
 export type SavedSiteValues = SiteFormValues & {
   url: string;
   customIconUrl?: string;
 };
+
+export interface GroupImportResult {
+  state: SiteCollectionState;
+  added: number;
+  skipped: number;
+}
 
 function normalizeGroupOrder(groups: SiteGroup[]): SiteGroup[] {
   return [
@@ -44,6 +51,70 @@ export function addSiteToState(
     updatedAt: now,
   };
   return { ...state, sites: [...state.sites, site] };
+}
+
+export function mergeGroupImportIntoState(
+  state: SiteCollectionState,
+  targetGroupId: string,
+  payload: GroupExportPayload,
+  now = new Date().toISOString(),
+): GroupImportResult {
+  if (!state.groups.some((group) => group.id === targetGroupId)) {
+    return { state, added: 0, skipped: payload.sites.length };
+  }
+
+  const existingUrls = new Set(
+    state.sites.map((site) => {
+      try {
+        return normalizeUrl(site.url).toLocaleLowerCase("en-US");
+      } catch {
+        return site.url.trim().toLocaleLowerCase("en-US");
+      }
+    }),
+  );
+  const targetCount = state.sites.filter(
+    (site) => site.groupId === targetGroupId,
+  ).length;
+  let order = targetCount;
+  let nextGlobalOrder = state.sites.length;
+  let added = 0;
+  let skipped = 0;
+  const imported: SiteItem[] = [];
+
+  for (const entry of payload.sites.slice().sort((a, b) => a.order - b.order)) {
+    const key = entry.url.toLocaleLowerCase("en-US");
+    if (existingUrls.has(key)) {
+      skipped += 1;
+      continue;
+    }
+    existingUrls.add(key);
+    imported.push({
+      id: crypto.randomUUID(),
+      name: entry.name.trim(),
+      url: entry.url,
+      groupId: targetGroupId,
+      ...(entry.customIconUrl ? { customIconUrl: entry.customIconUrl } : {}),
+      ...(entry.iconSource ? { iconSource: entry.iconSource } : {}),
+      order: order++,
+      globalOrder: nextGlobalOrder++,
+      createdAt: now,
+      updatedAt: now,
+    });
+    added += 1;
+  }
+
+  if (!imported.length) return { state, added, skipped };
+  return {
+    state: {
+      ...state,
+      sites: reindexSites([
+        ...state.sites.map((site) => ({ ...site })),
+        ...imported,
+      ]),
+    },
+    added,
+    skipped,
+  };
 }
 
 export function updateSiteInState(

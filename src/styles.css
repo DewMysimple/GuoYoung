@@ -2740,8 +2740,8 @@ label:has(input:focus-visible) {
   border-radius: 11px;
   transition:
     border-color 160ms ease,
-    background-color 160ms ease,
-    transform 160ms ease;
+    background-color 160ms ease;
+  will-change: transform;
 }
 
 .group-list-item:hover {
@@ -2814,10 +2814,25 @@ label:has(input:focus-visible) {
   gap: 12px;
 }
 
-.group-editor-summary > div {
+.group-editor-summary > div:not(.group-editor-summary-actions) {
   display: grid;
   min-width: 0;
   gap: 2px;
+}
+
+.group-editor-summary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.group-editor-summary-actions .button {
+  min-height: 34px;
+  padding: 7px 10px;
+  white-space: nowrap;
 }
 
 .group-editor-summary strong {

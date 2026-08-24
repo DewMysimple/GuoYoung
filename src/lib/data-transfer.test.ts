@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultState } from "../data/defaults";
 import {
+  createGroupExportPayload,
   createExportPayload,
+  parseGroupImportFile,
   parseImportFile,
+  serializeGroupExport,
   serializeExport,
+  SITE_HUB_GROUP_EXPORT_FORMAT,
   SITE_HUB_EXPORT_FORMAT,
 } from "./data-transfer";
 
@@ -69,5 +73,74 @@ describe("data transfer", () => {
 
     const restored = parseImportFile(serializeExport(state));
     expect(restored.brand).toEqual(state.brand);
+  });
+
+  it("exports only the selected group as a portable resource package", () => {
+    const state = createDefaultState();
+    state.searchHistory = [
+      { query: "private", searchedAt: "2026-07-29T00:00:00.000Z" },
+    ];
+    state.deletedSites = [
+      {
+        site: { ...state.sites[0] },
+        deletedAt: "2026-07-29T00:00:00.000Z",
+        originalGroupId: "search",
+        originalGroupName: "搜索",
+      },
+    ];
+
+    const payload = createGroupExportPayload(
+      state,
+      "design",
+      "2026-07-29T00:00:00.000Z",
+    );
+    expect(payload).toMatchObject({
+      format: SITE_HUB_GROUP_EXPORT_FORMAT,
+      exportVersion: 1,
+      exportedAt: "2026-07-29T00:00:00.000Z",
+      group: { name: "设计", icon: "pen-nib" },
+    });
+    expect(payload.sites.map((site) => site.name)).toEqual(["Figma", "Dribbble"]);
+    expect(JSON.stringify(payload)).not.toContain('"id"');
+    expect(JSON.stringify(payload)).not.toContain("private");
+    const parsed = parseGroupImportFile(serializeGroupExport(state, "design"));
+    expect(parsed).toMatchObject({
+      format: SITE_HUB_GROUP_EXPORT_FORMAT,
+      group: { name: "设计", icon: "pen-nib" },
+    });
+    expect(parsed.sites[0]).toMatchObject({
+      name: "Figma",
+      url: "https://www.figma.com",
+    });
+  });
+
+  it("rejects a full export when a group resource package is expected", () => {
+    expect(() => parseGroupImportFile(serializeExport(createDefaultState()))).toThrow(
+      "分组资源包",
+    );
+  });
+
+  it("normalizes group package URLs and rejects invalid entries", () => {
+    const state = createDefaultState();
+    const payload = createGroupExportPayload(state, "design");
+    const parsed = parseGroupImportFile(
+      JSON.stringify({
+        ...payload,
+        sites: [{ name: "Example", url: "example.com/", order: 22 }],
+      }),
+    );
+    expect(parsed.sites[0]).toMatchObject({
+      name: "Example",
+      url: "https://example.com",
+      order: 0,
+    });
+    expect(() =>
+      parseGroupImportFile(
+        JSON.stringify({
+          ...payload,
+          sites: [{ name: "Bad", url: "javascript:alert(1)" }],
+        }),
+      ),
+    ).toThrow("地址无效");
   });
 });

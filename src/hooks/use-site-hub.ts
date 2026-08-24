@@ -23,7 +23,10 @@ import {
   setTrashRetentionInState,
   trashSiteFromState,
   updateSiteInState,
+  mergeGroupImportIntoState,
+  type GroupImportResult,
 } from "../lib/site-state";
+import type { GroupExportPayload } from "../lib/data-transfer";
 import { addSearchHistory, removeSearchHistory } from "../lib/search-history";
 import type {
   AppearanceSettings,
@@ -65,6 +68,10 @@ interface SiteHubApi {
   reorderGroups: (activeId: string, beforeGroupId: string | null) => void;
   reorderGroupBlock: (activeIds: string[], beforeGroupId: string | null) => void;
   deleteGroup: (id: string) => void;
+  importGroup: (
+    targetGroupId: string,
+    payload: GroupExportPayload,
+  ) => GroupImportResult;
   reset: () => void;
   replaceState: (state: SiteCollectionState) => void;
   setThemePreference: (preference: ThemePreference) => void;
@@ -313,6 +320,21 @@ export function useSiteHub(): SiteHubApi {
     setRecovered(false);
   }, []);
 
+  const importGroup = useCallback<SiteHubApi["importGroup"]>(
+    (targetGroupId, payload) => {
+      const result = mergeGroupImportIntoState(
+        stateRef.current,
+        targetGroupId,
+        payload,
+      );
+      stateRef.current = result.state;
+      setState(result.state);
+      setRecovered(false);
+      return result;
+    },
+    [],
+  );
+
   const reset = useCallback(() => {
     const defaults = createDefaultState();
     setState((current) => ({
@@ -410,6 +432,7 @@ export function useSiteHub(): SiteHubApi {
     reorderGroups,
     reorderGroupBlock: reorderGroupsBlock,
     deleteGroup,
+    importGroup,
     reset,
     replaceState,
     setThemePreference,

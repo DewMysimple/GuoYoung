@@ -17,9 +17,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  DownloadSimple,
   DotsSixVertical,
   LockSimple,
   Trash,
+  UploadSimple,
   X,
 } from "@phosphor-icons/react";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
@@ -35,6 +37,8 @@ interface GroupDialogProps {
   onUpdate: (id: string, name: string, icon: CategoryIcon) => void;
   onReorder: (activeId: string, overId: string) => void;
   onDelete: (group: SiteGroup) => void;
+  onExportGroup: (groupId: string) => void;
+  onImportGroup: (groupId: string) => void;
 }
 
 interface GroupDraft {
@@ -66,7 +70,11 @@ function SortableGroupItem({
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: isDragging ? undefined : transition,
+        willChange: isDragging ? "transform" : undefined,
+      }}
       className={`group-list-item ${selected ? "selected" : ""} ${
         isDragging ? "is-dragging" : ""
       }`}
@@ -115,6 +123,8 @@ export function GroupDialog({
   onUpdate,
   onReorder,
   onDelete,
+  onExportGroup,
+  onImportGroup,
 }: GroupDialogProps) {
   const titleId = useId();
   const orderedGroups = useMemo(
@@ -128,10 +138,20 @@ export function GroupDialog({
     null,
   );
   const armedDeleteTimerRef = useRef<number | null>(null);
+  const activeDragRef = useRef(false);
+  const [dndContextKey, setDndContextKey] = useState(0);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  const siteCountByGroup = useMemo(() => {
+    const counts = new Map<string, number>();
+    sites.forEach((site) => {
+      counts.set(site.groupId, (counts.get(site.groupId) ?? 0) + 1);
+    });
+    return counts;
+  }, [sites]);
 
   useEffect(() => {
     if (!open) {
@@ -212,6 +232,24 @@ export function GroupDialog({
     [],
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const cancelDragOnContextLoss = () => {
+      if (!activeDragRef.current) return;
+      activeDragRef.current = false;
+      setDndContextKey((current) => current + 1);
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") cancelDragOnContextLoss();
+    };
+    window.addEventListener("blur", cancelDragOnContextLoss);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("blur", cancelDragOnContextLoss);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [open]);
+
   const selected =
     orderedGroups.find((group) => group.id === selectedId) ?? orderedGroups[0];
   const selectedDraft = selected
@@ -291,9 +329,19 @@ export function GroupDialog({
             <div className="group-manager-layout">
               <div className="group-manager-list" aria-label="分组列表">
                 <DndContext
+                  key={dndContextKey}
                   sensors={sensors}
                   collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
+                  onDragStart={() => {
+                    activeDragRef.current = true;
+                  }}
+                  onDragCancel={() => {
+                    activeDragRef.current = false;
+                  }}
+                  onDragEnd={(event) => {
+                    activeDragRef.current = false;
+                    handleDragEnd(event);
+                  }}
                 >
                   <SortableContext
                     items={orderedGroups.map((group) => group.id)}
@@ -304,7 +352,7 @@ export function GroupDialog({
                         key={group.id}
                         group={group}
                         count={
-                          sites.filter((site) => site.groupId === group.id).length
+                          siteCountByGroup.get(group.id) ?? 0
                         }
                         selected={selected?.id === group.id}
                         onSelect={() => {
@@ -327,33 +375,49 @@ export function GroupDialog({
                     <div>
                       <strong>{selectedDraft.name || "未命名分组"}</strong>
                       <span>
-                        {sites.filter((site) => site.groupId === selected.id).length}
+                        {siteCountByGroup.get(selected.id) ?? 0}
                         {" "}个网站
                       </span>
                     </div>
-                    {!selected.isProtected && (
+                    <div className="group-editor-summary-actions">
                       <button
                         type="button"
-                        className={`button group-editor-delete ${
-                          armedDeleteGroupId === selected.id
-                            ? "is-delete-armed"
-                            : ""
-                        }`}
-                        data-delete-group-id={selected.id}
-                        aria-pressed={armedDeleteGroupId === selected.id}
-                        aria-label={
-                          armedDeleteGroupId === selected.id
-                            ? "再次点击删除这个分组"
-                            : "删除这个分组"
-                        }
-                        onClick={() => requestDelete(selected)}
+                        className="button secondary-button"
+                        onClick={() => onImportGroup(selected.id)}
                       >
-                        <Trash size={17} />
-                        {armedDeleteGroupId === selected.id
-                          ? "再次点击删除"
-                          : "删除这个分组"}
+                        <UploadSimple size={16} />导入资源
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        className="button secondary-button"
+                        onClick={() => onExportGroup(selected.id)}
+                      >
+                        <DownloadSimple size={16} />导出资源
+                      </button>
+                      {!selected.isProtected && (
+                        <button
+                          type="button"
+                          className={`button group-editor-delete ${
+                            armedDeleteGroupId === selected.id
+                              ? "is-delete-armed"
+                              : ""
+                          }`}
+                          data-delete-group-id={selected.id}
+                          aria-pressed={armedDeleteGroupId === selected.id}
+                          aria-label={
+                            armedDeleteGroupId === selected.id
+                              ? "再次点击删除这个分组"
+                              : "删除这个分组"
+                          }
+                          onClick={() => requestDelete(selected)}
+                        >
+                          <Trash size={17} />
+                          {armedDeleteGroupId === selected.id
+                            ? "再次点击删除"
+                            : "删除这个分组"}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <label className="settings-field">
