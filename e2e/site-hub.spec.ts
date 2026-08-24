@@ -668,6 +668,38 @@ test("cancels a group manager drag when the browser window loses focus", async (
   await page.mouse.up();
 });
 
+test("keeps the manager list top boundary droppable outside the dialog", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop group manager drag assertion");
+  await page.setViewportSize({ width: 1177, height: 960 });
+  await page.getByRole("button", { name: "管理分组" }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  const list = dialog.locator(".group-manager-list");
+  const handle = dialog.getByRole("button", { name: "拖动 影音" });
+  const listBox = await list.boundingBox();
+  const handleBox = await handle.boundingBox();
+  if (!listBox || !handleBox) throw new Error("Group manager geometry is unavailable");
+
+  await page.mouse.move(
+    handleBox.x + handleBox.width / 2,
+    handleBox.y + handleBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    handleBox.x + handleBox.width / 2,
+    handleBox.y - 24,
+    { steps: 8 },
+  );
+  await expect(dialog.locator(".group-list-item-drag-preview")).toBeVisible();
+
+  // The pointer is deliberately above the list (the real failing path).
+  // The first group must still be the live collision target.
+  await page.mouse.move(listBox.x - 20, 40, { steps: 12 });
+  await page.mouse.up();
+  await expect(dialog.locator(".group-list-copy strong").first()).toHaveText("影音");
+});
+
 test("imports a group resource package into the selected manager group", async ({
   page,
 }) => {

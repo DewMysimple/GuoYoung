@@ -8,6 +8,7 @@ import {
   closestCenter,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -169,10 +170,92 @@ export function GroupDialog({
     null,
   );
   const [dndContextKey, setDndContextKey] = useState(0);
+  const groupListRef = useRef<HTMLDivElement | null>(null);
+  const dragPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  const stopGroupListAutoScroll = () => {
+    if (autoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+    dragPointerRef.current = null;
+  };
+
+  const runGroupListAutoScroll = () => {
+    autoScrollFrameRef.current = null;
+    const list = groupListRef.current;
+    const pointer = dragPointerRef.current;
+    if (!activeDragRef.current || !list || !pointer) return;
+
+    const rect = list.getBoundingClientRect();
+    const edge = Math.min(72, Math.max(42, rect.height * 0.16));
+    let direction = 0;
+    let depth = 0;
+    if (pointer.y <= rect.top + edge && list.scrollTop > 0) {
+      direction = -1;
+      depth = Math.min(1, (rect.top + edge - pointer.y) / edge);
+    } else if (
+      pointer.y >= rect.bottom - edge &&
+      list.scrollTop < list.scrollHeight - list.clientHeight
+    ) {
+      direction = 1;
+      depth = Math.min(1, (pointer.y - (rect.bottom - edge)) / edge);
+    }
+
+    if (direction !== 0) {
+      const speed = 4 + Math.round(depth * 14);
+      list.scrollTop += direction * speed;
+      autoScrollFrameRef.current = window.requestAnimationFrame(
+        runGroupListAutoScroll,
+      );
+    }
+  };
+
+  const scheduleGroupListAutoScroll = (event: PointerEvent) => {
+    if (!activeDragRef.current) return;
+    dragPointerRef.current = { x: event.clientX, y: event.clientY };
+    if (autoScrollFrameRef.current === null) {
+      autoScrollFrameRef.current = window.requestAnimationFrame(
+        runGroupListAutoScroll,
+      );
+    }
+  };
+
+  const groupListCollisionDetection: CollisionDetection = (args) => {
+    const collisions = closestCenter(args);
+    const pointer = args.pointerCoordinates;
+    const list = groupListRef.current;
+    if (!pointer || !list || collisions.length === 0) return collisions;
+
+    const listRect = list.getBoundingClientRect();
+    const sortableGroups = orderedGroups.filter((group) => !group.isProtected);
+    const firstId = sortableGroups[0]?.id;
+    const lastId = sortableGroups[sortableGroups.length - 1]?.id;
+    // Keep a deterministic boundary target when the pointer leaves the list.
+    // Without this, closestCenter can select a distant row and make the
+    // absolute top/bottom feel like it has a dead zone.
+    const boundaryId =
+      pointer.y < listRect.top && firstId
+        ? firstId
+        : pointer.y > listRect.bottom && lastId
+          ? lastId
+          : null;
+    if (!boundaryId) return collisions;
+    const boundaryCollision = collisions.find(
+      (collision) => String(collision.id) === boundaryId,
+    );
+    return boundaryCollision
+      ? [
+          boundaryCollision,
+          ...collisions.filter((collision) => collision !== boundaryCollision),
+        ]
+      : collisions;
+  };
 
   const siteCountByGroup = useMemo(() => {
     const counts = new Map<string, number>();
@@ -187,6 +270,7 @@ export function GroupDialog({
       activeDragRef.current = false;
       setActiveDragGroupId(null);
       setDndContextKey((current) => current + 1);
+      stopGroupListAutoScroll();
       if (armedDeleteTimerRef.current !== null) {
         window.clearTimeout(armedDeleteTimerRef.current);
         armedDeleteTimerRef.current = null;
@@ -271,6 +355,7 @@ export function GroupDialog({
       activeDragRef.current = false;
       setActiveDragGroupId(null);
       setDndContextKey((current) => current + 1);
+      stopGroupListAutoScroll();
     };
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") cancelDragOnContextLoss();
@@ -278,12 +363,15 @@ export function GroupDialog({
     window.addEventListener("blur", cancelDragOnContextLoss);
     window.addEventListener("pagehide", cancelDragOnContextLoss);
     window.addEventListener("pointercancel", cancelDragOnContextLoss, true);
+    window.addEventListener("pointermove", scheduleGroupListAutoScroll, true);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       window.removeEventListener("blur", cancelDragOnContextLoss);
       window.removeEventListener("pagehide", cancelDragOnContextLoss);
       window.removeEventListener("pointercancel", cancelDragOnContextLoss, true);
+      window.removeEventListener("pointermove", scheduleGroupListAutoScroll, true);
       document.removeEventListener("visibilitychange", handleVisibility);
+      stopGroupListAutoScroll();
     };
   }, [open]);
 
@@ -364,11 +452,16 @@ export function GroupDialog({
 
           <div className="group-dialog-scroll">
             <div className="group-manager-layout">
-              <div className="group-manager-list" aria-label="分组列表">
+              <div
+                ref={groupListRef}
+                className="group-manager-list"
+                aria-label="分组列表"
+              >
                 <DndContext
                   key={dndContextKey}
                   sensors={sensors}
-                  collisionDetection={closestCenter}
+                  collisionDetection={groupListCollisionDetection}
+                  autoScroll={false}
                   onDragStart={({ active }) => {
                     activeDragRef.current = true;
                     setActiveDragGroupId(String(active.id));
@@ -376,10 +469,12 @@ export function GroupDialog({
                   onDragCancel={() => {
                     activeDragRef.current = false;
                     setActiveDragGroupId(null);
+                    stopGroupListAutoScroll();
                   }}
                   onDragEnd={(event) => {
                     activeDragRef.current = false;
                     setActiveDragGroupId(null);
+                    stopGroupListAutoScroll();
                     handleDragEnd(event);
                   }}
                 >
