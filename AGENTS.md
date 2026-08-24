@@ -58,6 +58,7 @@
 4. **拖拽任何改动必须先回读 `Wiki/拖拽交互契约.md`**——该区域已迭代十轮，坑极多（50px 阈值、冻结槽位、18px 滞回、rAF 交叠面积、跨组落点意图）。
 5. **大改动走两段式**：先出 `proposed_plan`，等用户回 `PLEASE IMPLEMENT THIS PLAN` 再实施（自 037 轮起固化）。
 6. **涉及扩展改动**：出 ZIP、递增 `public/manifest.json` 版本、附「到扩展管理页点重新加载」提示（见 `Wiki/扩展与构建交付.md`）。
+7. **Git 协作**：当前远程仓库为 [`DewMysimple/GuoYoung`](https://github.com/DewMysimple/GuoYoung.git)，本地远程名固定为 `origin`；本轮只要产生文件修改，就必须在交付前创建 Git commit。Agent 不执行 `git push`，分支与标签由用户自行推送。
 
 ## 9. 每轮固定流水线
 
@@ -68,6 +69,7 @@
 - 类型检查通过是底线（`npm run build` 含 `tsc -b`）。
 - 拖拽 / 布局 / 图标类改动**必须真实浏览器截图或录屏逐帧核对**，自动化无法完全覆盖。
 - 提交前 `npm run lint:wiki` 必须 0 错误。
+- 所有文件修改完成并通过必要校验后必须提交 Git；不要代替用户推送。
 
 ## 10. 隐私边界
 

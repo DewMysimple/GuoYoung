@@ -1,4 +1,6 @@
-# Mysimple · 网站收藏（site-hub）
+# GuoYoung · Mysimple 网站收藏（site-hub）
+
+> `GuoYoung` 是项目与 GitHub 仓库名称；`Mysimple` 是软件内部使用的品牌名。更新仓库或项目指引时保留 `Mysimple` 品牌，不将软件界面品牌替换为 `GuoYoung`。
 
 一个可高度自定义的**本地网站收藏新标签页**。同一个 React 源码既可作为网页（`dist/`）使用，也可打包为 Chrome / Edge 的 MV3 扩展（`dist-extension/`）接管浏览器新标签页。所有数据只保存在本地浏览器，无后端、无账号。
 
@@ -69,6 +71,12 @@ WebPage/
 
 参见 [`EXTENSION_INSTALL.md`](./EXTENSION_INSTALL.md)。改动扩展相关代码后，需重新构建并**到扩展管理页点「重新加载」**才能生效（无热更新）。
 
+## Git 协作与仓库
+
+- 当前 GitHub 仓库：[DewMysimple/GuoYoung](https://github.com/DewMysimple/GuoYoung.git)。本地远程名固定为 `origin`。
+- 每次产生文件修改都必须创建 Git commit；由项目所有者自行执行 `git push`，Agent 不代为推送。
+- 提交前执行 `npm run lint:wiki`，并按 `AGENTS.md` 要求完成对应验证。
+
 ## 数据与隐私
 
 - 全部数据保存在本地：网页版用 `localStorage`，扩展版用 `chrome.storage.local`，存储键恒为 **`site-hub:v1`**。
@@ -94,4 +102,4 @@ WebPage/
 
 - **新人 / 新 Agent 接手**：先读 [`AGENTS.md`](./AGENTS.md)，再读 [`Wiki/MOC_项目知识.md`](./Wiki/MOC_项目知识.md)。
 - 记忆分层：源码/测试为事实层，`Wiki/日志` 为不可改写事件层，其余 `Wiki/` 为可修订知识层（含 12 篇 ADR 与 9 个主题页）。
-- 每次协作后按要求写日志，并提交前跑 `npm run lint:wiki`。
+- 每次协作后按要求写日志；完成修改后必须提交 Git，提交前跑 `npm run lint:wiki`。

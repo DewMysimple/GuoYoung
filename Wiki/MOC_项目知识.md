@@ -10,7 +10,7 @@ tags:
 
 # 项目知识 MOC
 
-> WebPage（`site-hub` / Mysimple · 网站收藏）工程记忆的唯一入口。新会话 / 新 Agent 只读本页 + `AGENTS.md` 即可接手。
+> GuoYoung 是项目与 GitHub 仓库名称，Mysimple 是软件内部品牌名；WebPage（`site-hub` / Mysimple · 网站收藏）工程记忆的唯一入口。新会话 / 新 Agent 只读本页 + `AGENTS.md` 即可接手。
 > 事实层是 `src/` 源码与测试；`Wiki/日志` 是不可改写事件层；其余 `Wiki/` 是可修订知识层。
 
 ## 当前入口
