@@ -1195,6 +1195,7 @@ label:has(input:focus-visible) {
 .grouped-site-sections {
   display: grid;
   gap: 40px;
+  padding-top: 10px;
 }
 
 .grouped-site-section {
@@ -1207,9 +1208,9 @@ label:has(input:focus-visible) {
      The earlier radius-only adjustment was masked by the outer spread. */
   border-radius: max(0px, calc(var(--radius-card) - 7px));
   outline: 2px dashed color-mix(in srgb, var(--accent) 76%, var(--border));
-  outline-offset: 1px;
+  outline-offset: 6px;
   background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
-  box-shadow: 0 0 0 1px
+  box-shadow: 0 0 0 6px
     color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
 }
 
@@ -1615,9 +1616,9 @@ label:has(input:focus-visible) {
 .grouped-site-section.is-group-selected {
   border-radius: max(0px, calc(var(--radius-card) - 7px));
   outline: 2px dashed color-mix(in srgb, var(--accent) 88%, transparent);
-  outline-offset: 1px;
+  outline-offset: 6px;
   background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
-  box-shadow: 0 0 0 1px
+  box-shadow: 0 0 0 6px
     color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
 }
 

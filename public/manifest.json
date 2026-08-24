@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Mysimple · 网站收藏",
   "short_name": "Mysimple",
-  "version": "1.1.42",
+  "version": "1.1.43",
   "description": "可搜索、分组和拖拽排序的个人网站收藏新标签页。",
   "permissions": [
     "favicon",
