@@ -107,6 +107,16 @@ body {
   background: var(--page);
 }
 
+/* Radix's modal scroll lock adds the measured scrollbar width to the body.
+   The page itself owns the scroll container, so that compensation would be
+   applied twice and shift the centered workspace to the left when an edit
+   dialog opens. Keep the app's layout viewport stable while retaining the
+   modal's scroll and focus lock. */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
 button,
 input,
 select {
@@ -1206,7 +1216,7 @@ label:has(input:focus-visible) {
 .grouped-site-section.is-group-sorting {
   /* Keep the source, dashed outline, and blue wash on one compact geometry.
      The earlier radius-only adjustment was masked by the outer spread. */
-  border-radius: max(0px, calc(var(--radius-card) - 9px));
+  border-radius: max(0px, calc(var(--radius-card) - 11px));
   outline: 2px dashed color-mix(in srgb, var(--accent) 76%, var(--border));
   outline-offset: 8px;
   background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
@@ -1614,7 +1624,7 @@ label:has(input:focus-visible) {
 }
 
 .grouped-site-section.is-group-selected {
-  border-radius: max(0px, calc(var(--radius-card) - 9px));
+  border-radius: max(0px, calc(var(--radius-card) - 11px));
   outline: 2px dashed color-mix(in srgb, var(--accent) 88%, transparent);
   outline-offset: 8px;
   background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface));

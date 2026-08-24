@@ -662,6 +662,35 @@ test("selects a brand icon for one site and keeps it after refresh", async ({
   ).toBeVisible();
 });
 
+test("keeps the workspace centered when site or group editors lock page scroll", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop layout assertion");
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  const workspace = page.locator("main.page-container");
+  const beforeSiteEdit = await workspace.boundingBox();
+  if (!beforeSiteEdit) throw new Error("Workspace is not visible");
+
+  await page.getByRole("button", { name: "编辑 Google" }).click();
+  await expect(page.getByRole("dialog", { name: "编辑网站" })).toBeVisible();
+  const duringSiteEdit = await workspace.boundingBox();
+  if (!duringSiteEdit) throw new Error("Workspace disappeared during site edit");
+  expect(Math.abs(duringSiteEdit.x - beforeSiteEdit.x)).toBeLessThanOrEqual(1);
+  await page
+    .getByRole("dialog", { name: "编辑网站" })
+    .getByRole("button", { name: "关闭" })
+    .click();
+
+  const beforeGroupEdit = await workspace.boundingBox();
+  if (!beforeGroupEdit) throw new Error("Workspace is not visible");
+  await page.getByRole("button", { name: "管理分组" }).click();
+  await expect(page.getByRole("dialog", { name: "管理分组" })).toBeVisible();
+  const duringGroupEdit = await workspace.boundingBox();
+  if (!duringGroupEdit) throw new Error("Workspace disappeared during group edit");
+  expect(Math.abs(duringGroupEdit.x - beforeGroupEdit.x)).toBeLessThanOrEqual(1);
+});
+
 test("fills the wider desktop grid while keeping the last row aligned", async ({
   page,
 }, testInfo) => {
@@ -1608,7 +1637,7 @@ test("reflows vertical group sections at the boundary before drop", async ({
     "opacity",
     "0.68",
   );
-  await expect(designSection).toHaveCSS("border-radius", "7px");
+  await expect(designSection).toHaveCSS("border-radius", "5px");
   await expect(designSection).toHaveCSS("outline-offset", "8px");
   await expect(page.getByTestId("group-sort-vertical-drag-preview")).toBeVisible();
 
@@ -1648,7 +1677,7 @@ test("fills the grouped drag source inside its dashed outline", async ({
   await page.mouse.down();
   await page.mouse.move(source.x + 90, source.y + source.height / 2 - 9);
   await expect(designSection).toHaveClass(/is-group-sorting/);
-  await expect(designSection).toHaveCSS("border-radius", "7px");
+  await expect(designSection).toHaveCSS("border-radius", "5px");
   await expect(designSection).toHaveCSS("outline-offset", "8px");
   await expect(designSection).toHaveCSS("background-color", /rgb/);
   await page.screenshot({
@@ -1775,7 +1804,7 @@ test("enters grouped selection from the clicked element and switches only from t
       searchSection.evaluate((section) => getComputedStyle(section).backgroundColor),
     )
     .not.toBe("rgba(0, 0, 0, 0)");
-  await expect(searchSection).toHaveCSS("border-radius", "7px");
+  await expect(searchSection).toHaveCSS("border-radius", "5px");
   await expect(searchSection).toHaveCSS("outline-offset", "8px");
   await expect
     .poll(() => searchSection.evaluate((section) => getComputedStyle(section).boxShadow))
