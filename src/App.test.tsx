@@ -153,6 +153,22 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("opens the trash shortcut directly on the data section", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "打开回收站" }));
+
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    expect(
+      within(dialog).getByRole("tab", { name: /数据/ }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(within(dialog).getByText("链接回收站")).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "收起" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps settings open while the page wallpaper adjustment mode is active", async () => {
     const user = userEvent.setup();
     render(<App />);

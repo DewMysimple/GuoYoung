@@ -1712,6 +1712,18 @@ label:has(input:focus-visible) {
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
+/* During a drag, only the actual drop target should receive accent feedback.
+   Neutralize the regular hover/focus treatment on unrelated cards so the
+   pointer does not make a second, misleading blue highlight appear. */
+.is-site-dragging .site-card:not(.is-dragging):not(.is-drop-target):hover,
+.is-site-dragging
+  .site-card:not(.is-dragging):not(.is-drop-target):focus-within {
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent);
+  transform: none;
+}
+
 .site-card.site-card-drop-placeholder {
   border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
   border-style: dashed;

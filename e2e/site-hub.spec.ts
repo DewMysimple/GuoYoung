@@ -155,6 +155,36 @@ test("uses card overlap and moves the target frame before drop", async ({
     .toBe("site-card-bing");
 });
 
+test("keeps unrelated cards neutral during a transfer drag", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop transfer hover assertion");
+
+  await page.getByRole("button", { name: "手动排列" }).click();
+  await page.getByRole("menuitemradio", { name: "名称 A–Z" }).click();
+
+  const googleCard = page.getByTestId("site-card-google");
+  const bingCard = page.getByTestId("site-card-bing");
+  const start = await googleCard.boundingBox();
+  const target = await bingCard.boundingBox();
+  if (!start || !target) throw new Error("Transfer targets are not visible");
+  const neutralBorder = await bingCard.evaluate(
+    (element) => getComputedStyle(element).borderColor,
+  );
+
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(start.x + start.width / 2 + 51, start.y + start.height / 2);
+  await expect(page.getByTestId("site-card-drag-preview")).toBeVisible();
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2);
+
+  await expect(bingCard).not.toHaveClass(/is-drop-target/);
+  await expect
+    .poll(() => bingCard.evaluate((element) => getComputedStyle(element).borderColor))
+    .toBe(neutralBorder);
+  await page.mouse.up();
+});
+
 test("keeps the original order when the live target frame returns to source", async ({
   page,
 }) => {
@@ -258,6 +288,27 @@ test("opens a site when any non-action area of its card is clicked", async ({
   await page.mouse.click(box.x + 18, box.y + 18);
   await popupPromise;
   expect((await requestPromise).url()).toContain("github.com");
+});
+
+test("opens and expands the trash shortcut in settings", async ({
+  page,
+}, testInfo) => {
+  await page.screenshot({
+    path: screenshotPath(`trash-shortcut-topbar-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "打开回收站" }).click();
+  const dialog = page.getByRole("dialog", { name: "设置" });
+  await expect(dialog.getByRole("tab", { name: /数据/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(dialog.getByText("链接回收站")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "收起" })).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`trash-shortcut-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
 });
 
 test("resizes the settings sidebar and previews layout changes live", async ({
@@ -2270,7 +2321,7 @@ test("drags and zooms wallpaper with live preview before saving", async ({
   });
   await page.reload();
 
-  await page.locator(".topbar .icon-button").click();
+  await page.getByRole("button", { name: "打开设置" }).click();
   await page.locator(".settings-tabs [role='tab']").nth(1).click();
   await page.locator(".wallpaper-position-actions button").first().click();
 

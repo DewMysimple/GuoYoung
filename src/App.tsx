@@ -71,6 +71,7 @@ import { SortableGroupSection } from "./components/sortable-group-section";
 import {
   SettingsPanel,
   type SettingsDraft,
+  type SettingsSection,
 } from "./components/settings-panel";
 import {
   SiteCard,
@@ -265,6 +266,10 @@ export function App() {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [managedGroupId, setManagedGroupId] = useState<string>();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] =
+    useState<SettingsSection>("appearance");
+  const [settingsInitialTrashOpen, setSettingsInitialTrashOpen] =
+    useState(false);
   const [editingSite, setEditingSite] = useState<SiteItem | null>(null);
   const [armedDeleteSiteId, setArmedDeleteSiteId] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
@@ -1936,6 +1941,15 @@ export function App() {
     }
   }
 
+  function openSettingsPanel(
+    section: SettingsSection = "appearance",
+    trashOpen = false,
+  ) {
+    setSettingsInitialSection(section);
+    setSettingsInitialTrashOpen(trashOpen);
+    setSettingsOpen(true);
+  }
+
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
     const file = input.files?.[0];
@@ -2145,8 +2159,17 @@ export function App() {
           <div className="topbar-actions">
             <button
               type="button"
+              className="icon-button trash-button"
+              onClick={() => openSettingsPanel("data", true)}
+              aria-label="打开回收站"
+              title="回收站"
+            >
+              <Trash size={19} weight="regular" />
+            </button>
+            <button
+              type="button"
               className="icon-button theme-button"
-              onClick={() => setSettingsOpen(true)}
+              onClick={() => openSettingsPanel()}
               aria-label="打开设置"
               title="设置"
             >
@@ -2920,7 +2943,15 @@ export function App() {
       <SettingsPanel
         open={settingsOpen}
         state={state}
-        onOpenChange={setSettingsOpen}
+        initialSection={settingsInitialSection}
+        initialTrashOpen={settingsInitialTrashOpen}
+        onOpenChange={(open) => {
+          setSettingsOpen(open);
+          if (!open) {
+            setSettingsInitialSection("appearance");
+            setSettingsInitialTrashOpen(false);
+          }
+        }}
         onPreview={setSettingsPreview}
         onSave={(draft) =>
           saveSettings(

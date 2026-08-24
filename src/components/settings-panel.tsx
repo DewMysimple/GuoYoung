@@ -67,6 +67,8 @@ export interface SettingsDraft {
 interface SettingsPanelProps {
   open: boolean;
   state: SiteCollectionState;
+  initialSection?: SettingsSection;
+  initialTrashOpen?: boolean;
   onOpenChange: (open: boolean) => void;
   onPreview: (draft: SettingsDraft | null) => void;
   onSave: (draft: SettingsDraft) => void;
@@ -81,6 +83,8 @@ interface SettingsPanelProps {
   onTrashRetentionChange: (days: TrashRetentionDays) => void;
   wallpaperLoadError?: string;
 }
+
+export type SettingsSection = "appearance" | "wallpaper" | "data";
 
 const ACCENTS = [
   "#3367d6",
@@ -207,6 +211,8 @@ function getTrashRemainingLabel(
 export function SettingsPanel({
   open,
   state,
+  initialSection,
+  initialTrashOpen = false,
   onOpenChange,
   onPreview,
   onSave,
@@ -246,9 +252,7 @@ export function SettingsPanel({
   } | null>(null);
   const initialDraftSnapshot = useRef(JSON.stringify(cloneDraft(state)));
   const [draft, setDraft] = useState<SettingsDraft>(() => cloneDraft(state));
-  const [section, setSection] = useState<"appearance" | "wallpaper" | "data">(
-    "appearance",
-  );
+  const [section, setSection] = useState<SettingsSection>("appearance");
   const [advanced, setAdvanced] = useState(false);
   const [advancedSection, setAdvancedSection] =
     useState<AdvancedSection>("global");
@@ -341,13 +345,14 @@ export function SettingsPanel({
     const nextDraft = cloneDraft(state);
     initialDraftSnapshot.current = JSON.stringify(nextDraft);
     setDraft(nextDraft);
-    setSection("appearance");
+    setSection(initialSection ?? "appearance");
+    setTrashOpen(initialTrashOpen);
     setAdvancedSection("global");
     setLogoError("");
     setWallpaperError("");
     setWallpaperEditing(false);
     setDiscardPromptOpen(false);
-  }, [open]);
+  }, [open, initialSection, initialTrashOpen]);
 
   useEffect(() => {
     if (draft.wallpaper.source === "none") setWallpaperEditing(false);
