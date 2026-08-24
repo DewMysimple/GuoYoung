@@ -36,6 +36,7 @@ interface GroupDropTabProps {
   dragActive: boolean;
   dragOver: boolean;
   sortDisabled: boolean;
+  managementDisabled?: boolean;
   onSelect: () => void;
   onManage: () => void;
   onSortIntent: () => void;
@@ -48,6 +49,7 @@ export function GroupDropTab({
   dragActive,
   dragOver,
   sortDisabled,
+  managementDisabled = false,
   onSelect,
   onManage,
   onSortIntent,
@@ -138,7 +140,7 @@ export function GroupDropTab({
       data-group-sort-handle={!sortDisabled && !group.isProtected ? "true" : undefined}
       title={`${group.name}：点击查看，长按管理`}
       onPointerDown={(event) => {
-        if (event.button !== 0 || dragActive) return;
+        if (event.button !== 0 || dragActive || managementDisabled) return;
         finishPointerGesture();
         gestureRef.current = {
           pointerId: event.pointerId,

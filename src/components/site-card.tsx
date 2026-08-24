@@ -25,6 +25,9 @@ interface SiteCardProps {
   dragPending: boolean;
   dropTarget: boolean;
   selectionMode?: boolean;
+  selectionEntryEnabled?: boolean;
+  linkInteractionDisabled?: boolean;
+  actionsDisabled?: boolean;
   selected?: boolean;
   selectedCount?: number;
   batchDragging?: boolean;
@@ -95,6 +98,9 @@ function SiteCardFrame({
   dragPending,
   dropTarget,
   selectionMode = false,
+  selectionEntryEnabled = false,
+  linkInteractionDisabled = false,
+  actionsDisabled = false,
   selected = false,
   selectedCount = 0,
   batchDragging = false,
@@ -136,12 +142,16 @@ function SiteCardFrame({
         dropTarget && !isDragging ? "is-drop-target" : ""
       } ${selectionMode ? "is-selection-mode" : ""} ${
         selected ? "is-selected" : ""
-      } ${batchDragging && selected ? "is-batch-source" : ""}`}
+      } ${batchDragging && selected ? "is-batch-source" : ""} ${
+        linkInteractionDisabled ? "is-link-interaction-disabled" : ""
+      } ${actionsDisabled ? "is-actions-disabled" : ""}
+      `}
       data-testid={`site-card-${site.id}`}
       data-site-dnd-id={site.id}
       data-site-group-id={site.groupId}
       data-drag-mode={dragMode}
       data-drag-disabled={dragDisabled || undefined}
+      data-selection-surface="site-card"
       onMouseDown={(event) => {
         if (!dragDisabled) listeners?.onMouseDown?.(event);
       }}
@@ -150,7 +160,9 @@ function SiteCardFrame({
       }}
       onDragStart={(event) => event.preventDefault()}
       onClick={(event) => {
-        if (!selectionMode || !onToggleSelected) return;
+        if ((!selectionMode && !selectionEntryEnabled) || !onToggleSelected) {
+          return;
+        }
         if ((event.target as Element).closest("button")) return;
         event.preventDefault();
         event.stopPropagation();
@@ -159,11 +171,24 @@ function SiteCardFrame({
     >
       <a
         className="site-card-full-link"
-        href={selectionMode ? undefined : site.url}
+        href={selectionMode || linkInteractionDisabled ? undefined : site.url}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`打开 ${site.name}`}
         draggable={false}
+        aria-disabled={linkInteractionDisabled || undefined}
+        onClick={(event) => {
+          if (linkInteractionDisabled) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+          if (selectionEntryEnabled && onToggleSelected) {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleSelected(site);
+          }
+        }}
       />
 
       <div className="site-card-topline">
@@ -189,6 +214,7 @@ function SiteCardFrame({
             type="button"
             className="icon-button card-action"
             aria-label={`编辑 ${site.name}`}
+            disabled={selectionMode || linkInteractionDisabled || actionsDisabled}
             onMouseDown={(event) => event.stopPropagation()}
             onTouchStart={(event) => event.stopPropagation()}
             onClick={() => onEdit(site)}
@@ -205,6 +231,7 @@ function SiteCardFrame({
             }
             title={deleteArmed ? "再次点击删除" : `删除 ${site.name}`}
             data-delete-site-id={site.id}
+            disabled={selectionMode || linkInteractionDisabled || actionsDisabled}
             onMouseDown={(event) => event.stopPropagation()}
             onTouchStart={(event) => event.stopPropagation()}
             onClick={() => onDelete(site)}

@@ -112,6 +112,7 @@ import type {
 
 type GroupFilter = "all" | string;
 type SiteSortMode = "manual" | "name-asc" | "name-desc" | "newest" | "oldest";
+type SelectionTarget = "sites" | "groups" | null;
 
 interface StableDropRect {
   id: string;
@@ -287,6 +288,9 @@ export function App() {
   const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectionArmed, setSelectionArmed] = useState(false);
+  const [selectionTarget, setSelectionTarget] =
+    useState<SelectionTarget>(null);
   const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -396,7 +400,27 @@ export function App() {
   const isGroupedView =
     activeGroupId === "all" && state.displayMode === "grouped";
   const groupSelectionActive = selectedGroupIds.size > 0;
-  const dragDisabled = isSearching || groupSelectionActive;
+  const groupSelectionMode =
+    isGroupedView &&
+    selectionArmed &&
+    !multiSelectMode &&
+    selectionTarget === "groups";
+  const groupedSelectionPending =
+    isGroupedView &&
+    selectionArmed &&
+    selectedGroupIds.size === 0 &&
+    selectedSiteIds.size === 0;
+  const groupedSiteSelectionEntryEnabled =
+    isGroupedView &&
+    selectionArmed &&
+    !multiSelectMode &&
+    (selectionTarget === null || selectionTarget === "sites");
+  const groupedGroupSelectionEntryEnabled =
+    isGroupedView &&
+    selectionArmed &&
+    !multiSelectMode &&
+    (selectionTarget === null || selectionTarget === "groups");
+  const dragDisabled = isSearching || groupSelectionMode;
   const canReorderSites = sortMode === "manual";
   const siteDragMode: SiteDragMode = dragDisabled
     ? "disabled"
@@ -415,6 +439,7 @@ export function App() {
   const groupSortDisabled =
     isSearching ||
     multiSelectMode ||
+    (groupSelectionMode && !groupSelectionActive) ||
     Boolean(activeDragId) ||
     anyModalOpen;
   const addCardGroup = activeGroup ?? defaultGroup;
@@ -461,11 +486,17 @@ export function App() {
     if (!isSearching) return;
     setMultiSelectMode(false);
     setSelectedSiteIds(new Set());
+    setSelectionArmed(false);
+    setSelectionTarget(null);
   }, [isSearching]);
 
   useEffect(() => {
     if (isGroupedView && !isSearching) return;
     setSelectedGroupIds(new Set());
+    if (!isGroupedView) {
+      setSelectionArmed(false);
+      setSelectionTarget(null);
+    }
   }, [isGroupedView, isSearching]);
 
   useEffect(() => {
@@ -486,12 +517,28 @@ export function App() {
       ) {
         clearArmedDelete();
       }
+      if (selectionArmed) {
+        const selectionSurface = (event.target as Element).closest(
+          "[data-selection-surface]",
+        );
+        if (!selectionSurface) {
+          setSelectionArmed(false);
+          setSelectionTarget(null);
+          setSelectedGroupIds(new Set());
+          setSelectedSiteIds(new Set());
+          setMultiSelectMode(false);
+        }
+      }
     }
     function handleEscape(event: globalThis.KeyboardEvent) {
       if (event.key !== "Escape") return;
       setAddMenuOpen(false);
       clearArmedDelete();
+      setSelectionArmed(false);
+      setSelectionTarget(null);
+      setSelectedSiteIds(new Set());
       setSelectedGroupIds(new Set());
+      setMultiSelectMode(false);
     }
     window.addEventListener("pointerdown", handleOutsidePointer);
     window.addEventListener("keydown", handleEscape);
@@ -499,7 +546,7 @@ export function App() {
       window.removeEventListener("pointerdown", handleOutsidePointer);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [armedDeleteSiteId]);
+  }, [armedDeleteSiteId, selectionArmed]);
 
   useEffect(() => {
     if (!transferNotice) return;
@@ -734,6 +781,14 @@ export function App() {
 
   function handleDragStart(event: DragStartEvent) {
     clearArmedDelete();
+    if (
+      selectionArmed &&
+      selectedSiteIds.size === 0 &&
+      selectedGroupIds.size === 0
+    ) {
+      setSelectionArmed(false);
+      setSelectionTarget(null);
+    }
     const preview = state.sites.map((site) => ({ ...site }));
     const activeId = String(event.active.id);
     let nextBatchIds = [activeId];
@@ -1467,16 +1522,60 @@ export function App() {
 
   function toggleSiteSelection(site: SiteItem) {
     clearArmedDelete();
-    setSelectedSiteIds((current) => {
-      const next = new Set(current);
-      if (next.has(site.id)) next.delete(site.id);
-      else next.add(site.id);
-      return next;
-    });
+    const next = new Set(selectedSiteIds);
+    if (next.has(site.id)) next.delete(site.id);
+    else next.add(site.id);
+    setSelectedSiteIds(next);
+    if (!isGroupedView) return;
+    if (next.size > 0) {
+      setSelectionArmed(true);
+      setSelectionTarget("sites");
+      setMultiSelectMode(true);
+      return;
+    }
+    // Keep the link-selection intent armed after the last selected link is
+    // toggled off. This returns to the discoverable link-selection state
+    // instead of unexpectedly exiting multi-select altogether.
+    setSelectionArmed(true);
+    setSelectionTarget("sites");
+    setMultiSelectMode(false);
+  }
+
+  function cancelSelection() {
+    setSelectionArmed(false);
+    setSelectionTarget(null);
+    setSelectedSiteIds(new Set());
+    setSelectedGroupIds(new Set());
+    setMultiSelectMode(false);
   }
 
   function toggleMultiSelectMode() {
     clearArmedDelete();
+    if (isGroupedView) {
+      if (groupSelectionActive) {
+        setSelectedGroupIds(new Set());
+        setSelectedSiteIds(new Set());
+        setMultiSelectMode(false);
+        setSelectionArmed(true);
+        setSelectionTarget("sites");
+        return;
+      }
+      if (multiSelectMode && selectedSiteIds.size > 0) {
+        setSelectedSiteIds(new Set());
+        setMultiSelectMode(false);
+        setSelectionArmed(true);
+        setSelectionTarget("groups");
+        return;
+      }
+      if (selectionArmed) {
+        cancelSelection();
+        return;
+      }
+      setSelectionArmed(true);
+      setSelectionTarget(null);
+      return;
+    }
+
     setSelectedGroupIds(new Set());
     setMultiSelectMode((current) => {
       if (current) setSelectedSiteIds(new Set());
@@ -1486,14 +1585,28 @@ export function App() {
 
   function toggleGroupSelection(groupId: string) {
     clearArmedDelete();
-    if (multiSelectMode) {
-      setMultiSelectMode(false);
-      setSelectedSiteIds(new Set());
+    if (
+      !isGroupedView ||
+      multiSelectMode ||
+      !selectionArmed ||
+      (selectionTarget !== null && selectionTarget !== "groups")
+    ) {
+      return;
     }
     setSelectedGroupIds((current) => {
       const next = new Set(current);
       if (next.has(groupId)) next.delete(groupId);
       else next.add(groupId);
+      if (next.size > 0) {
+        setSelectionArmed(true);
+        setSelectionTarget("groups");
+      } else {
+        // Keep the group-selection mode active after deselecting the last
+        // group so another title click can select it again without leaving
+        // the mode. Blank space, Esc, or the switch button still cancels it.
+        setSelectionArmed(true);
+        setSelectionTarget("groups");
+      }
       return next;
     });
   }
@@ -1519,6 +1632,10 @@ export function App() {
     clearArmedDelete();
     setGroupDialogOpen(false);
     setManagedGroupId(undefined);
+    if (selectedGroupIds.size === 0) {
+      setSelectionArmed(false);
+      setSelectionTarget(null);
+    }
     const activeIds =
       axis === "vertical" && selectedGroupIds.has(groupId)
         ? groups
@@ -1552,6 +1669,7 @@ export function App() {
   }
 
   function finishGroupSort(commit = true) {
+    const hadGroupSelection = selectedGroupIds.size > 0;
     const intent = groupSortIntentRef.current;
     if (
       commit &&
@@ -1587,7 +1705,9 @@ export function App() {
     setActiveGroupSortId(null);
     setActiveGroupSortAxis(null);
     setGroupSortIntent(null);
-    if (wasBatch) setSelectedGroupIds(new Set());
+    if (wasBatch || hadGroupSelection) {
+      cancelSelection();
+    }
     stopTabsAutoScroll();
   }
 
@@ -1658,17 +1778,13 @@ export function App() {
   function selectGroup(groupId: GroupFilter) {
     clearArmedDelete();
     setActiveGroupId(groupId);
-    setSelectedGroupIds(new Set());
-    if (multiSelectMode) {
-      setMultiSelectMode(false);
-      setSelectedSiteIds(new Set());
-    }
+    cancelSelection();
   }
 
   function openGroupManager(groupId?: string) {
     setAddMenuOpen(false);
     setManagedGroupId(groupId);
-    setSelectedGroupIds(new Set());
+    cancelSelection();
     setGroupDialogOpen(true);
   }
 
@@ -2245,8 +2361,13 @@ export function App() {
                         }
                         dragOver={dragHoverGroupId === group.id}
                         sortDisabled={groupSortDisabled}
+                        managementDisabled={selectionArmed || multiSelectMode}
                         onSelect={() => selectGroup(group.id)}
-                        onManage={() => openGroupManager(group.id)}
+                        onManage={() => {
+                          if (!selectionArmed && !multiSelectMode) {
+                            openGroupManager(group.id);
+                          }
+                        }}
                         onSortIntent={cancelGroupManagementForSort}
                       />
                     </Fragment>
@@ -2290,6 +2411,8 @@ export function App() {
               <button
                 type="button"
                 className="manage-groups-button"
+                disabled={selectionArmed || multiSelectMode}
+                aria-disabled={selectionArmed || multiSelectMode || undefined}
                 onClick={() =>
                   openGroupManager(
                     activeGroupId === "all" ? undefined : activeGroupId,
@@ -2434,7 +2557,7 @@ export function App() {
                   {multiSelectMode
                     ? selectedSiteCount > 0
                       ? `完成 ${selectedSiteCount}`
-                      : "完成"
+                      : "选择"
                     : "多选"}
                 </span>
               </button>
@@ -2489,7 +2612,7 @@ export function App() {
                               activeGroupSortId ||
                                 activeDragId ||
                                 isSearching ||
-                                groupSelectionActive,
+                                groupSelectionMode,
                             )}
                             onInsert={(position) => {
                               const beforeGroupId =
@@ -2501,14 +2624,23 @@ export function App() {
                                 position,
                               });
                             }}
-                            onManage={() => openGroupManager(group.id)}
+                            onManage={() => {
+                              if (!selectionArmed && !multiSelectMode) {
+                                openGroupManager(group.id);
+                              }
+                            }}
                             groupSelected={selectedGroupIds.has(group.id)}
-                            groupSelectionActive={groupSelectionActive}
+                            groupSelectionMode={groupSelectionMode}
+                            groupSelectionEntryEnabled={
+                              !group.isProtected &&
+                              groupedGroupSelectionEntryEnabled
+                            }
                             onToggleGroupSelected={() =>
                               toggleGroupSelection(group.id)
                             }
                             siteSelectionMode={multiSelectMode}
-                            selectedSiteCount={selectedSiteCount}
+                            groupSelectionActive={groupSelectionActive}
+                            selectionPending={groupedSelectionPending}
                             onToggleSiteSelectionMode={toggleMultiSelectMode}
                           >
                           <SortableContext
@@ -2553,6 +2685,13 @@ export function App() {
                                   }
                                   dragPending={pendingDragId === site.id}
                                   selectionMode={multiSelectMode}
+                                  selectionEntryEnabled={
+                                    groupedSiteSelectionEntryEnabled
+                                  }
+                                  linkInteractionDisabled={groupSelectionMode}
+                                  actionsDisabled={
+                                    isGroupedView && selectionArmed
+                                  }
                                   selected={selectedSiteIds.has(site.id)}
                                   selectedCount={selectedSiteCount}
                                   batchDragging={
@@ -2636,6 +2775,8 @@ export function App() {
                               }
                               dragPending={pendingDragId === site.id}
                               selectionMode={multiSelectMode}
+                              selectionEntryEnabled={false}
+                              actionsDisabled={selectionArmed}
                               selected={selectedSiteIds.has(site.id)}
                               selectedCount={selectedSiteCount}
                               batchDragging={
