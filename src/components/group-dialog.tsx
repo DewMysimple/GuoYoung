@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
@@ -114,6 +115,31 @@ function SortableGroupItem({
   );
 }
 
+function GroupDragPreview({
+  group,
+  count,
+}: {
+  group: SiteGroup;
+  count: number;
+}) {
+  return (
+    <div className="group-list-item group-list-item-drag-preview">
+      <div className="group-list-select" aria-hidden="true">
+        <span className="group-editor-icon">
+          <GroupIcon name={group.icon} size={18} />
+        </span>
+        <span className="group-list-copy">
+          <strong>{group.name}</strong>
+          <small>{count} 个网站</small>
+        </span>
+      </div>
+      <span className="group-drag-handle" aria-hidden="true">
+        <DotsSixVertical size={18} weight="bold" />
+      </span>
+    </div>
+  );
+}
+
 export function GroupDialog({
   open,
   initialGroupId,
@@ -139,6 +165,9 @@ export function GroupDialog({
   );
   const armedDeleteTimerRef = useRef<number | null>(null);
   const activeDragRef = useRef(false);
+  const [activeDragGroupId, setActiveDragGroupId] = useState<string | null>(
+    null,
+  );
   const [dndContextKey, setDndContextKey] = useState(0);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -155,6 +184,9 @@ export function GroupDialog({
 
   useEffect(() => {
     if (!open) {
+      activeDragRef.current = false;
+      setActiveDragGroupId(null);
+      setDndContextKey((current) => current + 1);
       if (armedDeleteTimerRef.current !== null) {
         window.clearTimeout(armedDeleteTimerRef.current);
         armedDeleteTimerRef.current = null;
@@ -237,15 +269,20 @@ export function GroupDialog({
     const cancelDragOnContextLoss = () => {
       if (!activeDragRef.current) return;
       activeDragRef.current = false;
+      setActiveDragGroupId(null);
       setDndContextKey((current) => current + 1);
     };
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") cancelDragOnContextLoss();
     };
     window.addEventListener("blur", cancelDragOnContextLoss);
+    window.addEventListener("pagehide", cancelDragOnContextLoss);
+    window.addEventListener("pointercancel", cancelDragOnContextLoss, true);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       window.removeEventListener("blur", cancelDragOnContextLoss);
+      window.removeEventListener("pagehide", cancelDragOnContextLoss);
+      window.removeEventListener("pointercancel", cancelDragOnContextLoss, true);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [open]);
@@ -332,14 +369,17 @@ export function GroupDialog({
                   key={dndContextKey}
                   sensors={sensors}
                   collisionDetection={closestCenter}
-                  onDragStart={() => {
+                  onDragStart={({ active }) => {
                     activeDragRef.current = true;
+                    setActiveDragGroupId(String(active.id));
                   }}
                   onDragCancel={() => {
                     activeDragRef.current = false;
+                    setActiveDragGroupId(null);
                   }}
                   onDragEnd={(event) => {
                     activeDragRef.current = false;
+                    setActiveDragGroupId(null);
                     handleDragEnd(event);
                   }}
                 >
@@ -363,6 +403,23 @@ export function GroupDialog({
                       />
                     ))}
                   </SortableContext>
+                  <DragOverlay dropAnimation={null}>
+                    {activeDragGroupId
+                      ? (() => {
+                          const activeGroup = orderedGroups.find(
+                            (group) => group.id === activeDragGroupId,
+                          );
+                          return activeGroup ? (
+                            <GroupDragPreview
+                              group={activeGroup}
+                              count={
+                                siteCountByGroup.get(activeGroup.id) ?? 0
+                              }
+                            />
+                          ) : null;
+                        })()
+                      : null}
+                  </DragOverlay>
                 </DndContext>
               </div>
 
@@ -384,15 +441,19 @@ export function GroupDialog({
                         type="button"
                         className="button secondary-button"
                         onClick={() => onImportGroup(selected.id)}
+                        aria-label="导入资源"
                       >
-                        <UploadSimple size={16} />导入资源
+                        <UploadSimple size={16} />
+                        <span className="group-action-label">导入</span>
                       </button>
                       <button
                         type="button"
                         className="button secondary-button"
                         onClick={() => onExportGroup(selected.id)}
+                        aria-label="导出资源"
                       >
-                        <DownloadSimple size={16} />导出资源
+                        <DownloadSimple size={16} />
+                        <span className="group-action-label">导出</span>
                       </button>
                       {!selected.isProtected && (
                         <button
@@ -412,9 +473,11 @@ export function GroupDialog({
                           onClick={() => requestDelete(selected)}
                         >
                           <Trash size={17} />
-                          {armedDeleteGroupId === selected.id
-                            ? "再次点击删除"
-                            : "删除这个分组"}
+                          <span className="group-action-label">
+                            {armedDeleteGroupId === selected.id
+                              ? "确认删除"
+                              : "删除"}
+                          </span>
                         </button>
                       )}
                     </div>

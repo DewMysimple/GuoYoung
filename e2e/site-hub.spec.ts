@@ -660,6 +660,8 @@ test("cancels a group manager drag when the browser window loses focus", async (
     steps: 4,
   });
   await expect(item).toHaveClass(/is-dragging/);
+  await expect(item).toHaveCSS("opacity", "0");
+  await expect(dialog.locator(".group-list-item-drag-preview")).toBeVisible();
 
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
   await expect(dialog.locator(".group-list-item.is-dragging")).toHaveCount(0);
