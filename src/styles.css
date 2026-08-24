@@ -1705,23 +1705,35 @@ label:has(input:focus-visible) {
 }
 
 .site-card.is-drop-target {
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 34%, var(--surface));
-  box-shadow:
-    0 10px 26px color-mix(in srgb, var(--accent) 12%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 8%, var(--surface));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--accent) 12%, transparent);
+  transition: none;
 }
 
 /* During a drag, only the actual drop target should receive accent feedback.
    Neutralize the regular hover/focus treatment on unrelated cards so the
    pointer does not make a second, misleading blue highlight appear. */
-.is-site-dragging .site-card:not(.is-dragging):not(.is-drop-target):hover,
 .is-site-dragging
-  .site-card:not(.is-dragging):not(.is-drop-target):focus-within {
+  .site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):hover,
+.is-site-dragging
+  .site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):focus-within {
   border-color: var(--border);
   background: var(--surface);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent);
   transform: none;
+}
+
+/* A collision target is a placement hint, not a selected card. Keep the
+   target frame dashed and restrained while the pointer is over it. */
+.is-site-dragging .site-card.is-drop-target {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 8%, var(--surface));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .site-card.site-card-drop-placeholder {

@@ -140,6 +140,7 @@ test("uses card overlap and moves the target frame before drop", async ({
   await page.mouse.move(grabX + partialTravel, grabY);
 
   await expect(bingCard).toHaveClass(/is-drop-target/);
+  await expect(bingCard).toHaveCSS("border-style", "dashed");
   await expect
     .poll(async () => (await googleCard.boundingBox())?.x ?? start.x)
     .toBeGreaterThan(target.x - 3);

@@ -2077,7 +2077,7 @@ export function App() {
     <div
       data-app-shell
       className={`app-shell min-h-[100dvh] ${
-        activeDragId ? "is-site-dragging" : ""
+        activeDragId || pendingDragId ? "is-site-dragging" : ""
       } ${settingsOpen ? "settings-open" : ""} ${
         wallpaperUrl ? "has-wallpaper" : ""
       }`}
