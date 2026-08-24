@@ -1203,11 +1203,13 @@ label:has(input:focus-visible) {
 }
 
 .grouped-site-section.is-group-sorting {
-  border-radius: calc(var(--radius-card) - 1px);
+  /* The dashed frame is expanded by the outline/shadow spread; tighten the
+     source radius by 3px so the visible outer corner is actually smaller. */
+  border-radius: calc(var(--radius-card) - 4px);
   outline: 2px dashed color-mix(in srgb, var(--accent) 76%, var(--border));
-  outline-offset: 6px;
+  outline-offset: 3px;
   background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
-  box-shadow: 0 0 0 6px
+  box-shadow: 0 0 0 3px
     color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
 }
 
@@ -1611,11 +1613,11 @@ label:has(input:focus-visible) {
 }
 
 .grouped-site-section.is-group-selected {
-  border-radius: calc(var(--radius-card) - 1px);
+  border-radius: calc(var(--radius-card) - 4px);
   outline: 2px dashed color-mix(in srgb, var(--accent) 88%, transparent);
-  outline-offset: 7px;
+  outline-offset: 4px;
   background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
-  box-shadow: 0 0 0 7px
+  box-shadow: 0 0 0 4px
     color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
 }
 
