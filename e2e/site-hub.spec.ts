@@ -1608,8 +1608,8 @@ test("reflows vertical group sections at the boundary before drop", async ({
     "opacity",
     "0.68",
   );
-  await expect(designSection).toHaveCSS("border-radius", "9px");
-  await expect(designSection).toHaveCSS("outline-offset", "6px");
+  await expect(designSection).toHaveCSS("border-radius", "7px");
+  await expect(designSection).toHaveCSS("outline-offset", "8px");
   await expect(page.getByTestId("group-sort-vertical-drag-preview")).toBeVisible();
 
   await page.mouse.move(source.x + 90, previous.y + previous.height + 1);
@@ -1648,8 +1648,8 @@ test("fills the grouped drag source inside its dashed outline", async ({
   await page.mouse.down();
   await page.mouse.move(source.x + 90, source.y + source.height / 2 - 9);
   await expect(designSection).toHaveClass(/is-group-sorting/);
-  await expect(designSection).toHaveCSS("border-radius", "9px");
-  await expect(designSection).toHaveCSS("outline-offset", "6px");
+  await expect(designSection).toHaveCSS("border-radius", "7px");
+  await expect(designSection).toHaveCSS("outline-offset", "8px");
   await expect(designSection).toHaveCSS("background-color", /rgb/);
   await page.screenshot({
     path: screenshotPath(`group-drag-section-${testInfo.project.name}.png`),
@@ -1775,8 +1775,8 @@ test("enters grouped selection from the clicked element and switches only from t
       searchSection.evaluate((section) => getComputedStyle(section).backgroundColor),
     )
     .not.toBe("rgba(0, 0, 0, 0)");
-  await expect(searchSection).toHaveCSS("border-radius", "9px");
-  await expect(searchSection).toHaveCSS("outline-offset", "6px");
+  await expect(searchSection).toHaveCSS("border-radius", "7px");
+  await expect(searchSection).toHaveCSS("outline-offset", "8px");
   await expect
     .poll(() => searchSection.evaluate((section) => getComputedStyle(section).boxShadow))
     .not.toContain("inset");
