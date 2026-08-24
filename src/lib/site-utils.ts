@@ -234,6 +234,19 @@ export function filterSites(
     });
 }
 
+export function sortSitesByHeat(
+  sites: SiteItem[],
+  groupId: string | "all" = "all",
+): SiteItem[] {
+  return [...sites].sort(
+    (a, b) =>
+      b.clickCount - a.clickCount ||
+      (groupId === "all"
+        ? a.globalOrder - b.globalOrder
+        : a.order - b.order),
+  );
+}
+
 export function reorderGroups(
   groups: SiteGroup[],
   activeId: string,

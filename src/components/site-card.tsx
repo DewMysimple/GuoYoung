@@ -33,6 +33,7 @@ interface SiteCardProps {
   batchDragging?: boolean;
   deleteArmed?: boolean;
   onToggleSelected?: (site: SiteItem) => void;
+  onVisit: (site: SiteItem) => void;
   onEdit: (site: SiteItem) => void;
   onDelete: (site: SiteItem) => void;
 }
@@ -106,6 +107,7 @@ function SiteCardFrame({
   batchDragging = false,
   deleteArmed = false,
   onToggleSelected,
+  onVisit,
   onEdit,
   onDelete,
   drag,
@@ -183,11 +185,18 @@ function SiteCardFrame({
             event.stopPropagation();
             return;
           }
+          if (selectionMode && !selectionEntryEnabled) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
           if (selectionEntryEnabled && onToggleSelected) {
             event.preventDefault();
             event.stopPropagation();
             onToggleSelected(site);
+            return;
           }
+          onVisit(site);
         }}
       />
 

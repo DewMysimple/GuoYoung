@@ -54,7 +54,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(9);
+    expect(result.state.version).toBe(10);
     expect(result.state.appearance.cardWidth).toBe(160);
     expect(result.state.searchHistory).toEqual([]);
     expect(result.state.groups).toHaveLength(6);
@@ -75,7 +75,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(9);
+    expect(result.state.version).toBe(10);
     expect(result.state.groups.at(-1)).toMatchObject({
       id: "other",
       name: "其他",
@@ -95,7 +95,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(9);
+    expect(result.state.version).toBe(10);
     expect(
       result.state.sites
         .slice()
@@ -122,7 +122,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(9);
+    expect(result.state.version).toBe(10);
     expect(result.state.wallpaper).toMatchObject({
       positionX: 100,
       positionY: 100,
@@ -152,7 +152,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(9);
+    expect(result.state.version).toBe(10);
     expect(result.state.displayMode).toBe("flat");
     expect(result.state.appearance).toMatchObject({
       brandFontScale: 100,
@@ -185,7 +185,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(9);
+    expect(result.state.version).toBe(10);
     expect(result.state.brand.name).toBe("Mysimple");
     expect(result.state.appearance).toMatchObject({
       pagePadding: 20,
@@ -205,9 +205,39 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(9);
+    expect(result.state.version).toBe(10);
     expect(result.state.deletedSites).toEqual([]);
     expect(result.state.trashRetentionDays).toBe(30);
+  });
+
+  it("migrates version 9 sites to click heat without losing existing counts", () => {
+    const defaults = createDefaultState();
+    const legacy = {
+      ...defaults,
+      version: 9,
+      sites: defaults.sites.map(({ clickCount: _clickCount, ...site }) =>
+        site.id === "github" ? { ...site, clickCount: 7 } : site,
+      ),
+      deletedSites: [
+        {
+          deletedAt: "2026-08-24T00:00:00.000Z",
+          originalGroupId: "search",
+          originalGroupName: "搜索",
+          site: {
+            ...defaults.sites[0],
+            clickCount: 3,
+          },
+        },
+      ],
+    };
+
+    const result = loadState(memoryStorage(JSON.stringify(legacy)));
+
+    expect(result.recovered).toBe(false);
+    expect(result.state.version).toBe(10);
+    expect(result.state.sites.find((site) => site.id === "github")?.clickCount).toBe(7);
+    expect(result.state.sites.find((site) => site.id === "google")?.clickCount).toBe(0);
+    expect(result.state.deletedSites[0].site.clickCount).toBe(3);
   });
 
   it("merges a duplicate Other group without losing its sites", () => {

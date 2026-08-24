@@ -54,7 +54,7 @@ describe("site state operations", () => {
       customIconUrl: "",
       iconSource: "auto",
     }, "postgres");
-    expect(withSite.version).toBe(9);
+    expect(withSite.version).toBe(10);
     expect(withSite.groups.find((group) => group.id === "database-group")?.name).toBe("数据库");
     expect(withSite.sites.find((site) => site.id === "postgres")?.groupId).toBe("database-group");
   });
@@ -75,7 +75,7 @@ describe("site state operations", () => {
       "develop",
     ]);
     expect(ordered.at(-1)?.id).toBe(OTHER_GROUP_ID);
-    expect(result.version).toBe(9);
+    expect(result.version).toBe(10);
   });
 
   it("deletes a group and moves its sites to trash", () => {

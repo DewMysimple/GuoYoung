@@ -217,6 +217,7 @@ const site = (
   groupId,
   order,
   globalOrder,
+  clickCount: 0,
   createdAt: defaultTimestamp,
   updatedAt: defaultTimestamp,
 });
@@ -259,7 +260,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 9,
+    version: 10,
     groups: DEFAULT_GROUPS.map((group) => ({ ...group })),
     sites: DEFAULT_SITES.map((item) => ({ ...item })),
     deletedSites: [],

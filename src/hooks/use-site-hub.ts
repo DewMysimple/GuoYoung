@@ -51,6 +51,7 @@ interface SiteHubApi {
     id: string,
     values: SiteFormValues & { url: string; customIconUrl?: string },
   ) => void;
+  recordSiteClick: (id: string) => void;
   deleteSite: (id: string) => void;
   restoreSite: (id: string) => void;
   restoreAllSites: () => void;
@@ -199,6 +200,20 @@ export function useSiteHub(): SiteHubApi {
 
   const updateSite = useCallback<SiteHubApi["updateSite"]>((id, values) => {
     setState((current) => updateSiteInState(current, id, values));
+    setRecovered(false);
+  }, []);
+
+  const recordSiteClick = useCallback<SiteHubApi["recordSiteClick"]>((id) => {
+    const current = stateRef.current;
+    if (!current.sites.some((site) => site.id === id)) return;
+    const next = {
+      ...current,
+      sites: current.sites.map((site) =>
+        site.id === id ? { ...site, clickCount: site.clickCount + 1 } : site,
+      ),
+    };
+    stateRef.current = next;
+    setState(next);
     setRecovered(false);
   }, []);
 
@@ -419,6 +434,7 @@ export function useSiteHub(): SiteHubApi {
     storageMode: store.mode,
     addSite,
     updateSite,
+    recordSiteClick,
     deleteSite,
     restoreSite,
     restoreAllSites,

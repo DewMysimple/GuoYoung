@@ -47,6 +47,7 @@ export function addSiteToState(
     iconSource: values.iconSource,
     order: state.sites.filter((item) => item.groupId === values.groupId).length,
     globalOrder: state.sites.length,
+    clickCount: 0,
     createdAt: now,
     updatedAt: now,
   };
@@ -97,6 +98,7 @@ export function mergeGroupImportIntoState(
       ...(entry.iconSource ? { iconSource: entry.iconSource } : {}),
       order: order++,
       globalOrder: nextGlobalOrder++,
+      clickCount: 0,
       createdAt: now,
       updatedAt: now,
     });

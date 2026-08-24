@@ -79,6 +79,12 @@ function clamp(value: unknown, minimum: number, maximum: number, fallback: numbe
     : fallback;
 }
 
+function normalizeClickCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0;
+}
+
 function isHexColor(value: unknown): value is string {
   return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
 }
@@ -437,7 +443,12 @@ function normalizeDeletedSites(value: unknown): TrashedSite[] {
       return true;
     })
     .map((entry) => ({
-      site: { ...entry.site },
+      site: {
+        ...entry.site,
+        clickCount: normalizeClickCount(
+          (entry.site as unknown as Record<string, unknown>).clickCount,
+        ),
+      },
       deletedAt: entry.deletedAt,
       originalGroupId: entry.originalGroupId,
       originalGroupName: entry.originalGroupName,
@@ -465,13 +476,31 @@ function baseStateIsValid(value: Record<string, unknown>): boolean {
   );
 }
 
+function hasValidClickCount(value: unknown): boolean {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    Number.isInteger(value)
+  );
+}
+
 export function isSiteCollectionState(value: unknown): value is SiteCollectionState {
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 9 &&
+    state.version === 10 &&
     baseStateIsValid(state) &&
+    (state.sites as Array<Record<string, unknown>>).every((site) =>
+      hasValidClickCount(site.clickCount),
+    ) &&
     Array.isArray(state.deletedSites) &&
+    (state.deletedSites as Array<Record<string, unknown>>).every((entry) =>
+      Boolean(entry) &&
+      typeof entry.site === "object" &&
+      entry.site !== null &&
+      hasValidClickCount((entry.site as Record<string, unknown>).clickCount),
+    ) &&
     trashRetentionOptions.includes(
       state.trashRetentionDays as TrashRetentionDays,
     ) &&
@@ -521,17 +550,20 @@ function repairDuplicateOtherGroups(
   return { ...state, groups, sites: reindexSites(sites) };
 }
 
-function upgradeToVersion9(
+function upgradeToVersion10(
   legacy: Record<string, unknown>,
 ): SiteCollectionState | undefined {
   if (!baseStateIsValid(legacy)) return undefined;
   return {
-    version: 9,
+    version: 10,
     groups: (legacy.groups as SiteGroup[]).map((group) => ({ ...group })),
     sites: (legacy.sites as SiteItem[]).map((site, index) => ({
       ...site,
       globalOrder:
         typeof site.globalOrder === "number" ? site.globalOrder : index,
+      clickCount: normalizeClickCount(
+        (site as unknown as Record<string, unknown>).clickCount,
+      ),
     })),
     deletedSites: normalizeDeletedSites(legacy.deletedSites),
     trashRetentionDays: trashRetentionOptions.includes(
@@ -588,7 +620,7 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
         ),
       };
     }
-    return upgradeToVersion9(value);
+    return upgradeToVersion10(value);
   }
 
   if (
@@ -610,7 +642,7 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
       (site, globalOrder) => ({ ...site, globalOrder }),
     );
     if (!sites.every((site) => isSiteItem(site, groupIds))) return undefined;
-    return upgradeToVersion9({
+    return upgradeToVersion10({
       version: 4,
       groups,
       sites,
@@ -645,7 +677,7 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
       createdAt: site.createdAt as string,
       updatedAt: site.updatedAt as string,
     }));
-    return upgradeToVersion9({
+    return upgradeToVersion10({
       version: 4,
       groups: DEFAULT_GROUPS.map((group) => ({ ...group })),
       sites,
@@ -667,8 +699,10 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const migrated =
-        candidate.version === 9 || candidate.version === 8
-          ? upgradeToVersion9(candidate)
+        candidate.version === 10 ||
+        candidate.version === 9 ||
+        candidate.version === 8
+          ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       if (migrated) {
         return {

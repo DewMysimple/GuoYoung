@@ -105,6 +105,7 @@ import {
   moveSitesToGroupEnd,
   reorderSites,
   reorderSitesGlobally,
+  sortSitesByHeat,
 } from "./lib/site-utils";
 import type {
   CategoryIcon as GroupIconName,
@@ -116,7 +117,13 @@ import type {
 import { mergeGroupImportIntoState } from "./lib/site-state";
 
 type GroupFilter = "all" | string;
-type SiteSortMode = "manual" | "name-asc" | "name-desc" | "newest" | "oldest";
+type SiteSortMode =
+  | "manual"
+  | "name-asc"
+  | "name-desc"
+  | "newest"
+  | "oldest"
+  | "heat";
 type SelectionTarget = "sites" | "groups" | null;
 
 interface StableDropRect {
@@ -211,6 +218,7 @@ const SORT_OPTIONS: Array<{ value: SiteSortMode; label: string }> = [
   { value: "name-desc", label: "名称 Z–A" },
   { value: "newest", label: "最近添加" },
   { value: "oldest", label: "最早添加" },
+  { value: "heat", label: "热量排列" },
 ];
 
 export function App() {
@@ -221,6 +229,7 @@ export function App() {
     storageMode,
     addSite,
     updateSite,
+    recordSiteClick,
     deleteSite,
     restoreSite,
     restoreAllSites,
@@ -402,6 +411,7 @@ export function App() {
   );
   const visibleSites = useMemo(() => {
     if (sortMode === "manual") return scopedSites;
+    if (sortMode === "heat") return sortSitesByHeat(scopedSites, activeGroupId);
     return [...scopedSites].sort((a, b) => {
       if (sortMode === "name-asc") {
         return a.name.localeCompare(b.name, "zh-CN", { sensitivity: "base" });
@@ -413,7 +423,7 @@ export function App() {
       const second = Date.parse(b.createdAt);
       return sortMode === "newest" ? second - first : first - second;
     });
-  }, [scopedSites, sortMode]);
+  }, [activeGroupId, scopedSites, sortMode]);
   const isSearching = Boolean(query.trim());
   const isGroupedView =
     activeGroupId === "all" && state.displayMode === "grouped";
@@ -467,7 +477,13 @@ export function App() {
         .map((group) => {
           const sites = visibleSites
             .filter((site) => site.groupId === group.id)
-            .sort((a, b) => (sortMode === "manual" ? a.order - b.order : 0));
+            .sort((a, b) =>
+              sortMode === "manual"
+                ? a.order - b.order
+                : sortMode === "heat"
+                  ? b.clickCount - a.clickCount || a.order - b.order
+                  : 0,
+            );
           return { group, sites };
         })
         .filter(({ sites }) => !isSearching || sites.length > 0),
@@ -2844,6 +2860,7 @@ export function App() {
                                   }
                                   onEdit={openEditDialog}
                                   onDelete={requestSiteDelete}
+                                  onVisit={(site) => recordSiteClick(site.id)}
                                   onToggleSelected={toggleSiteSelection}
                                   />
                                 </Fragment>
@@ -2929,6 +2946,7 @@ export function App() {
                               }
                               onEdit={openEditDialog}
                               onDelete={requestSiteDelete}
+                              onVisit={(site) => recordSiteClick(site.id)}
                               onToggleSelected={toggleSiteSelection}
                             />
                           );

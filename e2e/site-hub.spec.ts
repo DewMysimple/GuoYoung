@@ -426,7 +426,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(9);
+  expect(saved.version).toBe(10);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -594,7 +594,7 @@ test("opens the exact group manager from long press and grouped heading", async 
     "none",
   );
   const iconGrid = dialog.locator(".manager-icon-grid");
-  await expect(iconGrid.locator("label.group-icon-choice")).toHaveCount(24);
+  await expect(iconGrid.locator("label.group-icon-choice")).toHaveCount(48);
   const iconGridSize = await iconGrid.evaluate((element) => {
     const gridRect = element.getBoundingClientRect();
     const editorRect = element
@@ -612,7 +612,20 @@ test("opens the exact group manager from long press and grouped heading", async 
     iconGridSize.clientHeight + 1,
   );
   expect(iconGridSize.columns).toBe((page.viewportSize()?.width ?? 0) <= 480 ? 4 : 6);
-  expect(iconGridSize.gridBottom).toBeLessThanOrEqual(iconGridSize.editorBottom + 1);
+  const editor = dialog.locator(".group-manager-editor");
+  if ((page.viewportSize()?.width ?? 0) > 480) {
+    await expect
+      .poll(() => editor.evaluate((element) => element.scrollHeight > element.clientHeight))
+      .toBe(true);
+    await editor.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(
+      dialog.locator("label.group-icon-choice").filter({ hasText: "研究" }),
+    ).toBeVisible();
+  } else {
+    expect(iconGridSize.gridBottom).toBeLessThanOrEqual(iconGridSize.editorBottom + 1);
+  }
   const deleteBox = await dialog
     .getByRole("button", { name: "删除这个分组" })
     .boundingBox();
@@ -1160,6 +1173,39 @@ test("persists grouped display and combines it with sorting and search", async (
   await expect(page.locator(".grouped-site-section")).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "开发", level: 3 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "搜索", level: 3 })).toHaveCount(0);
+});
+
+test("records link clicks and persists heat sorting", async ({ page }) => {
+  const githubLink = page.getByRole("link", { name: "打开 GitHub" });
+  await githubLink.evaluate((element) => {
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const state = JSON.parse(localStorage.getItem("site-hub:v1") ?? "{}");
+        return state.sites?.find((site: { id: string }) => site.id === "github")
+          ?.clickCount;
+      }),
+    )
+    .toBe(2);
+
+  await page.getByRole("button", { name: "手动排列" }).click();
+  await page.getByRole("menuitemradio", { name: "热量排列" }).click();
+  await expect(page.locator(".site-grid > .site-card").first()).toHaveAttribute(
+    "data-testid",
+    "site-card-github",
+  );
+
+  await page.reload();
+  await page.getByRole("button", { name: "手动排列" }).click();
+  await page.getByRole("menuitemradio", { name: "热量排列" }).click();
+  await expect(page.locator(".site-grid > .site-card").first()).toHaveAttribute(
+    "data-testid",
+    "site-card-github",
+  );
 });
 
 test("moves a non-manually sorted card across grouped rows and keeps All grouped", async ({

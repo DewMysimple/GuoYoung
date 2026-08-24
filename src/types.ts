@@ -22,7 +22,31 @@ export type CategoryIcon =
   | "globe"
   | "lightning"
   | "heart"
-  | "star";
+  | "star"
+  | "house"
+  | "lightbulb"
+  | "palette"
+  | "paint-brush"
+  | "camera"
+  | "film-strip"
+  | "headphones"
+  | "newspaper"
+  | "graduation-cap"
+  | "brain"
+  | "atom"
+  | "test-tube"
+  | "rocket-launch"
+  | "kanban"
+  | "list-checks"
+  | "chart-line-up"
+  | "stack"
+  | "map-pin"
+  | "currency-cny"
+  | "shield-check"
+  | "user-circle"
+  | "microphone"
+  | "package"
+  | "flask";
 
 export interface SiteGroup {
   id: string;
@@ -52,6 +76,7 @@ export interface SiteItem {
   iconSource?: SiteIconSource;
   order: number;
   globalOrder: number;
+  clickCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -137,7 +162,7 @@ export interface SearchHistoryEntry {
 }
 
 export interface SiteCollectionState {
-  version: 9;
+  version: 10;
   groups: SiteGroup[];
   sites: SiteItem[];
   deletedSites: TrashedSite[];

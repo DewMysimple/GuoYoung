@@ -289,7 +289,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":9');
+      expect(stored).toContain('"version":10');
     });
   });
 
@@ -464,6 +464,36 @@ describe("App", () => {
     expect(
       screen.queryByRole("heading", { level: 3, name: "搜索" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("records a real link click and places the hottest site first", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const githubLink = screen.getByRole("link", { name: "打开 GitHub" });
+    fireEvent.click(githubLink);
+
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(stored.version).toBe(10);
+      expect(
+        stored.sites.find((site: { id: string }) => site.id === "github")
+          .clickCount,
+      ).toBe(1);
+    });
+
+    await user.click(screen.getByRole("button", { name: /手动排列/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: "热量排列" }));
+
+    expect(
+      Array.from(document.querySelectorAll(".site-grid > .site-card")).map(
+        (card) => card.getAttribute("data-testid"),
+      ),
+    ).toEqual(expect.arrayContaining(["site-card-github", "site-card-google"]));
+    expect(document.querySelector(".site-grid > .site-card")).toHaveAttribute(
+      "data-testid",
+      "site-card-github",
+    );
   });
 
   it("enters, switches, and cancels grouped link/group multi-select from one button", async () => {
@@ -1062,7 +1092,7 @@ describe("App", () => {
 
     const dialog = screen.getByRole("dialog", { name: "管理分组" });
     expect(within(dialog).getByDisplayValue("设计")).toBeEnabled();
-    expect(within(dialog).getAllByRole("radio")).toHaveLength(24);
+    expect(within(dialog).getAllByRole("radio")).toHaveLength(48);
     expect(
       within(dialog)
         .getByRole("button", { name: "删除这个分组" })

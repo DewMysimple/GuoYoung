@@ -14,6 +14,7 @@ import {
   reorderGroups,
   reorderSites,
   reorderSitesGlobally,
+  sortSitesByHeat,
 } from "./site-utils";
 
 describe("site utilities", () => {
@@ -116,6 +117,27 @@ describe("site utilities", () => {
     expect(filterSites(DEFAULT_SITES, "", DEFAULT_GROUPS, "design")).toHaveLength(
       2,
     );
+  });
+
+  it("sorts by persistent click heat and keeps manual order for ties", () => {
+    const heated = DEFAULT_SITES.map((site) => ({
+      ...site,
+      clickCount:
+        site.id === "wikipedia" ? 5 : site.id === "github" ? 5 : site.id === "google" ? 2 : 0,
+    }));
+
+    expect(sortSitesByHeat(heated).map((site) => site.id).slice(0, 4)).toEqual([
+      "github",
+      "wikipedia",
+      "google",
+      "bing",
+    ]);
+    expect(
+      sortSitesByHeat(
+        heated.filter((site) => site.groupId === "develop"),
+        "develop",
+      ).map((site) => site.id),
+    ).toEqual(["github", "stackoverflow", "codepen"]);
   });
 
   it("reorders within a group and can move a site to another group", () => {
