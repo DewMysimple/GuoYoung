@@ -44,6 +44,7 @@ import {
   FolderOpen,
   FolderPlus,
   GearSix,
+  House,
   MagnifyingGlass,
   LinkSimple,
   Plus,
@@ -84,7 +85,10 @@ import { OTHER_GROUP_ID } from "./data/defaults";
 import { useSiteHub } from "./hooks/use-site-hub";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
-import { requestHistoryPermission } from "./lib/browser-history";
+import {
+  requestHistoryPermission,
+  type BrowserHistoryPermissionResult,
+} from "./lib/browser-history";
 import { searchWeb } from "./lib/browser-search";
 import type { DroppedSitePreview } from "./lib/external-link-drop";
 import {
@@ -311,6 +315,9 @@ export function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [browserHistoryOpen, setBrowserHistoryOpen] = useState(false);
   const [historyPermissionVersion, setHistoryPermissionVersion] = useState(0);
+  const [historyPermissionError, setHistoryPermissionError] = useState<string | null>(
+    null,
+  );
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [sortMode, setSortMode] = useState<SiteSortMode>("manual");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -2026,17 +2033,25 @@ export function App() {
     setSettingsOpen(true);
   }
 
-  async function requestBrowserHistoryAccess() {
-    const granted = await requestHistoryPermission();
-    if (granted) {
+  async function requestBrowserHistoryAccess(): Promise<BrowserHistoryPermissionResult> {
+    setHistoryPermissionError(null);
+    const result = await requestHistoryPermission();
+    if (result.granted) {
       setHistoryPermissionVersion((current) => current + 1);
+    } else if (result.error) {
+      setHistoryPermissionError(result.error);
     }
-    return granted;
+    return result;
   }
 
   function openBrowserHistory() {
     setBrowserHistoryOpen(true);
     void requestBrowserHistoryAccess();
+  }
+
+  function openCollectionHome() {
+    setHistoryPermissionError(null);
+    setBrowserHistoryOpen(false);
   }
 
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
@@ -2267,7 +2282,7 @@ export function App() {
                 className="brand"
                 href="/"
                 aria-label={`${effectiveBrand.name} 首页`}
-                onClick={() => setBrowserHistoryOpen(false)}
+                onClick={openCollectionHome}
               >
                 {effectiveBrand.showLogo && <BrandMark brand={effectiveBrand} />}
                 {effectiveBrand.showName && (
@@ -2275,6 +2290,18 @@ export function App() {
                 )}
               </a>
             )}
+            <button
+              type="button"
+              className={`topbar-history-button topbar-home-button ${
+                browserHistoryOpen ? "" : "active"
+              }`}
+              aria-label="打开收藏主页"
+              aria-pressed={!browserHistoryOpen}
+              onClick={openCollectionHome}
+            >
+              <House size={18} weight="regular" />
+              <span>收藏主页</span>
+            </button>
             <button
               type="button"
               className={`topbar-history-button ${browserHistoryOpen ? "active" : ""}`}
@@ -2357,6 +2384,7 @@ export function App() {
           <BrowserHistoryView
             onBack={() => setBrowserHistoryOpen(false)}
             onRequestPermission={requestBrowserHistoryAccess}
+            permissionError={historyPermissionError}
             permissionVersion={historyPermissionVersion}
           />
         ) : (

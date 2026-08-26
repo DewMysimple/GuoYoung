@@ -5,6 +5,7 @@ import {
   getHistoryRange,
   normalizeHistoryItems,
   readHistoryAvailability,
+  requestHistoryPermission,
   searchBrowserHistory,
   deleteBrowserHistoryRange,
   deleteBrowserHistoryUrl,
@@ -91,18 +92,75 @@ describe("browser history adapter", () => {
     ).resolves.toEqual(items);
     expect(api.history!.search).toHaveBeenCalledWith(
       expect.objectContaining({ text: "Example", maxResults: 0 }),
+      expect.any(Function),
     );
 
     await deleteBrowserHistoryUrl("https://example.com", api);
     await deleteBrowserHistoryRange({ startTime: 1, endTime: 2 }, api);
     await deleteAllBrowserHistory(api);
-    expect(api.history!.deleteUrl).toHaveBeenCalledWith({
-      url: "https://example.com",
+    expect(api.history!.deleteUrl).toHaveBeenCalledWith(
+      { url: "https://example.com" },
+      expect.any(Function),
+    );
+    expect(api.history!.deleteRange).toHaveBeenCalledWith(
+      { startTime: 1, endTime: 2 },
+      expect.any(Function),
+    );
+    expect(api.history!.deleteAll).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it("supports callback-only permissions and history methods", async () => {
+    let granted = false;
+    const callbackItems = [
+      {
+        id: "callback-one",
+        title: "Callback Example",
+        url: "https://callback.example",
+        lastVisitTime: 20,
+      },
+    ];
+    const api = createApi({
+      permissions: {
+        contains: vi.fn((_details, callback) => callback?.(granted)),
+        request: vi.fn((_details, callback) => {
+          granted = true;
+          callback?.(true);
+        }),
+      },
+      history: {
+        search: vi.fn((_query, callback) => callback?.(callbackItems)),
+        deleteUrl: vi.fn((_details, callback) => callback?.()),
+        deleteRange: vi.fn((_range, callback) => callback?.()),
+        deleteAll: vi.fn((callback) => callback?.()),
+      },
     });
-    expect(api.history!.deleteRange).toHaveBeenCalledWith({
-      startTime: 1,
-      endTime: 2,
+
+    expect(await readHistoryAvailability(api)).toBe("permission-needed");
+    await expect(requestHistoryPermission(api)).resolves.toEqual({
+      granted: true,
     });
+    expect(await readHistoryAvailability(api)).toBe("granted");
+    await expect(
+      searchBrowserHistory({ text: "Callback", range: "all" }, api),
+    ).resolves.toEqual(callbackItems);
+    await deleteBrowserHistoryUrl(callbackItems[0].url!, api);
+    await deleteBrowserHistoryRange({ startTime: 1, endTime: 2 }, api);
+    await deleteAllBrowserHistory(api);
+    expect(api.history!.deleteUrl).toHaveBeenCalledTimes(1);
+    expect(api.history!.deleteRange).toHaveBeenCalledTimes(1);
     expect(api.history!.deleteAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a visible error result when permission request fails", async () => {
+    const result = await requestHistoryPermission(
+      createApi({
+        permissions: {
+          contains: vi.fn().mockResolvedValue(false),
+          request: vi.fn().mockRejectedValue(new Error("permission denied")),
+        },
+      }),
+    );
+    expect(result.granted).toBe(false);
+    expect(result.error).toContain("permission denied");
   });
 });

@@ -70,7 +70,7 @@ describe("BrowserHistoryView", () => {
       <BrowserHistoryView
         api={history.api}
         onBack={vi.fn()}
-        onRequestPermission={vi.fn().mockResolvedValue(true)}
+        onRequestPermission={vi.fn().mockResolvedValue({ granted: true })}
       />,
     );
 
@@ -86,12 +86,14 @@ describe("BrowserHistoryView", () => {
     await waitFor(() => {
       expect(history.api.history!.search).toHaveBeenLastCalledWith(
         expect.objectContaining({ text: "GitHub" }),
+        expect.any(Function),
       );
     });
     await user.selectOptions(screen.getByRole("combobox", { name: "历史记录时间范围" }), "7d");
     await waitFor(() => {
       expect(history.api.history!.search).toHaveBeenLastCalledWith(
         expect.objectContaining({ text: "GitHub" }),
+        expect.any(Function),
       );
     });
   });
@@ -106,7 +108,7 @@ describe("BrowserHistoryView", () => {
       <BrowserHistoryView
         api={history.api}
         onBack={vi.fn()}
-        onRequestPermission={vi.fn().mockResolvedValue(true)}
+        onRequestPermission={vi.fn().mockResolvedValue({ granted: true })}
       />,
     );
 
@@ -114,9 +116,10 @@ describe("BrowserHistoryView", () => {
     await user.click(screen.getByRole("checkbox", { name: "选择 One" }));
     await user.click(screen.getByRole("button", { name: "删除选中" }));
     await waitFor(() => {
-      expect(history.api.history!.deleteUrl).toHaveBeenCalledWith({
-        url: "https://one.example",
-      });
+      expect(history.api.history!.deleteUrl).toHaveBeenCalledWith(
+        { url: "https://one.example" },
+        expect.any(Function),
+      );
     });
 
     const searchCalls = vi.mocked(history.api.history!.search).mock.calls.length;
@@ -146,7 +149,7 @@ describe("BrowserHistoryView", () => {
           },
         }}
         onBack={onBack}
-        onRequestPermission={vi.fn().mockResolvedValue(false)}
+        onRequestPermission={vi.fn().mockResolvedValue({ granted: false })}
       />,
     );
 
@@ -156,5 +159,37 @@ describe("BrowserHistoryView", () => {
     expect(screen.getByRole("button", { name: "返回收藏" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "返回收藏" }));
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a retryable error when the browser does not complete authorization", async () => {
+    const user = userEvent.setup();
+    const history = createHistoryApi();
+    const onRequestPermission = vi.fn().mockResolvedValue({
+      granted: false,
+      error: "浏览器未完成历史记录授权，请检查扩展权限后重试。",
+    });
+    render(
+      <BrowserHistoryView
+        api={{
+          ...history.api,
+          permissions: {
+            contains: vi.fn().mockResolvedValue(false),
+            request: vi.fn().mockResolvedValue(false),
+          },
+        }}
+        onBack={vi.fn()}
+        onRequestPermission={onRequestPermission}
+      />,
+    );
+
+    const button = await screen.findByRole("button", {
+      name: "允许读取历史记录",
+    });
+    await user.click(button);
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent("未完成历史记录授权");
+    expect(button).toBeEnabled();
+    expect(onRequestPermission).toHaveBeenCalledTimes(1);
   });
 });

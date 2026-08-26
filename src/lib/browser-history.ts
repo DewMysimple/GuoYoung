@@ -1,6 +1,7 @@
 import {
   getChromiumExtensionApi,
   isExtensionEnvironment,
+  type BrowserApiResult,
   type BrowserHistoryItem,
   type BrowserHistoryQuery,
   type ChromiumExtensionApi,
@@ -27,12 +28,73 @@ export interface BrowserHistorySearchOptions {
   now?: number;
 }
 
+export interface BrowserHistoryPermissionResult {
+  granted: boolean;
+  error?: string;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function startOfLocalDay(timestamp: number): number {
   const date = new Date(timestamp);
   date.setHours(0, 0, 0, 0);
   return date.getTime();
+}
+
+function getRuntimeError(api: ChromiumExtensionApi | undefined): string | undefined {
+  return api?.runtime?.lastError?.message;
+}
+
+function isPromiseLike<T>(value: BrowserApiResult<T>): value is PromiseLike<T> {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "then" in value &&
+      typeof (value as { then?: unknown }).then === "function",
+  );
+}
+
+function callBrowserApi<T>(
+  api: ChromiumExtensionApi | undefined,
+  invoke: (callback: (value?: T) => void) => BrowserApiResult<T>,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(error instanceof Error ? error : new Error("Browser API call failed"));
+    };
+    const complete = (value?: T) => {
+      if (settled) return;
+      settled = true;
+      const runtimeError = getRuntimeError(api);
+      if (runtimeError) {
+        reject(new Error(runtimeError));
+        return;
+      }
+      resolve(value as T);
+    };
+
+    try {
+      const result = invoke(complete);
+      if (isPromiseLike(result)) {
+        void result.then(complete, fail);
+      } else if (result !== undefined) {
+        complete(result as T);
+      }
+    } catch (error) {
+      fail(error);
+    }
+  });
+}
+
+function formatPermissionError(error: unknown): string {
+  const message = error instanceof Error ? error.message.trim() : "";
+  if (message && !message.toLowerCase().includes("last error")) {
+    return `浏览器未完成历史记录授权：${message}`;
+  }
+  return "浏览器未完成历史记录授权，请检查扩展权限后重试。";
 }
 
 export function getHistoryRange(
@@ -92,9 +154,16 @@ export async function readHistoryAvailability(
   if (initial !== "permission-needed") return initial;
   if (!api?.permissions?.contains) return "unsupported";
   try {
-    return (await api.permissions.contains({ permissions: [HISTORY_PERMISSION] }))
-      ? "granted"
-      : "permission-needed";
+    return (
+      (await callBrowserApi<boolean>(api, (callback) =>
+        api.permissions!.contains(
+          { permissions: [HISTORY_PERMISSION] },
+          (granted) => callback(granted),
+        ),
+      ))
+        ? "granted"
+        : "permission-needed"
+    );
   } catch {
     return "permission-needed";
   }
@@ -102,13 +171,21 @@ export async function readHistoryAvailability(
 
 export async function requestHistoryPermission(
   api: ChromiumExtensionApi | undefined = getChromiumExtensionApi(),
-): Promise<boolean> {
-  if (!api || !isExtensionEnvironment(api)) return false;
-  if (!api.permissions?.request) return Boolean(api.history);
+): Promise<BrowserHistoryPermissionResult> {
+  if (!api || !isExtensionEnvironment(api)) {
+    return { granted: false };
+  }
+  if (!api.permissions?.request) return { granted: Boolean(api.history) };
   try {
-    return await api.permissions.request({ permissions: [HISTORY_PERMISSION] });
-  } catch {
-    return false;
+    const granted = await callBrowserApi<boolean>(api, (callback) =>
+      api.permissions!.request(
+        { permissions: [HISTORY_PERMISSION] },
+        (result) => callback(result),
+      ),
+    );
+    return { granted };
+  } catch (error) {
+    return { granted: false, error: formatPermissionError(error) };
   }
 }
 
@@ -130,7 +207,10 @@ export async function searchBrowserHistory(
   api: ChromiumExtensionApi | undefined = getChromiumExtensionApi(),
 ): Promise<BrowserHistoryItem[]> {
   if (!api?.history) throw new Error("Browser history is unavailable");
-  const items = await api.history.search(createHistoryQuery(options));
+  const query = createHistoryQuery(options);
+  const items = await callBrowserApi<BrowserHistoryItem[]>(api, (callback) =>
+    api.history!.search(query, (result) => callback(result)),
+  );
   return normalizeHistoryItems(items);
 }
 
@@ -139,7 +219,9 @@ export async function deleteBrowserHistoryUrl(
   api: ChromiumExtensionApi | undefined = getChromiumExtensionApi(),
 ): Promise<void> {
   if (!api?.history) throw new Error("Browser history is unavailable");
-  await api.history.deleteUrl({ url });
+  await callBrowserApi<void>(api, (callback) =>
+    api.history!.deleteUrl({ url }, () => callback()),
+  );
 }
 
 export async function deleteBrowserHistoryRange(
@@ -147,14 +229,18 @@ export async function deleteBrowserHistoryRange(
   api: ChromiumExtensionApi | undefined = getChromiumExtensionApi(),
 ): Promise<void> {
   if (!api?.history) throw new Error("Browser history is unavailable");
-  await api.history.deleteRange(range);
+  await callBrowserApi<void>(api, (callback) =>
+    api.history!.deleteRange(range, () => callback()),
+  );
 }
 
 export async function deleteAllBrowserHistory(
   api: ChromiumExtensionApi | undefined = getChromiumExtensionApi(),
 ): Promise<void> {
   if (!api?.history) throw new Error("Browser history is unavailable");
-  await api.history.deleteAll();
+  await callBrowserApi<void>(api, (callback) =>
+    api.history!.deleteAll(() => callback()),
+  );
 }
 
 export function subscribeToBrowserHistoryChanges(

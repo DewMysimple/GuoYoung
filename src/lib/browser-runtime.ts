@@ -81,23 +81,40 @@ export interface BrowserHistoryRemovedEvent {
   urls?: string[];
 }
 
+export type BrowserApiResult<T> = T | PromiseLike<T> | void;
+
 export interface BrowserHistoryChangedEvent<T> {
   addListener: (callback: (value: T) => void) => void;
   removeListener: (callback: (value: T) => void) => void;
 }
 
 export interface BrowserHistoryApi {
-  search: (query: BrowserHistoryQuery) => Promise<BrowserHistoryItem[]>;
-  deleteUrl: (details: { url: string }) => Promise<void>;
-  deleteRange: (range: { startTime: number; endTime: number }) => Promise<void>;
-  deleteAll: () => Promise<void>;
+  search: (
+    query: BrowserHistoryQuery,
+    callback?: (items: BrowserHistoryItem[]) => void,
+  ) => BrowserApiResult<BrowserHistoryItem[]>;
+  deleteUrl: (
+    details: { url: string },
+    callback?: () => void,
+  ) => BrowserApiResult<void>;
+  deleteRange: (
+    range: { startTime: number; endTime: number },
+    callback?: () => void,
+  ) => BrowserApiResult<void>;
+  deleteAll: (callback?: () => void) => BrowserApiResult<void>;
   onVisited?: BrowserHistoryChangedEvent<BrowserHistoryItem>;
   onVisitRemoved?: BrowserHistoryChangedEvent<BrowserHistoryRemovedEvent>;
 }
 
 export interface BrowserPermissionsApi {
-  contains: (permissions: { permissions?: string[] }) => Promise<boolean>;
-  request: (permissions: { permissions?: string[] }) => Promise<boolean>;
+  contains: (
+    permissions: { permissions?: string[] },
+    callback?: (result: boolean) => void,
+  ) => BrowserApiResult<boolean>;
+  request: (
+    permissions: { permissions?: string[] },
+    callback?: (granted: boolean) => void,
+  ) => BrowserApiResult<boolean>;
   onAdded?: BrowserPermissionChangedEvent;
 }
 
@@ -121,6 +138,7 @@ export interface ChromiumExtensionApi {
     getURL?: (path: string) => string;
     sendMessage?: (message: unknown) => Promise<unknown> | void;
     onMessage?: BrowserRuntimeMessageEvent;
+    lastError?: { message?: string };
   };
   search?: BrowserSearchApi;
   tabs?: BrowserTabsApi;

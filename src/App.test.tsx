@@ -81,6 +81,12 @@ describe("App", () => {
     expect(
       screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "打开收藏主页" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "打开历史记录" }),
+    ).toBeInTheDocument();
   });
 
   it("previews and persists a custom brand name and visibility", async () => {

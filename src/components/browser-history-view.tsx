@@ -18,6 +18,7 @@ import {
   searchBrowserHistory,
   subscribeToBrowserHistoryChanges,
   type BrowserHistoryAvailability,
+  type BrowserHistoryPermissionResult,
   type HistoryTimeRange,
 } from "../lib/browser-history";
 import {
@@ -29,7 +30,11 @@ import { getHostname } from "../lib/site-utils";
 
 interface BrowserHistoryViewProps {
   onBack: () => void;
-  onRequestPermission: () => Promise<boolean> | void;
+  onRequestPermission: () =>
+    | Promise<BrowserHistoryPermissionResult>
+    | BrowserHistoryPermissionResult
+    | void;
+  permissionError?: string | null;
   permissionVersion?: number;
   api?: ChromiumExtensionApi;
 }
@@ -109,6 +114,7 @@ function HistoryFavicon({ item }: { item: BrowserHistoryItem }) {
 export function BrowserHistoryView({
   onBack,
   onRequestPermission,
+  permissionError: externalPermissionError = null,
   permissionVersion = 0,
   api = getChromiumExtensionApi(),
 }: BrowserHistoryViewProps) {
@@ -120,6 +126,10 @@ export function BrowserHistoryView({
   const [timeRange, setTimeRange] = useState<HistoryTimeRange>("all");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [permissionLoading, setPermissionLoading] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(
+    externalPermissionError,
+  );
   const [error, setError] = useState<string | null>(null);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(
     () => new Set(),
@@ -138,6 +148,10 @@ export function BrowserHistoryView({
       active = false;
     };
   }, [api, permissionVersion]);
+
+  useEffect(() => {
+    setPermissionError(externalPermissionError);
+  }, [externalPermissionError]);
 
   useEffect(() => {
     if (availability !== "granted") return;
@@ -229,8 +243,25 @@ export function BrowserHistoryView({
     selectableItems.every((item) => selectedUrls.has(item.url));
 
   async function refreshPermission() {
-    await onRequestPermission();
-    setAvailability(await readHistoryAvailability(api));
+    if (permissionLoading) return;
+    setPermissionLoading(true);
+    setPermissionError(null);
+    try {
+      const result = await onRequestPermission();
+      const nextAvailability = await readHistoryAvailability(api);
+      setAvailability(nextAvailability);
+      if (nextAvailability === "granted") {
+        setPermissionError(null);
+      } else if (result && !result.granted) {
+        setPermissionError(
+          result.error ?? "浏览器未完成历史记录授权，请检查扩展权限后重试。",
+        );
+      }
+    } catch {
+      setPermissionError("浏览器未完成历史记录授权，请检查扩展权限后重试。");
+    } finally {
+      setPermissionLoading(false);
+    }
   }
 
   function toggleSelected(url: string) {
@@ -324,14 +355,20 @@ export function BrowserHistoryView({
         <p>
           为了在 Mysimple 中查询和管理历史记录，需要获得浏览器的历史权限。历史数据不会写入 Mysimple 收藏或上传到网络。
         </p>
+        {permissionError && (
+          <p className="history-permission-error" role="alert">
+            {permissionError}
+          </p>
+        )}
         <div className="history-state-actions">
           <button
             type="button"
             className="button primary-button"
+            disabled={permissionLoading}
             onClick={() => void refreshPermission()}
           >
             <ClockCounterClockwise size={17} />
-            允许读取历史记录
+            {permissionLoading ? "正在请求权限…" : "允许读取历史记录"}
           </button>
           <button type="button" className="button secondary-button" onClick={onBack}>
             返回收藏

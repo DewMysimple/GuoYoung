@@ -59,17 +59,25 @@ test("opens the browser history entry and explains the web-only limitation", asy
   page,
 }) => {
   const brand = page.getByRole("link", { name: "Mysimple 首页" });
+  const homeButton = page.getByRole("button", { name: "打开收藏主页" });
   const historyButton = page.getByRole("button", { name: "打开历史记录" });
   await expect(historyButton).toBeVisible();
   const brandBox = await brand.boundingBox();
+  const homeBox = await homeButton.boundingBox();
   const historyBox = await historyButton.boundingBox();
-  if (!brandBox || !historyBox) throw new Error("Topbar navigation is not visible");
+  if (!brandBox || !homeBox || !historyBox) {
+    throw new Error("Topbar navigation is not visible");
+  }
   expect(historyBox.x).toBeGreaterThan(brandBox.x + brandBox.width - 1);
+  expect(homeBox.x).toBeGreaterThan(brandBox.x + brandBox.width - 1);
+  expect(historyBox.x).toBeGreaterThan(homeBox.x + homeBox.width - 1);
 
   await historyButton.click();
   await expect(
     page.getByRole("heading", { name: "历史记录仅在扩展版可用" }),
   ).toBeVisible();
+  await homeButton.click();
+  await expect(page.getByRole("heading", { name: "全部网站" })).toBeVisible();
 });
 
 test("loads and deletes browser history through the extension adapter", async ({
@@ -148,6 +156,21 @@ test("loads and deletes browser history through the extension adapter", async ({
   const exampleRow = page.locator(".history-row").filter({ hasText: "Example" });
   await expect(githubRow).toBeVisible();
   await expect(exampleRow).toBeVisible();
+  await expect(page.locator(".history-row").first()).toHaveCSS(
+    "padding-left",
+    testInfo.project.name === "mobile" ? "14px" : "20px",
+  );
+  await expect(page.locator(".history-row").first()).toHaveCSS(
+    "column-gap",
+    testInfo.project.name === "mobile" ? "12px" : "16px",
+  );
+  await expect(page.locator(".history-day h2").first()).toHaveCSS(
+    "padding-left",
+    testInfo.project.name === "mobile" ? "14px" : "20px",
+  );
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth));
   await page.screenshot({
     path: screenshotPath(`browser-history-${testInfo.project.name}.png`),
     fullPage: true,
@@ -156,6 +179,59 @@ test("loads and deletes browser history through the extension adapter", async ({
   await page.getByRole("button", { name: "删除历史记录 GitHub" }).click();
   await expect(githubRow).toHaveCount(0);
   await expect(exampleRow).toBeVisible();
+});
+
+test("loads browser history through callback-style Edge APIs", async ({ page }) => {
+  await page.addInitScript(() => {
+    let granted = false;
+    const entries = [
+      {
+        id: "edge-callback-history",
+        title: "Edge Callback Example",
+        url: "https://edge-callback.example",
+        lastVisitTime: Date.now(),
+        visitCount: 2,
+      },
+    ];
+    const history = {
+      search: (
+        _query: unknown,
+        callback?: (items: typeof entries) => void,
+      ) => {
+        queueMicrotask(() => callback?.(entries));
+      },
+      deleteUrl: (_details: unknown, callback?: () => void) => {
+        queueMicrotask(() => callback?.());
+      },
+      deleteRange: (_range: unknown, callback?: () => void) => {
+        queueMicrotask(() => callback?.());
+      },
+      deleteAll: (callback?: () => void) => {
+        queueMicrotask(() => callback?.());
+      },
+    };
+    (globalThis as typeof globalThis & { chrome?: unknown }).chrome = {
+      runtime: { id: "edge-callback-extension" },
+      permissions: {
+        contains: (
+          _details: unknown,
+          callback?: (value: boolean) => void,
+        ) => queueMicrotask(() => callback?.(granted)),
+        request: (
+          _details: unknown,
+          callback?: (value: boolean) => void,
+        ) => {
+          granted = true;
+          queueMicrotask(() => callback?.(true));
+        },
+      },
+      history,
+    };
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "打开历史记录" }).click();
+  await expect(page.getByText("Edge Callback Example", { exact: true })).toBeVisible();
+  await expect(page.getByText("访问 2 次")).toBeVisible();
 });
 
 test("drags beyond 50px without waiting and keeps the order after refresh", async ({
