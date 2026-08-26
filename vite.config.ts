@@ -15,8 +15,16 @@ export default defineConfig(({ mode }) => ({
           ? {
               main: resolve(__dirname, "index.html"),
               popup: resolve(__dirname, "popup.html"),
+              background: resolve(__dirname, "src/background.ts"),
             }
           : resolve(__dirname, "index.html"),
+      ...(mode === "extension"
+        ? {
+            output: {
+              entryFileNames: "[name].js",
+            },
+          }
+        : {}),
     },
   },
   test: {

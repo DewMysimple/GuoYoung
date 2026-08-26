@@ -55,6 +55,7 @@ import {
 import { motion, useReducedMotion } from "framer-motion";
 import { AddSiteCard } from "./components/add-site-card";
 import { BrandMark } from "./components/brand-mark";
+import { BrowserHistoryView } from "./components/browser-history-view";
 import { ConfirmDialog } from "./components/confirm-dialog";
 import { GroupDialog } from "./components/group-dialog";
 import {
@@ -83,6 +84,7 @@ import { OTHER_GROUP_ID } from "./data/defaults";
 import { useSiteHub } from "./hooks/use-site-hub";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
+import { requestHistoryPermission } from "./lib/browser-history";
 import { searchWeb } from "./lib/browser-search";
 import type { DroppedSitePreview } from "./lib/external-link-drop";
 import {
@@ -307,6 +309,8 @@ export function App() {
   );
   const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [browserHistoryOpen, setBrowserHistoryOpen] = useState(false);
+  const [historyPermissionVersion, setHistoryPermissionVersion] = useState(0);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [sortMode, setSortMode] = useState<SiteSortMode>("manual");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -2022,6 +2026,19 @@ export function App() {
     setSettingsOpen(true);
   }
 
+  async function requestBrowserHistoryAccess() {
+    const granted = await requestHistoryPermission();
+    if (granted) {
+      setHistoryPermissionVersion((current) => current + 1);
+    }
+    return granted;
+  }
+
+  function openBrowserHistory() {
+    setBrowserHistoryOpen(true);
+    void requestBrowserHistoryAccess();
+  }
+
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
     const file = input.files?.[0];
@@ -2244,18 +2261,31 @@ export function App() {
       )}
       <header className="topbar">
         <div className="topbar-inner">
-          {(effectiveBrand.showLogo || effectiveBrand.showName) && (
-            <a
-              className="brand"
-              href="/"
-              aria-label={`${effectiveBrand.name} 首页`}
+          <div className="topbar-navigation">
+            {(effectiveBrand.showLogo || effectiveBrand.showName) && (
+              <a
+                className="brand"
+                href="/"
+                aria-label={`${effectiveBrand.name} 首页`}
+                onClick={() => setBrowserHistoryOpen(false)}
+              >
+                {effectiveBrand.showLogo && <BrandMark brand={effectiveBrand} />}
+                {effectiveBrand.showName && (
+                  <span className="brand-name">{effectiveBrand.name}</span>
+                )}
+              </a>
+            )}
+            <button
+              type="button"
+              className={`topbar-history-button ${browserHistoryOpen ? "active" : ""}`}
+              aria-label="打开历史记录"
+              aria-pressed={browserHistoryOpen}
+              onClick={openBrowserHistory}
             >
-              {effectiveBrand.showLogo && <BrandMark brand={effectiveBrand} />}
-              {effectiveBrand.showName && (
-                <span className="brand-name">{effectiveBrand.name}</span>
-              )}
-            </a>
-          )}
+              <ClockCounterClockwise size={18} weight="regular" />
+              <span>历史记录</span>
+            </button>
+          </div>
           <div className="topbar-actions">
             <button
               type="button"
@@ -2323,6 +2353,14 @@ export function App() {
       </header>
 
       <main className="page-container main-content">
+        {browserHistoryOpen ? (
+          <BrowserHistoryView
+            onBack={() => setBrowserHistoryOpen(false)}
+            onRequestPermission={requestBrowserHistoryAccess}
+            permissionVersion={historyPermissionVersion}
+          />
+        ) : (
+          <>
         <motion.section
           className="workspace-intro"
           initial={reduceMotion ? false : { opacity: 0, y: 16 }}
@@ -2992,19 +3030,23 @@ export function App() {
               )}
           </motion.div>
         </section>
+          </>
+        )}
       </main>
 
       <div className="visually-hidden" role="status" aria-live="polite">
         {groupSortAnnouncement}
       </div>
 
-      <footer className="page-container footer">
-        <span>
-          {storageMode === "extension"
-            ? `扩展本地保存 · ${state.sites.length} 个网站`
-            : `浏览器本地保存 · ${state.sites.length} 个网站`}
-        </span>
-      </footer>
+      {!browserHistoryOpen ? (
+        <footer className="page-container footer">
+          <span>
+            {storageMode === "extension"
+              ? `扩展本地保存 · ${state.sites.length} 个网站`
+              : `浏览器本地保存 · ${state.sites.length} 个网站`}
+          </span>
+        </footer>
+      ) : null}
 
       <SiteDialog
         open={siteDialogOpen}

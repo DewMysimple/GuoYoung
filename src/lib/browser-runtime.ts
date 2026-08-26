@@ -60,14 +60,73 @@ export interface BrowserBookmarksApi {
   removeTree: (id: string) => Promise<void>;
 }
 
+export interface BrowserHistoryItem {
+  id: string;
+  title?: string;
+  url?: string;
+  lastVisitTime?: number;
+  visitCount?: number;
+  typedCount?: number;
+}
+
+export interface BrowserHistoryQuery {
+  text: string;
+  startTime?: number;
+  endTime?: number;
+  maxResults?: number;
+}
+
+export interface BrowserHistoryRemovedEvent {
+  allHistory: boolean;
+  urls?: string[];
+}
+
+export interface BrowserHistoryChangedEvent<T> {
+  addListener: (callback: (value: T) => void) => void;
+  removeListener: (callback: (value: T) => void) => void;
+}
+
+export interface BrowserHistoryApi {
+  search: (query: BrowserHistoryQuery) => Promise<BrowserHistoryItem[]>;
+  deleteUrl: (details: { url: string }) => Promise<void>;
+  deleteRange: (range: { startTime: number; endTime: number }) => Promise<void>;
+  deleteAll: () => Promise<void>;
+  onVisited?: BrowserHistoryChangedEvent<BrowserHistoryItem>;
+  onVisitRemoved?: BrowserHistoryChangedEvent<BrowserHistoryRemovedEvent>;
+}
+
+export interface BrowserPermissionsApi {
+  contains: (permissions: { permissions?: string[] }) => Promise<boolean>;
+  request: (permissions: { permissions?: string[] }) => Promise<boolean>;
+  onAdded?: BrowserPermissionChangedEvent;
+}
+
+export interface BrowserPermissionChangedEvent {
+  addListener: (callback: (permissions: { permissions?: string[] }) => void) => void;
+  removeListener: (callback: (permissions: { permissions?: string[] }) => void) => void;
+}
+
+export interface BrowserRuntimeMessageEvent {
+  addListener: (
+    callback: (message: unknown, sender?: unknown, sendResponse?: unknown) => void,
+  ) => void;
+  removeListener: (
+    callback: (message: unknown, sender?: unknown, sendResponse?: unknown) => void,
+  ) => void;
+}
+
 export interface ChromiumExtensionApi {
   runtime?: {
     id?: string;
     getURL?: (path: string) => string;
+    sendMessage?: (message: unknown) => Promise<unknown> | void;
+    onMessage?: BrowserRuntimeMessageEvent;
   };
   search?: BrowserSearchApi;
   tabs?: BrowserTabsApi;
   bookmarks?: BrowserBookmarksApi;
+  history?: BrowserHistoryApi;
+  permissions?: BrowserPermissionsApi;
   storage?: {
     local?: BrowserStorageArea;
     onChanged?: BrowserStorageChangedEvent;

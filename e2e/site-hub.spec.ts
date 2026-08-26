@@ -55,6 +55,109 @@ test("filters favorites and disables sorting", async ({ page }) => {
   await expect(page.getByRole("button", { name: "搜索时无法排序" })).toBeDisabled();
 });
 
+test("opens the browser history entry and explains the web-only limitation", async ({
+  page,
+}) => {
+  const brand = page.getByRole("link", { name: "Mysimple 首页" });
+  const historyButton = page.getByRole("button", { name: "打开历史记录" });
+  await expect(historyButton).toBeVisible();
+  const brandBox = await brand.boundingBox();
+  const historyBox = await historyButton.boundingBox();
+  if (!brandBox || !historyBox) throw new Error("Topbar navigation is not visible");
+  expect(historyBox.x).toBeGreaterThan(brandBox.x + brandBox.width - 1);
+
+  await historyButton.click();
+  await expect(
+    page.getByRole("heading", { name: "历史记录仅在扩展版可用" }),
+  ).toBeVisible();
+});
+
+test("loads and deletes browser history through the extension adapter", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    let entries = [
+      {
+        id: "history-github",
+        title: "GitHub",
+        url: "https://github.com/openai",
+        lastVisitTime: Date.now(),
+        visitCount: 3,
+      },
+      {
+        id: "history-example",
+        title: "Example",
+        url: "https://example.com",
+        lastVisitTime: Date.now() - 60_000,
+        visitCount: 1,
+      },
+    ];
+    const visitedListeners = new Set<(item: unknown) => void>();
+    const removedListeners = new Set<() => void>();
+    const messageListeners = new Set<(message: unknown) => void>();
+    const notifyRemoved = () => {
+      removedListeners.forEach((listener) => listener());
+      messageListeners.forEach((listener) => listener("browser-history-invalidated"));
+    };
+    const history = {
+      search: async ({ text }: { text: string }) =>
+        entries.filter((entry) =>
+          `${entry.title} ${entry.url}`.toLowerCase().includes(text.toLowerCase()),
+        ),
+      deleteUrl: async ({ url }: { url: string }) => {
+        entries = entries.filter((entry) => entry.url !== url);
+        notifyRemoved();
+      },
+      deleteRange: async () => {
+        entries = [];
+        notifyRemoved();
+      },
+      deleteAll: async () => {
+        entries = [];
+        notifyRemoved();
+      },
+      onVisited: {
+        addListener: (listener: (item: unknown) => void) => visitedListeners.add(listener),
+        removeListener: (listener: (item: unknown) => void) => visitedListeners.delete(listener),
+      },
+      onVisitRemoved: {
+        addListener: (listener: () => void) => removedListeners.add(listener),
+        removeListener: (listener: () => void) => removedListeners.delete(listener),
+      },
+    };
+    (globalThis as typeof globalThis & { chrome?: unknown }).chrome = {
+      runtime: {
+        id: "e2e-history-extension",
+        onMessage: {
+          addListener: (listener: (message: unknown) => void) => messageListeners.add(listener),
+          removeListener: (listener: (message: unknown) => void) => messageListeners.delete(listener),
+        },
+        sendMessage: async () => undefined,
+      },
+      permissions: {
+        contains: async () => true,
+        request: async () => true,
+      },
+      history,
+    };
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "打开历史记录" }).click();
+  await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();
+  const githubRow = page.locator(".history-row").filter({ hasText: "GitHub" });
+  const exampleRow = page.locator(".history-row").filter({ hasText: "Example" });
+  await expect(githubRow).toBeVisible();
+  await expect(exampleRow).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`browser-history-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+
+  await page.getByRole("button", { name: "删除历史记录 GitHub" }).click();
+  await expect(githubRow).toHaveCount(0);
+  await expect(exampleRow).toBeVisible();
+});
+
 test("drags beyond 50px without waiting and keeps the order after refresh", async ({
   page,
 }) => {
