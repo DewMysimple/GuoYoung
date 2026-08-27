@@ -46,6 +46,10 @@ const layoutPresets: LayoutPreset[] = [
 ];
 const brandLogoSources: BrandLogoSource[] = ["default", "local", "url"];
 const displayModes: SiteDisplayMode[] = ["flat", "grouped"];
+const DEFAULT_DISPLAY_MODE_BY_WORKSPACE = {
+  main: "flat" as SiteDisplayMode,
+  github: "flat" as SiteDisplayMode,
+};
 const trashRetentionOptions: TrashRetentionDays[] = [7, 30, 90, null];
 const wallpaperSources: WallpaperSource[] = ["none", "url", "local"];
 const wallpaperFits: WallpaperFit[] = ["cover", "contain"];
@@ -542,7 +546,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 11 &&
+    state.version === 12 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -562,9 +566,36 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
     Boolean(state.wallpaper) &&
     Array.isArray(state.searchHistory) &&
     displayModes.includes(state.displayMode as SiteDisplayMode) &&
+    isDisplayModeByWorkspace(state.displayModeByWorkspace) &&
     (state.githubMigration === null ||
       isGithubMigrationRecord(state.githubMigration))
   );
+}
+
+function isDisplayModeByWorkspace(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    displayModes.includes(candidate.main as SiteDisplayMode) &&
+    displayModes.includes(candidate.github as SiteDisplayMode)
+  );
+}
+
+function normalizeDisplayModeByWorkspace(
+  value: unknown,
+  mainFallback: SiteDisplayMode,
+): SiteCollectionState["displayModeByWorkspace"] {
+  const candidate = value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+  return {
+    main: displayModes.includes(candidate.main as SiteDisplayMode)
+      ? (candidate.main as SiteDisplayMode)
+      : mainFallback,
+    github: displayModes.includes(candidate.github as SiteDisplayMode)
+      ? (candidate.github as SiteDisplayMode)
+      : DEFAULT_DISPLAY_MODE_BY_WORKSPACE.github,
+  };
 }
 
 function repairDuplicateOtherGroups(
@@ -647,6 +678,12 @@ function upgradeToVersion10(
     displayMode: displayModes.includes(legacy.displayMode as SiteDisplayMode)
       ? (legacy.displayMode as SiteDisplayMode)
       : "flat",
+    displayModeByWorkspace: {
+      ...DEFAULT_DISPLAY_MODE_BY_WORKSPACE,
+      main: displayModes.includes(legacy.displayMode as SiteDisplayMode)
+        ? (legacy.displayMode as SiteDisplayMode)
+        : DEFAULT_DISPLAY_MODE_BY_WORKSPACE.main,
+    },
   };
 }
 
@@ -690,6 +727,46 @@ function upgradeToVersion11(
       workspace: "main",
     })),
   });
+}
+
+function upgradeToVersion12(
+  legacy: Record<string, unknown> | SiteCollectionState,
+): SiteCollectionState | undefined {
+  if (legacy.version === 12) {
+    if (!baseStateIsValid(legacy as Record<string, unknown>, true)) {
+      return undefined;
+    }
+    const candidate = legacy as SiteCollectionState;
+    const mainDisplayMode = displayModes.includes(
+      candidate.displayMode as SiteDisplayMode,
+    )
+      ? candidate.displayMode
+      : DEFAULT_DISPLAY_MODE_BY_WORKSPACE.main;
+    return {
+      ...candidate,
+      version: 12,
+      displayModeByWorkspace: normalizeDisplayModeByWorkspace(
+        candidate.displayModeByWorkspace,
+        mainDisplayMode,
+      ),
+    };
+  }
+
+  const base =
+    legacy.version === 11 || legacy.version === 10
+      ? upgradeToVersion11(legacy as Record<string, unknown>)
+      : undefined;
+  if (!base) return undefined;
+  return {
+    ...base,
+    version: 12,
+    displayModeByWorkspace: normalizeDisplayModeByWorkspace(
+      undefined,
+      displayModes.includes(base.displayMode as SiteDisplayMode)
+        ? base.displayMode
+        : DEFAULT_DISPLAY_MODE_BY_WORKSPACE.main,
+    ),
+  };
 }
 
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
@@ -810,7 +887,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 11
+        candidate.version === 12 || candidate.version === 11
           ? candidate
           : candidate.version === 10 ||
               candidate.version === 9 ||
@@ -818,7 +895,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion11(baseCandidate)
+        ? upgradeToVersion12(baseCandidate)
         : undefined;
       if (migrated) {
         return {

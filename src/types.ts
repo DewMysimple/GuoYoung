@@ -161,6 +161,8 @@ export interface AppearanceSettings {
 
 export type SiteDisplayMode = "flat" | "grouped";
 
+export type WorkspaceDisplayModes = Record<SiteWorkspace, SiteDisplayMode>;
+
 export type WallpaperSource = "none" | "url" | "local";
 export type WallpaperFit = "cover" | "contain";
 export interface WallpaperSettings {
@@ -195,6 +197,7 @@ export interface SiteCollectionState {
   wallpaper: WallpaperSettings;
   searchHistory: SearchHistoryEntry[];
   displayMode: SiteDisplayMode;
+  displayModeByWorkspace: WorkspaceDisplayModes;
   githubMigration?: GithubMigrationRecord | null;
 }
 

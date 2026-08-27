@@ -1244,31 +1244,145 @@ label:has(input:focus-visible) {
   font-size: 13px;
 }
 
-.github-migration-banner {
+.github-home-entry {
   display: flex;
+  min-height: 104px;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 24px;
   margin-bottom: 20px;
-  padding: 14px 16px 14px 18px;
+  padding: 20px 24px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface));
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent-soft) 68%, transparent), transparent 48%),
+    color-mix(in srgb, var(--surface) 94%, var(--accent-soft));
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-.github-migration-banner div {
-  display: grid;
-  gap: 3px;
+.github-home-entry-copy {
+  display: flex;
   min-width: 0;
+  align-items: center;
+  gap: 16px;
 }
 
-.github-migration-banner strong {
-  font-size: 14px;
+.github-home-entry-copy > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
 }
 
-.github-migration-banner span {
+.github-home-entry-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 780;
+  letter-spacing: -0.025em;
+}
+
+.github-home-entry-copy > div > span {
+  overflow: hidden;
   color: var(--text-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.github-home-entry-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 16px;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent-soft) 74%, var(--surface));
+}
+
+.github-home-entry-icon .favicon-frame,
+.github-home-entry-icon .favicon-fallback {
+  width: 42px;
+  height: 42px;
+}
+
+.github-home-entry-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.github-home-entry-open {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.github-home-entry-menu {
+  position: relative;
+}
+
+.github-home-entry-menu-trigger {
+  width: 40px;
+  height: 40px;
+  color: var(--text-soft);
+  background: var(--surface);
+}
+
+.github-home-entry-menu-trigger[aria-expanded="true"] {
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  background: var(--accent-soft);
+}
+
+.github-home-entry-menu-popover {
+  position: absolute;
+  z-index: 35;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  min-width: 188px;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  box-shadow: var(--shadow-dialog);
+  backdrop-filter: blur(18px);
+}
+
+.github-home-entry-menu-popover button {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 12px;
+}
+
+.github-home-entry-menu-popover button:hover,
+.github-home-entry-menu-popover button:focus-visible {
+  background: var(--surface-raised);
+  outline: none;
+}
+
+.github-home-entry-menu-popover button.is-danger:hover,
+.github-home-entry-menu-popover button.is-danger:focus-visible {
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .transfer-banner {
@@ -4789,14 +4903,20 @@ label:has(input:focus-visible) {
     gap: 11px;
   }
 
-  .github-migration-banner {
+  .github-home-entry {
     align-items: stretch;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
+    padding: 18px;
   }
 
-  .github-migration-banner .button {
-    align-self: flex-start;
+  .github-home-entry-actions {
+    width: 100%;
+  }
+
+  .github-home-entry-open {
+    flex: 1;
+    justify-content: center;
   }
 
   .history-selection-actions {
@@ -5006,6 +5126,25 @@ label:has(input:focus-visible) {
   .theme-button {
     width: 42px;
     height: 42px;
+  }
+
+  .github-home-entry-copy {
+    gap: 12px;
+  }
+
+  .github-home-entry-icon {
+    width: 50px;
+    height: 50px;
+    flex-basis: 50px;
+    border-radius: 14px;
+  }
+
+  .github-home-entry-copy strong {
+    font-size: 15px;
+  }
+
+  .github-home-entry-copy > div > span {
+    font-size: 12px;
   }
 
   .search-input {

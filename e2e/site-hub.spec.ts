@@ -32,7 +32,7 @@ test.beforeEach(async ({ page, context }) => {
 });
 
 test("adds a website and keeps it after refresh", async ({ page }) => {
-  await expect(page.getByRole("link", { name: "打开 GitHub" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "打开 GitHub", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "添加", exact: true }).click();
   await page.getByRole("menuitem", { name: /添加网站/ }).click();
   const dialog = page.getByRole("dialog", { name: "添加网站" });
@@ -86,22 +86,40 @@ test("opens the browser history entry and explains the web-only limitation", asy
 test("opens the independent GitHub workspace and can undo its first migration", async ({
   page,
 }, testInfo) => {
+  await page.evaluate(() => {
+    const key = "site-hub:v1";
+    const state = JSON.parse(localStorage.getItem(key)!);
+    const source = state.sites.find((site: { id: string }) => site.id === "codepen");
+    state.sites.push({
+      ...source,
+      id: "github-test-repo",
+      name: "GitHub Test Repo",
+      url: "https://github.com/openai/openai",
+      groupId: "develop",
+      order: 3,
+      globalOrder: state.sites.length,
+    });
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await page.reload();
   const githubButton = page.getByRole("button", { name: "打开 GitHub 收藏" });
   await githubButton.click();
   await expect(page.getByRole("heading", { name: "全部 GitHub" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "打开 GitHub" })).toBeVisible();
-  await expect(page.getByText("GitHub 收藏已整理")).toBeVisible();
+  await expect(page.getByRole("link", { name: "打开 GitHub", exact: true })).toBeVisible();
+  await expect(page.getByText("GitHub 收藏已整理")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "打开 GitHub Test Repo" })).toBeVisible();
   await page.screenshot({
     path: screenshotPath(`github-workspace-${testInfo.project.name}.png`),
     fullPage: true,
   });
 
-  await page.getByRole("button", { name: "恢复原分组" }).click();
-  await expect(page.getByRole("link", { name: "打开 GitHub" })).toHaveCount(0);
+  await page.getByRole("button", { name: "管理 GitHub 官方主页" }).click();
+  await page.getByRole("menuitem", { name: /撤销上次整理（1 项）/ }).click();
+  await expect(page.getByRole("link", { name: "打开 GitHub Test Repo" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "打开收藏主页" }).click();
   await expect(page.getByRole("heading", { name: "全部网站" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "打开 GitHub" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "打开 GitHub", exact: true })).toBeVisible();
 });
 
 test("loads and deletes browser history through the extension adapter", async ({
@@ -629,7 +647,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(11);
+  expect(saved.version).toBe(12);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -2675,6 +2693,7 @@ test("wraps grouped cards without creating horizontal page overflow", async ({
     }));
     state.sites.push(...clones);
     state.displayMode = "grouped";
+    state.displayModeByWorkspace.main = "grouped";
     localStorage.setItem(key, JSON.stringify(state));
   });
   await page.reload();
@@ -2703,6 +2722,7 @@ test("reorders card C to card A inside one group without opening it", async ({
     const key = "site-hub:v1";
     const state = JSON.parse(localStorage.getItem(key)!);
     state.displayMode = "grouped";
+    state.displayModeByWorkspace.main = "grouped";
     localStorage.setItem(key, JSON.stringify(state));
   });
   await page.reload();
@@ -2745,6 +2765,7 @@ test("keeps a forward drop target stable before committing the new position", as
     const key = "site-hub:v1";
     const state = JSON.parse(localStorage.getItem(key)!);
     state.displayMode = "grouped";
+    state.displayModeByWorkspace.main = "grouped";
     localStorage.setItem(key, JSON.stringify(state));
   });
   await page.reload();
@@ -2794,6 +2815,7 @@ test("moves a card across grouped rows while preserving its global order", async
     const key = "site-hub:v1";
     const state = JSON.parse(localStorage.getItem(key)!);
     state.displayMode = "grouped";
+    state.displayModeByWorkspace.main = "grouped";
     localStorage.setItem(key, JSON.stringify(state));
   });
   await page.reload();

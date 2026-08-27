@@ -12,6 +12,7 @@ import {
   trashSiteFromState,
   updateSiteInState,
   mergeGroupImportIntoState,
+  findSiteByUrl,
 } from "./site-state";
 import { createGroupExportPayload } from "./data-transfer";
 import { getSitesInGroup } from "./site-utils";
@@ -22,7 +23,7 @@ describe("site state operations", () => {
     const github = initial.sites.find((site) => site.id === "github")!;
     const moved = updateSiteInState(initial, github.id, {
       name: "GitHub 工作区",
-      url: github.url,
+      url: "https://github.com/DewMysimple/GuoYoung",
       groupId: "github-other",
       customIconUrl: "",
       iconSource: "auto",
@@ -54,7 +55,7 @@ describe("site state operations", () => {
       customIconUrl: "",
       iconSource: "auto",
     }, "postgres");
-    expect(withSite.version).toBe(11);
+    expect(withSite.version).toBe(12);
     expect(withSite.groups.find((group) => group.id === "database-group")?.name).toBe("数据库");
     expect(withSite.sites.find((site) => site.id === "postgres")?.groupId).toBe("database-group");
   });
@@ -88,6 +89,23 @@ describe("site state operations", () => {
     ).toThrow("GitHub 页面只允许添加");
   });
 
+  it("keeps the official GitHub homepage out of ordinary GitHub groups", () => {
+    expect(() =>
+      addSiteToState(createDefaultState(), {
+        name: "GitHub",
+        url: "https://github.com/",
+        groupId: "github-other",
+        customIconUrl: "",
+        iconSource: "auto",
+      }),
+    ).toThrow("GitHub 官方主页请通过顶部入口管理");
+  });
+
+  it("treats github.com and www.github.com roots as one shared URL", () => {
+    const state = createDefaultState();
+    expect(findSiteByUrl(state.sites, "https://www.github.com/")?.id).toBe("github");
+  });
+
   it("inserts a group before an existing group without moving Other", () => {
     const result = addGroupToState(
       createDefaultState(),
@@ -107,7 +125,7 @@ describe("site state operations", () => {
       "develop",
     ]);
     expect(ordered.at(-1)?.id).toBe(OTHER_GROUP_ID);
-    expect(result.version).toBe(11);
+    expect(result.version).toBe(12);
   });
 
   it("deletes a group and moves its sites to trash", () => {

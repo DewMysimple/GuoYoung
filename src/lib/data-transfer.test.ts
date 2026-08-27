@@ -21,7 +21,10 @@ describe("data transfer", () => {
       exportVersion: 1,
       exportedAt: "2026-07-29T00:00:00.000Z",
     });
-    expect(parseImportFile(serializeExport(state))).toEqual(state);
+    const restored = parseImportFile(serializeExport(state));
+    const { githubMigration: _githubMigration, ...stateWithoutMigration } = state;
+    expect(restored).toEqual(stateWithoutMigration);
+    expect(restored.githubMigration).toBeUndefined();
   });
 
   it("accepts direct legacy state files through the existing migrations", () => {
@@ -73,7 +76,7 @@ describe("data transfer", () => {
 
     const payload = createExportPayload(state);
     expect(payload.state.githubMigration).toBeUndefined();
-    expect(parseImportFile(serializeExport(state)).githubMigration).toBeNull();
+    expect(parseImportFile(serializeExport(state)).githubMigration).toBeUndefined();
   });
 
   it("keeps a compressed local brand logo inside portable exports", () => {

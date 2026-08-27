@@ -6,7 +6,7 @@ import {
   normalizeOptionalIconUrl,
   normalizeUrl,
 } from "../lib/site-utils";
-import { isGithubUrl } from "../lib/github-workspace";
+import { isGithubHomeUrl, isGithubUrl } from "../lib/github-workspace";
 import { findSiteByUrl } from "../lib/site-state";
 import type {
   SiteFormValues,
@@ -63,6 +63,9 @@ export function SiteDialog({
     if (!open) return;
     const defaultGroupId =
       groups.find((group) => group.id === initialGroupId)?.id ?? groups[0]?.id ?? "";
+    const editingGroupId = editingSite
+      ? groups.find((group) => group.id === editingSite.groupId)?.id ?? defaultGroupId
+      : defaultGroupId;
     const prefillName = prefill?.name?.trim() ||
       (prefill?.url ? inferSiteName(prefill.url) : "") || "";
     setValues(
@@ -70,7 +73,7 @@ export function SiteDialog({
         ? {
             name: editingSite.name,
             url: editingSite.url,
-            groupId: editingSite.groupId,
+            groupId: editingGroupId,
             customIconUrl: editingSite.customIconUrl ?? "",
             iconSource:
               editingSite.iconSource ??
@@ -157,6 +160,8 @@ export function SiteDialog({
       url = normalizeUrl(values.url);
       if (workspace === "github" && !isGithubUrl(url)) {
         nextErrors.url = "GitHub 页面只允许添加 github.com 及其子域名";
+      } else if (workspace === "github" && isGithubHomeUrl(url)) {
+        nextErrors.url = "GitHub 官方主页请通过顶部入口管理";
       }
       const existing = findSiteByUrl(sites, url, editingSite?.id);
       if (existing) {

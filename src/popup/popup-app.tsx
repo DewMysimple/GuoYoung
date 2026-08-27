@@ -25,6 +25,12 @@ import {
   type BrowserBookmarkTreeNode,
   type BrowserTab,
 } from "../lib/browser-runtime";
+import {
+  getGithubOtherGroupId,
+  getWorkspaceGroups,
+  isGithubHomeUrl,
+  isGithubUrl,
+} from "../lib/github-workspace";
 import { createSiteHubStore } from "../lib/state-store";
 import {
   findSiteByUrl,
@@ -32,9 +38,40 @@ import {
   addSiteToState,
 } from "../lib/site-state";
 import { inferSiteName, normalizeUrl } from "../lib/site-utils";
-import type { SiteCollectionState } from "../types";
+import type { SiteCollectionState, SiteWorkspace } from "../types";
 
 type PopupTab = "quick" | "bookmarks";
+
+const POPUP_PREFERENCES_KEY = "site-hub:popup-preferences";
+
+interface PopupPreferences {
+  lastGithubGroupId?: string;
+}
+
+function readPopupPreferences(): PopupPreferences {
+  try {
+    const raw = localStorage.getItem(POPUP_PREFERENCES_KEY);
+    if (!raw) return {};
+    const candidate = JSON.parse(raw) as Record<string, unknown>;
+    return typeof candidate.lastGithubGroupId === "string"
+      ? { lastGithubGroupId: candidate.lastGithubGroupId }
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePopupPreferences(preferences: PopupPreferences) {
+  try {
+    localStorage.setItem(POPUP_PREFERENCES_KEY, JSON.stringify(preferences));
+  } catch {
+    // A restricted extension context should not block adding a site.
+  }
+}
+
+function getQuickWorkspace(url: string | undefined): SiteWorkspace {
+  return url && isGithubUrl(url) && !isGithubHomeUrl(url) ? "github" : "main";
+}
 
 function BookmarkCheckbox({
   checked,
@@ -137,6 +174,7 @@ export function PopupApp() {
   const [tab, setTab] = useState<PopupTab>("quick");
   const [state, setState] = useState<SiteCollectionState | null>(null);
   const [activeBrowserTab, setActiveBrowserTab] = useState<BrowserTab | null>(null);
+  const [quickWorkspace, setQuickWorkspace] = useState<SiteWorkspace>("main");
   const [quickName, setQuickName] = useState("");
   const [quickGroupId, setQuickGroupId] = useState("");
   const [quickDuplicateId, setQuickDuplicateId] = useState<string>();
@@ -155,10 +193,21 @@ export function PopupApp() {
   }, [notice]);
 
   const groups = useMemo(
-    () => state?.groups.slice().sort((a, b) => a.order - b.order) ?? [],
-    [state],
+    () => state ? getWorkspaceGroups(state.groups, quickWorkspace) : [],
+    [quickWorkspace, state],
   );
-  const defaultGroup = groups.find((group) => !group.isProtected) ?? groups[0];
+  const popupPreferences = useMemo(() => readPopupPreferences(), []);
+  const defaultGroup = useMemo(() => {
+    if (quickWorkspace === "github") {
+      return (
+        groups.find((group) => group.id === popupPreferences.lastGithubGroupId) ??
+        groups.find((group) => group.id === getGithubOtherGroupId(state!)) ??
+        groups.find((group) => !group.isProtected) ??
+        groups[0]
+      );
+    }
+    return groups.find((group) => !group.isProtected) ?? groups[0];
+  }, [groups, popupPreferences.lastGithubGroupId, quickWorkspace, state]);
 
   async function reloadBookmarks() {
     if (!api?.bookmarks) return;
@@ -177,11 +226,30 @@ export function PopupApp() {
     ]).then(([loaded, tabs, tree]) => {
       if (!active) return;
       setState(loaded.state);
-      const initialGroup =
-        loaded.state.groups.find((group) => !group.isProtected) ??
-        loaded.state.groups[0];
-      setQuickGroupId(initialGroup?.id ?? "");
       const current = tabs[0] ?? null;
+      const normalizedCurrentUrl = (() => {
+        try {
+          return current?.url ? normalizeUrl(current.url) : undefined;
+        } catch {
+          return undefined;
+        }
+      })();
+      const detectedWorkspace = getQuickWorkspace(normalizedCurrentUrl);
+      setQuickWorkspace(detectedWorkspace);
+      const detectedGroups = getWorkspaceGroups(
+        loaded.state.groups,
+        detectedWorkspace,
+      );
+      const detectedGroup = detectedWorkspace === "github"
+        ? detectedGroups.find(
+            (group) => group.id === readPopupPreferences().lastGithubGroupId,
+          ) ?? detectedGroups.find((group) => group.id === getGithubOtherGroupId(loaded.state))
+        : undefined;
+      const initialGroup =
+        detectedGroup ??
+        detectedGroups.find((group) => !group.isProtected) ??
+        detectedGroups[0];
+      setQuickGroupId(initialGroup?.id ?? "");
       setActiveBrowserTab(current);
       setQuickName(
         current?.title?.trim() ||
@@ -252,10 +320,21 @@ export function PopupApp() {
         ? updateSiteInState(state, duplicate.id, values)
         : addSiteToState(state, values);
       await saveNextState(next);
+      if (quickWorkspace === "github") {
+        savePopupPreferences({ lastGithubGroupId: quickGroupId });
+      }
       setQuickDuplicateId(undefined);
       setNotice({
         kind: "success",
-        text: duplicate ? "已移动并更新现有收藏。" : "当前网页已添加到主页。",
+        text: duplicate
+          ? quickWorkspace === "github"
+            ? "已移动并更新 GitHub 收藏。"
+            : "已移动并更新现有收藏。"
+          : quickWorkspace === "github"
+            ? "当前 GitHub 页面已添加到 GitHub 收藏。"
+            : isGithubHomeUrl(quickUrl ?? "")
+              ? "GitHub 官方主页已添加，并会显示在 GitHub 顶部。"
+              : "当前网页已添加到主页。",
       });
     } catch {
       setNotice({ kind: "error", text: "保存失败，请稍后重试。" });
@@ -375,7 +454,7 @@ export function PopupApp() {
             />
           </label>
           <label className="popup-field">
-            <span>添加到分组</span>
+            <span>{quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}</span>
             <select
               value={quickGroupId}
               disabled={!quickUrl}
@@ -391,7 +470,7 @@ export function PopupApp() {
             <div className="duplicate-popup-notice">
               <Warning size={18} />
               <span>
-                已收藏在“{groups.find((group) => group.id === duplicate.groupId)?.name ?? "其他"}”。再次确认会移动到当前分组并更新名称。
+                已收藏在“{state.groups.find((group) => group.id === duplicate.groupId)?.name ?? "其他"}”。再次确认会移动到当前分组并更新名称。
               </span>
             </div>
           )}
@@ -401,7 +480,13 @@ export function PopupApp() {
             disabled={!quickUrl || !quickName.trim() || busy}
             onClick={handleQuickAdd}
           >
-            {duplicate && quickDuplicateId ? "确认移动并更新" : "添加到主页"}
+            {duplicate && quickDuplicateId
+              ? "确认移动并更新"
+              : quickWorkspace === "github"
+                ? "添加到 GitHub"
+                : isGithubHomeUrl(quickUrl ?? "")
+                  ? "添加到主页并同步顶部入口"
+                  : "添加到主页"}
           </button>
         </section>
       ) : (

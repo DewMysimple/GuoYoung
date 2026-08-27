@@ -28,6 +28,7 @@ import {
 } from "../lib/site-state";
 import {
   migrateGithubSitesInState,
+  moveGithubHomeToMainInState,
   undoGithubMigrationInState,
 } from "../lib/github-workspace";
 import type { GroupExportPayload } from "../lib/data-transfer";
@@ -85,6 +86,7 @@ interface SiteHubApi {
     payload: GroupExportPayload,
   ) => GroupImportResult;
   migrateGithubSites: () => ReturnType<typeof migrateGithubSitesInState>;
+  moveGithubHomeToMain: (siteId: string) => void;
   undoGithubMigration: () => ReturnType<typeof undoGithubMigrationInState>;
   reset: () => void;
   replaceState: (state: SiteCollectionState) => void;
@@ -98,7 +100,7 @@ interface SiteHubApi {
   recordSearch: (query: string) => Promise<void>;
   deleteSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
-  setDisplayMode: (mode: SiteDisplayMode) => void;
+  setDisplayMode: (mode: SiteDisplayMode, workspace?: SiteWorkspace) => void;
 }
 
 export function useSiteHub(): SiteHubApi {
@@ -420,6 +422,11 @@ export function useSiteHub(): SiteHubApi {
     return result;
   }, []);
 
+  const moveGithubHomeToMain = useCallback((siteId: string) => {
+    setState((current) => moveGithubHomeToMainInState(current, siteId));
+    setRecovered(false);
+  }, []);
+
   const undoGithubMigration = useCallback(() => {
     const result = undoGithubMigrationInState(stateRef.current);
     stateRef.current = result.state;
@@ -438,6 +445,7 @@ export function useSiteHub(): SiteHubApi {
       wallpaper: current.wallpaper,
       searchHistory: current.searchHistory,
       displayMode: current.displayMode,
+      displayModeByWorkspace: current.displayModeByWorkspace,
       deletedSites: current.deletedSites,
       trashRetentionDays: current.trashRetentionDays,
     }));
@@ -500,10 +508,20 @@ export function useSiteHub(): SiteHubApi {
     setState((current) => ({ ...current, searchHistory: [] }));
   }, []);
 
-  const setDisplayMode = useCallback((displayMode: SiteDisplayMode) => {
-    setState((current) => ({ ...current, displayMode }));
-    setRecovered(false);
-  }, []);
+  const setDisplayMode = useCallback(
+    (displayMode: SiteDisplayMode, workspace: SiteWorkspace = "main") => {
+      setState((current) => ({
+        ...current,
+        displayMode,
+        displayModeByWorkspace: {
+          ...current.displayModeByWorkspace,
+          [workspace]: displayMode,
+        },
+      }));
+      setRecovered(false);
+    },
+    [],
+  );
 
   return {
     state,
@@ -528,6 +546,7 @@ export function useSiteHub(): SiteHubApi {
     deleteGroup,
     importGroup,
     migrateGithubSites,
+    moveGithubHomeToMain,
     undoGithubMigration,
     reset,
     replaceState,

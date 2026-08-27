@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createDefaultState, GITHUB_OTHER_GROUP_ID, OTHER_GROUP_ID } from "../data/defaults";
 import {
   ensureGithubWorkspace,
+  isGithubHomeUrl,
   isGithubUrl,
+  moveGithubHomeToMainInState,
   migrateGithubSitesInState,
   routeGithubSitesInState,
   undoGithubMigrationInState,
@@ -20,8 +22,28 @@ describe("GitHub workspace", () => {
     expect(isGithubUrl("not a URL" )).toBe(false);
   });
 
+  it("recognizes only the GitHub root as the shared official homepage", () => {
+    expect(isGithubHomeUrl("https://github.com")).toBe(true);
+    expect(isGithubHomeUrl("https://www.github.com/")).toBe(true);
+    expect(isGithubHomeUrl("https://github.com/openai/openai")).toBe(false);
+    expect(isGithubHomeUrl("https://github.com.evil.example/")).toBe(false);
+    expect(isGithubHomeUrl("https://github.io/")).toBe(false);
+  });
+
+  function migrationFixture() {
+    const state = createDefaultState();
+    return {
+      ...state,
+      sites: state.sites.map((site) =>
+        site.id === "github"
+          ? { ...site, url: "https://github.com/DewMysimple/GuoYoung" }
+          : site,
+      ),
+    };
+  }
+
   it("adds the protected GitHub groups and migrates existing links once", () => {
-    const initial = createDefaultState();
+    const initial = migrationFixture();
     const first = migrateGithubSitesInState(
       initial,
       "2026-08-27T00:00:00.000Z",
@@ -71,14 +93,14 @@ describe("GitHub workspace", () => {
       "2026-08-27T00:00:00.000Z",
     );
 
-    expect(routed.movedCount).toBe(2);
+    expect(routed.movedCount).toBe(1);
     expect(routed.state.sites.filter((site) => site.groupId === GITHUB_OTHER_GROUP_ID))
-      .toHaveLength(2);
+      .toHaveLength(1);
     expect(routed.state.sites).toHaveLength(initial.sites.length + 1);
   });
 
   it("undoes only links that are still in the migration target", () => {
-    const initial = createDefaultState();
+    const initial = migrationFixture();
     const migrated = migrateGithubSitesInState(
       initial,
       "2026-08-27T00:00:00.000Z",
@@ -105,7 +127,7 @@ describe("GitHub workspace", () => {
 
   it("does not restore links edited after migration", () => {
     const migrated = migrateGithubSitesInState(
-      createDefaultState(),
+      migrationFixture(),
       "2026-08-27T00:00:00.000Z",
     ).state;
     const edited = {
@@ -128,7 +150,7 @@ describe("GitHub workspace", () => {
   });
 
   it("falls back to the main Other group when the original group was removed", () => {
-    const initial = createDefaultState();
+    const initial = migrationFixture();
     const migrated = migrateGithubSitesInState(initial).state;
     const withoutSource = {
       ...migrated,
@@ -151,5 +173,24 @@ describe("GitHub workspace", () => {
     const repairedAgain = ensureGithubWorkspace(repaired);
     expect(repaired.groups).toHaveLength(10);
     expect(repairedAgain.groups).toEqual(repaired.groups);
+  });
+
+  it("keeps the shared official homepage in its original group during migration", () => {
+    const initial = createDefaultState();
+    const migrated = migrateGithubSitesInState(initial).state;
+    expect(migrated.sites.find((site) => site.id === "github")?.groupId).toBe("develop");
+    expect(migrated.githubMigration?.entries).toEqual([]);
+  });
+
+  it("moves an old GitHub-workspace homepage back to the protected main group", () => {
+    const initial = createDefaultState();
+    const oldLocation = {
+      ...initial,
+      sites: initial.sites.map((site) =>
+        site.id === "github" ? { ...site, groupId: GITHUB_OTHER_GROUP_ID } : site,
+      ),
+    };
+    const moved = moveGithubHomeToMainInState(oldLocation, "github");
+    expect(moved.sites.find((site) => site.id === "github")?.groupId).toBe(OTHER_GROUP_ID);
   });
 });

@@ -7,11 +7,66 @@ import type {
   GithubMigrationEntry,
   SiteCollectionState,
   SiteGroup,
+  SiteItem,
   SiteWorkspace,
 } from "../types";
 import { reindexSites } from "./site-utils";
 
 export const GITHUB_WORKSPACE_LABEL = "GitHub";
+
+export function isGithubHomeUrl(input: string): boolean {
+  try {
+    const url = new URL(input);
+    const hostname = url.hostname.toLocaleLowerCase("en-US");
+    return (
+      (hostname === "github.com" || hostname === "www.github.com") &&
+      (url.pathname === "" || url.pathname === "/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function findGithubHomeSite(
+  sites: SiteItem[],
+): SiteItem | undefined {
+  return sites.find((site) => isGithubHomeUrl(site.url));
+}
+
+export function isGithubHomeSite(site: Pick<SiteItem, "url">): boolean {
+  return isGithubHomeUrl(site.url);
+}
+
+export function moveGithubHomeToMainInState(
+  input: SiteCollectionState,
+  siteId: string,
+  now = new Date().toISOString(),
+): SiteCollectionState {
+  const target = input.sites.find(
+    (site) => site.id === siteId && isGithubHomeUrl(site.url),
+  );
+  if (!target) return input;
+  const mainOther = input.groups.find(
+    (group) => getGroupWorkspace(group) === "main" && group.id === OTHER_GROUP_ID,
+  );
+  const targetGroup = mainOther ?? input.groups.find(
+    (group) => getGroupWorkspace(group) === "main" && group.isProtected,
+  );
+  if (!targetGroup || target.groupId === targetGroup.id) return input;
+  const nextOrder = input.sites.filter(
+    (site) => site.groupId === targetGroup.id,
+  ).length;
+  return {
+    ...input,
+    sites: reindexSites(
+      input.sites.map((site) =>
+        site.id === target.id
+          ? { ...site, groupId: targetGroup.id, order: nextOrder, updatedAt: now }
+          : { ...site },
+      ),
+    ),
+  };
+}
 
 export function getGroupWorkspace(group: Pick<SiteGroup, "workspace">): SiteWorkspace {
   return group.workspace ?? "main";
@@ -106,6 +161,7 @@ export function migrateGithubSitesInState(
     const sourceGroup = groupsById.get(site.groupId);
     if (
       !isGithubUrl(site.url) ||
+      isGithubHomeUrl(site.url) ||
       !sourceGroup ||
       getGroupWorkspace(sourceGroup) !== "main"
     ) {
@@ -156,7 +212,12 @@ export function routeGithubSitesInState(
   let movedCount = 0;
   const sites = state.sites.map((site) => {
     const group = groupById.get(site.groupId);
-    if (!isGithubUrl(site.url) || !group || getGroupWorkspace(group) !== "main") {
+    if (
+      !isGithubUrl(site.url) ||
+      isGithubHomeUrl(site.url) ||
+      !group ||
+      getGroupWorkspace(group) !== "main"
+    ) {
       return { ...site };
     }
     movedCount += 1;

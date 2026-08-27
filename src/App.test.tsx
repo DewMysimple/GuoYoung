@@ -97,7 +97,8 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
     expect(screen.getByRole("heading", { name: "全部 GitHub" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开 GitHub" })).toBeInTheDocument();
-    expect(screen.getByText("GitHub 收藏已整理")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "GitHub 官方主页" })).toBeInTheDocument();
+    expect(screen.queryByText("GitHub 收藏已整理")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开 GitHub 收藏" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -105,7 +106,7 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "打开收藏主页" }));
     expect(screen.getByRole("heading", { name: "全部网站" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "打开 GitHub" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "打开 GitHub" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开收藏主页" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -337,7 +338,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":11');
+      expect(stored).toContain('"version":12');
     });
   });
 
@@ -514,6 +515,54 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the homepage and GitHub display modes independent", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "显示" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "按分组显示" }));
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(stored.displayModeByWorkspace).toEqual({ main: "grouped", github: "flat" });
+    });
+
+    await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+    expect(screen.getByRole("button", { name: "显示" })).toHaveTextContent("显示");
+    expect(screen.getByRole("button", { name: "显示" }).querySelector("svg")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "显示" }));
+    expect(screen.getByRole("menuitemradio", { name: "全部平铺" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await user.click(screen.getByRole("menuitemradio", { name: "按分组显示" }));
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(stored.displayModeByWorkspace).toEqual({ main: "grouped", github: "grouped" });
+    });
+
+    await user.click(screen.getByRole("button", { name: "打开收藏主页" }));
+    await user.click(screen.getByRole("button", { name: "显示" }));
+    expect(screen.getByRole("menuitemradio", { name: "按分组显示" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("manages the shared GitHub homepage from its GitHub workspace entry", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+    await user.click(screen.getByRole("button", { name: "管理 GitHub 官方主页" }));
+    await user.click(screen.getByRole("menuitem", { name: "删除官方入口" }));
+    expect(screen.getByRole("menuitem", { name: "再次点击删除官方入口" })).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "再次点击删除官方入口" }));
+
+    expect(screen.getByRole("button", { name: "添加官方主页" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "打开收藏主页" }));
+    expect(screen.queryByTestId("site-card-github")).not.toBeInTheDocument();
+  });
+
   it("records a real link click and places the hottest site first", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -523,7 +572,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(11);
+      expect(stored.version).toBe(12);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -767,7 +816,7 @@ describe("App", () => {
       within(dialog).getByRole("button", { name: "移动并更新" }),
     );
     await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
-    expect(screen.getAllByRole("link", { name: "打开 另一个 GitHub" })).toHaveLength(1);
+    expect(screen.getByText("另一个 GitHub")).toBeInTheDocument();
   });
 
   it("uses the selected preset label when a new group name is blank", async () => {

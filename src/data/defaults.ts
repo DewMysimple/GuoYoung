@@ -310,7 +310,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 11,
+    version: 12,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),
@@ -324,6 +324,10 @@ export function createDefaultState(): SiteCollectionState {
     wallpaper: { ...DEFAULT_WALLPAPER },
     searchHistory: [],
     displayMode: "flat",
+    displayModeByWorkspace: {
+      main: "flat",
+      github: "flat",
+    },
     githubMigration: null,
   };
 }

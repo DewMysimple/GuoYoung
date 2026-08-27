@@ -12,6 +12,7 @@ import type { GroupExportPayload } from "./data-transfer";
 import {
   getGithubOtherGroupId,
   getGroupWorkspace,
+  isGithubHomeUrl,
   isGithubUrl,
 } from "./github-workspace";
 import { normalizeUrl, reindexSites } from "./site-utils";
@@ -25,6 +26,15 @@ export interface GroupImportResult {
   state: SiteCollectionState;
   added: number;
   skipped: number;
+}
+
+function comparableSiteUrl(url: string): string {
+  try {
+    const normalized = normalizeUrl(url).toLocaleLowerCase("en-US");
+    return isGithubHomeUrl(normalized) ? "https://github.com" : normalized;
+  } catch {
+    return url.trim().toLocaleLowerCase("en-US");
+  }
 }
 
 function normalizeGroupOrder(groups: SiteGroup[]): SiteGroup[] {
@@ -55,9 +65,14 @@ function resolveSiteGroupId(
     if (!isGithubUrl(url)) {
       throw new Error("GitHub 页面只允许添加 github.com 及其子域名");
     }
+    if (isGithubHomeUrl(url)) {
+      throw new Error("GitHub 官方主页请通过顶部入口管理");
+    }
     return group.id;
   }
-  return isGithubUrl(url) ? getGithubOtherGroupId(state) : group.id;
+  return isGithubUrl(url) && !isGithubHomeUrl(url)
+    ? getGithubOtherGroupId(state)
+    : group.id;
 }
 
 export function addSiteToState(
@@ -94,13 +109,7 @@ export function mergeGroupImportIntoState(
   }
 
   const existingUrls = new Set(
-    state.sites.map((site) => {
-      try {
-        return normalizeUrl(site.url).toLocaleLowerCase("en-US");
-      } catch {
-        return site.url.trim().toLocaleLowerCase("en-US");
-      }
-    }),
+    state.sites.map((site) => comparableSiteUrl(site.url)),
   );
   const targetGroup = state.groups.find((group) => group.id === targetGroupId);
   if (!targetGroup) return { state, added: 0, skipped: payload.sites.length };
@@ -119,15 +128,18 @@ export function mergeGroupImportIntoState(
 
   for (const entry of payload.sites.slice().sort((a, b) => a.order - b.order)) {
     const isGithubEntry = isGithubUrl(entry.url);
-    if (targetWorkspace === "github" && !isGithubEntry) {
+    if (
+      targetWorkspace === "github" &&
+      (!isGithubEntry || isGithubHomeUrl(entry.url))
+    ) {
       skipped += 1;
       continue;
     }
     const groupId =
-      targetWorkspace === "main" && isGithubEntry
+      targetWorkspace === "main" && isGithubEntry && !isGithubHomeUrl(entry.url)
         ? getGithubOtherGroupId(state)
         : targetGroupId;
-    const key = entry.url.toLocaleLowerCase("en-US");
+    const key = comparableSiteUrl(entry.url);
     if (existingUrls.has(key)) {
       skipped += 1;
       continue;
@@ -375,11 +387,11 @@ export function findSiteByUrl(
   url: string,
   ignoreId?: string,
 ): SiteItem | undefined {
-  const target = url.toLocaleLowerCase("en-US");
+  const target = comparableSiteUrl(url);
   return sites.find(
     (site) =>
       site.id !== ignoreId &&
-      site.url.toLocaleLowerCase("en-US") === target,
+      comparableSiteUrl(site.url) === target,
   );
 }
 

@@ -70,6 +70,7 @@ import {
 } from "./components/group-drop-target";
 import { NewGroupDialog } from "./components/new-group-dialog";
 import { GroupSortDragPreview } from "./components/group-sort-preview";
+import { GithubHomeEntry } from "./components/github-home-entry";
 import { SortableGroupSection } from "./components/sortable-group-section";
 import {
   SettingsPanel,
@@ -124,7 +125,10 @@ import type {
 } from "./types";
 import { mergeGroupImportIntoState } from "./lib/site-state";
 import {
+  findGithubHomeSite,
+  getGroupWorkspace,
   getWorkspaceGroups,
+  isGithubHomeUrl,
   routeGithubSitesInState,
 } from "./lib/github-workspace";
 
@@ -256,6 +260,7 @@ export function App() {
     deleteGroup,
     importGroup,
     migrateGithubSites,
+    moveGithubHomeToMain,
     undoGithubMigration,
     reset,
     replaceState,
@@ -282,6 +287,7 @@ export function App() {
   const [activeGroupId, setActiveGroupId] = useState<GroupFilter>("all");
   const [siteDialogOpen, setSiteDialogOpen] = useState(false);
   const [dialogGroupId, setDialogGroupId] = useState<string>();
+  const [dialogWorkspace, setDialogWorkspace] = useState<SiteWorkspace>("main");
   const [siteDialogPrefill, setSiteDialogPrefill] = useState<
     DroppedSitePreview | undefined
   >();
@@ -429,15 +435,24 @@ export function App() {
     [groups],
   );
   const workspaceSites = useMemo(
-    () => state.sites.filter((site) => workspaceGroupIds.has(site.groupId)),
-    [state.sites, workspaceGroupIds],
+    () => state.sites.filter(
+      (site) =>
+        workspaceGroupIds.has(site.groupId) &&
+        !(activeWorkspace === "github" && isGithubHomeUrl(site.url)),
+    ),
+    [activeWorkspace, state.sites, workspaceGroupIds],
   );
   const renderedSites = useMemo(
     () =>
       (dragSitesPreview ?? state.sites).filter((site) =>
-        workspaceGroupIds.has(site.groupId),
+        workspaceGroupIds.has(site.groupId) &&
+        !(activeWorkspace === "github" && isGithubHomeUrl(site.url)),
       ),
-    [dragSitesPreview, state.sites, workspaceGroupIds],
+    [activeWorkspace, dragSitesPreview, state.sites, workspaceGroupIds],
+  );
+  const githubHomeSite = useMemo(
+    () => findGithubHomeSite(state.sites) ?? null,
+    [state.sites],
   );
   const scopedSites = useMemo(
     () => filterSites(renderedSites, query, groups, activeGroupId),
@@ -460,7 +475,8 @@ export function App() {
   }, [activeGroupId, scopedSites, sortMode]);
   const isSearching = Boolean(query.trim());
   const isGroupedView =
-    activeGroupId === "all" && state.displayMode === "grouped";
+    activeGroupId === "all" &&
+    state.displayModeByWorkspace[activeWorkspace] === "grouped";
   const groupSelectionActive = selectedGroupIds.size > 0;
   const groupSelectionMode =
     isGroupedView &&
@@ -579,8 +595,12 @@ export function App() {
       const deleteButton = (event.target as Element).closest<HTMLElement>(
         "[data-delete-site-id]",
       );
+      const inGithubHomeMenu = Boolean(
+        (event.target as Element).closest(".github-home-entry-menu"),
+      );
       if (
         armedDeleteSiteId &&
+        !inGithubHomeMenu &&
         deleteButton?.dataset.deleteSiteId !== armedDeleteSiteId
       ) {
         clearArmedDelete();
@@ -1211,6 +1231,14 @@ export function App() {
   }
 
   function scheduleGroupTabSwitch(groupId: string) {
+    if (isGithubHomeDragBlocked(groupId)) {
+      clearGroupHoverTimer();
+      setDragHoverGroupId(null);
+      siteDropIntentRef.current = null;
+      lastValidSiteTargetRef.current = null;
+      if (activeDragIdRef.current) setOverDragId(activeDragIdRef.current);
+      return;
+    }
     if (!dragCanReorderRef.current) {
       const previewGroupId =
         switchedDragGroupIdRef.current ?? dragOriginGroupIdRef.current;
@@ -1266,7 +1294,12 @@ export function App() {
 
   function targetTransferGroup(groupId: string) {
     const activeId = activeDragIdRef.current;
-    if (!activeId || !groupId || isTransferTargetNoOp(groupId)) {
+    if (
+      !activeId ||
+      !groupId ||
+      isGithubHomeDragBlocked(groupId) ||
+      isTransferTargetNoOp(groupId)
+    ) {
       siteDropIntentRef.current = null;
       lastValidSiteTargetRef.current = null;
       if (activeId) setOverDragId(activeId);
@@ -1276,6 +1309,27 @@ export function App() {
     siteDropIntentRef.current = { type: "group-end", groupId };
     lastValidSiteTargetRef.current = null;
     setOverDragId(`group-zone:${groupId}`);
+  }
+
+  function isGithubHomeDragBlocked(
+    groupId: string | undefined,
+    calculationBase = dragBaseSitesRef.current,
+  ) {
+    if (!groupId || !calculationBase) return false;
+    const targetGroup = state.groups.find((group) => group.id === groupId);
+    if (!targetGroup || getGroupWorkspace(targetGroup) !== "github") {
+      return false;
+    }
+    const activeId = activeDragIdRef.current;
+    if (!activeId) return false;
+    const draggedIds =
+      batchDragIdsRef.current.length > 0
+        ? batchDragIdsRef.current
+        : [activeId];
+    return draggedIds.some((id) => {
+      const site = calculationBase.find((candidate) => candidate.id === id);
+      return Boolean(site && isGithubHomeUrl(site.url));
+    });
   }
 
   function isTransferTargetNoOp(groupId: string) {
@@ -1292,6 +1346,12 @@ export function App() {
   }
 
   function previewGroupEndDrop(groupId: string) {
+    if (isGithubHomeDragBlocked(groupId)) {
+      siteDropIntentRef.current = null;
+      lastValidSiteTargetRef.current = null;
+      if (activeDragIdRef.current) setOverDragId(activeDragIdRef.current);
+      return;
+    }
     if (!dragCanReorderRef.current) {
       targetTransferGroup(groupId);
       return;
@@ -1333,6 +1393,14 @@ export function App() {
     const calculationBase = dragBaseSitesRef.current ?? current;
     const overSite = calculationBase.find((site) => site.id === overId);
     const dropGroupId = readDropGroupId(overId);
+    const overGroupId = dropGroupId ?? overSite?.groupId;
+    if (isGithubHomeDragBlocked(overGroupId, calculationBase)) {
+      siteDropIntentRef.current = null;
+      lastValidSiteTargetRef.current = null;
+      setOverDragId(activeId);
+      clearGroupHoverTimer();
+      return;
+    }
     let next = current;
 
     if (!dragCanReorderRef.current) {
@@ -1411,6 +1479,17 @@ export function App() {
     const { active } = event;
     const dropIntent = siteDropIntentRef.current;
     const calculationBase = dragBaseSitesRef.current;
+
+    if (
+      dropIntent &&
+      isGithubHomeDragBlocked(
+        dropIntent.groupId,
+        calculationBase ?? undefined,
+      )
+    ) {
+      clearDragState();
+      return;
+    }
 
     if (!dragCanReorderRef.current) {
       const targetGroupId = dropIntent?.groupId;
@@ -1891,6 +1970,7 @@ export function App() {
       defaultGroup;
     if (!targetGroup) return;
     setEditingSite(null);
+    setDialogWorkspace(activeWorkspace);
     setSiteDialogPrefill(prefill);
     setDialogGroupId(targetGroup.id);
     setSiteDialogOpen(true);
@@ -1934,8 +2014,24 @@ export function App() {
   function openEditDialog(site: SiteItem) {
     clearArmedDelete();
     setEditingSite(site);
+    setDialogWorkspace(
+      isGithubHomeUrl(site.url) ? "main" : getGroupWorkspace(
+        state.groups.find((group) => group.id === site.groupId) ?? {
+          workspace: activeWorkspace,
+        },
+      ),
+    );
     setSiteDialogPrefill(undefined);
-    setDialogGroupId(site.groupId);
+    setDialogGroupId(
+      isGithubHomeUrl(site.url) &&
+        getGroupWorkspace(
+          state.groups.find((group) => group.id === site.groupId) ?? {
+            workspace: activeWorkspace,
+          },
+        ) === "github"
+        ? OTHER_GROUP_ID
+        : site.groupId,
+    );
     setSiteDialogOpen(true);
   }
 
@@ -2108,6 +2204,28 @@ export function App() {
             : `已恢复 ${result.restoredCount} 个链接的原分组。`,
       });
     }
+  }
+
+  function openGithubHomeAdd() {
+    const mainGroups = getWorkspaceGroups(state.groups, "main");
+    const targetGroup =
+      mainGroups.find((group) => group.id === OTHER_GROUP_ID) ??
+      mainGroups.find((group) => !group.isProtected) ??
+      mainGroups[0];
+    if (!targetGroup) return;
+    setEditingSite(null);
+    setDialogWorkspace("main");
+    setDialogGroupId(targetGroup.id);
+    setSiteDialogPrefill({ name: "GitHub", url: "https://github.com/" });
+    setSiteDialogOpen(true);
+  }
+
+  function handleMoveGithubHomeToMain(site: SiteItem) {
+    moveGithubHomeToMain(site.id);
+    setTransferNotice({
+      kind: "success",
+      message: "GitHub 官方主页已放回收藏主页，并继续显示在顶部入口。",
+    });
   }
 
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
@@ -2581,25 +2699,31 @@ export function App() {
           </div>
         )}
 
-        {activeWorkspace === "github" &&
-          state.githubMigration?.status === "completed" &&
-          state.githubMigration.entries.length > 0 && (
-            <div className="github-migration-banner" role="status">
-              <div>
-                <strong>GitHub 收藏已整理</strong>
-                <span>
-                  已归拢 {state.githubMigration.entries.length} 个 GitHub 链接；如需恢复原分组，可以撤销这次整理。
-                </span>
-              </div>
-              <button
-                type="button"
-                className="button secondary-button"
-                onClick={handleUndoGithubMigration}
-              >
-                恢复原分组
-              </button>
-            </div>
-          )}
+        {activeWorkspace === "github" && (
+          <GithubHomeEntry
+            site={githubHomeSite}
+            canMoveToMain={Boolean(
+              githubHomeSite &&
+                getGroupWorkspace(
+                  state.groups.find((group) => group.id === githubHomeSite.groupId) ?? {
+                    workspace: "github",
+                  },
+                ) === "github",
+            )}
+            canUndoMigration={
+              state.githubMigration?.status === "completed" &&
+              state.githubMigration.entries.length > 0
+            }
+            migrationCount={state.githubMigration?.entries.length ?? 0}
+            deleteArmed={armedDeleteSiteId === githubHomeSite?.id}
+            onAdd={openGithubHomeAdd}
+            onOpen={(site) => recordSiteClick(site.id)}
+            onEdit={openEditDialog}
+            onDelete={requestSiteDelete}
+            onMoveToMain={handleMoveGithubHomeToMain}
+            onUndoMigration={handleUndoGithubMigration}
+          />
+        )}
 
         {transferNotice && (
           <div
@@ -2794,7 +2918,7 @@ export function App() {
                   <button
                     type="button"
                     className={`view-control-button ${
-                      state.displayMode === "grouped" ? "active" : ""
+                      state.displayModeByWorkspace[activeWorkspace] === "grouped" ? "active" : ""
                     }`}
                     aria-haspopup="menu"
                     aria-expanded={displayMenuOpen}
@@ -2803,7 +2927,7 @@ export function App() {
                       setSortMenuOpen(false);
                     }}
                   >
-                    {state.displayMode === "grouped" ? (
+                    {state.displayModeByWorkspace[activeWorkspace] === "grouped" ? (
                       <Rows size={16} />
                     ) : (
                       <SquaresFour size={16} />
@@ -2828,20 +2952,20 @@ export function App() {
                           key={option.value}
                           type="button"
                           role="menuitemradio"
-                          aria-checked={state.displayMode === option.value}
-                          className={state.displayMode === option.value ? "active" : ""}
+                          aria-checked={state.displayModeByWorkspace[activeWorkspace] === option.value}
+                          className={state.displayModeByWorkspace[activeWorkspace] === option.value ? "active" : ""}
                            onClick={() => {
                              if (multiSelectMode) {
                                setMultiSelectMode(false);
                                setSelectedSiteIds(new Set());
                              }
-                             setDisplayMode(option.value);
+                             setDisplayMode(option.value, activeWorkspace);
                             setDisplayMenuOpen(false);
                           }}
                         >
                           <Icon size={16} />
                           <span>{option.label}</span>
-                          {state.displayMode === option.value && (
+                          {state.displayModeByWorkspace[activeWorkspace] === option.value && (
                             <Check size={15} weight="bold" />
                           )}
                         </button>
@@ -3173,8 +3297,8 @@ export function App() {
       <SiteDialog
         open={siteDialogOpen}
         sites={state.sites}
-        groups={groups}
-        workspace={activeWorkspace}
+        groups={getWorkspaceGroups(state.groups, dialogWorkspace)}
+        workspace={dialogWorkspace}
         initialGroupId={dialogGroupId}
         editingSite={editingSite}
         prefill={siteDialogPrefill}
