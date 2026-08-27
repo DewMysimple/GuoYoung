@@ -23,7 +23,7 @@ describe("site state operations", () => {
     const moved = updateSiteInState(initial, github.id, {
       name: "GitHub 工作区",
       url: github.url,
-      groupId: "design",
+      groupId: "github-other",
       customIconUrl: "",
       iconSource: "auto",
     }, "2026-01-01T00:00:00.000Z");
@@ -31,12 +31,12 @@ describe("site state operations", () => {
     expect(moved.sites).toHaveLength(initial.sites.length);
     expect(moved.sites.find((site) => site.id === github.id)).toMatchObject({
       name: "GitHub 工作区",
-      groupId: "design",
+      groupId: "github-other",
       globalOrder: github.globalOrder,
       createdAt: github.createdAt,
     });
     expect(
-      getSitesInGroup(moved.sites, "design").at(-1)?.id,
+      getSitesInGroup(moved.sites, "github-other").at(-1)?.id,
     ).toBe("github");
   });
 
@@ -54,9 +54,38 @@ describe("site state operations", () => {
       customIconUrl: "",
       iconSource: "auto",
     }, "postgres");
-    expect(withSite.version).toBe(10);
+    expect(withSite.version).toBe(11);
     expect(withSite.groups.find((group) => group.id === "database-group")?.name).toBe("数据库");
     expect(withSite.sites.find((site) => site.id === "postgres")?.groupId).toBe("database-group");
+  });
+
+  it("routes GitHub links added from the main workspace to GitHub Other", () => {
+    const result = addSiteToState(
+      createDefaultState(),
+      {
+        name: "GitHub Gist",
+        url: "https://gist.github.com/example/1",
+        groupId: "design",
+        customIconUrl: "",
+        iconSource: "auto",
+      },
+      "gist",
+    );
+    expect(result.sites.find((site) => site.id === "gist")?.groupId).toBe(
+      "github-other",
+    );
+  });
+
+  it("rejects non-GitHub links inside the GitHub workspace", () => {
+    expect(() =>
+      addSiteToState(createDefaultState(), {
+        name: "Example",
+        url: "https://example.com",
+        groupId: "github-tools",
+        customIconUrl: "",
+        iconSource: "auto",
+      }),
+    ).toThrow("GitHub 页面只允许添加");
   });
 
   it("inserts a group before an existing group without moving Other", () => {
@@ -68,14 +97,17 @@ describe("site state operations", () => {
       "2026-08-16T00:00:00.000Z",
       "develop",
     );
-    const ordered = result.groups.slice().sort((a, b) => a.order - b.order);
+    const ordered = result.groups
+      .filter((group) => group.workspace === "main")
+      .slice()
+      .sort((a, b) => a.order - b.order);
     expect(ordered.slice(0, 3).map((group) => group.id)).toEqual([
       "search",
       "middle",
       "develop",
     ]);
     expect(ordered.at(-1)?.id).toBe(OTHER_GROUP_ID);
-    expect(result.version).toBe(10);
+    expect(result.version).toBe(11);
   });
 
   it("deletes a group and moves its sites to trash", () => {
@@ -219,5 +251,19 @@ describe("site state operations", () => {
       initial.sites.filter((site) => site.groupId === OTHER_GROUP_ID).length +
         payload.sites.length,
     );
+  });
+
+  it("filters non-GitHub entries from a GitHub group package", () => {
+    const initial = createDefaultState();
+    const payload = createGroupExportPayload(initial, "design");
+    payload.sites = [
+      { ...payload.sites[0], url: "https://github.com/example/repo" },
+      { ...payload.sites[0], url: "https://example.com" },
+    ];
+    const result = mergeGroupImportIntoState(initial, "github-tools", payload);
+    expect(result.added).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.state.sites.find((site) => site.url.includes("github.com/example"))?.groupId)
+      .toBe("github-tools");
   });
 });

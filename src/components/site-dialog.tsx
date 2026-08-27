@@ -6,8 +6,14 @@ import {
   normalizeOptionalIconUrl,
   normalizeUrl,
 } from "../lib/site-utils";
+import { isGithubUrl } from "../lib/github-workspace";
 import { findSiteByUrl } from "../lib/site-state";
-import type { SiteFormValues, SiteGroup, SiteItem } from "../types";
+import type {
+  SiteFormValues,
+  SiteGroup,
+  SiteItem,
+  SiteWorkspace,
+} from "../types";
 import { CategoryIcon } from "./category-icon";
 import { Favicon } from "./favicon";
 import { IconSourcePicker } from "./icon-source-picker";
@@ -16,6 +22,7 @@ interface SiteDialogProps {
   open: boolean;
   sites: SiteItem[];
   groups: SiteGroup[];
+  workspace?: SiteWorkspace;
   initialGroupId?: string;
   editingSite: SiteItem | null;
   prefill?: { name?: string; url: string };
@@ -30,6 +37,7 @@ export function SiteDialog({
   open,
   sites,
   groups,
+  workspace = "main",
   initialGroupId,
   editingSite,
   prefill,
@@ -80,7 +88,7 @@ export function SiteDialog({
     setIconPickerUrl(editingSite?.url ?? prefill?.url);
     setErrors({});
     setDuplicateSite(null);
-  }, [editingSite, groups, initialGroupId, open, prefill]);
+  }, [editingSite, groups, initialGroupId, open, prefill, workspace]);
 
   useEffect(() => {
     if (!open) return;
@@ -147,6 +155,9 @@ export function SiteDialog({
     let customIconUrl: string | undefined;
     try {
       url = normalizeUrl(values.url);
+      if (workspace === "github" && !isGithubUrl(url)) {
+        nextErrors.url = "GitHub 页面只允许添加 github.com 及其子域名";
+      }
       const existing = findSiteByUrl(sites, url, editingSite?.id);
       if (existing) {
         if (editingSite) {

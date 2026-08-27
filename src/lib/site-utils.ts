@@ -224,7 +224,11 @@ export function filterSites(
         ? a.globalOrder - b.globalOrder
         : a.order - b.order,
     )
-    .filter((site) => groupId === "all" || site.groupId === groupId)
+    .filter(
+      (site) =>
+        groups.some((group) => group.id === site.groupId) &&
+        (groupId === "all" || site.groupId === groupId),
+    )
     .filter((site) => {
       if (!normalizedQuery) return true;
       const groupName = groupNames.get(site.groupId) ?? "";
@@ -474,8 +478,12 @@ export function reorderSitesGlobally(
   sites: SiteItem[],
   activeId: string,
   overId: string,
+  allowedGroupIds?: Set<string>,
 ): SiteItem[] {
-  const ordered = sites
+  const eligible = allowedGroupIds
+    ? sites.filter((site) => allowedGroupIds.has(site.groupId))
+    : sites;
+  const ordered = eligible
     .map((site) => ({ ...site }))
     .sort((a, b) => a.globalOrder - b.globalOrder);
   const from = ordered.findIndex((site) => site.id === activeId);
@@ -485,7 +493,14 @@ export function reorderSitesGlobally(
   const [moved] = ordered.splice(from, 1);
   moved.updatedAt = new Date().toISOString();
   ordered.splice(to, 0, moved);
-  return ordered.map((site, globalOrder) => ({ ...site, globalOrder }));
+  const slots = eligible
+    .slice()
+    .sort((a, b) => a.globalOrder - b.globalOrder)
+    .map((site) => site.globalOrder);
+  const nextById = new Map(
+    ordered.map((site, index) => [site.id, { ...site, globalOrder: slots[index] }]),
+  );
+  return sites.map((site) => nextById.get(site.id) ?? { ...site });
 }
 
 export function getSiteInitial(name: string, url: string): string {

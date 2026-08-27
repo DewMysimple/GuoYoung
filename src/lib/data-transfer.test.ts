@@ -63,6 +63,19 @@ describe("data transfer", () => {
     expect(payload.state.wallpaper.localAssetId).toBeUndefined();
   });
 
+  it("keeps the temporary GitHub migration undo record local", () => {
+    const state = createDefaultState();
+    state.githubMigration = {
+      status: "completed",
+      completedAt: "2026-08-27T00:00:00.000Z",
+      entries: [],
+    };
+
+    const payload = createExportPayload(state);
+    expect(payload.state.githubMigration).toBeUndefined();
+    expect(parseImportFile(serializeExport(state)).githubMigration).toBeNull();
+  });
+
   it("keeps a compressed local brand logo inside portable exports", () => {
     const state = createDefaultState();
     state.brand = {

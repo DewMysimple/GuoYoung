@@ -44,6 +44,7 @@ import {
   FolderOpen,
   FolderPlus,
   GearSix,
+  GithubLogo,
   House,
   MagnifyingGlass,
   LinkSimple,
@@ -119,8 +120,13 @@ import type {
   SiteFormValues,
   SiteGroup,
   SiteItem,
+  SiteWorkspace,
 } from "./types";
 import { mergeGroupImportIntoState } from "./lib/site-state";
+import {
+  getWorkspaceGroups,
+  routeGithubSitesInState,
+} from "./lib/github-workspace";
 
 type GroupFilter = "all" | string;
 type SiteSortMode =
@@ -249,6 +255,8 @@ export function App() {
     reorderGroupBlock,
     deleteGroup,
     importGroup,
+    migrateGithubSites,
+    undoGithubMigration,
     reset,
     replaceState,
     saveSettings,
@@ -314,6 +322,7 @@ export function App() {
   const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [browserHistoryOpen, setBrowserHistoryOpen] = useState(false);
+  const [activeWorkspace, setActiveWorkspace] = useState<SiteWorkspace>("main");
   const [historyPermissionVersion, setHistoryPermissionVersion] = useState(0);
   const [historyPermissionError, setHistoryPermissionError] = useState<string | null>(
     null,
@@ -389,8 +398,8 @@ export function App() {
   const tabsAutoScrollFrameRef = useRef<number | null>(null);
 
   const groups = useMemo(
-    () => state.groups.slice().sort((a, b) => a.order - b.order),
-    [state.groups],
+    () => getWorkspaceGroups(state.groups, activeWorkspace),
+    [activeWorkspace, state.groups],
   );
   const defaultGroup =
     groups.find((group) => !group.isProtected) ??
@@ -415,7 +424,21 @@ export function App() {
     : activeSortedGroup
       ? `${activeSortedGroup.name}保持原位置`
       : "";
-  const renderedSites = dragSitesPreview ?? state.sites;
+  const workspaceGroupIds = useMemo(
+    () => new Set(groups.map((group) => group.id)),
+    [groups],
+  );
+  const workspaceSites = useMemo(
+    () => state.sites.filter((site) => workspaceGroupIds.has(site.groupId)),
+    [state.sites, workspaceGroupIds],
+  );
+  const renderedSites = useMemo(
+    () =>
+      (dragSitesPreview ?? state.sites).filter((site) =>
+        workspaceGroupIds.has(site.groupId),
+      ),
+    [dragSitesPreview, state.sites, workspaceGroupIds],
+  );
   const scopedSites = useMemo(
     () => filterSites(renderedSites, query, groups, activeGroupId),
     [renderedSites, query, groups, activeGroupId],
@@ -1340,7 +1363,12 @@ export function App() {
       };
       setOverDragId(overId);
       if (activeGroupId === "all" && !isGroupedView) {
-        next = reorderSitesGlobally(calculationBase, activeId, overId);
+        next = reorderSitesGlobally(
+          calculationBase,
+          activeId,
+          overId,
+          workspaceGroupIds,
+        );
       } else {
         next = reorderSites(calculationBase, activeId, overId);
       }
@@ -1428,6 +1456,7 @@ export function App() {
                 calculationBase,
                 String(active.id),
                 dropIntent.siteId,
+                workspaceGroupIds,
               )
             : reorderSites(
                 calculationBase,
@@ -1933,7 +1962,7 @@ export function App() {
   }
 
   function handleNewGroup(name: string, icon: GroupIconName) {
-    const id = addGroup(name, icon, newGroupBeforeId);
+    const id = addGroup(name, icon, newGroupBeforeId, activeWorkspace);
     if (!newGroupInsertionContext) setActiveGroupId(id);
     setNewGroupBeforeId(undefined);
     setNewGroupInsertionContext(undefined);
@@ -2045,13 +2074,40 @@ export function App() {
   }
 
   function openBrowserHistory() {
+    setActiveWorkspace("main");
     setBrowserHistoryOpen(true);
     void requestBrowserHistoryAccess();
   }
 
   function openCollectionHome() {
     setHistoryPermissionError(null);
+    setActiveWorkspace("main");
+    setActiveGroupId("all");
+    setQuery("");
     setBrowserHistoryOpen(false);
+  }
+
+  function openGithubWorkspace() {
+    setHistoryPermissionError(null);
+    setBrowserHistoryOpen(false);
+    setActiveWorkspace("github");
+    setActiveGroupId("all");
+    setQuery("");
+    cancelSelection();
+    migrateGithubSites();
+  }
+
+  function handleUndoGithubMigration() {
+    const result = undoGithubMigration();
+    if (result.restoredCount > 0 || result.skippedCount > 0) {
+      setTransferNotice({
+        kind: "success",
+        message:
+          result.skippedCount > 0
+            ? `已恢复 ${result.restoredCount} 个链接，${result.skippedCount} 个已被手动调整，保持原位置。`
+            : `已恢复 ${result.restoredCount} 个链接的原分组。`,
+      });
+    }
   }
 
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
@@ -2061,7 +2117,9 @@ export function App() {
     if (!file) return;
 
     try {
-      const imported = parseImportFile(await file.text());
+      const imported = routeGithubSitesInState(
+        parseImportFile(await file.text()),
+      ).state;
       setGroupDialogOpen(false);
       setSettingsOpen(false);
       setSettingsPreview(null);
@@ -2110,7 +2168,11 @@ export function App() {
   }
 
   const collectionTitle =
-    activeGroupId === "all" ? "全部网站" : (activeGroup?.name ?? "网站");
+    activeGroupId === "all"
+      ? activeWorkspace === "github"
+        ? "全部 GitHub"
+        : "全部网站"
+      : (activeGroup?.name ?? "网站");
   const appStyle = {
     "--accent": effectiveAppearance.accentColor,
     "--accent-strong": `color-mix(in srgb, ${effectiveAppearance.accentColor} 84%, black)`,
@@ -2293,14 +2355,26 @@ export function App() {
             <button
               type="button"
               className={`topbar-history-button topbar-home-button ${
-                browserHistoryOpen ? "" : "active"
+                !browserHistoryOpen && activeWorkspace === "main" ? "active" : ""
               }`}
               aria-label="打开收藏主页"
-              aria-pressed={!browserHistoryOpen}
+              aria-pressed={!browserHistoryOpen && activeWorkspace === "main"}
               onClick={openCollectionHome}
             >
               <House size={18} weight="regular" />
               <span>收藏主页</span>
+            </button>
+            <button
+              type="button"
+              className={`topbar-history-button topbar-github-button ${
+                !browserHistoryOpen && activeWorkspace === "github" ? "active" : ""
+              }`}
+              aria-label="打开 GitHub 收藏"
+              aria-pressed={!browserHistoryOpen && activeWorkspace === "github"}
+              onClick={openGithubWorkspace}
+            >
+              <GithubLogo size={18} weight="regular" />
+              <span>GitHub</span>
             </button>
             <button
               type="button"
@@ -2507,6 +2581,26 @@ export function App() {
           </div>
         )}
 
+        {activeWorkspace === "github" &&
+          state.githubMigration?.status === "completed" &&
+          state.githubMigration.entries.length > 0 && (
+            <div className="github-migration-banner" role="status">
+              <div>
+                <strong>GitHub 收藏已整理</strong>
+                <span>
+                  已归拢 {state.githubMigration.entries.length} 个 GitHub 链接；如需恢复原分组，可以撤销这次整理。
+                </span>
+              </div>
+              <button
+                type="button"
+                className="button secondary-button"
+                onClick={handleUndoGithubMigration}
+              >
+                恢复原分组
+              </button>
+            </div>
+          )}
+
         {transferNotice && (
           <div
             className={`transfer-banner ${transferNotice.kind}`}
@@ -2558,7 +2652,7 @@ export function App() {
                 >
                   <SquaresFour size={16} />
                   全部
-                  <span>{state.sites.length}</span>
+                  <span>{workspaceSites.length}</span>
                 </button>
                 {groups.map((group) => {
                   const count = state.sites.filter(
@@ -3070,8 +3164,8 @@ export function App() {
         <footer className="page-container footer">
           <span>
             {storageMode === "extension"
-              ? `扩展本地保存 · ${state.sites.length} 个网站`
-              : `浏览器本地保存 · ${state.sites.length} 个网站`}
+              ? `扩展本地保存 · ${workspaceSites.length} 个网站`
+              : `浏览器本地保存 · ${workspaceSites.length} 个网站`}
           </span>
         </footer>
       ) : null}
@@ -3080,6 +3174,7 @@ export function App() {
         open={siteDialogOpen}
         sites={state.sites}
         groups={groups}
+        workspace={activeWorkspace}
         initialGroupId={dialogGroupId}
         editingSite={editingSite}
         prefill={siteDialogPrefill}

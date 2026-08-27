@@ -87,6 +87,48 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: "打开历史记录" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开 GitHub 收藏" })).toBeInTheDocument();
+  });
+
+  it("switches between the main collection and the GitHub workspace", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+    expect(screen.getByRole("heading", { name: "全部 GitHub" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "打开 GitHub" })).toBeInTheDocument();
+    expect(screen.getByText("GitHub 收藏已整理")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开 GitHub 收藏" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "打开收藏主页" }));
+    expect(screen.getByRole("heading", { name: "全部网站" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "打开 GitHub" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开收藏主页" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("rejects a non-GitHub URL when adding inside the GitHub workspace", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+    await openTopAddSite(user);
+    const dialog = screen.getByRole("dialog", { name: "添加网站" });
+    await user.type(within(dialog).getByLabelText("网站名称"), "Example");
+    await user.type(within(dialog).getByLabelText("网站地址"), "example.com");
+    await user.click(within(dialog).getByRole("button", { name: /^添加网站$/ }));
+
+    expect(
+      within(dialog).getByText("GitHub 页面只允许添加 github.com 及其子域名"),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "关闭" }));
+    expect(screen.getByRole("heading", { name: "全部 GitHub" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "打开 Example" })).not.toBeInTheDocument();
   });
 
   it("previews and persists a custom brand name and visibility", async () => {
@@ -295,7 +337,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":10');
+      expect(stored).toContain('"version":11');
     });
   });
 
@@ -481,7 +523,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(10);
+      expect(stored.version).toBe(11);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -637,10 +679,11 @@ describe("App", () => {
     );
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as {
-        groups: Array<{ name: string; order: number }>;
+        groups: Array<{ name: string; order: number; workspace?: string }>;
       };
       expect(
         stored.groups
+          .filter((group) => group.workspace === "main")
           .slice()
           .sort((a, b) => a.order - b.order)
           .map((group) => group.name)
@@ -723,6 +766,7 @@ describe("App", () => {
     await user.click(
       within(dialog).getByRole("button", { name: "移动并更新" }),
     );
+    await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
     expect(screen.getAllByRole("link", { name: "打开 另一个 GitHub" })).toHaveLength(1);
   });
 

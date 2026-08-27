@@ -60,17 +60,20 @@ test("opens the browser history entry and explains the web-only limitation", asy
 }) => {
   const brand = page.getByRole("link", { name: "Mysimple 首页" });
   const homeButton = page.getByRole("button", { name: "打开收藏主页" });
+  const githubButton = page.getByRole("button", { name: "打开 GitHub 收藏" });
   const historyButton = page.getByRole("button", { name: "打开历史记录" });
   await expect(historyButton).toBeVisible();
   const brandBox = await brand.boundingBox();
   const homeBox = await homeButton.boundingBox();
+  const githubBox = await githubButton.boundingBox();
   const historyBox = await historyButton.boundingBox();
-  if (!brandBox || !homeBox || !historyBox) {
+  if (!brandBox || !homeBox || !githubBox || !historyBox) {
     throw new Error("Topbar navigation is not visible");
   }
   expect(historyBox.x).toBeGreaterThan(brandBox.x + brandBox.width - 1);
   expect(homeBox.x).toBeGreaterThan(brandBox.x + brandBox.width - 1);
-  expect(historyBox.x).toBeGreaterThan(homeBox.x + homeBox.width - 1);
+  expect(githubBox.x).toBeGreaterThan(homeBox.x + homeBox.width - 1);
+  expect(historyBox.x).toBeGreaterThan(githubBox.x + githubBox.width - 1);
 
   await historyButton.click();
   await expect(
@@ -78,6 +81,27 @@ test("opens the browser history entry and explains the web-only limitation", asy
   ).toBeVisible();
   await homeButton.click();
   await expect(page.getByRole("heading", { name: "全部网站" })).toBeVisible();
+});
+
+test("opens the independent GitHub workspace and can undo its first migration", async ({
+  page,
+}, testInfo) => {
+  const githubButton = page.getByRole("button", { name: "打开 GitHub 收藏" });
+  await githubButton.click();
+  await expect(page.getByRole("heading", { name: "全部 GitHub" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "打开 GitHub" })).toBeVisible();
+  await expect(page.getByText("GitHub 收藏已整理")).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`github-workspace-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+
+  await page.getByRole("button", { name: "恢复原分组" }).click();
+  await expect(page.getByRole("link", { name: "打开 GitHub" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "打开收藏主页" }).click();
+  await expect(page.getByRole("heading", { name: "全部网站" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "打开 GitHub" })).toBeVisible();
 });
 
 test("loads and deletes browser history through the extension adapter", async ({
@@ -605,7 +629,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(10);
+  expect(saved.version).toBe(11);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -1219,10 +1243,14 @@ test("keeps the new-group button visible when the group tabs overflow", async ({
     const key = "site-hub:v1";
     const state = JSON.parse(localStorage.getItem(key)!);
     const ordinary = state.groups.filter(
-      (group: { isProtected: boolean }) => !group.isProtected,
+      (group: { isProtected: boolean; workspace?: string }) =>
+        group.workspace !== "github" && !group.isProtected,
+    );
+    const githubGroups = state.groups.filter(
+      (group: { workspace?: string }) => group.workspace === "github",
     );
     const protectedOther = state.groups.find(
-      (group: { isProtected: boolean }) => group.isProtected,
+      (group: { id: string }) => group.id === "other",
     );
     const now = new Date().toISOString();
     const extras = Array.from({ length: 12 }, (_, index) => ({
@@ -1230,6 +1258,7 @@ test("keeps the new-group button visible when the group tabs overflow", async ({
       name: `分组 ${index + 1}`,
       icon: "folder",
       isProtected: false,
+      workspace: "main",
       order: ordinary.length + index,
       createdAt: now,
       updatedAt: now,
@@ -1238,6 +1267,7 @@ test("keeps the new-group button visible when the group tabs overflow", async ({
       ...ordinary,
       ...extras,
       { ...protectedOther, order: ordinary.length + extras.length },
+      ...githubGroups,
     ];
     localStorage.setItem(key, JSON.stringify(state));
   });
@@ -1727,6 +1757,7 @@ test("reorders groups from the top tabs and keeps Other fixed last", async ({
     page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
       return state.groups
+        .filter((group: { workspace?: string }) => group.workspace !== "github")
         .slice()
         .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
         .map((group: { id: string }) => group.id);
@@ -1788,6 +1819,7 @@ test("reflows horizontal group tabs at the boundary before drop", async ({
   const order = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
     return state.groups
+      .filter((group: { workspace?: string }) => group.workspace !== "github")
       .slice()
       .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
       .map((group: { id: string }) => group.id);
@@ -1834,6 +1866,7 @@ test("previews and commits group sorting with the keyboard", async ({
     page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
       return state.groups
+        .filter((group: { workspace?: string }) => group.workspace !== "github")
         .slice()
         .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
         .slice(0, 3)
@@ -1854,10 +1887,14 @@ test("updates live group reflow while the tab bar auto-scrolls", async ({
     const key = "site-hub:v1";
     const state = JSON.parse(localStorage.getItem(key)!);
     const ordinary = state.groups.filter(
-      (group: { isProtected: boolean }) => !group.isProtected,
+      (group: { isProtected: boolean; workspace?: string }) =>
+        group.workspace !== "github" && !group.isProtected,
+    );
+    const githubGroups = state.groups.filter(
+      (group: { workspace?: string }) => group.workspace === "github",
     );
     const other = state.groups.find(
-      (group: { isProtected: boolean }) => group.isProtected,
+      (group: { id: string }) => group.id === "other",
     );
     const now = new Date().toISOString();
     const extras = Array.from({ length: 12 }, (_, index) => ({
@@ -1865,6 +1902,7 @@ test("updates live group reflow while the tab bar auto-scrolls", async ({
       name: `排序边缘 ${index + 1}`,
       icon: "folder",
       isProtected: false,
+      workspace: "main",
       order: ordinary.length + index,
       createdAt: now,
       updatedAt: now,
@@ -1873,6 +1911,7 @@ test("updates live group reflow while the tab bar auto-scrolls", async ({
       ...ordinary,
       ...extras,
       { ...other, order: ordinary.length + extras.length },
+      ...githubGroups,
     ];
     localStorage.setItem(key, JSON.stringify(state));
   });
@@ -1900,6 +1939,7 @@ test("updates live group reflow while the tab bar auto-scrolls", async ({
     page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
       return state.groups
+        .filter((group: { workspace?: string }) => group.workspace !== "github")
         .slice()
         .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
         .findIndex((group: { id: string }) => group.id === "search");
@@ -1937,6 +1977,7 @@ test("reorders group rows and inserts a new group between rows", async ({
     page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
       return state.groups
+        .filter((group: { workspace?: string }) => group.workspace !== "github")
         .slice()
         .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
         .map((group: { id: string }) => group.id);
@@ -1970,6 +2011,7 @@ test("reorders group rows and inserts a new group between rows", async ({
     page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
       return state.groups
+        .filter((group: { workspace?: string }) => group.workspace !== "github")
         .slice()
         .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
         .slice(0, 3)
@@ -2209,6 +2251,7 @@ test("moves non-contiguous selected groups as one ordered block", async ({
     page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
       return state.groups
+        .filter((group: { workspace?: string }) => group.workspace !== "github")
         .slice()
         .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
         .map((group: { id: string }) => group.id);
@@ -2513,10 +2556,14 @@ test("auto-scrolls overflowing group tabs during a site transfer", async ({
     const key = "site-hub:v1";
     const state = JSON.parse(localStorage.getItem(key)!);
     const ordinary = state.groups.filter(
-      (group: { isProtected: boolean }) => !group.isProtected,
+      (group: { isProtected: boolean; workspace?: string }) =>
+        group.workspace !== "github" && !group.isProtected,
+    );
+    const githubGroups = state.groups.filter(
+      (group: { workspace?: string }) => group.workspace === "github",
     );
     const other = state.groups.find(
-      (group: { isProtected: boolean }) => group.isProtected,
+      (group: { id: string }) => group.id === "other",
     );
     const now = new Date().toISOString();
     const extras = Array.from({ length: 12 }, (_, index) => ({
@@ -2524,6 +2571,7 @@ test("auto-scrolls overflowing group tabs during a site transfer", async ({
       name: `边缘分组 ${index + 1}`,
       icon: "folder",
       isProtected: false,
+      workspace: "main",
       order: ordinary.length + index,
       createdAt: now,
       updatedAt: now,
@@ -2532,6 +2580,7 @@ test("auto-scrolls overflowing group tabs during a site transfer", async ({
       ...ordinary,
       ...extras,
       { ...other, order: ordinary.length + extras.length },
+      ...githubGroups,
     ];
     localStorage.setItem(key, JSON.stringify(state));
   });

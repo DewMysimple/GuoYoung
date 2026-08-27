@@ -1244,6 +1244,33 @@ label:has(input:focus-visible) {
   font-size: 13px;
 }
 
+.github-migration-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+  padding: 14px 16px 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface));
+}
+
+.github-migration-banner div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.github-migration-banner strong {
+  font-size: 14px;
+}
+
+.github-migration-banner span {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
 .transfer-banner {
   display: flex;
   align-items: center;
@@ -4760,6 +4787,16 @@ label:has(input:focus-visible) {
     align-items: stretch;
     flex-direction: column;
     gap: 11px;
+  }
+
+  .github-migration-banner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .github-migration-banner .button {
+    align-self: flex-start;
   }
 
   .history-selection-actions {

@@ -10,6 +10,50 @@ import type {
 
 const defaultTimestamp = "2026-01-01T00:00:00.000Z";
 export const OTHER_GROUP_ID = "other";
+export const GITHUB_OTHER_GROUP_ID = "github-other";
+
+export const DEFAULT_GITHUB_GROUPS: SiteGroup[] = [
+  {
+    id: "github-repositories",
+    name: "仓库",
+    icon: "code",
+    isProtected: false,
+    workspace: "github",
+    order: 0,
+    createdAt: defaultTimestamp,
+    updatedAt: defaultTimestamp,
+  },
+  {
+    id: "github-tools",
+    name: "工具",
+    icon: "wrench",
+    isProtected: false,
+    workspace: "github",
+    order: 1,
+    createdAt: defaultTimestamp,
+    updatedAt: defaultTimestamp,
+  },
+  {
+    id: "github-docs",
+    name: "文档",
+    icon: "book-open",
+    isProtected: false,
+    workspace: "github",
+    order: 2,
+    createdAt: defaultTimestamp,
+    updatedAt: defaultTimestamp,
+  },
+  {
+    id: GITHUB_OTHER_GROUP_ID,
+    name: "其他",
+    icon: "folder",
+    isProtected: true,
+    workspace: "github",
+    order: 3,
+    createdAt: defaultTimestamp,
+    updatedAt: defaultTimestamp,
+  },
+];
 
 export type LayoutPresetSettings = Pick<
   AppearanceSettings,
@@ -152,6 +196,7 @@ export const DEFAULT_GROUPS: SiteGroup[] = [
     name: "搜索",
     icon: "magnifying-glass",
     isProtected: false,
+    workspace: "main",
     order: 0,
     createdAt: defaultTimestamp,
     updatedAt: defaultTimestamp,
@@ -161,6 +206,7 @@ export const DEFAULT_GROUPS: SiteGroup[] = [
     name: "开发",
     icon: "code",
     isProtected: false,
+    workspace: "main",
     order: 1,
     createdAt: defaultTimestamp,
     updatedAt: defaultTimestamp,
@@ -170,6 +216,7 @@ export const DEFAULT_GROUPS: SiteGroup[] = [
     name: "设计",
     icon: "pen-nib",
     isProtected: false,
+    workspace: "main",
     order: 2,
     createdAt: defaultTimestamp,
     updatedAt: defaultTimestamp,
@@ -179,6 +226,7 @@ export const DEFAULT_GROUPS: SiteGroup[] = [
     name: "影音",
     icon: "play",
     isProtected: false,
+    workspace: "main",
     order: 3,
     createdAt: defaultTimestamp,
     updatedAt: defaultTimestamp,
@@ -188,6 +236,7 @@ export const DEFAULT_GROUPS: SiteGroup[] = [
     name: "学习",
     icon: "book-open",
     isProtected: false,
+    workspace: "main",
     order: 4,
     createdAt: defaultTimestamp,
     updatedAt: defaultTimestamp,
@@ -197,6 +246,7 @@ export const DEFAULT_GROUPS: SiteGroup[] = [
     name: "其他",
     icon: "folder",
     isProtected: true,
+    workspace: "main",
     order: 5,
     createdAt: defaultTimestamp,
     updatedAt: defaultTimestamp,
@@ -260,8 +310,11 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 10,
-    groups: DEFAULT_GROUPS.map((group) => ({ ...group })),
+    version: 11,
+    groups: [
+      ...DEFAULT_GROUPS.map((group) => ({ ...group })),
+      ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),
+    ],
     sites: DEFAULT_SITES.map((item) => ({ ...item })),
     deletedSites: [],
     trashRetentionDays: 30,
@@ -271,5 +324,6 @@ export function createDefaultState(): SiteCollectionState {
     wallpaper: { ...DEFAULT_WALLPAPER },
     searchHistory: [],
     displayMode: "flat",
+    githubMigration: null,
   };
 }

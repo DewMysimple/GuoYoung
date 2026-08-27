@@ -17,8 +17,9 @@ describe("local storage", () => {
     const result = loadState(memoryStorage());
     expect(result.recovered).toBe(false);
     expect(result.state.sites).toHaveLength(12);
-    expect(result.state.groups).toHaveLength(6);
-    expect(result.state.groups.at(-1)?.id).toBe("other");
+    expect(result.state.groups).toHaveLength(10);
+    expect(result.state.groups.at(-1)?.id).toBe("github-other");
+    expect(result.state.groups.filter((group) => group.workspace === "github")).toHaveLength(4);
     expect(result.state.brand).toMatchObject({
       name: "Mysimple",
       logoSource: "default",
@@ -54,10 +55,10 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(10);
+    expect(result.state.version).toBe(11);
     expect(result.state.appearance.cardWidth).toBe(160);
     expect(result.state.searchHistory).toEqual([]);
-    expect(result.state.groups).toHaveLength(6);
+    expect(result.state.groups).toHaveLength(10);
     expect(result.state.sites.find((site) => site.id === "github")?.groupId).toBe(
       "develop",
     );
@@ -75,8 +76,8 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(10);
-    expect(result.state.groups.at(-1)).toMatchObject({
+    expect(result.state.version).toBe(11);
+    expect(result.state.groups.find((group) => group.id === "other")).toMatchObject({
       id: "other",
       name: "其他",
       isProtected: true,
@@ -95,7 +96,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(10);
+    expect(result.state.version).toBe(11);
     expect(
       result.state.sites
         .slice()
@@ -122,7 +123,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(10);
+    expect(result.state.version).toBe(11);
     expect(result.state.wallpaper).toMatchObject({
       positionX: 100,
       positionY: 100,
@@ -152,7 +153,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(10);
+    expect(result.state.version).toBe(11);
     expect(result.state.displayMode).toBe("flat");
     expect(result.state.appearance).toMatchObject({
       brandFontScale: 100,
@@ -185,7 +186,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(10);
+    expect(result.state.version).toBe(11);
     expect(result.state.brand.name).toBe("Mysimple");
     expect(result.state.appearance).toMatchObject({
       pagePadding: 20,
@@ -205,7 +206,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(10);
+    expect(result.state.version).toBe(11);
     expect(result.state.deletedSites).toEqual([]);
     expect(result.state.trashRetentionDays).toBe(30);
   });
@@ -234,7 +235,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(10);
+    expect(result.state.version).toBe(11);
     expect(result.state.sites.find((site) => site.id === "github")?.clickCount).toBe(7);
     expect(result.state.sites.find((site) => site.id === "google")?.clickCount).toBe(0);
     expect(result.state.deletedSites[0].site.clickCount).toBe(3);
@@ -273,9 +274,11 @@ describe("local storage", () => {
 
     expect(result.recovered).toBe(false);
     expect(
-      result.state.groups.filter((group) => group.name === "其他"),
+      result.state.groups.filter(
+        (group) => group.workspace === "main" && group.name === "其他",
+      ),
     ).toHaveLength(1);
-    expect(result.state.groups.at(-1)).toMatchObject({
+    expect(result.state.groups.find((group) => group.id === "other")).toMatchObject({
       id: "other",
       isProtected: true,
     });

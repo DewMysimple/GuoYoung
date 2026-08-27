@@ -52,8 +52,9 @@ export function createExportPayload(
   state: SiteCollectionState,
   exportedAt = new Date().toISOString(),
 ): SiteHubExport {
+  const { githubMigration: _githubMigration, ...stateWithoutMigration } = state;
   const exportableState: SiteCollectionState = {
-    ...state,
+    ...stateWithoutMigration,
     deletedSites: [],
     searchHistory: [],
     wallpaper:

@@ -2,8 +2,10 @@ import {
   createDefaultState,
   DEFAULT_APPEARANCE,
   DEFAULT_BRAND,
+  DEFAULT_GITHUB_GROUPS,
   DEFAULT_GROUPS,
   DEFAULT_WALLPAPER,
+  GITHUB_OTHER_GROUP_ID,
   OTHER_GROUP_ID,
 } from "../data/defaults";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
@@ -12,6 +14,7 @@ import type {
   BrandLogoSource,
   BrandSettings,
   CategoryIcon,
+  GithubMigrationRecord,
   LayoutPreset,
   SearchHistoryEntry,
   SiteCollectionState,
@@ -19,6 +22,7 @@ import type {
   SiteIconSource,
   SiteDisplayMode,
   SiteItem,
+  SiteWorkspace,
   ThemePreference,
   TrashedSite,
   TrashRetentionDays,
@@ -29,6 +33,7 @@ import type {
 import { isBrandLogoDataUrl, isHttpImageUrl } from "./brand-logo";
 import { reindexSites } from "./site-utils";
 import { purgeExpiredTrashFromState } from "./site-state";
+import { ensureGithubWorkspace, getGroupWorkspace } from "./github-workspace";
 
 export const STORAGE_KEY = "site-hub:v1";
 
@@ -403,7 +408,13 @@ function hasBaseGroupFields(group: Record<string, unknown>): boolean {
 function isSiteGroup(value: unknown): value is SiteGroup {
   if (!value || typeof value !== "object") return false;
   const group = value as Record<string, unknown>;
-  return hasBaseGroupFields(group) && typeof group.isProtected === "boolean";
+  return (
+    hasBaseGroupFields(group) &&
+    typeof group.isProtected === "boolean" &&
+    (group.workspace === undefined ||
+      group.workspace === "main" ||
+      group.workspace === "github")
+  );
 }
 
 function isSiteItem(value: unknown, groupIds: Set<string>): value is SiteItem {
@@ -452,10 +463,16 @@ function normalizeDeletedSites(value: unknown): TrashedSite[] {
       deletedAt: entry.deletedAt,
       originalGroupId: entry.originalGroupId,
       originalGroupName: entry.originalGroupName,
+      ...(entry.originalWorkspace === "github" || entry.originalWorkspace === "main"
+        ? { originalWorkspace: entry.originalWorkspace }
+        : {}),
     }));
 }
 
-function baseStateIsValid(value: Record<string, unknown>): boolean {
+function baseStateIsValid(
+  value: Record<string, unknown>,
+  requireGithubWorkspace = false,
+): boolean {
   if (
     !Array.isArray(value.groups) ||
     value.groups.length === 0 ||
@@ -467,13 +484,49 @@ function baseStateIsValid(value: Record<string, unknown>): boolean {
   }
   const groups = value.groups as SiteGroup[];
   const groupIds = new Set(groups.map((group) => group.id));
-  const protectedGroups = groups.filter((group) => group.isProtected);
+  const mainGroups = groups.filter(
+    (group) => getGroupWorkspace(group) === "main",
+  );
+  const protectedGroups = mainGroups.filter((group) => group.isProtected);
+  const githubGroups = groups.filter(
+    (group) => getGroupWorkspace(group) === "github",
+  );
   return (
     groupIds.size === groups.length &&
     protectedGroups.length === 1 &&
     protectedGroups[0].id === OTHER_GROUP_ID &&
+    (!requireGithubWorkspace ||
+      (githubGroups.some(
+        (group) => group.id === GITHUB_OTHER_GROUP_ID && group.isProtected,
+      ) && githubGroups.length >= DEFAULT_GITHUB_GROUPS.length)) &&
     (value.sites as unknown[]).every((site) => isSiteItem(site, groupIds))
   );
+}
+
+function isGithubMigrationRecord(value: unknown): value is GithubMigrationRecord {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  if (
+    (record.status !== "completed" && record.status !== "undone") ||
+    typeof record.completedAt !== "string" ||
+    !Array.isArray(record.entries)
+  ) {
+    return false;
+  }
+  return record.entries.every((entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const candidate = entry as Record<string, unknown>;
+    return (
+      typeof candidate.siteId === "string" &&
+      typeof candidate.originalName === "string" &&
+      typeof candidate.originalUrl === "string" &&
+      typeof candidate.fromGroupId === "string" &&
+      typeof candidate.fromGroupName === "string" &&
+      typeof candidate.fromOrder === "number" &&
+      typeof candidate.fromGlobalOrder === "number" &&
+      typeof candidate.targetGroupId === "string"
+    );
+  });
 }
 
 function hasValidClickCount(value: unknown): boolean {
@@ -489,8 +542,8 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 10 &&
-    baseStateIsValid(state) &&
+    state.version === 11 &&
+    baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
     ) &&
@@ -508,7 +561,9 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
     Boolean(state.brand) &&
     Boolean(state.wallpaper) &&
     Array.isArray(state.searchHistory) &&
-    displayModes.includes(state.displayMode as SiteDisplayMode)
+    displayModes.includes(state.displayMode as SiteDisplayMode) &&
+    (state.githubMigration === null ||
+      isGithubMigrationRecord(state.githubMigration))
   );
 }
 
@@ -522,6 +577,7 @@ function repairDuplicateOtherGroups(
   const protectedName = protectedOther.name.trim().toLocaleLowerCase("zh-CN");
   const duplicates = state.groups.filter(
     (group) =>
+      getGroupWorkspace(group) === "main" &&
       !group.isProtected &&
       group.name.trim().toLocaleLowerCase("zh-CN") === protectedName,
   );
@@ -533,9 +589,17 @@ function repairDuplicateOtherGroups(
   ).length;
   const groups = [
     ...state.groups
-      .filter((group) => !group.isProtected && !duplicateIds.has(group.id))
+      .filter(
+        (group) =>
+          getGroupWorkspace(group) === "main" &&
+          !group.isProtected &&
+          !duplicateIds.has(group.id),
+      )
       .sort((a, b) => a.order - b.order),
     protectedOther,
+    ...state.groups
+      .filter((group) => getGroupWorkspace(group) === "github")
+      .sort((a, b) => a.order - b.order),
   ].map((group, groupOrder) => ({ ...group, order: groupOrder }));
   const sites = state.sites.map((site) =>
     duplicateIds.has(site.groupId)
@@ -547,16 +611,20 @@ function repairDuplicateOtherGroups(
         }
       : { ...site },
   );
-  return { ...state, groups, sites: reindexSites(sites) };
+  return ensureGithubWorkspace({ ...state, groups, sites: reindexSites(sites) });
 }
 
 function upgradeToVersion10(
   legacy: Record<string, unknown>,
 ): SiteCollectionState | undefined {
   if (!baseStateIsValid(legacy)) return undefined;
+  const legacyGroups = (legacy.groups as SiteGroup[])
+    .filter((group) => getGroupWorkspace(group) === "main")
+    .map((group) => ({ ...group }));
+  const groups = normalizeMigratedGroups(legacyGroups);
   return {
     version: 10,
-    groups: (legacy.groups as SiteGroup[]).map((group) => ({ ...group })),
+    groups,
     sites: (legacy.sites as SiteItem[]).map((site, index) => ({
       ...site,
       globalOrder:
@@ -582,6 +650,48 @@ function upgradeToVersion10(
   };
 }
 
+function upgradeToVersion11(
+  legacy: Record<string, unknown> | SiteCollectionState,
+): SiteCollectionState | undefined {
+  if (legacy.version === 11) {
+    if (!baseStateIsValid(legacy as Record<string, unknown>, true)) {
+      return undefined;
+    }
+    const candidate = legacy as SiteCollectionState;
+    return ensureGithubWorkspace({
+      ...candidate,
+      version: 11,
+      githubMigration:
+        candidate.githubMigration === null ||
+        isGithubMigrationRecord(candidate.githubMigration)
+          ? candidate.githubMigration ?? null
+          : null,
+      groups: candidate.groups.map((group) => ({
+        ...group,
+        workspace: getGroupWorkspace(group),
+      })),
+      deletedSites: normalizeDeletedSites(candidate.deletedSites),
+    });
+  }
+
+  const base =
+    legacy.version === 10
+      ? upgradeToVersion10(legacy as Record<string, unknown>)
+      : undefined;
+  if (!base || !baseStateIsValid(base as unknown as Record<string, unknown>)) {
+    return undefined;
+  }
+  return ensureGithubWorkspace({
+    ...base,
+    version: 11,
+    githubMigration: null,
+    groups: base.groups.map((group) => ({
+      ...group,
+      workspace: "main",
+    })),
+  });
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -596,6 +706,7 @@ function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
       name: "其他",
       icon: "folder",
       isProtected: true,
+      workspace: "main",
       order: ordinary.length,
       createdAt: existingOther?.createdAt ?? now,
       updatedAt: existingOther?.updatedAt ?? now,
@@ -698,12 +809,17 @@ export function parseStoredState(raw: string | null): LoadedState {
     const value: unknown = JSON.parse(raw);
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
-      const migrated =
-        candidate.version === 10 ||
-        candidate.version === 9 ||
-        candidate.version === 8
-          ? upgradeToVersion10(candidate)
+      const baseCandidate =
+        candidate.version === 11
+          ? candidate
+          : candidate.version === 10 ||
+              candidate.version === 9 ||
+              candidate.version === 8
+            ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
+      const migrated = baseCandidate
+        ? upgradeToVersion11(baseCandidate)
+        : undefined;
       if (migrated) {
         return {
           state: purgeExpiredTrashFromState(

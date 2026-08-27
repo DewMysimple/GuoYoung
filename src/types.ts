@@ -48,11 +48,14 @@ export type CategoryIcon =
   | "package"
   | "flask";
 
+export type SiteWorkspace = "main" | "github";
+
 export interface SiteGroup {
   id: string;
   name: string;
   icon: CategoryIcon;
   isProtected: boolean;
+  workspace: SiteWorkspace;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -88,6 +91,25 @@ export interface TrashedSite {
   deletedAt: string;
   originalGroupId: string;
   originalGroupName: string;
+  originalWorkspace?: SiteWorkspace;
+}
+
+export interface GithubMigrationEntry {
+  siteId: string;
+  originalName: string;
+  originalUrl: string;
+  fromGroupId: string;
+  fromGroupName: string;
+  fromOrder: number;
+  fromGlobalOrder: number;
+  targetGroupId: string;
+}
+
+export interface GithubMigrationRecord {
+  status: "completed" | "undone";
+  completedAt: string;
+  undoneAt?: string;
+  entries: GithubMigrationEntry[];
 }
 
 export type ThemePreference = "system" | "light" | "dark";
@@ -162,7 +184,7 @@ export interface SearchHistoryEntry {
 }
 
 export interface SiteCollectionState {
-  version: 10;
+  version: number;
   groups: SiteGroup[];
   sites: SiteItem[];
   deletedSites: TrashedSite[];
@@ -173,6 +195,7 @@ export interface SiteCollectionState {
   wallpaper: WallpaperSettings;
   searchHistory: SearchHistoryEntry[];
   displayMode: SiteDisplayMode;
+  githubMigration?: GithubMigrationRecord | null;
 }
 
 export interface SiteFormValues {
