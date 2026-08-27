@@ -25,6 +25,8 @@ import {
   updateSiteInState,
   mergeGroupImportIntoState,
   type GroupImportResult,
+  importGithubRepositoriesToState,
+  type GithubRepositoryImportResult,
 } from "../lib/site-state";
 import {
   migrateGithubSitesInState,
@@ -46,6 +48,10 @@ import type {
   TrashRetentionDays,
   WallpaperSettings,
 } from "../types";
+import type {
+  GithubOwnerProfile,
+  GithubRepositorySummary,
+} from "../lib/github-repository-api";
 
 interface SiteHubApi {
   state: SiteCollectionState;
@@ -85,6 +91,11 @@ interface SiteHubApi {
     targetGroupId: string,
     payload: GroupExportPayload,
   ) => GroupImportResult;
+  importGithubRepositories: (
+    owner: GithubOwnerProfile,
+    repositories: GithubRepositorySummary[],
+    selectedRepositoryIds?: Set<number>,
+  ) => GithubRepositoryImportResult;
   migrateGithubSites: () => ReturnType<typeof migrateGithubSitesInState>;
   moveGithubHomeToMain: (siteId: string) => void;
   undoGithubMigration: () => ReturnType<typeof undoGithubMigrationInState>;
@@ -414,6 +425,21 @@ export function useSiteHub(): SiteHubApi {
     [],
   );
 
+  const importGithubRepositories = useCallback<
+    SiteHubApi["importGithubRepositories"]
+  >((owner, repositories, selectedRepositoryIds) => {
+    const result = importGithubRepositoriesToState(
+      stateRef.current,
+      owner,
+      repositories,
+      selectedRepositoryIds,
+    );
+    stateRef.current = result.state;
+    setState(result.state);
+    setRecovered(false);
+    return result;
+  }, []);
+
   const migrateGithubSites = useCallback(() => {
     const result = migrateGithubSitesInState(stateRef.current);
     stateRef.current = result.state;
@@ -545,6 +571,7 @@ export function useSiteHub(): SiteHubApi {
     reorderGroupBlock: reorderGroupsBlock,
     deleteGroup,
     importGroup,
+    importGithubRepositories,
     migrateGithubSites,
     moveGithubHomeToMain,
     undoGithubMigration,

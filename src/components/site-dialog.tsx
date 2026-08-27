@@ -23,6 +23,7 @@ interface SiteDialogProps {
   sites: SiteItem[];
   groups: SiteGroup[];
   workspace?: SiteWorkspace;
+  allowGithubExit?: boolean;
   initialGroupId?: string;
   editingSite: SiteItem | null;
   prefill?: { name?: string; url: string };
@@ -38,6 +39,7 @@ export function SiteDialog({
   sites,
   groups,
   workspace = "main",
+  allowGithubExit = false,
   initialGroupId,
   editingSite,
   prefill,
@@ -158,7 +160,7 @@ export function SiteDialog({
     let customIconUrl: string | undefined;
     try {
       url = normalizeUrl(values.url);
-      if (workspace === "github" && !isGithubUrl(url)) {
+      if (workspace === "github" && !isGithubUrl(url) && !allowGithubExit) {
         nextErrors.url = "GitHub 页面只允许添加 github.com 及其子域名";
       } else if (workspace === "github" && isGithubHomeUrl(url)) {
         nextErrors.url = "GitHub 官方主页请通过顶部入口管理";

@@ -113,6 +113,121 @@ describe("App", () => {
     );
   });
 
+  it("searches GitHub workspace items from the homepage All view and keeps group search scoped", async () => {
+    const state = createDefaultState();
+    state.sites.push({
+      ...state.sites[0],
+      id: "cross-workspace-repo",
+      name: "Acme Secret Repo",
+      url: "https://github.com/acme/secret-repo",
+      groupId: "github-other",
+      globalOrder: state.sites.length,
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const user = userEvent.setup();
+    render(<App />);
+
+    const search = screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" });
+    fireEvent.change(search, { target: { value: "secret-repo" } });
+    expect(screen.getByRole("link", { name: "打开 Acme Secret Repo" })).toBeInTheDocument();
+    expect(screen.getByTestId("site-card-cross-workspace-repo")).toHaveTextContent("GitHub");
+    expect(screen.getByRole("heading", { name: "全库搜索" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" }), {
+      target: { value: "" },
+    });
+    await user.click(screen.getByRole("tab", { name: /开发/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" }), {
+      target: { value: "secret-repo" },
+    });
+    expect(screen.queryByRole("link", { name: "打开 Acme Secret Repo" })).not.toBeInTheDocument();
+  });
+
+  it("previews a GitHub author and imports the confirmed repositories into its group", async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ login: "acme", type: "Organization", name: "Acme" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => [
+          {
+            id: 101,
+            name: "one",
+            full_name: "acme/one",
+            html_url: "https://github.com/acme/one",
+            private: false,
+            fork: false,
+            archived: false,
+          },
+        ],
+      } as Response);
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+      await user.click(screen.getByRole("button", { name: "导入 GitHub 作者仓库" }));
+
+      const dialog = screen.getByRole("dialog", { name: "导入作者仓库" });
+      await user.type(within(dialog).getByLabelText("作者或组织主页"), "https://github.com/acme");
+      await user.click(within(dialog).getByRole("button", { name: "读取仓库" }));
+      await waitFor(() => expect(within(dialog).getByText("acme/one")).toBeInTheDocument());
+      expect(within(dialog).getByText("可添加 1")).toBeInTheDocument();
+
+      await user.click(within(dialog).getByRole("button", { name: "确认添加 1 项" }));
+      await waitFor(() => {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+        expect(saved.sites.some((site: { url: string }) => site.url === "https://github.com/acme/one")).toBe(true);
+        expect(saved.groups.some((group: { name: string; githubImportSource?: { login: string } }) =>
+          group.name === "acme" && group.githubImportSource?.login === "acme",
+        )).toBe(true);
+      });
+      expect(screen.getByRole("heading", { name: "acme" })).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it("moves a GitHub result back to the homepage when edited from the homepage", async () => {
+    const state = createDefaultState();
+    state.sites.push({
+      ...state.sites[0],
+      id: "editable-github-repo",
+      name: "Editable GitHub Repo",
+      url: "https://github.com/acme/editable",
+      groupId: "github-other",
+      globalOrder: state.sites.length,
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const user = userEvent.setup();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" }), {
+      target: { value: "editable" },
+    });
+    await user.click(screen.getByRole("button", { name: "编辑 Editable GitHub Repo" }));
+    const dialog = screen.getByRole("dialog", { name: "编辑网站" });
+    fireEvent.change(within(dialog).getByLabelText("网站地址"), {
+      target: { value: "example.com/new-place" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(saved.sites.find((site: { id: string }) => site.id === "editable-github-repo"))
+        .toMatchObject({ url: "https://example.com/new-place", groupId: "other" });
+    });
+  });
+
   it("rejects a non-GitHub URL when adding inside the GitHub workspace", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -338,7 +453,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":12');
+      expect(stored).toContain('"version":13');
     });
   });
 
@@ -509,7 +624,8 @@ describe("App", () => {
       screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" }),
       { target: { value: "GitHub" } },
     );
-    expect(screen.getByRole("heading", { level: 3, name: "开发" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "全库搜索" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3, name: "开发" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { level: 3, name: "搜索" }),
     ).not.toBeInTheDocument();
@@ -572,7 +688,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(12);
+      expect(stored.version).toBe(13);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,

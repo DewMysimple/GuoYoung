@@ -122,6 +122,114 @@ test("opens the independent GitHub workspace and can undo its first migration", 
   await expect(page.getByRole("link", { name: "打开 GitHub", exact: true })).toBeVisible();
 });
 
+test("searches GitHub workspace links from the homepage All view", async ({ page }) => {
+  await page.evaluate(() => {
+    const key = "site-hub:v1";
+    const state = JSON.parse(localStorage.getItem(key)!);
+    state.sites.push({
+      ...state.sites[0],
+      id: "cross-workspace-repo",
+      name: "Acme Secret Repo",
+      url: "https://github.com/acme/secret-repo",
+      groupId: "github-other",
+      globalOrder: state.sites.length,
+    });
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await page.reload();
+
+  const search = page.getByRole("searchbox", { name: "搜索网页或筛选收藏" });
+  await search.fill("secret-repo");
+  await expect(page.getByRole("link", { name: "打开 Acme Secret Repo" })).toBeVisible();
+  await expect(page.getByTestId("site-card-cross-workspace-repo")).toContainText("GitHub");
+  await expect(page.getByRole("heading", { name: "全库搜索" })).toBeVisible();
+
+  await search.fill("");
+  await page.getByRole("tab", { name: /开发/ }).click();
+  await search.fill("secret-repo");
+  await expect(page.getByRole("link", { name: "打开 Acme Secret Repo" })).toHaveCount(0);
+});
+
+test("previews and imports a GitHub author's repositories while skipping duplicates", async ({
+  page,
+}, testInfo) => {
+  await page.evaluate(() => {
+    const key = "site-hub:v1";
+    const state = JSON.parse(localStorage.getItem(key)!);
+    state.sites.push({
+      ...state.sites[0],
+      id: "existing-acme-repo",
+      name: "已有仓库",
+      url: "https://github.com/acme/existing",
+      groupId: "github-other",
+      globalOrder: state.sites.length,
+    });
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await page.reload();
+  await page.route("https://api.github.com/**", async (route) => {
+    const url = route.request().url();
+    if (url.endsWith("/users/acme")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ login: "acme", type: "Organization", name: "Acme" }),
+      });
+      return;
+    }
+    if (url.includes("/orgs/acme/repos")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: 1,
+            name: "existing",
+            full_name: "acme/existing",
+            html_url: "https://github.com/acme/existing",
+            private: false,
+            fork: false,
+            archived: false,
+          },
+          {
+            id: 2,
+            name: "new-repo",
+            full_name: "acme/new-repo",
+            html_url: "https://github.com/acme/new-repo",
+            private: false,
+            fork: true,
+            archived: true,
+          },
+        ]),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
+  await page.getByRole("button", { name: "导入 GitHub 作者仓库" }).click();
+  const dialog = page.getByRole("dialog", { name: "导入作者仓库" });
+  await dialog.getByLabel("作者或组织主页").fill("https://github.com/acme");
+  await dialog.getByRole("button", { name: "读取仓库" }).click();
+  await expect(dialog.getByText("acme/new-repo")).toBeVisible();
+  await expect(dialog.getByText("已收藏 1")).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`github-repository-import-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+
+  await dialog.getByRole("button", { name: "确认添加 1 项" }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    return {
+      added: state.sites.some((site: { url: string }) => site.url === "https://github.com/acme/new-repo"),
+      group: state.groups.find((group: { name: string }) => group.name === "acme")?.githubImportSource?.login,
+    };
+  })).toEqual({ added: true, group: "acme" });
+  await expect(page.getByRole("heading", { name: "acme" })).toBeVisible();
+});
+
 test("loads and deletes browser history through the extension adapter", async ({
   page,
 }, testInfo) => {
@@ -647,7 +755,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(12);
+  expect(saved.version).toBe(13);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -1397,8 +1505,9 @@ test("persists grouped display and combines it with sorting and search", async (
   await page.reload();
   await expect(page.locator(".grouped-site-section")).toHaveCount(6);
   await page.getByRole("searchbox", { name: "搜索网页或筛选收藏" }).fill("GitHub");
-  await expect(page.locator(".grouped-site-section")).toHaveCount(1);
-  await expect(page.getByRole("heading", { name: "开发", level: 3 })).toBeVisible();
+  await expect(page.locator(".grouped-site-section")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "全库搜索", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "开发", level: 3 })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "搜索", level: 3 })).toHaveCount(0);
 });
 

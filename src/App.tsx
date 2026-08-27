@@ -71,6 +71,7 @@ import {
 import { NewGroupDialog } from "./components/new-group-dialog";
 import { GroupSortDragPreview } from "./components/group-sort-preview";
 import { GithubHomeEntry } from "./components/github-home-entry";
+import { GithubRepositoryImportDialog } from "./components/github-repository-import-dialog";
 import { SortableGroupSection } from "./components/sortable-group-section";
 import {
   SettingsPanel,
@@ -125,10 +126,16 @@ import type {
 } from "./types";
 import { mergeGroupImportIntoState } from "./lib/site-state";
 import {
+  fetchGithubOwnerRepositories,
+  formatGithubRepositoryError,
+  type GithubOwnerRepositories,
+} from "./lib/github-repository-api";
+import {
   findGithubHomeSite,
   getGroupWorkspace,
   getWorkspaceGroups,
   isGithubHomeUrl,
+  isGithubUrl,
   routeGithubSitesInState,
 } from "./lib/github-workspace";
 
@@ -259,6 +266,7 @@ export function App() {
     reorderGroupBlock,
     deleteGroup,
     importGroup,
+    importGithubRepositories,
     migrateGithubSites,
     moveGithubHomeToMain,
     undoGithubMigration,
@@ -334,6 +342,13 @@ export function App() {
     null,
   );
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [githubImportOpen, setGithubImportOpen] = useState(false);
+  const [githubImportInitialUrl, setGithubImportInitialUrl] = useState("");
+  const [githubImportPreview, setGithubImportPreview] =
+    useState<GithubOwnerRepositories | null>(null);
+  const [githubImportLoading, setGithubImportLoading] = useState(false);
+  const [githubImportConfirming, setGithubImportConfirming] = useState(false);
+  const [githubImportError, setGithubImportError] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SiteSortMode>("manual");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
@@ -415,6 +430,10 @@ export function App() {
     activeGroupId === "all"
       ? undefined
       : groups.find((group) => group.id === activeGroupId);
+  const activeGithubImportGroup =
+    activeWorkspace === "github" && activeGroup?.githubImportSource
+      ? activeGroup
+      : undefined;
   const activeSortedGroup = activeGroupSortId
     ? groups.find((group) => group.id === activeGroupSortId)
     : undefined;
@@ -450,13 +469,19 @@ export function App() {
       ),
     [activeWorkspace, dragSitesPreview, state.sites, workspaceGroupIds],
   );
+  const isCrossWorkspaceSearch =
+    activeWorkspace === "main" &&
+    activeGroupId === "all" &&
+    Boolean(query.trim());
+  const searchGroups = isCrossWorkspaceSearch ? state.groups : groups;
+  const searchSites = isCrossWorkspaceSearch ? state.sites : renderedSites;
   const githubHomeSite = useMemo(
     () => findGithubHomeSite(state.sites) ?? null,
     [state.sites],
   );
   const scopedSites = useMemo(
-    () => filterSites(renderedSites, query, groups, activeGroupId),
-    [renderedSites, query, groups, activeGroupId],
+    () => filterSites(searchSites, query, searchGroups, activeGroupId),
+    [activeGroupId, query, searchGroups, searchSites],
   );
   const visibleSites = useMemo(() => {
     if (sortMode === "manual") return scopedSites;
@@ -475,6 +500,7 @@ export function App() {
   }, [activeGroupId, scopedSites, sortMode]);
   const isSearching = Boolean(query.trim());
   const isGroupedView =
+    !isCrossWorkspaceSearch &&
     activeGroupId === "all" &&
     state.displayModeByWorkspace[activeWorkspace] === "grouped";
   const groupSelectionActive = selectedGroupIds.size > 0;
@@ -511,6 +537,7 @@ export function App() {
     siteDialogOpen ||
     newGroupDialogOpen ||
     groupDialogOpen ||
+    githubImportOpen ||
     settingsOpen ||
     resetOpen ||
     Boolean(pendingImport);
@@ -2039,6 +2066,31 @@ export function App() {
     values: SiteFormValues & { url: string; customIconUrl?: string },
     replaceExistingId?: string,
   ) {
+    const editingFromMainGithubWorkspace =
+      activeWorkspace === "main" &&
+      dialogWorkspace === "github" &&
+      Boolean(editingSite);
+    if (editingFromMainGithubWorkspace) {
+      try {
+        if (!isGithubUrl(values.url)) {
+          const mainGroups = getWorkspaceGroups(state.groups, "main");
+          const fallbackGroup =
+            mainGroups.find((group) => group.id === OTHER_GROUP_ID) ??
+            mainGroups.find((group) => !group.isProtected) ??
+            mainGroups[0];
+          if (fallbackGroup && editingSite) {
+            updateSite(editingSite.id, { ...values, groupId: fallbackGroup.id });
+            setTransferNotice({
+              kind: "success",
+              message: "已将链接移回收藏主页的“其他”分组。",
+            });
+            return;
+          }
+        }
+      } catch {
+        // SiteDialog performs the final URL validation and will show its error.
+      }
+    }
     if (editingSite) updateSite(editingSite.id, values);
     else if (replaceExistingId) updateSite(replaceExistingId, values);
     else addSite(values);
@@ -2220,6 +2272,73 @@ export function App() {
     setSiteDialogOpen(true);
   }
 
+  function openGithubRepositoryImport(profileUrl = "") {
+    setAddMenuOpen(false);
+    setGithubImportInitialUrl(profileUrl);
+    setGithubImportPreview(null);
+    setGithubImportError(null);
+    setGithubImportOpen(true);
+  }
+
+  async function handleGithubRepositoryRead(input: string) {
+    setGithubImportLoading(true);
+    setGithubImportError(null);
+    setGithubImportPreview(null);
+    try {
+      const result = await fetchGithubOwnerRepositories(input);
+      if (result.repositories.length === 0) {
+        setGithubImportError("这个作者或组织没有可导入的公开仓库。");
+        return;
+      }
+      setGithubImportPreview(result);
+    } catch (error) {
+      setGithubImportError(formatGithubRepositoryError(error));
+    } finally {
+      setGithubImportLoading(false);
+    }
+  }
+
+  function handleGithubRepositoryConfirm(selectedIds: Set<number>) {
+    if (!githubImportPreview || selectedIds.size === 0) return;
+    setGithubImportConfirming(true);
+    try {
+      const result = importGithubRepositories(
+        githubImportPreview.owner,
+        githubImportPreview.repositories,
+        selectedIds,
+      );
+      setGithubImportOpen(false);
+      setGithubImportPreview(null);
+      setGithubImportError(null);
+      setTransferNotice({
+        kind: "success",
+        message: result.added > 0
+          ? `已将 ${result.added} 个仓库添加到“${result.group?.name ?? githubImportPreview.owner.login}”，跳过 ${result.skipped} 个重复项。`
+          : `没有新增仓库，已跳过 ${result.skipped} 个重复项。`,
+      });
+      if (result.group) setActiveGroupId(result.group.id);
+    } catch (error) {
+      setGithubImportError(error instanceof Error ? error.message : "导入失败，请稍后重试。");
+    } finally {
+      setGithubImportConfirming(false);
+    }
+  }
+
+  function closeGithubRepositoryImport(open: boolean) {
+    setGithubImportOpen(open);
+    if (!open) {
+      setGithubImportPreview(null);
+      setGithubImportError(null);
+      setGithubImportInitialUrl("");
+    }
+  }
+
+  function openGithubRefresh(group: SiteGroup) {
+    const source = group.githubImportSource;
+    if (!source) return;
+    openGithubRepositoryImport(source.profileUrl);
+  }
+
   function handleMoveGithubHomeToMain(site: SiteItem) {
     moveGithubHomeToMain(site.id);
     setTransferNotice({
@@ -2286,7 +2405,9 @@ export function App() {
   }
 
   const collectionTitle =
-    activeGroupId === "all"
+    isCrossWorkspaceSearch
+      ? "全库搜索"
+      : activeGroupId === "all"
       ? activeWorkspace === "github"
         ? "全部 GitHub"
         : "全部网站"
@@ -2841,6 +2962,26 @@ export function App() {
             </div>
 
             <div className="collection-actions">
+              {activeWorkspace === "github" && (
+                <button
+                  type="button"
+                  className="manage-groups-button github-import-action"
+                  disabled={selectionArmed || multiSelectMode || isSearching}
+                  aria-label={
+                    activeGithubImportGroup
+                      ? `刷新 ${activeGithubImportGroup.name} 的作者仓库`
+                      : "导入 GitHub 作者仓库"
+                  }
+                  onClick={() =>
+                    activeGithubImportGroup
+                      ? openGithubRefresh(activeGithubImportGroup)
+                      : openGithubRepositoryImport()
+                  }
+                >
+                  <GithubLogo size={16} />
+                  {activeGithubImportGroup ? "刷新作者仓库" : "导入作者仓库"}
+                </button>
+              )}
               <button
                 type="button"
                 className="manage-groups-button"
@@ -3197,13 +3338,20 @@ export function App() {
                       >
                         {visibleSites.map((site) => {
                           const group =
-                            groups.find((item) => item.id === site.groupId) ??
+                            searchGroups.find((item) => item.id === site.groupId) ??
                             addCardGroup;
-                          return (
+                            return (
                             <SiteCard
                               key={site.id}
                               site={site}
                               group={group}
+                              workspaceLabel={
+                                isCrossWorkspaceSearch
+                                  ? getGroupWorkspace(group) === "github"
+                                    ? "GitHub"
+                                    : "收藏主页"
+                                  : undefined
+                              }
                               dragMode={siteDragMode}
                               dragDisabledReason={
                                 isSearching
@@ -3299,11 +3447,27 @@ export function App() {
         sites={state.sites}
         groups={getWorkspaceGroups(state.groups, dialogWorkspace)}
         workspace={dialogWorkspace}
+        allowGithubExit={activeWorkspace === "main" && dialogWorkspace === "github"}
         initialGroupId={dialogGroupId}
         editingSite={editingSite}
         prefill={siteDialogPrefill}
         onOpenChange={setSiteDialogOpen}
         onSubmit={handleSiteSubmit}
+      />
+
+      <GithubRepositoryImportDialog
+        open={githubImportOpen}
+        state={state}
+        preview={githubImportPreview}
+        loading={githubImportLoading}
+        confirming={githubImportConfirming}
+        error={githubImportError}
+        initialInput={githubImportInitialUrl}
+        onOpenChange={closeGithubRepositoryImport}
+        onRead={(input) => {
+          void handleGithubRepositoryRead(input);
+        }}
+        onConfirm={handleGithubRepositoryConfirm}
       />
 
       <NewGroupDialog

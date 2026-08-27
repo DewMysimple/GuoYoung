@@ -13,7 +13,13 @@ import {
   updateSiteInState,
   mergeGroupImportIntoState,
   findSiteByUrl,
+  getGithubRepositoryStatus,
+  importGithubRepositoriesToState,
 } from "./site-state";
+import type {
+  GithubOwnerProfile,
+  GithubRepositorySummary,
+} from "./github-repository-api";
 import { createGroupExportPayload } from "./data-transfer";
 import { getSitesInGroup } from "./site-utils";
 
@@ -55,7 +61,7 @@ describe("site state operations", () => {
       customIconUrl: "",
       iconSource: "auto",
     }, "postgres");
-    expect(withSite.version).toBe(12);
+    expect(withSite.version).toBe(13);
     expect(withSite.groups.find((group) => group.id === "database-group")?.name).toBe("数据库");
     expect(withSite.sites.find((site) => site.id === "postgres")?.groupId).toBe("database-group");
   });
@@ -125,7 +131,7 @@ describe("site state operations", () => {
       "develop",
     ]);
     expect(ordered.at(-1)?.id).toBe(OTHER_GROUP_ID);
-    expect(result.version).toBe(12);
+    expect(result.version).toBe(13);
   });
 
   it("deletes a group and moves its sites to trash", () => {
@@ -283,5 +289,196 @@ describe("site state operations", () => {
     expect(result.skipped).toBe(1);
     expect(result.state.sites.find((site) => site.url.includes("github.com/example"))?.groupId)
       .toBe("github-tools");
+  });
+
+  it("creates an author group, records its source, and skips active or deleted URLs", () => {
+    const initial = createDefaultState();
+    const withExisting = addSiteToState(
+      initial,
+      {
+        name: "Already there",
+        url: "https://github.com/acme/already-there",
+        groupId: "github-other",
+        customIconUrl: "",
+        iconSource: "auto",
+      },
+      "existing-acme-repo",
+    );
+    const withDeletedCandidate = addSiteToState(
+      withExisting,
+      {
+        name: "Deleted before",
+        url: "https://github.com/acme/deleted-before",
+        groupId: "github-other",
+        customIconUrl: "",
+        iconSource: "auto",
+      },
+      "deleted-acme-repo",
+    );
+    const deleted = trashSiteFromState(
+      withDeletedCandidate,
+      "deleted-acme-repo",
+    );
+    const owner: GithubOwnerProfile = {
+      login: "acme",
+      profileUrl: "https://github.com/acme",
+      entityType: "organization",
+    };
+    const repositories: GithubRepositorySummary[] = [
+      {
+        id: 1,
+        name: "new-repo",
+        fullName: "acme/new-repo",
+        htmlUrl: "https://github.com/acme/new-repo",
+        fork: false,
+        archived: false,
+      },
+      {
+        id: 2,
+        name: "already-there",
+        fullName: "acme/already-there",
+        htmlUrl: "https://github.com/acme/already-there",
+        fork: false,
+        archived: false,
+      },
+      {
+        id: 3,
+        name: "deleted-before",
+        fullName: "acme/deleted-before",
+        htmlUrl: "https://github.com/acme/deleted-before",
+        fork: false,
+        archived: false,
+      },
+    ];
+
+    const result = importGithubRepositoriesToState(
+      deleted,
+      owner,
+      repositories,
+      undefined,
+      "2026-08-27T01:00:00.000Z",
+    );
+
+    expect(result.added).toBe(1);
+    expect(result.skipped).toBe(2);
+    expect(result.skippedActive).toBe(1);
+    expect(result.skippedDeleted).toBe(1);
+    expect(result.group).toMatchObject({
+      name: "acme",
+      workspace: "github",
+      githubImportSource: {
+        login: "acme",
+        entityType: "organization",
+        lastFetchedAt: "2026-08-27T01:00:00.000Z",
+      },
+    });
+    expect(
+      result.state.sites.find((site) => site.url.includes("acme/new-repo")),
+    ).toMatchObject({ name: "new-repo", groupId: result.group?.id });
+  });
+
+  it("reuses a matching source group and only appends missing repositories", () => {
+    const initial = createDefaultState();
+    const owner: GithubOwnerProfile = {
+      login: "acme",
+      profileUrl: "https://github.com/acme",
+      entityType: "user",
+    };
+    const first = importGithubRepositoriesToState(initial, owner, [
+      {
+        id: 1,
+        name: "one",
+        fullName: "acme/one",
+        htmlUrl: "https://github.com/acme/one",
+        fork: false,
+        archived: false,
+      },
+    ]);
+    const imported = first.state.sites.find((site) => site.name === "one")!;
+    const customized = {
+      ...first.state,
+      sites: first.state.sites.map((site) =>
+        site.id === imported.id ? { ...site, name: "手动命名" } : site,
+      ),
+    };
+    const second = importGithubRepositoriesToState(customized, owner, [
+      {
+        id: 1,
+        name: "one from API",
+        fullName: "acme/one",
+        htmlUrl: "https://github.com/acme/one",
+        fork: false,
+        archived: false,
+      },
+      {
+        id: 2,
+        name: "two",
+        fullName: "acme/two",
+        htmlUrl: "https://github.com/acme/two",
+        fork: true,
+        archived: true,
+      },
+    ]);
+
+    expect(second.group?.id).toBe(first.group?.id);
+    expect(second.added).toBe(1);
+    expect(second.skippedActive).toBe(1);
+    expect(second.state.sites.find((site) => site.id === imported.id)?.name).toBe(
+      "手动命名",
+    );
+    expect(second.state.groups.filter((group) => group.name === "acme")).toHaveLength(1);
+    expect(getGithubRepositoryStatus(second.state, {
+      id: 2,
+      name: "two",
+      fullName: "acme/two",
+      htmlUrl: "https://github.com/acme/two",
+      fork: true,
+      archived: true,
+    })).toBe("active");
+  });
+
+  it("creates a suffixed author group when a same-name group belongs to another source", () => {
+    const initial = createDefaultState();
+    const groupState = addGroupToState(
+      initial,
+      "acme",
+      "user-circle",
+      "acme-existing",
+      "2026-08-27T01:00:00.000Z",
+      undefined,
+      "github",
+    );
+    const state = {
+      ...groupState,
+      groups: groupState.groups.map((group) =>
+        group.id === "acme-existing"
+          ? {
+              ...group,
+              githubImportSource: {
+                login: "other",
+                profileUrl: "https://github.com/other",
+                entityType: "user" as const,
+              },
+            }
+          : group,
+      ),
+    };
+    const result = importGithubRepositoriesToState(
+      state,
+      {
+        login: "acme",
+        profileUrl: "https://github.com/acme",
+        entityType: "user",
+      },
+      [{
+        id: 1,
+        name: "repo",
+        fullName: "acme/repo",
+        htmlUrl: "https://github.com/acme/repo",
+        fork: false,
+        archived: false,
+      }],
+    );
+    expect(result.group?.name).toBe("acme-2");
   });
 });

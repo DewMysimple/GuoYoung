@@ -130,6 +130,30 @@ describe("data transfer", () => {
     });
   });
 
+  it("keeps author refresh metadata in full exports but out of group packages", () => {
+    const state = createDefaultState();
+    state.groups = state.groups.map((group) =>
+      group.id === "github-other"
+        ? {
+            ...group,
+            githubImportSource: {
+              login: "acme",
+              profileUrl: "https://github.com/acme",
+              entityType: "organization" as const,
+              lastFetchedAt: "2026-08-27T01:00:00.000Z",
+            },
+          }
+        : group,
+    );
+
+    const full = createExportPayload(state);
+    expect(full.state.groups.find((group) => group.id === "github-other"))
+      .toMatchObject({ githubImportSource: { login: "acme" } });
+
+    const groupPackage = createGroupExportPayload(state, "github-other");
+    expect(JSON.stringify(groupPackage)).not.toContain("githubImportSource");
+  });
+
   it("rejects a full export when a group resource package is expected", () => {
     expect(() => parseGroupImportFile(serializeExport(createDefaultState()))).toThrow(
       "分组资源包",

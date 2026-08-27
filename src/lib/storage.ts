@@ -14,6 +14,7 @@ import type {
   BrandLogoSource,
   BrandSettings,
   CategoryIcon,
+  GithubImportSource,
   GithubMigrationRecord,
   LayoutPreset,
   SearchHistoryEntry,
@@ -417,7 +418,22 @@ function isSiteGroup(value: unknown): value is SiteGroup {
     typeof group.isProtected === "boolean" &&
     (group.workspace === undefined ||
       group.workspace === "main" ||
-      group.workspace === "github")
+      group.workspace === "github") &&
+    (group.githubImportSource === undefined ||
+      isGithubImportSource(group.githubImportSource))
+  );
+}
+
+function isGithubImportSource(value: unknown): value is GithubImportSource {
+  if (!value || typeof value !== "object") return false;
+  const source = value as Record<string, unknown>;
+  return (
+    typeof source.login === "string" &&
+    source.login.trim().length > 0 &&
+    typeof source.profileUrl === "string" &&
+    source.profileUrl.trim().length > 0 &&
+    (source.entityType === "user" || source.entityType === "organization") &&
+    (source.lastFetchedAt === undefined || typeof source.lastFetchedAt === "string")
   );
 }
 
@@ -546,7 +562,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 12 &&
+    state.version === 13 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -769,6 +785,37 @@ function upgradeToVersion12(
   };
 }
 
+function normalizeGithubImportSource(value: unknown): GithubImportSource | undefined {
+  if (!isGithubImportSource(value)) return undefined;
+  return {
+    login: value.login.trim(),
+    profileUrl: value.profileUrl.trim(),
+    entityType: value.entityType,
+    ...(value.lastFetchedAt ? { lastFetchedAt: value.lastFetchedAt } : {}),
+  };
+}
+
+function upgradeToVersion13(
+  legacy: Record<string, unknown> | SiteCollectionState,
+): SiteCollectionState | undefined {
+  const base =
+    legacy.version === 13
+      ? legacy
+      : legacy.version === 12 || legacy.version === 11 || legacy.version === 10
+        ? upgradeToVersion12(legacy as Record<string, unknown>)
+        : undefined;
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return {
+    ...candidate,
+    version: 13,
+    groups: candidate.groups.map((group) => {
+      const source = normalizeGithubImportSource(group.githubImportSource);
+      return source ? { ...group, githubImportSource: source } : { ...group, githubImportSource: undefined };
+    }),
+  };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -887,7 +934,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 12 || candidate.version === 11
+        candidate.version === 13 || candidate.version === 12 || candidate.version === 11
           ? candidate
           : candidate.version === 10 ||
               candidate.version === 9 ||
@@ -895,7 +942,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion12(baseCandidate)
+        ? upgradeToVersion13(baseCandidate)
         : undefined;
       if (migrated) {
         return {

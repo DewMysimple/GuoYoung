@@ -59,6 +59,14 @@ export interface SiteGroup {
   order: number;
   createdAt: string;
   updatedAt: string;
+  githubImportSource?: GithubImportSource;
+}
+
+export interface GithubImportSource {
+  login: string;
+  profileUrl: string;
+  entityType: "user" | "organization";
+  lastFetchedAt?: string;
 }
 
 export type SiteIconSource =

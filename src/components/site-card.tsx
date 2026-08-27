@@ -20,6 +20,7 @@ export type SiteDragMode = "reorder" | "transfer" | "disabled";
 interface SiteCardProps {
   site: SiteItem;
   group: SiteGroup;
+  workspaceLabel?: string;
   dragMode: SiteDragMode;
   dragDisabledReason?: string;
   dragPending: boolean;
@@ -94,6 +95,7 @@ interface SiteCardFrameProps extends SiteCardProps {
 function SiteCardFrame({
   site,
   group,
+  workspaceLabel,
   dragMode,
   dragDisabledReason = "当前视图无法手动排序",
   dragPending,
@@ -280,6 +282,9 @@ function SiteCardFrame({
       <div className="site-category">
         <CategoryIcon name={group.icon} size={15} />
         <span>{group.name}</span>
+        {workspaceLabel && (
+          <span className="site-workspace-label">{workspaceLabel}</span>
+        )}
       </div>
     </article>
   );

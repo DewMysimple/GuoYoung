@@ -1,5 +1,6 @@
 import type {
   CategoryIcon,
+  GithubImportSource,
   SiteCollectionState,
   SiteFormValues,
   SiteGroup,
@@ -7,6 +8,10 @@ import type {
   SiteWorkspace,
   TrashRetentionDays,
 } from "../types";
+import type {
+  GithubOwnerProfile,
+  GithubRepositorySummary,
+} from "./github-repository-api";
 import { GITHUB_OTHER_GROUP_ID, OTHER_GROUP_ID } from "../data/defaults";
 import type { GroupExportPayload } from "./data-transfer";
 import {
@@ -26,6 +31,204 @@ export interface GroupImportResult {
   state: SiteCollectionState;
   added: number;
   skipped: number;
+}
+
+export interface GithubRepositoryImportResult {
+  state: SiteCollectionState;
+  group?: SiteGroup;
+  added: number;
+  skipped: number;
+  skippedActive: number;
+  skippedDeleted: number;
+}
+
+export type GithubRepositoryStatus = "new" | "active" | "deleted";
+
+export function getGithubRepositoryStatus(
+  state: SiteCollectionState,
+  repository: GithubRepositorySummary,
+): GithubRepositoryStatus {
+  let key: string;
+  try {
+    key = comparableSiteUrl(normalizeUrl(repository.htmlUrl));
+  } catch {
+    return "deleted";
+  }
+  if (state.sites.some((site) => comparableSiteUrl(site.url) === key)) {
+    return "active";
+  }
+  if (
+    state.deletedSites.some(
+      (entry) => comparableSiteUrl(entry.site.url) === key,
+    )
+  ) {
+    return "deleted";
+  }
+  return "new";
+}
+
+function githubSourceForOwner(
+  owner: GithubOwnerProfile,
+  lastFetchedAt: string,
+): GithubImportSource {
+  return {
+    login: owner.login,
+    profileUrl: owner.profileUrl,
+    entityType: owner.entityType,
+    lastFetchedAt,
+  };
+}
+
+function githubGroupNameMatches(group: SiteGroup, login: string): boolean {
+  return (
+    getGroupWorkspace(group) === "github" &&
+    group.name.trim().toLocaleLowerCase("en-US") === login.toLocaleLowerCase("en-US")
+  );
+}
+
+function nextGithubGroupName(state: SiteCollectionState, login: string): string {
+  const names = new Set(
+    state.groups
+      .filter((group) => getGroupWorkspace(group) === "github")
+      .map((group) => group.name.trim().toLocaleLowerCase("en-US")),
+  );
+  if (!names.has(login.toLocaleLowerCase("en-US"))) return login;
+  let suffix = 2;
+  while (names.has(`${login}-${suffix}`.toLocaleLowerCase("en-US"))) suffix += 1;
+  return `${login}-${suffix}`;
+}
+
+function findGithubImportGroup(
+  state: SiteCollectionState,
+  owner: GithubOwnerProfile,
+): SiteGroup | undefined {
+  const sourceGroup = state.groups.find(
+    (group) =>
+      getGroupWorkspace(group) === "github" &&
+      group.githubImportSource?.login.toLocaleLowerCase("en-US") ===
+        owner.login.toLocaleLowerCase("en-US"),
+  );
+  if (sourceGroup) return sourceGroup;
+  return state.groups.find(
+    (group) => githubGroupNameMatches(group, owner.login) && !group.githubImportSource,
+  );
+}
+
+export function importGithubRepositoriesToState(
+  state: SiteCollectionState,
+  owner: GithubOwnerProfile,
+  repositories: GithubRepositorySummary[],
+  selectedRepositoryIds: Set<number> | undefined = undefined,
+  now = new Date().toISOString(),
+): GithubRepositoryImportResult {
+  const selected = repositories.filter(
+    (repository) =>
+      !selectedRepositoryIds || selectedRepositoryIds.has(repository.id),
+  );
+  const existingUrls = new Set(
+    state.sites
+      .map((site) => comparableSiteUrl(site.url))
+      .concat(
+        state.deletedSites.map((entry) => comparableSiteUrl(entry.site.url)),
+      ),
+  );
+  const activeUrls = new Set(
+    state.sites.map((site) => comparableSiteUrl(site.url)),
+  );
+  const deletedUrls = new Set(
+    state.deletedSites.map((entry) => comparableSiteUrl(entry.site.url)),
+  );
+  let skippedActive = 0;
+  let skippedDeleted = 0;
+  let skipped = 0;
+  const candidates = selected.filter((repository) => {
+    let key: string;
+    try {
+      const normalizedUrl = normalizeUrl(repository.htmlUrl);
+      if (
+        !repository.name.trim() ||
+        !isGithubUrl(normalizedUrl) ||
+        isGithubHomeUrl(normalizedUrl)
+      ) {
+        skipped += 1;
+        return false;
+      }
+      key = comparableSiteUrl(normalizedUrl);
+    } catch {
+      skipped += 1;
+      return false;
+    }
+    if (existingUrls.has(key)) {
+      skipped += 1;
+      if (activeUrls.has(key)) skippedActive += 1;
+      else if (deletedUrls.has(key)) skippedDeleted += 1;
+      return false;
+    }
+    existingUrls.add(key);
+    return true;
+  });
+
+  const existingGroup = findGithubImportGroup(state, owner);
+  if (!existingGroup && candidates.length === 0) {
+    return {
+      state,
+      added: 0,
+      skipped,
+      skippedActive,
+      skippedDeleted,
+    };
+  }
+
+  let nextState = state;
+  let targetGroup = existingGroup;
+  if (!targetGroup) {
+    const groupName = nextGithubGroupName(state, owner.login);
+    const id = crypto.randomUUID();
+    nextState = addGroupToState(
+      state,
+      groupName,
+      "user-circle",
+      id,
+      now,
+      undefined,
+      "github",
+    );
+    targetGroup = nextState.groups.find((group) => group.id === id);
+  }
+  if (!targetGroup) return { state, added: 0, skipped, skippedActive, skippedDeleted };
+
+  const source = githubSourceForOwner(owner, now);
+  const groups = nextState.groups.map((group) =>
+    group.id === targetGroup!.id
+      ? { ...group, githubImportSource: source, updatedAt: now }
+      : group,
+  );
+  const order = nextState.sites.filter((site) => site.groupId === targetGroup!.id).length;
+  const imported = candidates.map((repository, index) => ({
+    id: crypto.randomUUID(),
+    name: repository.name.trim(),
+    url: normalizeUrl(repository.htmlUrl),
+    groupId: targetGroup!.id,
+    iconSource: "auto" as const,
+    order: order + index,
+    globalOrder: nextState.sites.length + index,
+    clickCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  }));
+  const finalState = {
+    ...nextState,
+    groups,
+    sites: reindexSites([...nextState.sites.map((site) => ({ ...site })), ...imported]),
+  };
+  return {
+    state: finalState,
+    group: finalState.groups.find((group) => group.id === targetGroup!.id),
+    added: imported.length,
+    skipped,
+    skippedActive,
+    skippedDeleted,
+  };
 }
 
 function comparableSiteUrl(url: string): string {

@@ -232,7 +232,7 @@ export function filterSites(
     .filter((site) => {
       if (!normalizedQuery) return true;
       const groupName = groupNames.get(site.groupId) ?? "";
-      return [site.name, getHostname(site.url), groupName].some((value) =>
+      return [site.name, site.url, getHostname(site.url), groupName].some((value) =>
         value.toLocaleLowerCase("zh-CN").includes(normalizedQuery),
       );
     });

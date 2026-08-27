@@ -1385,6 +1385,215 @@ label:has(input:focus-visible) {
   background: var(--danger-soft);
 }
 
+.github-import-dialog {
+  display: grid;
+  width: min(calc(100vw - 32px), 720px);
+  max-height: min(820px, calc(100dvh - 40px));
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 0;
+  overflow: hidden;
+}
+
+.github-import-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.github-import-form > label {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.github-import-form .input-shell {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: 46px;
+}
+
+.github-import-form .input-shell input {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.github-import-read {
+  flex: 0 0 auto;
+  min-height: 34px;
+  margin-right: 5px;
+  padding-inline: 11px;
+  font-size: 12px;
+}
+
+.github-import-error {
+  margin: 12px 0 0;
+}
+
+.github-import-preview {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+  overflow: hidden;
+}
+
+.github-import-summary,
+.github-import-owner,
+.github-import-statuses {
+  display: flex;
+  align-items: center;
+}
+
+.github-import-summary {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.github-import-owner {
+  min-width: 0;
+  gap: 10px;
+  color: var(--accent-text);
+}
+
+.github-import-owner > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.github-import-owner strong,
+.github-import-owner span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.github-import-owner strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.github-import-owner span,
+.github-import-count,
+.github-import-statuses,
+.github-import-repo-status {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.github-import-count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.github-import-statuses {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.github-import-statuses span {
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: var(--surface-raised);
+  font-variant-numeric: tabular-nums;
+}
+
+.github-import-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--page);
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-gutter: stable;
+}
+
+.github-import-row {
+  display: grid;
+  min-height: 48px;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 6px 9px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.github-import-row:hover {
+  background: var(--surface-raised);
+}
+
+.github-import-row.is-skipped {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.github-import-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.github-import-repo-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.github-import-repo-copy strong,
+.github-import-repo-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.github-import-repo-copy strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.github-import-repo-copy small {
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+.github-import-repo-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.github-import-repo-status.new {
+  color: var(--accent-text);
+}
+
+.github-import-repo-status.active {
+  color: var(--text-soft);
+}
+
+.github-import-repo-status.deleted {
+  color: var(--danger);
+}
+
+.github-import-dialog > .dialog-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.spin {
+  animation: loading-spin 800ms linear infinite;
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}
+
 .transfer-banner {
   display: flex;
   align-items: center;
@@ -2736,6 +2945,14 @@ label:has(input:focus-visible) {
   color: var(--text-soft);
   font-size: calc(12px * var(--card-font-scale));
   font-weight: 620;
+}
+
+.site-workspace-label {
+  padding-left: 7px;
+  border-left: 1px solid var(--border-strong);
+  color: var(--accent-text);
+  font-size: 0.92em;
+  font-weight: 700;
 }
 
 .add-site-card {
@@ -4917,6 +5134,43 @@ label:has(input:focus-visible) {
   .github-home-entry-open {
     flex: 1;
     justify-content: center;
+  }
+
+  .github-import-dialog {
+    width: min(calc(100vw - 24px), 720px);
+    max-height: calc(100dvh - 24px);
+    padding: 20px;
+  }
+
+  .github-import-form .input-shell {
+    align-items: stretch;
+    height: auto;
+    flex-wrap: wrap;
+    padding: 5px;
+  }
+
+  .github-import-form .input-shell > svg {
+    margin: 10px 3px 10px 7px;
+  }
+
+  .github-import-form .input-shell input {
+    height: 36px;
+    flex: 1 1 180px;
+  }
+
+  .github-import-read {
+    width: 100%;
+    flex-basis: 100%;
+    justify-content: center;
+    margin: 0;
+  }
+
+  .github-import-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .github-import-repo-status {
+    grid-column: 2;
   }
 
   .history-selection-actions {

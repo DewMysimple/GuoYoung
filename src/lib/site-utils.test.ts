@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULT_GROUPS, DEFAULT_SITES } from "../data/defaults";
+import { createDefaultState, DEFAULT_GROUPS, DEFAULT_SITES } from "../data/defaults";
 import {
   filterSites,
   getFaviconCandidates,
@@ -117,6 +117,29 @@ describe("site utilities", () => {
     expect(filterSites(DEFAULT_SITES, "", DEFAULT_GROUPS, "design")).toHaveLength(
       2,
     );
+  });
+
+  it("searches the URL when the caller supplies all workspace groups", () => {
+    const state = createDefaultState();
+    const githubSite = {
+      ...state.sites[0],
+      id: "github-repo-search",
+      name: "工作仓库",
+      url: "https://github.com/acme/secret-repo",
+      groupId: "github-other",
+      globalOrder: 99,
+    };
+    const allGroups = [...state.groups];
+
+    expect(filterSites([...state.sites, githubSite], "secret-repo", allGroups)).toEqual([
+      githubSite,
+    ]);
+    expect(
+      filterSites([...state.sites, githubSite], "secret-repo", DEFAULT_GROUPS),
+    ).toEqual([]);
+    expect(
+      filterSites([...state.sites, githubSite], "secret-repo", allGroups, "github-other"),
+    ).toEqual([githubSite]);
   });
 
   it("sorts by persistent click heat and keeps manual order for ties", () => {
