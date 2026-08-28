@@ -122,7 +122,7 @@ test("opens the independent GitHub workspace and can undo its first migration", 
   await expect(page.getByRole("link", { name: "打开 GitHub", exact: true })).toBeVisible();
 });
 
-test("searches GitHub workspace links from the homepage All view", async ({ page }) => {
+test("searches the whole collection from every collection page and restores the group context", async ({ page }, testInfo) => {
   await page.evaluate(() => {
     const key = "site-hub:v1";
     const state = JSON.parse(localStorage.getItem(key)!);
@@ -134,20 +134,42 @@ test("searches GitHub workspace links from the homepage All view", async ({ page
       groupId: "github-other",
       globalOrder: state.sites.length,
     });
+    state.sites.push({
+      ...state.sites[0],
+      id: "main-workspace-link",
+      name: "Main Workspace Reference",
+      url: "https://example.com/main-reference",
+      groupId: "other",
+      globalOrder: state.sites.length + 1,
+    });
     localStorage.setItem(key, JSON.stringify(state));
   });
   await page.reload();
 
+  await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
   const search = page.getByRole("searchbox", { name: "搜索网页或筛选收藏" });
+  await search.fill("main-reference");
+  await expect(page.getByRole("link", { name: "打开 Main Workspace Reference" })).toBeVisible();
+  await expect(page.getByTestId("site-card-main-workspace-link")).toContainText("收藏主页");
+  await expect(page.getByRole("heading", { name: "全库搜索" })).toBeVisible();
+
   await search.fill("secret-repo");
   await expect(page.getByRole("link", { name: "打开 Acme Secret Repo" })).toBeVisible();
   await expect(page.getByTestId("site-card-cross-workspace-repo")).toContainText("GitHub");
+  await expect(page.getByRole("link", { name: "打开 GitHub", exact: true })).toHaveCount(1);
+  await page.screenshot({
+    path: screenshotPath(`global-collection-search-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+
+  await search.fill("");
+  await page.getByRole("tab", { name: /其他/ }).click();
+  await search.fill("main-reference");
+  await expect(page.getByRole("link", { name: "打开 Main Workspace Reference" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "全库搜索" })).toBeVisible();
 
   await search.fill("");
-  await page.getByRole("tab", { name: /开发/ }).click();
-  await search.fill("secret-repo");
-  await expect(page.getByRole("link", { name: "打开 Acme Secret Repo" })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /其他/ })).toHaveAttribute("aria-selected", "true");
 });
 
 test("previews and imports a GitHub author's repositories while skipping duplicates", async ({
@@ -178,6 +200,15 @@ test("previews and imports a GitHub author's repositories while skipping duplica
       return;
     }
     if (url.includes("/orgs/acme/repos")) {
+      const duplicateRows = Array.from({ length: 24 }, (_, index) => ({
+        id: 100 + index,
+        name: `existing-${index}`,
+        full_name: "acme/existing",
+        html_url: "https://github.com/acme/existing",
+        private: false,
+        fork: false,
+        archived: false,
+      }));
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -200,6 +231,7 @@ test("previews and imports a GitHub author's repositories while skipping duplica
             fork: true,
             archived: true,
           },
+          ...duplicateRows,
         ]),
       });
       return;
@@ -213,7 +245,24 @@ test("previews and imports a GitHub author's repositories while skipping duplica
   await dialog.getByLabel("作者或组织主页").fill("https://github.com/acme");
   await dialog.getByRole("button", { name: "读取仓库" }).click();
   await expect(dialog.getByText("acme/new-repo")).toBeVisible();
-  await expect(dialog.getByText("已收藏 1")).toBeVisible();
+  await expect(dialog.getByText(/^已收藏 \d+$/)).toBeVisible();
+  const dialogChrome = await dialog.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      overflowY: style.overflowY,
+      borderRadius: Number.parseFloat(style.borderRadius),
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    };
+  });
+  expect(dialogChrome.overflowY).toBe("hidden");
+  expect(dialogChrome.borderRadius).toBeGreaterThan(0);
+  expect(dialogChrome.scrollHeight).toBeLessThanOrEqual(dialogChrome.clientHeight + 1);
+  const listChrome = await dialog.locator(".github-import-list").evaluate((element) => ({
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+  }));
+  expect(listChrome.scrollHeight).toBeGreaterThan(listChrome.clientHeight);
   await page.screenshot({
     path: screenshotPath(`github-repository-import-${testInfo.project.name}.png`),
     fullPage: true,

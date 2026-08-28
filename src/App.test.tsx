@@ -113,7 +113,7 @@ describe("App", () => {
     );
   });
 
-  it("searches GitHub workspace items from the homepage All view and keeps group search scoped", async () => {
+  it("searches the whole collection from every collection page and restores the group context", async () => {
     const state = createDefaultState();
     state.sites.push({
       ...state.sites[0],
@@ -123,24 +123,46 @@ describe("App", () => {
       groupId: "github-other",
       globalOrder: state.sites.length,
     });
+    state.sites.push({
+      ...state.sites[0],
+      id: "main-workspace-link",
+      name: "Main Workspace Reference",
+      url: "https://example.com/main-reference",
+      groupId: "other",
+      globalOrder: state.sites.length + 1,
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
     const search = screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" });
-    fireEvent.change(search, { target: { value: "secret-repo" } });
-    expect(screen.getByRole("link", { name: "打开 Acme Secret Repo" })).toBeInTheDocument();
-    expect(screen.getByTestId("site-card-cross-workspace-repo")).toHaveTextContent("GitHub");
+    fireEvent.change(search, { target: { value: "main-reference" } });
+    expect(screen.getByRole("link", { name: "打开 Main Workspace Reference" })).toBeInTheDocument();
+    expect(screen.getByTestId("site-card-main-workspace-link")).toHaveTextContent("收藏主页");
     expect(screen.getByRole("heading", { name: "全库搜索" })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" }), {
-      target: { value: "" },
-    });
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" }),
+      { target: { value: "secret-repo" } },
+    );
+    expect(screen.getByRole("link", { name: "打开 Acme Secret Repo" })).toBeInTheDocument();
+    expect(screen.getByTestId("site-card-cross-workspace-repo")).toHaveTextContent("GitHub");
+    expect(screen.getByRole("link", { name: "打开 GitHub" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "打开 GitHub" })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "清空搜索" }));
+    await user.click(screen.getByRole("button", { name: "打开收藏主页" }));
     await user.click(screen.getByRole("tab", { name: /开发/ }));
     fireEvent.change(screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" }), {
-      target: { value: "secret-repo" },
+      target: { value: "main-reference" },
     });
-    expect(screen.queryByRole("link", { name: "打开 Acme Secret Repo" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "打开 Main Workspace Reference" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "全库搜索" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "清空搜索" }));
+    expect(screen.getByRole("tab", { name: /开发/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "开发" })).toBeInTheDocument();
   });
 
   it("previews a GitHub author and imports the confirmed repositories into its group", async () => {
@@ -402,9 +424,12 @@ describe("App", () => {
         screen.queryByText("没有找到匹配的网站"),
       ).not.toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "在设计分组添加网站" }),
+        screen.getByRole("link", { name: "打开 GitHub" }),
       ).toBeInTheDocument();
     });
+    expect(
+      screen.queryByRole("button", { name: "在设计分组添加网站" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: /全部/ }));
     expect(

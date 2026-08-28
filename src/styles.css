@@ -1386,11 +1386,11 @@ label:has(input:focus-visible) {
 }
 
 .github-import-dialog {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   width: min(calc(100vw - 32px), 720px);
-  max-height: min(820px, calc(100dvh - 40px));
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-  gap: 0;
+  height: min(820px, calc(100dvh - 40px));
+  max-height: none;
   overflow: hidden;
 }
 
@@ -1433,6 +1433,7 @@ label:has(input:focus-visible) {
 
 .github-import-preview {
   display: grid;
+  flex: 1 1 auto;
   min-height: 0;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px;
@@ -3100,7 +3101,7 @@ label:has(input:focus-visible) {
   left: 50%;
   width: min(calc(100vw - 32px), 560px);
   max-height: min(88dvh, 760px);
-  overflow-y: auto;
+  overflow: hidden;
   padding: 24px;
   border: 1px solid var(--border-strong);
   border-radius: 18px;
@@ -3124,7 +3125,15 @@ label:has(input:focus-visible) {
 
 .confirm-content {
   width: min(calc(100vw - 32px), 440px);
-  overflow: visible;
+  overflow: hidden;
+}
+
+/* Centered dialog shells never own a scrollbar. Keep the rounded outer
+   surface intact and let each variant's content region scroll instead. */
+.dialog-content.github-import-dialog {
+  height: min(820px, calc(100dvh - 40px));
+  max-height: none;
+  overflow: hidden;
 }
 
 .dialog-header {
@@ -5138,8 +5147,15 @@ label:has(input:focus-visible) {
 
   .github-import-dialog {
     width: min(calc(100vw - 24px), 720px);
-    max-height: calc(100dvh - 24px);
+    height: calc(100dvh - 24px);
+    max-height: none;
     padding: 20px;
+  }
+
+  .dialog-content.github-import-dialog {
+    height: calc(100dvh - 24px);
+    max-height: none;
+    overflow: hidden;
   }
 
   .github-import-form .input-shell {

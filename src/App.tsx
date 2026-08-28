@@ -148,6 +148,10 @@ type SiteSortMode =
   | "oldest"
   | "heat";
 type SelectionTarget = "sites" | "groups" | null;
+type CollectionSearchOrigin = {
+  workspace: SiteWorkspace;
+  groupId: GroupFilter;
+};
 
 interface StableDropRect {
   id: string;
@@ -374,6 +378,7 @@ export function App() {
   const groupImportTargetRef = useRef<string | null>(null);
   const viewControlsRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const collectionSearchOriginRef = useRef<CollectionSearchOrigin | null>(null);
   const dragSitesPreviewRef = useRef<SiteItem[] | null>(null);
   const dragBaseSitesRef = useRef<SiteItem[] | null>(null);
   const suppressSiteClickRef = useRef(false);
@@ -469,23 +474,31 @@ export function App() {
       ),
     [activeWorkspace, dragSitesPreview, state.sites, workspaceGroupIds],
   );
-  const isCrossWorkspaceSearch =
-    activeWorkspace === "main" &&
-    activeGroupId === "all" &&
-    Boolean(query.trim());
-  const searchGroups = isCrossWorkspaceSearch ? state.groups : groups;
-  const searchSites = isCrossWorkspaceSearch ? state.sites : renderedSites;
+  const isGlobalCollectionSearch = Boolean(query.trim());
+  const searchGroups = isGlobalCollectionSearch ? state.groups : groups;
+  const searchSites = isGlobalCollectionSearch
+    ? state.sites.filter(
+        (site) => !(activeWorkspace === "github" && isGithubHomeUrl(site.url)),
+      )
+    : renderedSites;
   const githubHomeSite = useMemo(
     () => findGithubHomeSite(state.sites) ?? null,
     [state.sites],
   );
   const scopedSites = useMemo(
-    () => filterSites(searchSites, query, searchGroups, activeGroupId),
-    [activeGroupId, query, searchGroups, searchSites],
+    () =>
+      filterSites(
+        searchSites,
+        query,
+        searchGroups,
+        isGlobalCollectionSearch ? "all" : activeGroupId,
+      ),
+    [activeGroupId, isGlobalCollectionSearch, query, searchGroups, searchSites],
   );
   const visibleSites = useMemo(() => {
     if (sortMode === "manual") return scopedSites;
-    if (sortMode === "heat") return sortSitesByHeat(scopedSites, activeGroupId);
+    const sortGroupId = isGlobalCollectionSearch ? "all" : activeGroupId;
+    if (sortMode === "heat") return sortSitesByHeat(scopedSites, sortGroupId);
     return [...scopedSites].sort((a, b) => {
       if (sortMode === "name-asc") {
         return a.name.localeCompare(b.name, "zh-CN", { sensitivity: "base" });
@@ -497,10 +510,10 @@ export function App() {
       const second = Date.parse(b.createdAt);
       return sortMode === "newest" ? second - first : first - second;
     });
-  }, [activeGroupId, scopedSites, sortMode]);
+  }, [activeGroupId, isGlobalCollectionSearch, scopedSites, sortMode]);
   const isSearching = Boolean(query.trim());
   const isGroupedView =
-    !isCrossWorkspaceSearch &&
+    !isGlobalCollectionSearch &&
     activeGroupId === "all" &&
     state.displayModeByWorkspace[activeWorkspace] === "grouped";
   const groupSelectionActive = selectedGroupIds.size > 0;
@@ -2005,8 +2018,43 @@ export function App() {
 
   function selectGroup(groupId: GroupFilter) {
     clearArmedDelete();
+    if (query.trim()) {
+      collectionSearchOriginRef.current = null;
+      setQuery("");
+    }
     setActiveGroupId(groupId);
     cancelSelection();
+  }
+
+  function setCollectionQuery(nextQuery: string) {
+    const nextIsSearching = Boolean(nextQuery.trim());
+    const wasSearching = Boolean(query.trim());
+
+    if (nextIsSearching && !wasSearching) {
+      collectionSearchOriginRef.current = {
+        workspace: activeWorkspace,
+        groupId: activeGroupId,
+      };
+      setActiveGroupId("all");
+    } else if (!nextIsSearching && wasSearching) {
+      const origin = collectionSearchOriginRef.current;
+      collectionSearchOriginRef.current = null;
+      if (origin) {
+        const originGroups = getWorkspaceGroups(state.groups, origin.workspace);
+        const originGroupStillExists =
+          origin.groupId === "all" ||
+          originGroups.some((group) => group.id === origin.groupId);
+        setActiveWorkspace(origin.workspace);
+        setActiveGroupId(originGroupStillExists ? origin.groupId : "all");
+      }
+    }
+
+    setQuery(nextQuery);
+  }
+
+  function resetCollectionQuery() {
+    collectionSearchOriginRef.current = null;
+    setQuery("");
   }
 
   function openGroupManager(groupId?: string) {
@@ -2158,7 +2206,7 @@ export function App() {
       event.preventDefault();
       const historyQuery = state.searchHistory[historyIndex]?.query;
       if (historyQuery) {
-        setQuery(historyQuery);
+        setCollectionQuery(historyQuery);
         void performSearch(historyQuery);
       }
     }
@@ -2231,7 +2279,7 @@ export function App() {
     setHistoryPermissionError(null);
     setActiveWorkspace("main");
     setActiveGroupId("all");
-    setQuery("");
+    resetCollectionQuery();
     setBrowserHistoryOpen(false);
   }
 
@@ -2240,7 +2288,7 @@ export function App() {
     setBrowserHistoryOpen(false);
     setActiveWorkspace("github");
     setActiveGroupId("all");
-    setQuery("");
+    resetCollectionQuery();
     cancelSelection();
     migrateGithubSites();
   }
@@ -2405,7 +2453,7 @@ export function App() {
   }
 
   const collectionTitle =
-    isCrossWorkspaceSearch
+    isGlobalCollectionSearch
       ? "全库搜索"
       : activeGroupId === "all"
       ? activeWorkspace === "github"
@@ -2720,7 +2768,7 @@ export function App() {
                 type="search"
                 aria-label="搜索网页或筛选收藏"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => setCollectionQuery(event.target.value)}
                 onFocus={() => {
                   setHistoryOpen(true);
                   setHistoryIndex(-1);
@@ -2738,7 +2786,7 @@ export function App() {
                     type="button"
                     className="clear-search"
                     aria-label="清空搜索"
-                    onClick={() => setQuery("")}
+                    onClick={() => setCollectionQuery("")}
                   >
                     <X size={17} />
                   </button>
@@ -2781,7 +2829,7 @@ export function App() {
                       className="search-history-query"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
-                        setQuery(entry.query);
+                        setCollectionQuery(entry.query);
                         void performSearch(entry.query);
                       }}
                     >
@@ -3346,7 +3394,7 @@ export function App() {
                               site={site}
                               group={group}
                               workspaceLabel={
-                                isCrossWorkspaceSearch
+                                isGlobalCollectionSearch
                                   ? getGroupWorkspace(group) === "github"
                                     ? "GitHub"
                                     : "收藏主页"
@@ -3593,7 +3641,7 @@ export function App() {
         onOpenChange={setResetOpen}
         onConfirm={() => {
           reset();
-          setQuery("");
+          resetCollectionQuery();
           setActiveGroupId("all");
           setResetOpen(false);
         }}
@@ -3614,7 +3662,7 @@ export function App() {
         onConfirm={() => {
           if (pendingImport) {
             replaceState(pendingImport);
-            setQuery("");
+            resetCollectionQuery();
             setActiveGroupId("all");
             setTransferNotice({
               kind: "success",
