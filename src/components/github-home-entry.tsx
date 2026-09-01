@@ -50,7 +50,22 @@ export function GithubHomeEntry({
   }, [menuOpen]);
 
   return (
-    <section className="github-home-entry" aria-label="GitHub 官方主页">
+    <section
+      className={`github-home-entry ${site ? "has-site" : ""}`}
+      aria-label="GitHub 官方主页"
+    >
+      {site && (
+        <a
+          className="github-home-entry-full-link"
+          href={site.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="打开 GitHub"
+          aria-hidden="true"
+          tabIndex={-1}
+          onClick={() => onOpen(site)}
+        />
+      )}
       <div className="github-home-entry-copy">
         <span className="github-home-entry-icon">
           {site ? <Favicon site={site} size="large" /> : <GithubLogo size={28} weight="fill" />}

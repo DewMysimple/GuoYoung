@@ -509,7 +509,13 @@ export function BrowserHistoryView({
                         disabled={busy}
                       />
                       <HistoryFavicon item={item} />
-                      <a className="history-row-link" href={item.url} aria-label={`打开历史记录 ${title}`}>
+                      <a
+                        className="history-row-link"
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`打开历史记录 ${title}`}
+                      >
                         <strong title={title}>{title}</strong>
                         <span title={item.url}>{item.url}</span>
                       </a>

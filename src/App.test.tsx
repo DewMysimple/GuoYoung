@@ -97,7 +97,16 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
     expect(screen.getByRole("heading", { name: "全部 GitHub" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开 GitHub" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "GitHub 官方主页" })).toBeInTheDocument();
+    const githubEntry = screen.getByRole("region", { name: "GitHub 官方主页" });
+    expect(githubEntry).toBeInTheDocument();
+    expect(within(githubEntry).getByRole("link", { name: "打开 GitHub" })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
+    expect(githubEntry.querySelector(".github-home-entry-full-link")).toHaveAttribute(
+      "href",
+      "https://github.com",
+    );
     expect(screen.queryByText("GitHub 收藏已整理")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开 GitHub 收藏" })).toHaveAttribute(
       "aria-pressed",

@@ -1245,6 +1245,7 @@ label:has(input:focus-visible) {
 }
 
 .github-home-entry {
+  position: relative;
   display: flex;
   min-height: 104px;
   align-items: center;
@@ -1258,6 +1259,24 @@ label:has(input:focus-visible) {
     radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent-soft) 68%, transparent), transparent 48%),
     color-mix(in srgb, var(--surface) 94%, var(--accent-soft));
   box-shadow: 0 16px 34px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.github-home-entry-full-link {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.github-home-entry-full-link:focus-visible {
+  outline-offset: -3px;
+}
+
+.github-home-entry.has-site .github-home-entry-copy {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .github-home-entry-copy {
@@ -1312,10 +1331,21 @@ label:has(input:focus-visible) {
 }
 
 .github-home-entry-actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
+}
+
+.github-home-entry.has-site .github-home-entry-actions {
+  pointer-events: none;
+}
+
+.github-home-entry.has-site .github-home-entry-open,
+.github-home-entry.has-site .github-home-entry-menu {
+  pointer-events: auto;
 }
 
 .github-home-entry-open {

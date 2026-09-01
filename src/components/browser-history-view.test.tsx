@@ -55,7 +55,7 @@ function createHistoryApi(items: BrowserHistoryItem[] = []): {
 describe("BrowserHistoryView", () => {
   afterEach(() => cleanup());
 
-  it("loads, searches, filters, and opens a browser history item", async () => {
+  it("loads, searches, filters, and opens a browser history item in a new tab", async () => {
     const user = userEvent.setup();
     const history = createHistoryApi([
       {
@@ -80,6 +80,14 @@ describe("BrowserHistoryView", () => {
     expect(screen.getByRole("link", { name: "打开历史记录 GitHub" })).toHaveAttribute(
       "href",
       "https://github.com/openai",
+    );
+    expect(screen.getByRole("link", { name: "打开历史记录 GitHub" })).toHaveAttribute(
+      "target",
+      "_blank",
+    );
+    expect(screen.getByRole("link", { name: "打开历史记录 GitHub" })).toHaveAttribute(
+      "rel",
+      "noopener noreferrer",
     );
 
     await user.type(screen.getByRole("searchbox", { name: "搜索浏览历史" }), "GitHub");

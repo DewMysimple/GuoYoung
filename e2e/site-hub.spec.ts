@@ -281,6 +281,7 @@ test("previews and imports a GitHub author's repositories while skipping duplica
 
 test("loads and deletes browser history through the extension adapter", async ({
   page,
+  context,
 }, testInfo) => {
   await page.addInitScript(() => {
     let entries = [
@@ -374,6 +375,12 @@ test("loads and deletes browser history through the extension adapter", async ({
     path: screenshotPath(`browser-history-${testInfo.project.name}.png`),
     fullPage: true,
   });
+
+  const popupPromise = context.waitForEvent("page");
+  await githubRow.getByRole("link", { name: "打开历史记录 GitHub" }).click();
+  const popup = await popupPromise;
+  expect(popup.url()).toBe("https://github.com/openai");
+  await popup.close();
 
   await page.getByRole("button", { name: "删除历史记录 GitHub" }).click();
   await expect(githubRow).toHaveCount(0);
@@ -1514,6 +1521,22 @@ test("opens a favorite in a new tab", async ({ page, context }) => {
   });
   const popupPromise = context.waitForEvent("page");
   await page.getByRole("link", { name: "打开 GitHub" }).click();
+  await popupPromise;
+  expect((await requestPromise).url()).toContain("github.com");
+});
+
+test("opens the GitHub home entry from its card surface", async ({ page, context }) => {
+  await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
+  const entry = page.locator(".github-home-entry");
+  await expect(entry).toBeVisible();
+  const box = await entry.boundingBox();
+  if (!box) throw new Error("GitHub home entry is not visible");
+
+  const requestPromise = context.waitForEvent("request", {
+    predicate: (request) => request.url().startsWith("https://github.com"),
+  });
+  const popupPromise = context.waitForEvent("page");
+  await page.mouse.click(box.x + box.width * 0.38, box.y + box.height * 0.5);
   await popupPromise;
   expect((await requestPromise).url()).toContain("github.com");
 });
