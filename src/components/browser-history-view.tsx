@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CaretDown,
   CaretRight,
+  CheckSquare,
   ClockCounterClockwise,
   MagnifyingGlass,
   Trash,
@@ -105,6 +106,7 @@ function HistoryFavicon({
 function HistorySiteCard({
   group,
   expanded,
+  selectionMode,
   selectedUrls,
   busy,
   onToggleExpanded,
@@ -114,6 +116,7 @@ function HistorySiteCard({
 }: {
   group: HistorySiteGroup;
   expanded: boolean;
+  selectionMode: boolean;
   selectedUrls: Set<string>;
   busy: boolean;
   onToggleExpanded: () => void;
@@ -145,16 +148,18 @@ function HistorySiteCard({
       data-history-site-key={group.key}
     >
       <div className="history-site-card-summary">
-        <input
-          ref={groupCheckboxRef}
-          className="history-site-checkbox"
-          type="checkbox"
-          checked={allSelected}
-          onChange={onToggleGroupSelected}
-          onClick={(event) => event.stopPropagation()}
-          aria-label={`${allSelected ? "取消选择" : "选择"} ${group.label} 的全部历史记录`}
-          disabled={busy}
-        />
+        {selectionMode && (
+          <input
+            ref={groupCheckboxRef}
+            className="history-site-checkbox"
+            type="checkbox"
+            checked={allSelected}
+            onChange={onToggleGroupSelected}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`${allSelected ? "取消选择" : "选择"} ${group.label} 的全部历史记录`}
+            disabled={busy}
+          />
+        )}
         <button
           type="button"
           className="history-site-toggle"
@@ -162,29 +167,36 @@ function HistorySiteCard({
           aria-controls={detailsId}
           onClick={onToggleExpanded}
         >
-          <span className="history-site-icon">
-            {representative ? (
-              <HistoryFavicon item={representative} size="large" />
-            ) : (
-              <span className="history-favicon-fallback">?</span>
-            )}
+          <span className="history-site-topline">
+            <span className="history-site-icon">
+              {representative ? (
+                <HistoryFavicon item={representative} size="large" />
+              ) : (
+                <span className="history-favicon-fallback">?</span>
+              )}
+            </span>
+            <span className="history-site-summary-actions">
+              <span className="history-site-url-count">
+                {group.items.length} 个页面
+              </span>
+              <span className="history-site-chevron" aria-hidden="true">
+                {expanded ? <CaretDown size={18} /> : <CaretRight size={18} />}
+              </span>
+            </span>
           </span>
           <span className="history-site-summary-copy">
             <span className="history-site-title-row">
               <strong title={group.label}>{group.label}</strong>
-              <span className="history-site-url-count">
-                {group.items.length} 个页面
-              </span>
             </span>
             <span className="history-site-hostname" title={group.hostname}>
               {group.hostname}
             </span>
-            <span className="history-site-meta">
-              最近访问 {formatHistoryTime(group.lastVisitTime)} · 访问 {group.visitCount} 次
-            </span>
           </span>
-          <span className="history-site-chevron" aria-hidden="true">
-            {expanded ? <CaretDown size={20} /> : <CaretRight size={20} />}
+          <span className="history-site-meta">
+            <span title={`最近访问 ${formatHistoryTime(group.lastVisitTime)}`}>
+              最近访问 {formatHistoryTime(group.lastVisitTime)}
+            </span>
+            <span>访问 {group.visitCount} 次</span>
           </span>
         </button>
       </div>
@@ -196,15 +208,28 @@ function HistorySiteCard({
             const title = formatHistoryTitle(item);
             return (
               <article className="history-url-card" key={`${item.id}-${item.url}`}>
-                <input
-                  className="history-url-checkbox"
-                  type="checkbox"
-                  checked={selectedUrls.has(item.url)}
-                  onChange={() => onToggleSelected(item.url!)}
-                  aria-label={`选择 ${title}`}
-                  disabled={busy}
-                />
-                <HistoryFavicon item={item} />
+                <div className="history-url-card-topline">
+                  {selectionMode && (
+                    <input
+                      className="history-url-checkbox"
+                      type="checkbox"
+                      checked={selectedUrls.has(item.url)}
+                      onChange={() => onToggleSelected(item.url!)}
+                      aria-label={`选择 ${title}`}
+                      disabled={busy}
+                    />
+                  )}
+                  <HistoryFavicon item={item} />
+                  <button
+                    type="button"
+                    className="history-url-delete"
+                    aria-label={`删除历史记录 ${title}`}
+                    disabled={busy}
+                    onClick={() => onDelete(item.url!)}
+                  >
+                    <Trash size={17} />
+                  </button>
+                </div>
                 <a
                   className="history-url-link"
                   href={item.url}
@@ -229,15 +254,6 @@ function HistorySiteCard({
                     访问 {item.visitCount && item.visitCount > 1 ? item.visitCount : 1} 次
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className="history-url-delete"
-                  aria-label={`删除历史记录 ${title}`}
-                  disabled={busy}
-                  onClick={() => onDelete(item.url!)}
-                >
-                  <Trash size={17} />
-                </button>
               </article>
             );
           })}
@@ -270,6 +286,7 @@ export function BrowserHistoryView({
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(
     () => new Set(),
   );
+  const [selectionMode, setSelectionMode] = useState(false);
   const [expandedSiteKeys, setExpandedSiteKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -345,6 +362,8 @@ export function BrowserHistoryView({
   useEffect(() => {
     setVisibleGroupLimit(INITIAL_GROUP_LIMIT);
     setExpandedSiteKeys(new Set());
+    setSelectedUrls(new Set());
+    setSelectionMode(false);
   }, [query, timeRange]);
 
   const siteGroups = useMemo(() => groupBrowserHistoryItems(items), [items]);
@@ -427,6 +446,13 @@ export function BrowserHistoryView({
         ? new Set()
         : new Set(selectableItems.map((item) => item.url)),
     );
+  }
+
+  function toggleSelectionMode() {
+    setSelectionMode((current) => {
+      if (current) setSelectedUrls(new Set());
+      return !current;
+    });
   }
 
   function toggleExpandedSite(key: string) {
@@ -589,19 +615,43 @@ export function BrowserHistoryView({
             ))}
           </select>
         </label>
+        <button
+          type="button"
+          className={`view-control-button multi-select-button ${
+            selectionMode ? "active" : ""
+          }`}
+          aria-pressed={selectionMode}
+          disabled={loading || busy || selectableItems.length === 0}
+          onClick={toggleSelectionMode}
+        >
+          <CheckSquare size={16} />
+          <span>
+            {selectionMode
+              ? selectedUrls.size > 0
+                ? `完成 ${selectedUrls.size}`
+                : "选择"
+              : "多选"}
+          </span>
+        </button>
       </div>
 
       {(selectedUrls.size > 0 || items.length > 0) && (
-        <div className="history-selection-toolbar">
-          <label className="history-select-all">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={toggleAll}
-              disabled={busy || selectableItems.length === 0}
-            />
-            <span>{selectedUrls.size ? `已选择 ${selectedUrls.size} 条` : "全选当前结果"}</span>
-          </label>
+        <div
+          className={`history-selection-toolbar ${
+            selectionMode ? "" : "is-clear-only"
+          }`}
+        >
+          {selectionMode && (
+            <label className="history-select-all">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                disabled={busy || selectableItems.length === 0}
+              />
+              <span>{selectedUrls.size ? `已选择 ${selectedUrls.size} 条` : "全选当前结果"}</span>
+            </label>
+          )}
           <div className="history-selection-actions">
             {selectedUrls.size > 0 && (
               <button
@@ -656,6 +706,7 @@ export function BrowserHistoryView({
                 key={group.key}
                 group={group}
                 expanded={expandedSiteKeys.has(group.key)}
+                selectionMode={selectionMode}
                 selectedUrls={selectedUrls}
                 busy={busy}
                 onToggleExpanded={() => toggleExpandedSite(group.key)}

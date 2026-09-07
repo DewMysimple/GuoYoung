@@ -358,10 +358,11 @@ test("loads and deletes browser history through the extension adapter", async ({
   await expect(exampleCard).toBeVisible();
   await expect(page.locator(".history-site-card-summary").first()).toHaveCSS(
     "padding-left",
-    testInfo.project.name === "mobile" ? "13px" : "17px",
+    testInfo.project.name === "mobile" ? "13px" : "12px",
   );
   await expect(page.locator(".history-day")).toHaveCount(0);
   await expect(page.locator(".history-url-card")).toHaveCount(0);
+  await expect(page.locator(".history-site-checkbox")).toHaveCount(0);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth));
@@ -370,9 +371,16 @@ test("loads and deletes browser history through the extension adapter", async ({
     fullPage: true,
   });
 
+  await page.getByRole("button", { name: "多选" }).click();
+  await expect(page.locator(".history-site-checkbox").first()).toBeVisible();
+
   const popupPromise = context.waitForEvent("page");
   await githubCard.getByRole("button", { name: /GitHub/ }).click();
   await expect(githubCard.locator(".history-url-card")).toHaveCount(1);
+  await page.screenshot({
+    path: screenshotPath(`browser-history-expanded-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
   await githubCard.getByRole("link", { name: "打开历史记录 GitHub" }).click();
   const popup = await popupPromise;
   expect(popup.url()).toBe("https://github.com/openai");

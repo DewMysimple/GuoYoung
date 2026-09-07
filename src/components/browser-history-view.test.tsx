@@ -148,6 +148,11 @@ describe("BrowserHistoryView", () => {
     expect(screen.getByRole("link", { name: "打开历史记录 Repository" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开历史记录 Gist" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开历史记录 ChatGPT" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "选择 GitHub 的全部历史记录" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "多选" }));
 
     await user.click(
       screen.getByRole("checkbox", { name: "选择 GitHub 的全部历史记录" }),
@@ -173,6 +178,7 @@ describe("BrowserHistoryView", () => {
 
     await waitFor(() => expect(screen.getByText("One")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /One/ }));
+    await user.click(screen.getByRole("button", { name: "多选" }));
     await user.click(screen.getByRole("checkbox", { name: "选择 One" }));
     await user.click(screen.getByRole("button", { name: "删除选中" }));
     await waitFor(() => {
