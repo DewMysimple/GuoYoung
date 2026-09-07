@@ -3,6 +3,8 @@ import {
   createHistoryQuery,
   getHistoryAvailability,
   getHistoryRange,
+  getHistorySiteKey,
+  groupBrowserHistoryItems,
   normalizeHistoryItems,
   readHistoryAvailability,
   requestHistoryPermission,
@@ -61,6 +63,54 @@ describe("browser history adapter", () => {
     ).toEqual([
       { id: "new", url: "https://new.example", lastVisitTime: 30 },
       { id: "old", url: "https://example.com", lastVisitTime: 10 },
+    ]);
+  });
+
+  it("groups history URLs by main domain and keeps the newest site first", () => {
+    expect(getHistorySiteKey("https://gist.github.com/openai/demo")).toBe(
+      "github.com",
+    );
+    expect(getHistorySiteKey("https://chatgpt.com/c/123")).toBe("chatgpt.com");
+
+    expect(
+      groupBrowserHistoryItems([
+        {
+          id: "github-repo",
+          title: "Repository",
+          url: "https://github.com/openai/repo",
+          lastVisitTime: 20,
+          visitCount: 3,
+        },
+        {
+          id: "github-gist",
+          title: "Gist",
+          url: "https://gist.github.com/openai/demo",
+          lastVisitTime: 10,
+          visitCount: 2,
+        },
+        {
+          id: "chatgpt",
+          title: "ChatGPT",
+          url: "https://chatgpt.com/c/123",
+          lastVisitTime: 30,
+          visitCount: 4,
+        },
+      ]),
+    ).toMatchObject([
+      {
+        key: "chatgpt.com",
+        label: "ChatGPT",
+        items: [{ id: "chatgpt" }],
+        lastVisitTime: 30,
+        visitCount: 4,
+      },
+      {
+        key: "github.com",
+        label: "GitHub",
+        items: [{ id: "github-repo" }, { id: "github-gist" }],
+        lastVisitTime: 20,
+        visitCount: 5,
+      },
     ]);
   });
 

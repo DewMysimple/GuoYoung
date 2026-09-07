@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  CaretDown,
+  CaretRight,
   ClockCounterClockwise,
   MagnifyingGlass,
   Trash,
@@ -14,11 +16,13 @@ import {
   deleteBrowserHistoryUrl,
   getHistoryAvailability,
   getHistoryRange,
+  groupBrowserHistoryItems,
   readHistoryAvailability,
   searchBrowserHistory,
   subscribeToBrowserHistoryChanges,
   type BrowserHistoryAvailability,
   type BrowserHistoryPermissionResult,
+  type HistorySiteGroup,
   type HistoryTimeRange,
 } from "../lib/browser-history";
 import {
@@ -26,7 +30,6 @@ import {
   type BrowserHistoryItem,
   type ChromiumExtensionApi,
 } from "../lib/browser-runtime";
-import { getHostname } from "../lib/site-utils";
 
 interface BrowserHistoryViewProps {
   onBack: () => void;
@@ -47,14 +50,14 @@ const TIME_RANGE_OPTIONS: Array<{ value: HistoryTimeRange; label: string }> = [
   { value: "30d", label: "近 30 天" },
 ];
 
-const INITIAL_RENDER_LIMIT = 160;
-const RENDER_INCREMENT = 160;
+const INITIAL_GROUP_LIMIT = 80;
+const GROUP_RENDER_INCREMENT = 80;
 
 function formatHistoryTitle(item: BrowserHistoryItem): string {
   if (item.title?.trim()) return item.title.trim();
   if (item.url) {
     try {
-      return getHostname(item.url);
+      return new URL(item.url).hostname.replace(/^www\./, "");
     } catch {
       return item.url;
     }
@@ -75,26 +78,13 @@ function formatHistoryTime(timestamp?: number): string {
   }).format(timestamp);
 }
 
-function formatHistoryDay(timestamp?: number): string {
-  if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) {
-    return "时间未知";
-  }
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  }).format(timestamp);
-}
-
-function historyDayKey(timestamp?: number): string {
-  if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) {
-    return "unknown";
-  }
-  const date = new Date(timestamp);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
-
-function HistoryFavicon({ item }: { item: BrowserHistoryItem }) {
+function HistoryFavicon({
+  item,
+  size = "normal",
+}: {
+  item: BrowserHistoryItem;
+  size?: "normal" | "large";
+}) {
   const name = formatHistoryTitle(item);
   if (!item.url) {
     return <span className="history-favicon-fallback">?</span>;
@@ -107,7 +97,153 @@ function HistoryFavicon({ item }: { item: BrowserHistoryItem }) {
         customIconUrl: undefined,
         iconSource: "browser",
       }}
+      size={size}
     />
+  );
+}
+
+function HistorySiteCard({
+  group,
+  expanded,
+  selectedUrls,
+  busy,
+  onToggleExpanded,
+  onToggleGroupSelected,
+  onToggleSelected,
+  onDelete,
+}: {
+  group: HistorySiteGroup;
+  expanded: boolean;
+  selectedUrls: Set<string>;
+  busy: boolean;
+  onToggleExpanded: () => void;
+  onToggleGroupSelected: () => void;
+  onToggleSelected: (url: string) => void;
+  onDelete: (url: string) => void;
+}) {
+  const groupUrls = group.items.flatMap((item) =>
+    item.url ? [item.url] : [],
+  );
+  const selectedCount = groupUrls.filter((url) => selectedUrls.has(url)).length;
+  const allSelected = groupUrls.length > 0 && selectedCount === groupUrls.length;
+  const groupCheckboxRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (groupCheckboxRef.current) {
+      groupCheckboxRef.current.indeterminate =
+        selectedCount > 0 && !allSelected;
+    }
+  }, [allSelected, selectedCount]);
+
+  const representative = group.items[0];
+  const detailsId = `history-site-details-${group.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
+  return (
+    <article
+      className={`history-site-card ${expanded ? "is-expanded" : ""}`}
+      data-testid={`history-site-card-${group.key}`}
+      data-history-site-key={group.key}
+    >
+      <div className="history-site-card-summary">
+        <input
+          ref={groupCheckboxRef}
+          className="history-site-checkbox"
+          type="checkbox"
+          checked={allSelected}
+          onChange={onToggleGroupSelected}
+          onClick={(event) => event.stopPropagation()}
+          aria-label={`${allSelected ? "取消选择" : "选择"} ${group.label} 的全部历史记录`}
+          disabled={busy}
+        />
+        <button
+          type="button"
+          className="history-site-toggle"
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+          onClick={onToggleExpanded}
+        >
+          <span className="history-site-icon">
+            {representative ? (
+              <HistoryFavicon item={representative} size="large" />
+            ) : (
+              <span className="history-favicon-fallback">?</span>
+            )}
+          </span>
+          <span className="history-site-summary-copy">
+            <span className="history-site-title-row">
+              <strong title={group.label}>{group.label}</strong>
+              <span className="history-site-url-count">
+                {group.items.length} 个页面
+              </span>
+            </span>
+            <span className="history-site-hostname" title={group.hostname}>
+              {group.hostname}
+            </span>
+            <span className="history-site-meta">
+              最近访问 {formatHistoryTime(group.lastVisitTime)} · 访问 {group.visitCount} 次
+            </span>
+          </span>
+          <span className="history-site-chevron" aria-hidden="true">
+            {expanded ? <CaretDown size={20} /> : <CaretRight size={20} />}
+          </span>
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="history-site-details" id={detailsId}>
+          {group.items.map((item) => {
+            if (!item.url) return null;
+            const title = formatHistoryTitle(item);
+            return (
+              <article className="history-url-card" key={`${item.id}-${item.url}`}>
+                <input
+                  className="history-url-checkbox"
+                  type="checkbox"
+                  checked={selectedUrls.has(item.url)}
+                  onChange={() => onToggleSelected(item.url!)}
+                  aria-label={`选择 ${title}`}
+                  disabled={busy}
+                />
+                <HistoryFavicon item={item} />
+                <a
+                  className="history-url-link"
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`打开历史记录 ${title}`}
+                >
+                  <strong title={title}>{title}</strong>
+                  <span title={item.url}>{item.url}</span>
+                </a>
+                <div className="history-url-meta">
+                  <time
+                    dateTime={
+                      item.lastVisitTime
+                        ? new Date(item.lastVisitTime).toISOString()
+                        : undefined
+                    }
+                  >
+                    {formatHistoryTime(item.lastVisitTime)}
+                  </time>
+                  <span>
+                    访问 {item.visitCount && item.visitCount > 1 ? item.visitCount : 1} 次
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="history-url-delete"
+                  aria-label={`删除历史记录 ${title}`}
+                  disabled={busy}
+                  onClick={() => onDelete(item.url!)}
+                >
+                  <Trash size={17} />
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -134,7 +270,11 @@ export function BrowserHistoryView({
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(
     () => new Set(),
   );
-  const [visibleLimit, setVisibleLimit] = useState(INITIAL_RENDER_LIMIT);
+  const [expandedSiteKeys, setExpandedSiteKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [visibleGroupLimit, setVisibleGroupLimit] =
+    useState(INITIAL_GROUP_LIMIT);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [confirmClear, setConfirmClear] = useState(false);
   const loadSequence = useRef(0);
@@ -203,8 +343,20 @@ export function BrowserHistoryView({
   }, [api, availability, query, refreshVersion, timeRange]);
 
   useEffect(() => {
-    setVisibleLimit(INITIAL_RENDER_LIMIT);
+    setVisibleGroupLimit(INITIAL_GROUP_LIMIT);
+    setExpandedSiteKeys(new Set());
   }, [query, timeRange]);
+
+  const siteGroups = useMemo(() => groupBrowserHistoryItems(items), [items]);
+  const visibleGroups = siteGroups.slice(0, visibleGroupLimit);
+
+  useEffect(() => {
+    setExpandedSiteKeys((current) => {
+      const available = new Set(siteGroups.map((group) => group.key));
+      const next = new Set([...current].filter((key) => available.has(key)));
+      return next.size === current.size ? current : next;
+    });
+  }, [siteGroups]);
 
   useEffect(() => {
     setSelectedUrls((current) => {
@@ -215,25 +367,6 @@ export function BrowserHistoryView({
       return next.size === current.size ? current : next;
     });
   }, [items]);
-
-  const visibleItems = items.slice(0, visibleLimit);
-  const groupedItems = useMemo(() => {
-    const groups: Array<{ key: string; label: string; items: BrowserHistoryItem[] }> = [];
-    for (const item of visibleItems) {
-      const key = historyDayKey(item.lastVisitTime);
-      const existing = groups.at(-1);
-      if (existing?.key === key) {
-        existing.items.push(item);
-      } else {
-        groups.push({
-          key,
-          label: formatHistoryDay(item.lastVisitTime),
-          items: [item],
-        });
-      }
-    }
-    return groups;
-  }, [visibleItems]);
 
   const selectableItems = items.filter(
     (item): item is BrowserHistoryItem & { url: string } => Boolean(item.url),
@@ -273,12 +406,36 @@ export function BrowserHistoryView({
     });
   }
 
+  function toggleGroupSelected(group: HistorySiteGroup) {
+    const groupUrls = group.items.flatMap((item) =>
+      item.url ? [item.url] : [],
+    );
+    setSelectedUrls((current) => {
+      const next = new Set(current);
+      const shouldDeselect = groupUrls.every((url) => next.has(url));
+      groupUrls.forEach((url) => {
+        if (shouldDeselect) next.delete(url);
+        else next.add(url);
+      });
+      return next;
+    });
+  }
+
   function toggleAll() {
     setSelectedUrls(
       allSelected
         ? new Set()
         : new Set(selectableItems.map((item) => item.url)),
     );
+  }
+
+  function toggleExpandedSite(key: string) {
+    setExpandedSiteKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   async function deleteUrls(urls: string[]) {
@@ -385,7 +542,9 @@ export function BrowserHistoryView({
           <p className="history-kicker">浏览器历史</p>
           <h1 id="history-title">历史记录</h1>
           <p className="history-summary">
-            {loading ? "正在同步浏览器记录…" : `当前显示 ${items.length} 个网页`}
+            {loading
+              ? "正在同步浏览器记录…"
+              : `当前显示 ${items.length} 个网页 · ${siteGroups.length} 个网站`}
           </p>
         </div>
         <button type="button" className="button secondary-button" onClick={onBack}>
@@ -479,8 +638,8 @@ export function BrowserHistoryView({
 
       {loading && items.length === 0 ? (
         <div className="history-list history-list-loading" aria-label="正在加载历史记录">
-          {Array.from({ length: 5 }, (_, index) => (
-            <div className="history-skeleton-row" key={index} />
+          {Array.from({ length: 6 }, (_, index) => (
+            <div className="history-skeleton-card" key={index} />
           ))}
         </div>
       ) : items.length === 0 ? (
@@ -491,62 +650,28 @@ export function BrowserHistoryView({
         </div>
       ) : (
         <div className="history-list">
-          {groupedItems.map((group) => (
-            <section className="history-day" key={group.key} aria-labelledby={`history-day-${group.key}`}>
-              <h2 id={`history-day-${group.key}`}>{group.label}</h2>
-              <div className="history-day-items">
-                {group.items.map((item) => {
-                  if (!item.url) return null;
-                  const title = formatHistoryTitle(item);
-                  return (
-                    <article className="history-row" key={`${item.id}-${item.url}`}>
-                      <input
-                        className="history-row-checkbox"
-                        type="checkbox"
-                        checked={selectedUrls.has(item.url)}
-                        onChange={() => toggleSelected(item.url!)}
-                        aria-label={`选择 ${title}`}
-                        disabled={busy}
-                      />
-                      <HistoryFavicon item={item} />
-                      <a
-                        className="history-row-link"
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`打开历史记录 ${title}`}
-                      >
-                        <strong title={title}>{title}</strong>
-                        <span title={item.url}>{item.url}</span>
-                      </a>
-                      <div className="history-row-meta">
-                        <time dateTime={item.lastVisitTime ? new Date(item.lastVisitTime).toISOString() : undefined}>
-                          {formatHistoryTime(item.lastVisitTime)}
-                        </time>
-                        <span>{item.visitCount && item.visitCount > 1 ? `访问 ${item.visitCount} 次` : "访问 1 次"}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="history-row-delete"
-                        aria-label={`删除历史记录 ${title}`}
-                        disabled={busy}
-                        onClick={() => void deleteUrls([item.url!])}
-                      >
-                        <Trash size={17} />
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-          {visibleLimit < items.length && (
+          <div className="history-site-grid">
+            {visibleGroups.map((group) => (
+              <HistorySiteCard
+                key={group.key}
+                group={group}
+                expanded={expandedSiteKeys.has(group.key)}
+                selectedUrls={selectedUrls}
+                busy={busy}
+                onToggleExpanded={() => toggleExpandedSite(group.key)}
+                onToggleGroupSelected={() => toggleGroupSelected(group)}
+                onToggleSelected={toggleSelected}
+                onDelete={(url) => void deleteUrls([url])}
+              />
+            ))}
+          </div>
+          {visibleGroupLimit < siteGroups.length && (
             <button
               type="button"
               className="button secondary-button history-load-more"
-              onClick={() => setVisibleLimit((current) => current + RENDER_INCREMENT)}
+              onClick={() => setVisibleGroupLimit((current) => current + GROUP_RENDER_INCREMENT)}
             >
-              继续显示（还剩 {items.length - visibleLimit} 条）
+              继续显示（还剩 {siteGroups.length - visibleGroupLimit} 个网站）
             </button>
           )}
         </div>

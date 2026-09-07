@@ -47,10 +47,10 @@ function resolveLink(target) {
 }
 
 function parseFM(content) {
-  const m = content.match(/^---\n([\s\S]*?)\n---/);
+  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return {};
   const obj = {};
-  for (const line of m[1].split('\n')) {
+  for (const line of m[1].split(/\r?\n/)) {
     const mm = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
     if (mm) obj[mm[1]] = mm[2].trim();
   }

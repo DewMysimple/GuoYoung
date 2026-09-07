@@ -352,22 +352,16 @@ test("loads and deletes browser history through the extension adapter", async ({
   await page.reload();
   await page.getByRole("button", { name: "打开历史记录" }).click();
   await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();
-  const githubRow = page.locator(".history-row").filter({ hasText: "GitHub" });
-  const exampleRow = page.locator(".history-row").filter({ hasText: "Example" });
-  await expect(githubRow).toBeVisible();
-  await expect(exampleRow).toBeVisible();
-  await expect(page.locator(".history-row").first()).toHaveCSS(
+  const githubCard = page.locator(".history-site-card").filter({ hasText: "GitHub" });
+  const exampleCard = page.locator(".history-site-card").filter({ hasText: "Example" });
+  await expect(githubCard).toBeVisible();
+  await expect(exampleCard).toBeVisible();
+  await expect(page.locator(".history-site-card-summary").first()).toHaveCSS(
     "padding-left",
-    testInfo.project.name === "mobile" ? "14px" : "20px",
+    testInfo.project.name === "mobile" ? "13px" : "17px",
   );
-  await expect(page.locator(".history-row").first()).toHaveCSS(
-    "column-gap",
-    testInfo.project.name === "mobile" ? "12px" : "16px",
-  );
-  await expect(page.locator(".history-day h2").first()).toHaveCSS(
-    "padding-left",
-    testInfo.project.name === "mobile" ? "14px" : "20px",
-  );
+  await expect(page.locator(".history-day")).toHaveCount(0);
+  await expect(page.locator(".history-url-card")).toHaveCount(0);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth));
@@ -377,14 +371,16 @@ test("loads and deletes browser history through the extension adapter", async ({
   });
 
   const popupPromise = context.waitForEvent("page");
-  await githubRow.getByRole("link", { name: "打开历史记录 GitHub" }).click();
+  await githubCard.getByRole("button", { name: /GitHub/ }).click();
+  await expect(githubCard.locator(".history-url-card")).toHaveCount(1);
+  await githubCard.getByRole("link", { name: "打开历史记录 GitHub" }).click();
   const popup = await popupPromise;
   expect(popup.url()).toBe("https://github.com/openai");
   await popup.close();
 
-  await page.getByRole("button", { name: "删除历史记录 GitHub" }).click();
-  await expect(githubRow).toHaveCount(0);
-  await expect(exampleRow).toBeVisible();
+  await githubCard.getByRole("button", { name: "删除历史记录 GitHub" }).click();
+  await expect(githubCard).toHaveCount(0);
+  await expect(exampleCard).toBeVisible();
 });
 
 test("loads browser history through callback-style Edge APIs", async ({ page }) => {
@@ -436,8 +432,9 @@ test("loads browser history through callback-style Edge APIs", async ({ page }) 
   });
   await page.reload();
   await page.getByRole("button", { name: "打开历史记录" }).click();
+  await page.getByRole("button", { name: /Edge/ }).click();
   await expect(page.getByText("Edge Callback Example", { exact: true })).toBeVisible();
-  await expect(page.getByText("访问 2 次")).toBeVisible();
+  await expect(page.locator(".history-url-card").getByText("访问 2 次", { exact: true })).toBeVisible();
 });
 
 test("drags beyond 50px without waiting and keeps the order after refresh", async ({

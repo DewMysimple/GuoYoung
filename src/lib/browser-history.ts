@@ -6,6 +6,7 @@ import {
   type BrowserHistoryQuery,
   type ChromiumExtensionApi,
 } from "./browser-runtime";
+import { getHostname, inferSiteName } from "./site-utils";
 
 export const HISTORY_PERMISSION = "history";
 export const HISTORY_INVALIDATED_MESSAGE = "browser-history-invalidated";
@@ -33,7 +34,103 @@ export interface BrowserHistoryPermissionResult {
   error?: string;
 }
 
+export interface HistorySiteGroup {
+  key: string;
+  label: string;
+  hostname: string;
+  items: BrowserHistoryItem[];
+  lastVisitTime?: number;
+  visitCount: number;
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const HISTORY_TWO_PART_SUFFIXES = new Set([
+  "co.uk",
+  "com.au",
+  "com.cn",
+  "com.jp",
+  "co.jp",
+  "co.kr",
+]);
+
+const HISTORY_BRAND_LABELS: Record<string, string> = {
+  "chatgpt.com": "ChatGPT",
+};
+
+function getHistoryHostname(url: string): string {
+  return getHostname(url).toLocaleLowerCase("en-US");
+}
+
+export function getHistorySiteKey(url: string): string {
+  const hostname = getHistoryHostname(url);
+  const parts = hostname.split(".").filter(Boolean);
+  if (parts.length <= 2) return hostname;
+
+  const suffix = parts.slice(-2).join(".");
+  return HISTORY_TWO_PART_SUFFIXES.has(suffix)
+    ? parts.slice(-3).join(".")
+    : parts.slice(-2).join(".");
+}
+
+function getHistorySiteLabel(key: string): string {
+  return (
+    HISTORY_BRAND_LABELS[key] ??
+    inferSiteName(`https://${key}`) ??
+    key
+  );
+}
+
+export function groupBrowserHistoryItems(
+  items: BrowserHistoryItem[],
+): HistorySiteGroup[] {
+  const grouped = new Map<string, HistorySiteGroup>();
+
+  for (const item of items) {
+    if (!item.url) continue;
+    let key: string;
+    let hostname: string;
+    try {
+      hostname = getHistoryHostname(item.url);
+      key = getHistorySiteKey(item.url);
+    } catch {
+      key = item.url;
+      hostname = item.url;
+    }
+
+    const current = grouped.get(key);
+    if (current) {
+      current.items.push(item);
+      current.visitCount += Math.max(1, item.visitCount ?? 1);
+      if ((item.lastVisitTime ?? 0) > (current.lastVisitTime ?? 0)) {
+        current.lastVisitTime = item.lastVisitTime;
+      }
+      continue;
+    }
+
+    grouped.set(key, {
+      key,
+      label: getHistorySiteLabel(key),
+      hostname,
+      items: [item],
+      lastVisitTime: item.lastVisitTime,
+      visitCount: Math.max(1, item.visitCount ?? 1),
+    });
+  }
+
+  return [...grouped.values()]
+    .map((group) => ({
+      ...group,
+      items: [...group.items].sort(
+        (first, second) =>
+          (second.lastVisitTime ?? 0) - (first.lastVisitTime ?? 0),
+      ),
+    }))
+    .sort(
+      (first, second) =>
+        (second.lastVisitTime ?? 0) - (first.lastVisitTime ?? 0),
+    );
+}
 
 function startOfLocalDay(timestamp: number): number {
   const date = new Date(timestamp);

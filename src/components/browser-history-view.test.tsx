@@ -77,6 +77,7 @@ describe("BrowserHistoryView", () => {
     await waitFor(() => {
       expect(screen.getByText("GitHub")).toBeInTheDocument();
     });
+    await user.click(screen.getByRole("button", { name: /GitHub/ }));
     expect(screen.getByRole("link", { name: "打开历史记录 GitHub" })).toHaveAttribute(
       "href",
       "https://github.com/openai",
@@ -106,6 +107,56 @@ describe("BrowserHistoryView", () => {
     });
   });
 
+  it("expands multiple site cards and selects every URL in one card", async () => {
+    const user = userEvent.setup();
+    const history = createHistoryApi([
+      {
+        id: "github-repo",
+        title: "Repository",
+        url: "https://github.com/openai/repo",
+        lastVisitTime: Date.now(),
+      },
+      {
+        id: "github-gist",
+        title: "Gist",
+        url: "https://gist.github.com/openai/demo",
+        lastVisitTime: Date.now() - 1000,
+      },
+      {
+        id: "chatgpt",
+        title: "ChatGPT",
+        url: "https://chatgpt.com/c/123",
+        lastVisitTime: Date.now() - 2000,
+      },
+    ]);
+    render(
+      <BrowserHistoryView
+        api={history.api}
+        onBack={vi.fn()}
+        onRequestPermission={vi.fn().mockResolvedValue({ granted: true })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("history-site-card-github.com")).toBeInTheDocument();
+      expect(screen.getByTestId("history-site-card-chatgpt.com")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("link", { name: "打开历史记录 Repository" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /GitHub/ }));
+    await user.click(screen.getByRole("button", { name: /ChatGPT/ }));
+    expect(screen.getByRole("link", { name: "打开历史记录 Repository" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "打开历史记录 Gist" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "打开历史记录 ChatGPT" })).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "选择 GitHub 的全部历史记录" }),
+    );
+    expect(screen.getByText("已选择 2 条")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "选择 Repository" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "选择 Gist" })).toBeChecked();
+  });
+
   it("deletes selected URLs and refreshes after browser history events", async () => {
     const user = userEvent.setup();
     const history = createHistoryApi([
@@ -121,6 +172,7 @@ describe("BrowserHistoryView", () => {
     );
 
     await waitFor(() => expect(screen.getByText("One")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /One/ }));
     await user.click(screen.getByRole("checkbox", { name: "选择 One" }));
     await user.click(screen.getByRole("button", { name: "删除选中" }));
     await waitFor(() => {
