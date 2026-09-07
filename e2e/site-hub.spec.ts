@@ -350,19 +350,29 @@ test("loads and deletes browser history through the extension adapter", async ({
     };
   });
   await page.reload();
+  const homeSearchBox = await page.locator(".workspace-intro .search-input").boundingBox();
+  if (!homeSearchBox) throw new Error("Favorite search box is not visible");
   await page.getByRole("button", { name: "打开历史记录" }).click();
   await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();
+  const historySearchBox = await page
+    .locator(".history-workspace-intro .search-input")
+    .boundingBox();
+  if (!historySearchBox) throw new Error("History search box is not visible");
+  expect(historySearchBox.x).toBeCloseTo(homeSearchBox.x, 0);
+  expect(historySearchBox.width).toBeCloseTo(homeSearchBox.width, 0);
   const githubCard = page.locator(".history-site-card").filter({ hasText: "GitHub" });
   const exampleCard = page.locator(".history-site-card").filter({ hasText: "Example" });
   await expect(githubCard).toBeVisible();
   await expect(exampleCard).toBeVisible();
   await expect(page.locator(".history-site-card-summary").first()).toHaveCSS(
     "padding-left",
-    testInfo.project.name === "mobile" ? "13px" : "12px",
+    "0px",
   );
   await expect(page.locator(".history-day")).toHaveCount(0);
   await expect(page.locator(".history-url-card")).toHaveCount(0);
-  await expect(page.locator(".history-site-checkbox")).toHaveCount(0);
+  await expect(page.locator(".history-selection-toggle")).toHaveCount(0);
+  await expect(page.locator(".history-site-chevron")).toHaveCount(0);
+  await expect(page.getByText("清空全部历史", { exact: true })).toHaveCount(0);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth));
@@ -372,21 +382,39 @@ test("loads and deletes browser history through the extension adapter", async ({
   });
 
   await page.getByRole("button", { name: "多选" }).click();
-  await expect(page.locator(".history-site-checkbox").first()).toBeVisible();
-
-  const popupPromise = context.waitForEvent("page");
-  await githubCard.getByRole("button", { name: /GitHub/ }).click();
-  await expect(githubCard.locator(".history-url-card")).toHaveCount(1);
+  const historySelectionToggle = githubCard.getByRole("button", {
+    name: "选择 GitHub 的全部历史记录",
+  });
+  await expect(historySelectionToggle).toBeVisible();
+  const cardBox = await githubCard.boundingBox();
+  const toggleBox = await historySelectionToggle.boundingBox();
+  if (!cardBox || !toggleBox) throw new Error("History selection geometry is not visible");
+  expect(toggleBox.x + toggleBox.width / 2).toBeGreaterThan(
+    cardBox.x + cardBox.width / 2,
+  );
+  expect(toggleBox.y + toggleBox.height / 2).toBeGreaterThan(
+    cardBox.y + cardBox.height / 2,
+  );
   await page.screenshot({
-    path: screenshotPath(`browser-history-expanded-${testInfo.project.name}.png`),
+    path: screenshotPath(`browser-history-selection-${testInfo.project.name}.png`),
     fullPage: true,
   });
-  await githubCard.getByRole("link", { name: "打开历史记录 GitHub" }).click();
+  await page.getByRole("button", { name: "选择", exact: true }).click();
+
+  const popupPromise = context.waitForEvent("page");
+  await githubCard.getByRole("button", { name: "查看 GitHub 历史记录" }).click();
+  await expect(page.getByTestId("history-site-detail-github.com")).toBeVisible();
+  await expect(page.locator(".history-url-card")).toHaveCount(1);
+  await page.screenshot({
+    path: screenshotPath(`browser-history-detail-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+  await page.getByRole("link", { name: "打开历史记录 GitHub" }).click();
   const popup = await popupPromise;
   expect(popup.url()).toBe("https://github.com/openai");
   await popup.close();
 
-  await githubCard.getByRole("button", { name: "删除历史记录 GitHub" }).click();
+  await page.getByRole("button", { name: "删除历史记录 GitHub" }).click();
   await expect(githubCard).toHaveCount(0);
   await expect(exampleCard).toBeVisible();
 });

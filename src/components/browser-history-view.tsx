@@ -1,22 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
-  CaretDown,
-  CaretRight,
+  Check,
   CheckSquare,
   ClockCounterClockwise,
   MagnifyingGlass,
+  Minus,
   Trash,
   X,
 } from "@phosphor-icons/react";
 import { Favicon } from "./favicon";
-import { ConfirmDialog } from "./confirm-dialog";
 import {
-  deleteAllBrowserHistory,
-  deleteBrowserHistoryRange,
   deleteBrowserHistoryUrl,
   getHistoryAvailability,
-  getHistoryRange,
   groupBrowserHistoryItems,
   readHistoryAvailability,
   searchBrowserHistory,
@@ -103,69 +99,149 @@ function HistoryFavicon({
   );
 }
 
-function HistorySiteCard({
-  group,
-  expanded,
+function HistorySelectionToggle({
+  selected,
+  indeterminate = false,
+  label,
+  disabled,
+  onToggle,
+}: {
+  selected: boolean;
+  indeterminate?: boolean;
+  label: string;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="history-selection-toggle"
+      aria-label={label}
+      aria-pressed={selected}
+      data-indeterminate={indeterminate || undefined}
+      disabled={disabled}
+      onMouseDown={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+    >
+      {indeterminate ? <Minus size={14} weight="bold" /> : selected ? <Check size={14} weight="bold" /> : null}
+    </button>
+  );
+}
+
+function HistoryUrlCard({
+  item,
   selectionMode,
-  selectedUrls,
+  selected,
   busy,
-  onToggleExpanded,
-  onToggleGroupSelected,
   onToggleSelected,
   onDelete,
 }: {
+  item: BrowserHistoryItem & { url: string };
+  selectionMode: boolean;
+  selected: boolean;
+  busy: boolean;
+  onToggleSelected: () => void;
+  onDelete: () => void;
+}) {
+  const title = formatHistoryTitle(item);
+
+  return (
+    <article className={`history-url-card ${selectionMode ? "is-selection-mode" : ""}`}>
+      {selectionMode && (
+        <HistorySelectionToggle
+          selected={selected}
+          label={`${selected ? "取消选择" : "选择"} ${title}`}
+          disabled={busy}
+          onToggle={onToggleSelected}
+        />
+      )}
+      <div className="history-url-card-topline">
+        <HistoryFavicon item={item} />
+        <button
+          type="button"
+          className="history-url-delete"
+          aria-label={`删除历史记录 ${title}`}
+          disabled={busy}
+          onClick={onDelete}
+        >
+          <Trash size={17} />
+        </button>
+      </div>
+      <a
+        className="history-url-link"
+        href={item.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`打开历史记录 ${title}`}
+      >
+        <strong title={title}>{title}</strong>
+        <span title={item.url}>{item.url}</span>
+      </a>
+      <div className="history-url-meta">
+        <time
+          dateTime={
+            item.lastVisitTime
+              ? new Date(item.lastVisitTime).toISOString()
+              : undefined
+          }
+        >
+          {formatHistoryTime(item.lastVisitTime)}
+        </time>
+        <span>访问 {item.visitCount && item.visitCount > 1 ? item.visitCount : 1} 次</span>
+      </div>
+    </article>
+  );
+}
+
+function HistorySiteCard({
+  group,
+  selectionMode,
+  selectedUrls,
+  busy,
+  onOpen,
+  onToggleGroupSelected,
+}: {
   group: HistorySiteGroup;
-  expanded: boolean;
   selectionMode: boolean;
   selectedUrls: Set<string>;
   busy: boolean;
-  onToggleExpanded: () => void;
+  onOpen: () => void;
   onToggleGroupSelected: () => void;
-  onToggleSelected: (url: string) => void;
-  onDelete: (url: string) => void;
 }) {
   const groupUrls = group.items.flatMap((item) =>
     item.url ? [item.url] : [],
   );
   const selectedCount = groupUrls.filter((url) => selectedUrls.has(url)).length;
   const allSelected = groupUrls.length > 0 && selectedCount === groupUrls.length;
-  const groupCheckboxRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (groupCheckboxRef.current) {
-      groupCheckboxRef.current.indeterminate =
-        selectedCount > 0 && !allSelected;
-    }
-  }, [allSelected, selectedCount]);
 
   const representative = group.items[0];
-  const detailsId = `history-site-details-${group.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
   return (
     <article
-      className={`history-site-card ${expanded ? "is-expanded" : ""}`}
+      className={`site-card history-site-card ${selectionMode ? "is-selection-mode" : ""}`}
       data-testid={`history-site-card-${group.key}`}
       data-history-site-key={group.key}
     >
       <div className="history-site-card-summary">
         {selectionMode && (
-          <input
-            ref={groupCheckboxRef}
-            className="history-site-checkbox"
-            type="checkbox"
-            checked={allSelected}
-            onChange={onToggleGroupSelected}
-            onClick={(event) => event.stopPropagation()}
-            aria-label={`${allSelected ? "取消选择" : "选择"} ${group.label} 的全部历史记录`}
+          <HistorySelectionToggle
+            selected={allSelected}
+            indeterminate={selectedCount > 0 && !allSelected}
+            label={`${allSelected ? "取消选择" : "选择"} ${group.label} 的全部历史记录`}
             disabled={busy}
+            onToggle={onToggleGroupSelected}
           />
         )}
         <button
           type="button"
-          className="history-site-toggle"
-          aria-expanded={expanded}
-          aria-controls={detailsId}
-          onClick={onToggleExpanded}
+          className="history-site-open"
+          aria-label={`查看 ${group.label} 历史记录`}
+          disabled={selectionMode}
+          onClick={onOpen}
         >
           <span className="history-site-topline">
             <span className="history-site-icon">
@@ -178,9 +254,6 @@ function HistorySiteCard({
             <span className="history-site-summary-actions">
               <span className="history-site-url-count">
                 {group.items.length} 个页面
-              </span>
-              <span className="history-site-chevron" aria-hidden="true">
-                {expanded ? <CaretDown size={18} /> : <CaretRight size={18} />}
               </span>
             </span>
           </span>
@@ -200,65 +273,6 @@ function HistorySiteCard({
           </span>
         </button>
       </div>
-
-      {expanded && (
-        <div className="history-site-details" id={detailsId}>
-          {group.items.map((item) => {
-            if (!item.url) return null;
-            const title = formatHistoryTitle(item);
-            return (
-              <article className="history-url-card" key={`${item.id}-${item.url}`}>
-                <div className="history-url-card-topline">
-                  {selectionMode && (
-                    <input
-                      className="history-url-checkbox"
-                      type="checkbox"
-                      checked={selectedUrls.has(item.url)}
-                      onChange={() => onToggleSelected(item.url!)}
-                      aria-label={`选择 ${title}`}
-                      disabled={busy}
-                    />
-                  )}
-                  <HistoryFavicon item={item} />
-                  <button
-                    type="button"
-                    className="history-url-delete"
-                    aria-label={`删除历史记录 ${title}`}
-                    disabled={busy}
-                    onClick={() => onDelete(item.url!)}
-                  >
-                    <Trash size={17} />
-                  </button>
-                </div>
-                <a
-                  className="history-url-link"
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`打开历史记录 ${title}`}
-                >
-                  <strong title={title}>{title}</strong>
-                  <span title={item.url}>{item.url}</span>
-                </a>
-                <div className="history-url-meta">
-                  <time
-                    dateTime={
-                      item.lastVisitTime
-                        ? new Date(item.lastVisitTime).toISOString()
-                        : undefined
-                    }
-                  >
-                    {formatHistoryTime(item.lastVisitTime)}
-                  </time>
-                  <span>
-                    访问 {item.visitCount && item.visitCount > 1 ? item.visitCount : 1} 次
-                  </span>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
     </article>
   );
 }
@@ -287,13 +301,10 @@ export function BrowserHistoryView({
     () => new Set(),
   );
   const [selectionMode, setSelectionMode] = useState(false);
-  const [expandedSiteKeys, setExpandedSiteKeys] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [activeSiteKey, setActiveSiteKey] = useState<string | null>(null);
   const [visibleGroupLimit, setVisibleGroupLimit] =
     useState(INITIAL_GROUP_LIMIT);
   const [refreshVersion, setRefreshVersion] = useState(0);
-  const [confirmClear, setConfirmClear] = useState(false);
   const loadSequence = useRef(0);
 
   useEffect(() => {
@@ -361,7 +372,7 @@ export function BrowserHistoryView({
 
   useEffect(() => {
     setVisibleGroupLimit(INITIAL_GROUP_LIMIT);
-    setExpandedSiteKeys(new Set());
+    setActiveSiteKey(null);
     setSelectedUrls(new Set());
     setSelectionMode(false);
   }, [query, timeRange]);
@@ -369,13 +380,15 @@ export function BrowserHistoryView({
   const siteGroups = useMemo(() => groupBrowserHistoryItems(items), [items]);
   const visibleGroups = siteGroups.slice(0, visibleGroupLimit);
 
+  const activeSiteGroup = activeSiteKey
+    ? siteGroups.find((group) => group.key === activeSiteKey) ?? null
+    : null;
+
   useEffect(() => {
-    setExpandedSiteKeys((current) => {
-      const available = new Set(siteGroups.map((group) => group.key));
-      const next = new Set([...current].filter((key) => available.has(key)));
-      return next.size === current.size ? current : next;
-    });
-  }, [siteGroups]);
+    if (activeSiteKey && !activeSiteGroup) {
+      setActiveSiteKey(null);
+    }
+  }, [activeSiteGroup, activeSiteKey]);
 
   useEffect(() => {
     setSelectedUrls((current) => {
@@ -390,9 +403,14 @@ export function BrowserHistoryView({
   const selectableItems = items.filter(
     (item): item is BrowserHistoryItem & { url: string } => Boolean(item.url),
   );
+  const selectableItemsInView = activeSiteGroup
+    ? activeSiteGroup.items.filter(
+        (item): item is BrowserHistoryItem & { url: string } => Boolean(item.url),
+      )
+    : selectableItems;
   const allSelected =
-    selectableItems.length > 0 &&
-    selectableItems.every((item) => selectedUrls.has(item.url));
+    selectableItemsInView.length > 0 &&
+    selectableItemsInView.every((item) => selectedUrls.has(item.url));
 
   async function refreshPermission() {
     if (permissionLoading) return;
@@ -444,7 +462,7 @@ export function BrowserHistoryView({
     setSelectedUrls(
       allSelected
         ? new Set()
-        : new Set(selectableItems.map((item) => item.url)),
+        : new Set(selectableItemsInView.map((item) => item.url)),
     );
   }
 
@@ -452,15 +470,6 @@ export function BrowserHistoryView({
     setSelectionMode((current) => {
       if (current) setSelectedUrls(new Set());
       return !current;
-    });
-  }
-
-  function toggleExpandedSite(key: string) {
-    setExpandedSiteKeys((current) => {
-      const next = new Set(current);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
     });
   }
 
@@ -483,30 +492,6 @@ export function BrowserHistoryView({
     setRefreshVersion((current) => current + 1);
     if (failed > 0) {
       setError(`已删除 ${deleted} 条，${failed} 条删除失败，请稍后重试。`);
-    }
-  }
-
-  async function clearCurrentRange() {
-    if (busy || !items.length) return;
-    setBusy(true);
-    setError(null);
-    try {
-      if (query.trim()) {
-        await Promise.all(
-          selectableItems.map((item) => deleteBrowserHistoryUrl(item.url, api)),
-        );
-      } else if (timeRange === "all") {
-        await deleteAllBrowserHistory(api);
-      } else {
-        await deleteBrowserHistoryRange(getHistoryRange(timeRange), api);
-      }
-      setSelectedUrls(new Set());
-      setRefreshVersion((current) => current + 1);
-    } catch {
-      setError("清理历史记录失败，请稍后重试。");
-    } finally {
-      setBusy(false);
-      setConfirmClear(false);
     }
   }
 
@@ -565,42 +550,67 @@ export function BrowserHistoryView({
     <section className="browser-history" aria-labelledby="history-title">
       <div className="history-page-header">
         <div>
-          <p className="history-kicker">浏览器历史</p>
-          <h1 id="history-title">历史记录</h1>
+          <p className="history-kicker">
+            {activeSiteGroup ? "网站历史" : "浏览器历史"}
+          </p>
+          <h1 id="history-title">
+            {activeSiteGroup ? `${activeSiteGroup.label} 历史记录` : "历史记录"}
+          </h1>
           <p className="history-summary">
             {loading
               ? "正在同步浏览器记录…"
-              : `当前显示 ${items.length} 个网页 · ${siteGroups.length} 个网站`}
+              : activeSiteGroup
+                ? `${activeSiteGroup.items.length} 个网页 · 访问 ${activeSiteGroup.visitCount} 次`
+                : `当前显示 ${items.length} 个网页 · ${siteGroups.length} 个网站`}
           </p>
         </div>
-        <button type="button" className="button secondary-button" onClick={onBack}>
+        <button
+          type="button"
+          className="button secondary-button"
+          onClick={() => {
+            if (activeSiteGroup) setActiveSiteKey(null);
+            else onBack();
+          }}
+        >
           <ArrowLeft size={17} />
-          返回收藏
+          {activeSiteGroup ? "返回历史记录" : "返回收藏"}
         </button>
       </div>
 
+      <div className="workspace-intro history-workspace-intro">
+        <div className="search-panel">
+          <form
+            className="search-input"
+            role="search"
+            onSubmit={(event) => event.preventDefault()}
+          >
+            <MagnifyingGlass size={21} aria-hidden="true" />
+            <span className="visually-hidden">搜索浏览历史</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索标题或网址"
+              autoComplete="off"
+              aria-label="搜索浏览历史"
+            />
+            <span className="search-trailing-actions">
+              {query && (
+                <button
+                  type="button"
+                  className="clear-search"
+                  aria-label="清空历史搜索"
+                  onClick={() => setQuery("")}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </span>
+          </form>
+        </div>
+      </div>
+
       <div className="history-toolbar">
-        <label className="history-search">
-          <MagnifyingGlass size={19} aria-hidden="true" />
-          <span className="visually-hidden">搜索浏览历史</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索标题或网址"
-            autoComplete="off"
-          />
-          {query && (
-            <button
-              type="button"
-              className="clear-search"
-              aria-label="清空历史搜索"
-              onClick={() => setQuery("")}
-            >
-              <X size={16} />
-            </button>
-          )}
-        </label>
         <label className="history-range-select">
           <span>时间范围</span>
           <select
@@ -621,7 +631,7 @@ export function BrowserHistoryView({
             selectionMode ? "active" : ""
           }`}
           aria-pressed={selectionMode}
-          disabled={loading || busy || selectableItems.length === 0}
+          disabled={loading || busy || selectableItemsInView.length === 0}
           onClick={toggleSelectionMode}
         >
           <CheckSquare size={16} />
@@ -635,23 +645,19 @@ export function BrowserHistoryView({
         </button>
       </div>
 
-      {(selectedUrls.size > 0 || items.length > 0) && (
+      {selectionMode && (
         <div
-          className={`history-selection-toolbar ${
-            selectionMode ? "" : "is-clear-only"
-          }`}
+          className="history-selection-toolbar"
         >
-          {selectionMode && (
-            <label className="history-select-all">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleAll}
-                disabled={busy || selectableItems.length === 0}
-              />
-              <span>{selectedUrls.size ? `已选择 ${selectedUrls.size} 条` : "全选当前结果"}</span>
-            </label>
-          )}
+          <label className="history-select-all">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              disabled={busy || selectableItemsInView.length === 0}
+            />
+            <span>{selectedUrls.size ? `已选择 ${selectedUrls.size} 条` : "全选当前结果"}</span>
+          </label>
           <div className="history-selection-actions">
             {selectedUrls.size > 0 && (
               <button
@@ -664,15 +670,6 @@ export function BrowserHistoryView({
                 删除选中
               </button>
             )}
-            <button
-              type="button"
-              className="button secondary-button history-danger-action"
-              disabled={busy || items.length === 0}
-              onClick={() => setConfirmClear(true)}
-            >
-              <Trash size={16} />
-              {query.trim() ? "清理搜索结果" : timeRange === "all" ? "清空全部历史" : "清理当前范围"}
-            </button>
           </div>
         </div>
       )}
@@ -698,21 +695,76 @@ export function BrowserHistoryView({
           <strong>{query.trim() ? "没有匹配的历史记录" : "还没有可显示的历史记录"}</strong>
           <span>{query.trim() ? "换个关键词或扩大时间范围试试。" : "浏览网页后，记录会自动出现在这里。"}</span>
         </div>
+      ) : activeSiteGroup ? (
+        <div
+          className="history-site-detail"
+          data-testid={`history-site-detail-${activeSiteGroup.key}`}
+        >
+          <div className="history-detail-summary">
+            {selectionMode && (
+              <HistorySelectionToggle
+                selected={activeSiteGroup.items
+                  .filter((item) => Boolean(item.url))
+                  .every((item) => selectedUrls.has(item.url!))}
+                indeterminate={
+                  activeSiteGroup.items.some(
+                    (item) => item.url && selectedUrls.has(item.url),
+                  ) &&
+                  !activeSiteGroup.items
+                    .filter((item) => Boolean(item.url))
+                    .every((item) => selectedUrls.has(item.url!))
+                }
+                label={`选择 ${activeSiteGroup.label} 的全部历史记录`}
+                disabled={busy}
+                onToggle={() => toggleGroupSelected(activeSiteGroup)}
+              />
+            )}
+            <span className="history-detail-icon">
+              {activeSiteGroup.items[0] ? (
+                <HistoryFavicon item={activeSiteGroup.items[0]} size="large" />
+              ) : (
+                <span className="history-favicon-fallback">?</span>
+              )}
+            </span>
+            <div className="history-detail-site-info">
+              <strong>{activeSiteGroup.label}</strong>
+              <span>{activeSiteGroup.hostname}</span>
+            </div>
+            <div className="history-detail-meta">
+              <span>{activeSiteGroup.items.length} 个页面</span>
+              <span>最近访问 {formatHistoryTime(activeSiteGroup.lastVisitTime)}</span>
+            </div>
+          </div>
+          <div className="site-grid history-url-grid">
+            {activeSiteGroup.items.map((item) => {
+              if (!item.url) return null;
+              const url = item.url;
+              return (
+                <HistoryUrlCard
+                  key={`${item.id}-${url}`}
+                  item={{ ...item, url }}
+                  selectionMode={selectionMode}
+                  selected={selectedUrls.has(url)}
+                  busy={busy}
+                  onToggleSelected={() => toggleSelected(url)}
+                  onDelete={() => void deleteUrls([url])}
+                />
+              );
+            })}
+          </div>
+        </div>
       ) : (
         <div className="history-list">
-          <div className="history-site-grid">
+          <div className="site-grid history-site-grid">
             {visibleGroups.map((group) => (
               <HistorySiteCard
                 key={group.key}
                 group={group}
-                expanded={expandedSiteKeys.has(group.key)}
                 selectionMode={selectionMode}
                 selectedUrls={selectedUrls}
                 busy={busy}
-                onToggleExpanded={() => toggleExpandedSite(group.key)}
+                onOpen={() => setActiveSiteKey(group.key)}
                 onToggleGroupSelected={() => toggleGroupSelected(group)}
-                onToggleSelected={toggleSelected}
-                onDelete={(url) => void deleteUrls([url])}
               />
             ))}
           </div>
@@ -727,22 +779,6 @@ export function BrowserHistoryView({
           )}
         </div>
       )}
-
-      <ConfirmDialog
-        open={confirmClear}
-        title={query.trim() ? "清理搜索结果" : timeRange === "all" ? "清空全部浏览历史" : "清理当前时间范围"}
-        description={
-          query.trim()
-            ? `将从浏览器历史中删除当前搜索到的 ${items.length} 个网址及其全部访问记录。`
-            : timeRange === "all"
-              ? "这会删除当前浏览器配置文件中的全部历史记录，且无法恢复。"
-              : `将删除当前时间范围内的 ${items.length} 个网页记录，且无法恢复。`
-        }
-        confirmLabel="确认清理"
-        destructive
-        onOpenChange={setConfirmClear}
-        onConfirm={() => void clearCurrentRange()}
-      />
     </section>
   );
 }

@@ -77,7 +77,9 @@ describe("BrowserHistoryView", () => {
     await waitFor(() => {
       expect(screen.getByText("GitHub")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /GitHub/ }));
+    await user.click(
+      screen.getByRole("button", { name: "查看 GitHub 历史记录" }),
+    );
     expect(screen.getByRole("link", { name: "打开历史记录 GitHub" })).toHaveAttribute(
       "href",
       "https://github.com/openai",
@@ -107,7 +109,7 @@ describe("BrowserHistoryView", () => {
     });
   });
 
-  it("expands multiple site cards and selects every URL in one card", async () => {
+  it("opens a site detail page and uses the homepage-style selection control", async () => {
     const user = userEvent.setup();
     const history = createHistoryApi([
       {
@@ -143,23 +145,28 @@ describe("BrowserHistoryView", () => {
     });
     expect(screen.queryByRole("link", { name: "打开历史记录 Repository" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /GitHub/ }));
-    await user.click(screen.getByRole("button", { name: /ChatGPT/ }));
+    await user.click(
+      screen.getByRole("button", { name: "查看 GitHub 历史记录" }),
+    );
     expect(screen.getByRole("link", { name: "打开历史记录 Repository" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开历史记录 Gist" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "打开历史记录 ChatGPT" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "打开历史记录 ChatGPT" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "返回历史记录" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "返回历史记录" }));
+    expect(screen.getByTestId("history-site-card-chatgpt.com")).toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: "选择 GitHub 的全部历史记录" }),
+      screen.queryByRole("button", { name: "选择 GitHub 的全部历史记录" }),
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "多选" }));
-
     await user.click(
-      screen.getByRole("checkbox", { name: "选择 GitHub 的全部历史记录" }),
+      screen.getByRole("button", { name: "选择 GitHub 的全部历史记录" }),
     );
     expect(screen.getByText("已选择 2 条")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "选择 Repository" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "选择 Gist" })).toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "取消选择 GitHub 的全部历史记录" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("deletes selected URLs and refreshes after browser history events", async () => {
@@ -177,9 +184,11 @@ describe("BrowserHistoryView", () => {
     );
 
     await waitFor(() => expect(screen.getByText("One")).toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: /One/ }));
+    await user.click(
+      screen.getByRole("button", { name: "查看 One 历史记录" }),
+    );
     await user.click(screen.getByRole("button", { name: "多选" }));
-    await user.click(screen.getByRole("checkbox", { name: "选择 One" }));
+    await user.click(screen.getByRole("button", { name: "选择 One" }));
     await user.click(screen.getByRole("button", { name: "删除选中" }));
     await waitFor(() => {
       expect(history.api.history!.deleteUrl).toHaveBeenCalledWith(
