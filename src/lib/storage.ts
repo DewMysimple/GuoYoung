@@ -23,6 +23,7 @@ import type {
   SiteIconSource,
   SiteDisplayMode,
   SiteItem,
+  SiteSortMode,
   SiteWorkspace,
   ThemePreference,
   TrashedSite,
@@ -47,9 +48,21 @@ const layoutPresets: LayoutPreset[] = [
 ];
 const brandLogoSources: BrandLogoSource[] = ["default", "local", "url"];
 const displayModes: SiteDisplayMode[] = ["flat", "grouped"];
+const sortModes: SiteSortMode[] = [
+  "manual",
+  "name-asc",
+  "name-desc",
+  "newest",
+  "oldest",
+  "heat",
+];
 const DEFAULT_DISPLAY_MODE_BY_WORKSPACE = {
   main: "flat" as SiteDisplayMode,
   github: "flat" as SiteDisplayMode,
+};
+const DEFAULT_SORT_MODE_BY_WORKSPACE = {
+  main: "manual" as SiteSortMode,
+  github: "manual" as SiteSortMode,
 };
 const trashRetentionOptions: TrashRetentionDays[] = [7, 30, 90, null];
 const wallpaperSources: WallpaperSource[] = ["none", "url", "local"];
@@ -562,7 +575,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 13 &&
+    state.version === 14 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -583,6 +596,8 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
     Array.isArray(state.searchHistory) &&
     displayModes.includes(state.displayMode as SiteDisplayMode) &&
     isDisplayModeByWorkspace(state.displayModeByWorkspace) &&
+    sortModes.includes(state.sortMode as SiteSortMode) &&
+    isSortModeByWorkspace(state.sortModeByWorkspace) &&
     (state.githubMigration === null ||
       isGithubMigrationRecord(state.githubMigration))
   );
@@ -611,6 +626,33 @@ function normalizeDisplayModeByWorkspace(
     github: displayModes.includes(candidate.github as SiteDisplayMode)
       ? (candidate.github as SiteDisplayMode)
       : DEFAULT_DISPLAY_MODE_BY_WORKSPACE.github,
+  };
+}
+
+function isSortModeByWorkspace(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    sortModes.includes(candidate.main as SiteSortMode) &&
+    sortModes.includes(candidate.github as SiteSortMode)
+  );
+}
+
+function normalizeSortModeByWorkspace(
+  value: unknown,
+  mainFallback: SiteSortMode,
+): SiteCollectionState["sortModeByWorkspace"] {
+  const candidate =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+  return {
+    main: sortModes.includes(candidate.main as SiteSortMode)
+      ? (candidate.main as SiteSortMode)
+      : mainFallback,
+    github: sortModes.includes(candidate.github as SiteSortMode)
+      ? (candidate.github as SiteSortMode)
+      : DEFAULT_SORT_MODE_BY_WORKSPACE.github,
   };
 }
 
@@ -700,6 +742,8 @@ function upgradeToVersion10(
         ? (legacy.displayMode as SiteDisplayMode)
         : DEFAULT_DISPLAY_MODE_BY_WORKSPACE.main,
     },
+    sortMode: DEFAULT_SORT_MODE_BY_WORKSPACE.main,
+    sortModeByWorkspace: { ...DEFAULT_SORT_MODE_BY_WORKSPACE },
   };
 }
 
@@ -813,6 +857,36 @@ function upgradeToVersion13(
       const source = normalizeGithubImportSource(group.githubImportSource);
       return source ? { ...group, githubImportSource: source } : { ...group, githubImportSource: undefined };
     }),
+  };
+}
+
+function upgradeToVersion14(
+  legacy: Record<string, unknown> | SiteCollectionState,
+): SiteCollectionState | undefined {
+  const base =
+    legacy.version === 14
+      ? legacy
+      : legacy.version === 13 ||
+          legacy.version === 12 ||
+          legacy.version === 11 ||
+          legacy.version === 10
+        ? upgradeToVersion13(legacy as Record<string, unknown>)
+        : undefined;
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) {
+    return undefined;
+  }
+  const candidate = base as SiteCollectionState;
+  const mainSortMode = sortModes.includes(candidate.sortMode as SiteSortMode)
+    ? candidate.sortMode
+    : DEFAULT_SORT_MODE_BY_WORKSPACE.main;
+  return {
+    ...candidate,
+    version: 14,
+    sortMode: mainSortMode,
+    sortModeByWorkspace: normalizeSortModeByWorkspace(
+      candidate.sortModeByWorkspace,
+      mainSortMode,
+    ),
   };
 }
 
@@ -934,7 +1008,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 13 || candidate.version === 12 || candidate.version === 11
+        candidate.version === 14 || candidate.version === 13 || candidate.version === 12 || candidate.version === 11
           ? candidate
           : candidate.version === 10 ||
               candidate.version === 9 ||
@@ -942,7 +1016,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion13(baseCandidate)
+        ? upgradeToVersion14(baseCandidate)
         : undefined;
       if (migrated) {
         return {

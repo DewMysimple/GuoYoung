@@ -50,6 +50,16 @@ export type CategoryIcon =
 
 export type SiteWorkspace = "main" | "github";
 
+export type SiteSortMode =
+  | "manual"
+  | "name-asc"
+  | "name-desc"
+  | "newest"
+  | "oldest"
+  | "heat";
+
+export type WorkspaceSortModes = Record<SiteWorkspace, SiteSortMode>;
+
 export interface SiteGroup {
   id: string;
   name: string;
@@ -206,6 +216,8 @@ export interface SiteCollectionState {
   searchHistory: SearchHistoryEntry[];
   displayMode: SiteDisplayMode;
   displayModeByWorkspace: WorkspaceDisplayModes;
+  sortMode: SiteSortMode;
+  sortModeByWorkspace: WorkspaceSortModes;
   githubMigration?: GithubMigrationRecord | null;
 }
 

@@ -870,7 +870,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(13);
+  expect(saved.version).toBe(14);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -1670,12 +1670,12 @@ test("records link clicks and persists heat sorting", async ({ page }) => {
   );
 
   await page.reload();
-  await page.getByRole("button", { name: "手动排列" }).click();
-  await page.getByRole("menuitemradio", { name: "热量排列" }).click();
+  await expect(page.getByRole("button", { name: "热量排列" })).toBeVisible();
   await expect(page.locator(".site-grid > .site-card").first()).toHaveAttribute(
     "data-testid",
     "site-card-github",
   );
+  await expect(page.getByLabel("热量 2 次")).toBeVisible();
 });
 
 test("moves a non-manually sorted card across grouped rows and keeps All grouped", async ({

@@ -55,7 +55,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.appearance.cardWidth).toBe(160);
     expect(result.state.searchHistory).toEqual([]);
     expect(result.state.groups).toHaveLength(10);
@@ -76,7 +76,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.groups.find((group) => group.id === "other")).toMatchObject({
       id: "other",
       name: "其他",
@@ -96,7 +96,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(
       result.state.sites
         .slice()
@@ -123,7 +123,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.wallpaper).toMatchObject({
       positionX: 100,
       positionY: 100,
@@ -153,7 +153,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.displayMode).toBe("flat");
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "flat",
@@ -190,7 +190,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.brand.name).toBe("Mysimple");
     expect(result.state.appearance).toMatchObject({
       pagePadding: 20,
@@ -210,7 +210,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.deletedSites).toEqual([]);
     expect(result.state.trashRetentionDays).toBe(30);
   });
@@ -239,7 +239,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.sites.find((site) => site.id === "github")?.clickCount).toBe(7);
     expect(result.state.sites.find((site) => site.id === "google")?.clickCount).toBe(0);
     expect(result.state.deletedSites[0].site.clickCount).toBe(3);
@@ -259,14 +259,14 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "grouped",
       github: "flat",
     });
   });
 
-  it("migrates version 12 to 13 without overwriting independent display modes", () => {
+  it("migrates version 12 to 14 without overwriting independent display modes", () => {
     const defaults = createDefaultState();
     const { version: _version, ...legacy } = defaults;
     const result = loadState(
@@ -281,14 +281,52 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(13);
+    expect(result.state.version).toBe(14);
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "flat",
       github: "grouped",
     });
   });
 
-  it("preserves valid GitHub author refresh metadata in version 13 state", () => {
+  it("adds persistent sort modes when upgrading version 13", () => {
+    const defaults = createDefaultState();
+    const {
+      sortMode: _sortMode,
+      sortModeByWorkspace: _sortModes,
+      ...legacy
+    } = defaults;
+    const result = loadState(
+      memoryStorage(
+        JSON.stringify({
+          ...legacy,
+          version: 13,
+          displayModeByWorkspace: { main: "flat", github: "grouped" },
+        }),
+      ),
+    );
+
+    expect(result.state.version).toBe(14);
+    expect(result.state.sortMode).toBe("manual");
+    expect(result.state.sortModeByWorkspace).toEqual({
+      main: "manual",
+      github: "manual",
+    });
+  });
+
+  it("preserves valid per-workspace sort modes in version 14", () => {
+    const state = createDefaultState();
+    state.sortMode = "heat";
+    state.sortModeByWorkspace = { main: "heat", github: "name-desc" };
+    const result = loadState(memoryStorage(JSON.stringify(state)));
+
+    expect(result.state.sortMode).toBe("heat");
+    expect(result.state.sortModeByWorkspace).toEqual({
+      main: "heat",
+      github: "name-desc",
+    });
+  });
+
+  it("preserves valid GitHub author refresh metadata in version 14 state", () => {
     const state = createDefaultState();
     state.groups = state.groups.map((group) =>
       group.id === "github-repositories"

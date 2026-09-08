@@ -43,6 +43,7 @@ import type {
   SiteFormValues,
   SiteItem,
   SiteDisplayMode,
+  SiteSortMode,
   SiteWorkspace,
   ThemePreference,
   TrashRetentionDays,
@@ -112,6 +113,7 @@ interface SiteHubApi {
   deleteSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
   setDisplayMode: (mode: SiteDisplayMode, workspace?: SiteWorkspace) => void;
+  setSortMode: (mode: SiteSortMode, workspace?: SiteWorkspace) => void;
 }
 
 export function useSiteHub(): SiteHubApi {
@@ -472,6 +474,8 @@ export function useSiteHub(): SiteHubApi {
       searchHistory: current.searchHistory,
       displayMode: current.displayMode,
       displayModeByWorkspace: current.displayModeByWorkspace,
+      sortMode: current.sortMode,
+      sortModeByWorkspace: current.sortModeByWorkspace,
       deletedSites: current.deletedSites,
       trashRetentionDays: current.trashRetentionDays,
     }));
@@ -549,6 +553,21 @@ export function useSiteHub(): SiteHubApi {
     [],
   );
 
+  const setSortMode = useCallback(
+    (sortMode: SiteSortMode, workspace: SiteWorkspace = "main") => {
+      setState((current) => ({
+        ...current,
+        sortMode,
+        sortModeByWorkspace: {
+          ...current.sortModeByWorkspace,
+          [workspace]: sortMode,
+        },
+      }));
+      setRecovered(false);
+    },
+    [],
+  );
+
   return {
     state,
     isLoading,
@@ -583,5 +602,6 @@ export function useSiteHub(): SiteHubApi {
     deleteSearchHistory,
     clearSearchHistory,
     setDisplayMode,
+    setSortMode,
   };
 }

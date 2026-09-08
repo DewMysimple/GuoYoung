@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   Check,
   DotsSixVertical,
+  Fire,
   PencilSimple,
   Trash,
 } from "@phosphor-icons/react";
@@ -21,6 +22,7 @@ interface SiteCardProps {
   site: SiteItem;
   group: SiteGroup;
   workspaceLabel?: string;
+  showHeatCount?: boolean;
   dragMode: SiteDragMode;
   dragDisabledReason?: string;
   dragPending: boolean;
@@ -96,6 +98,7 @@ function SiteCardFrame({
   site,
   group,
   workspaceLabel,
+  showHeatCount = false,
   dragMode,
   dragDisabledReason = "当前视图无法手动排序",
   dragPending,
@@ -280,8 +283,20 @@ function SiteCardFrame({
       </div>
 
       <div className="site-category">
-        <CategoryIcon name={group.icon} size={15} />
-        <span>{group.name}</span>
+        <span className="site-category-group">
+          <CategoryIcon name={group.icon} size={15} />
+          <span>{group.name}</span>
+        </span>
+        {showHeatCount && (
+          <span
+            className="site-heat-count"
+            aria-label={`热量 ${site.clickCount} 次`}
+            title={`热量 ${site.clickCount} 次`}
+          >
+            <Fire size={14} weight="fill" aria-hidden="true" />
+            <span>热量 {site.clickCount} 次</span>
+          </span>
+        )}
         {workspaceLabel && (
           <span className="site-workspace-label">{workspaceLabel}</span>
         )}
@@ -295,6 +310,7 @@ interface SiteCardDragPreviewProps {
   group: SiteGroup;
   overGroupTab?: boolean;
   batchCount?: number;
+  showHeatCount?: boolean;
 }
 
 export function SiteCardDragPreview({
@@ -302,6 +318,7 @@ export function SiteCardDragPreview({
   group,
   overGroupTab = false,
   batchCount = 1,
+  showHeatCount = false,
 }: SiteCardDragPreviewProps) {
   return (
     <article
@@ -335,8 +352,16 @@ export function SiteCardDragPreview({
       </div>
 
       <div className="site-category">
-        <CategoryIcon name={group.icon} size={15} />
-        <span>{group.name}</span>
+        <span className="site-category-group">
+          <CategoryIcon name={group.icon} size={15} />
+          <span>{group.name}</span>
+        </span>
+        {showHeatCount && (
+          <span className="site-heat-count">
+            <Fire size={14} weight="fill" aria-hidden="true" />
+            <span>热量 {site.clickCount} 次</span>
+          </span>
+        )}
       </div>
     </article>
   );

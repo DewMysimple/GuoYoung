@@ -487,7 +487,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":13');
+      expect(stored).toContain('"version":14');
     });
   });
 
@@ -722,7 +722,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(13);
+      expect(stored.version).toBe(14);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -741,6 +741,26 @@ describe("App", () => {
       "data-testid",
       "site-card-github",
     );
+    expect(screen.getByLabelText("热量 1 次")).toBeInTheDocument();
+  });
+
+  it("restores the selected sort mode on a new app session and shows heat counts", async () => {
+    const user = userEvent.setup();
+    const firstSession = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /手动排列/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: "热量排列" }));
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(stored.sortModeByWorkspace.main).toBe("heat");
+    });
+
+    firstSession.unmount();
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: /热量排列/ })).toBeInTheDocument();
+    expect(screen.getByTestId("site-card-google")).toHaveTextContent("热量");
+    expect(screen.getByTestId("site-card-google")).toHaveTextContent("0 次");
   });
 
   it("enters, switches, and cancels grouped link/group multi-select from one button", async () => {

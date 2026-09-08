@@ -122,6 +122,7 @@ import type {
   SiteFormValues,
   SiteGroup,
   SiteItem,
+  SiteSortMode,
   SiteWorkspace,
 } from "./types";
 import { mergeGroupImportIntoState } from "./lib/site-state";
@@ -140,13 +141,6 @@ import {
 } from "./lib/github-workspace";
 
 type GroupFilter = "all" | string;
-type SiteSortMode =
-  | "manual"
-  | "name-asc"
-  | "name-desc"
-  | "newest"
-  | "oldest"
-  | "heat";
 type SelectionTarget = "sites" | "groups" | null;
 type CollectionSearchOrigin = {
   workspace: SiteWorkspace;
@@ -281,6 +275,7 @@ export function App() {
     deleteSearchHistory,
     clearSearchHistory,
     setDisplayMode,
+    setSortMode: persistSortMode,
   } = useSiteHub();
   const [settingsPreview, setSettingsPreview] =
     useState<SettingsDraft | null>(null);
@@ -353,7 +348,6 @@ export function App() {
   const [githubImportLoading, setGithubImportLoading] = useState(false);
   const [githubImportConfirming, setGithubImportConfirming] = useState(false);
   const [githubImportError, setGithubImportError] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<SiteSortMode>("manual");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -422,6 +416,9 @@ export function App() {
   const groupSortPointerRef = useRef<{ x: number; y: number } | null>(null);
   const dragPointerXRef = useRef<number | null>(null);
   const tabsAutoScrollFrameRef = useRef<number | null>(null);
+
+  const sortMode: SiteSortMode =
+    state.sortModeByWorkspace[activeWorkspace] ?? state.sortMode ?? "manual";
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
@@ -3137,7 +3134,7 @@ export function App() {
                         aria-checked={sortMode === option.value}
                         className={sortMode === option.value ? "active" : ""}
                         onClick={() => {
-                          setSortMode(option.value);
+                          persistSortMode(option.value, activeWorkspace);
                           setSortMenuOpen(false);
                         }}
                       >
@@ -3351,6 +3348,7 @@ export function App() {
                                   <SiteCard
                                   site={site}
                                   group={group}
+                                  showHeatCount={sortMode === "heat"}
                                   dragMode={siteDragMode}
                                   dragDisabledReason={
                                     isSearching
@@ -3442,6 +3440,7 @@ export function App() {
                               key={site.id}
                               site={site}
                               group={group}
+                              showHeatCount={sortMode === "heat"}
                               workspaceLabel={
                                 isGlobalCollectionSearch
                                   ? getGroupWorkspace(group) === "github"
@@ -3509,11 +3508,12 @@ export function App() {
                         batchCount={activeGroupSortIdsRef.current.length || 1}
                       />
                     ) : activeDraggedSite && activeDraggedGroup ? (
-                        <SiteCardDragPreview
+                      <SiteCardDragPreview
                         site={activeDraggedSite}
                         group={activeDraggedGroup}
-                          overGroupTab={Boolean(dragHoverGroupId)}
-                          batchCount={Math.max(1, batchDragIds.length)}
+                        showHeatCount={sortMode === "heat"}
+                        overGroupTab={Boolean(dragHoverGroupId)}
+                        batchCount={Math.max(1, batchDragIds.length)}
                       />
                     ) : null}
                   </DragOverlay>
