@@ -10,6 +10,7 @@ import {
 } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
+  ArrowLeft,
   ArrowCounterClockwise,
   ArrowsOutCardinal,
   CaretDown,
@@ -895,14 +896,25 @@ export function SettingsPanel({
                 调整后会立即预览，保存后保留。
               </Dialog.Description>
             </div>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="关闭设置"
-              onClick={closeWithoutSaving}
-            >
-              <X size={19} />
-            </button>
+            <div className="panel-header-actions">
+              <button
+                type="button"
+                className="panel-back-button"
+                aria-label="返回收藏主页"
+                onClick={closeWithoutSaving}
+              >
+                <ArrowLeft size={16} />
+                返回
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="关闭设置"
+                onClick={closeWithoutSaving}
+              >
+                <X size={19} />
+              </button>
+            </div>
           </div>
 
           <div className="settings-tabs" role="tablist" aria-label="设置分类">

@@ -423,6 +423,23 @@ export function App() {
   const dragPointerXRef = useRef<number | null>(null);
   const tabsAutoScrollFrameRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (
+        event.state?.siteHubLayer === "browser-history" ||
+        event.state?.siteHubLayer === "history-detail"
+      ) {
+        return;
+      }
+      if (browserHistoryOpen) {
+        setBrowserHistoryOpen(false);
+        setActiveWorkspace("main");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [browserHistoryOpen]);
+
   const groups = useMemo(
     () => getWorkspaceGroups(state.groups, activeWorkspace),
     [activeWorkspace, state.groups],
@@ -2271,8 +2288,40 @@ export function App() {
 
   function openBrowserHistory() {
     setActiveWorkspace("main");
+    if (!browserHistoryOpen) {
+      window.history.pushState(
+        { ...(window.history.state ?? {}), siteHubLayer: "browser-history" },
+        "",
+        window.location.href,
+      );
+    }
     setBrowserHistoryOpen(true);
     void requestBrowserHistoryAccess();
+  }
+
+  function closeBrowserHistory() {
+    const layer = window.history.state?.siteHubLayer;
+    if (layer === "history-detail") {
+      window.history.go(-2);
+      return;
+    }
+    if (layer === "browser-history") {
+      window.history.back();
+      return;
+    }
+    setBrowserHistoryOpen(false);
+    setActiveWorkspace("main");
+  }
+
+  function dismissBrowserHistoryLayer() {
+    if (window.history.state?.siteHubLayer) {
+      window.history.replaceState(
+        { ...(window.history.state ?? {}), siteHubLayer: undefined },
+        "",
+        window.location.href,
+      );
+    }
+    setBrowserHistoryOpen(false);
   }
 
   function openCollectionHome() {
@@ -2280,12 +2329,12 @@ export function App() {
     setActiveWorkspace("main");
     setActiveGroupId("all");
     resetCollectionQuery();
-    setBrowserHistoryOpen(false);
+    dismissBrowserHistoryLayer();
   }
 
   function openGithubWorkspace() {
     setHistoryPermissionError(null);
-    setBrowserHistoryOpen(false);
+    dismissBrowserHistoryLayer();
     setActiveWorkspace("github");
     setActiveGroupId("all");
     resetCollectionQuery();
@@ -2743,7 +2792,7 @@ export function App() {
       <main className="page-container main-content">
         {browserHistoryOpen ? (
           <BrowserHistoryView
-            onBack={() => setBrowserHistoryOpen(false)}
+            onBack={closeBrowserHistory}
             onRequestPermission={requestBrowserHistoryAccess}
             permissionError={historyPermissionError}
             permissionVersion={historyPermissionVersion}

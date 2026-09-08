@@ -355,11 +355,12 @@ test("loads and deletes browser history through the extension adapter", async ({
   const homeSearchBox = await page.locator(".workspace-intro .search-input").boundingBox();
   if (!homeSearchBox) throw new Error("Favorite search box is not visible");
   await page.getByRole("button", { name: "打开历史记录" }).click();
-  await expect(page.getByRole("heading", { name: "历史记录" })).toBeVisible();
+  await expect(page.locator("h1#history-title")).toHaveCount(1);
   const historySearchBox = await page
     .locator(".history-workspace-intro .search-input")
     .boundingBox();
   if (!historySearchBox) throw new Error("History search box is not visible");
+  await expect(page.getByRole("combobox", { name: "历史记录时间范围" })).toHaveValue("7d");
   expect(historySearchBox.y).toBeCloseTo(homeSearchBox.y, 0);
   expect(historySearchBox.x).toBeCloseTo(homeSearchBox.x, 0);
   expect(historySearchBox.width).toBeCloseTo(homeSearchBox.width, 0);
@@ -421,6 +422,11 @@ test("loads and deletes browser history through the extension adapter", async ({
     path: screenshotPath(`browser-history-detail-${testInfo.project.name}.png`),
     fullPage: true,
   });
+  await page.goBack();
+  await expect(page.locator(".history-site-detail")).toHaveCount(0);
+  await expect(githubCard).toBeVisible();
+  await githubCard.getByRole("button", { name: "查看 GitHub 历史记录" }).click();
+  await expect(page.getByTestId("history-site-detail-github.com")).toBeVisible();
   await page.getByRole("link", { name: "打开历史记录 GitHub" }).click();
   const popup = await popupPromise;
   expect(popup.url()).toBe("https://github.com/openai");
@@ -787,6 +793,10 @@ test("dismisses clean settings outside and warns before discarding changes", asy
   test.skip(testInfo.project.name === "mobile", "The mobile settings panel fills the viewport");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "打开设置" }).click();
+  await expect(page.getByRole("button", { name: "返回收藏主页" })).toBeVisible();
+  await page.getByRole("button", { name: "返回收藏主页" }).click();
+  await expect(page.getByRole("dialog", { name: "设置" })).toHaveCount(0);
+  await page.getByRole("button", { name: "打开设置" }).click();
   const dismissLayer = page.getByTestId("settings-outside-dismiss-layer");
   await expect(dismissLayer).toBeVisible();
   await dismissLayer.click({ position: { x: 180, y: 210 } });
@@ -1015,6 +1025,7 @@ test("opens the exact group manager from long press and grouped heading", async 
   await page.waitForTimeout(460);
   let dialog = page.getByRole("dialog", { name: "管理分组" });
   await expect(dialog.getByLabel("分组名称")).toHaveValue("设计");
+  await expect(dialog.getByRole("button", { name: "返回收藏主页" })).toBeVisible();
   await expect(page.locator(".group-dialog-overlay")).toHaveCSS(
     "background-color",
     "rgba(0, 0, 0, 0)",
@@ -1081,6 +1092,8 @@ test("opens the exact group manager from long press and grouped heading", async 
   await page.getByRole("button", { name: "管理 学习 分组" }).click();
   dialog = page.getByRole("dialog", { name: "管理分组" });
   await expect(dialog.getByLabel("分组名称")).toHaveValue("学习");
+  await dialog.getByRole("button", { name: "返回收藏主页" }).click();
+  await expect(page.getByRole("dialog", { name: "管理分组" })).toHaveCount(0);
 });
 
 test("cancels a group manager drag when the browser window loses focus", async ({

@@ -78,6 +78,7 @@ describe("BrowserHistoryView", () => {
     await waitFor(() => {
       expect(screen.getByText("GitHub")).toBeInTheDocument();
     });
+    expect(screen.getByRole("combobox", { name: "历史记录时间范围" })).toHaveValue("7d");
     await user.click(
       screen.getByRole("button", { name: "查看 GitHub 历史记录" }),
     );
@@ -184,6 +185,34 @@ describe("BrowserHistoryView", () => {
     expect(screen.getByRole("button", { name: "选择 GitHub 的全部历史记录" })).toHaveAttribute("data-indeterminate", "true");
     await user.keyboard("{Escape}");
     expect(screen.getByRole("button", { name: "删除历史记录 Repository" })).toBeEnabled();
+  });
+
+  it("returns from a history detail page when the browser back event fires", async () => {
+    const user = userEvent.setup();
+    const history = createHistoryApi([
+      {
+        id: "github",
+        title: "GitHub",
+        url: "https://github.com/openai",
+        lastVisitTime: Date.now(),
+      },
+    ]);
+    render(
+      <BrowserHistoryView
+        api={history.api}
+        onBack={vi.fn()}
+        onRequestPermission={vi.fn().mockResolvedValue({ granted: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText("GitHub")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "查看 GitHub 历史记录" }));
+    expect(screen.getByTestId("history-site-detail-github.com")).toBeInTheDocument();
+    fireEvent.popState(window, { state: { siteHubLayer: "browser-history" } });
+    await waitFor(() => {
+      expect(screen.getByTestId("history-site-card-github.com")).toBeInTheDocument();
+      expect(screen.queryByTestId("history-site-detail-github.com")).not.toBeInTheDocument();
+    });
   });
 
   it("retries a failed read without presenting the failure as an empty history", async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, GithubLogo, LinkSimple, Spinner, X } from "@phosphor-icons/react";
+import { ArrowLeft, Check, GithubLogo, LinkSimple, Spinner, X } from "@phosphor-icons/react";
 import type { SiteCollectionState } from "../types";
 import type {
   GithubOwnerRepositories,
@@ -106,11 +106,19 @@ export function GithubRepositoryImportDialog({
                 输入 GitHub 作者或组织主页，读取公开仓库后再确认添加。
               </Dialog.Description>
             </div>
-            <Dialog.Close asChild>
-              <button type="button" className="icon-button" aria-label="关闭">
-                <X size={19} />
-              </button>
-            </Dialog.Close>
+            <div className="panel-header-actions">
+              <Dialog.Close asChild>
+                <button type="button" className="panel-back-button" aria-label="返回收藏主页">
+                  <ArrowLeft size={16} />
+                  返回
+                </button>
+              </Dialog.Close>
+              <Dialog.Close asChild>
+                <button type="button" className="icon-button" aria-label="关闭">
+                  <X size={19} />
+                </button>
+              </Dialog.Close>
+            </div>
           </div>
 
           <form className="github-import-form" onSubmit={submitInput}>

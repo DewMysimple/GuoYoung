@@ -20,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  ArrowLeft,
   DownloadSimple,
   DotsSixVertical,
   LockSimple,
@@ -495,11 +496,19 @@ export function GroupDialog({
                 选择分组后在右侧编辑；拖动左侧列表可调整顺序。
               </Dialog.Description>
             </div>
-            <Dialog.Close asChild>
-              <button type="button" className="icon-button" aria-label="关闭">
-                <X size={19} />
-              </button>
-            </Dialog.Close>
+            <div className="panel-header-actions">
+              <Dialog.Close asChild>
+                <button type="button" className="panel-back-button" aria-label="返回收藏主页">
+                  <ArrowLeft size={16} />
+                  返回
+                </button>
+              </Dialog.Close>
+              <Dialog.Close asChild>
+                <button type="button" className="icon-button" aria-label="关闭">
+                  <X size={19} />
+                </button>
+              </Dialog.Close>
+            </div>
           </div>
 
           <div className="group-dialog-scroll">

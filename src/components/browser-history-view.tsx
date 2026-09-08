@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  CaretDown,
   Check,
   CheckSquare,
   ClockCounterClockwise,
@@ -312,7 +313,7 @@ export function BrowserHistoryView({
   );
   const [items, setItems] = useState<BrowserHistoryItem[]>([]);
   const [query, setQuery] = useState("");
-  const [timeRange, setTimeRange] = useState<HistoryTimeRange>("all");
+  const [timeRange, setTimeRange] = useState<HistoryTimeRange>("7d");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(false);
@@ -331,6 +332,29 @@ export function BrowserHistoryView({
   const loadSequence = useRef(0);
   const overviewScrollY = useRef(0);
   const previousSiteKey = useRef(activeSiteKey);
+
+  useEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeSiteKey) return;
+
+    window.history.pushState(
+      { ...(window.history.state ?? {}), siteHubLayer: "history-detail" },
+      "",
+      window.location.href,
+    );
+    const handlePopState = () => {
+      setActiveSiteKey(null);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [activeSiteKey]);
 
   useLayoutEffect(() => {
     if (previousSiteKey.current === activeSiteKey) return;
@@ -414,6 +438,13 @@ export function BrowserHistoryView({
 
   useEffect(() => {
     setVisibleGroupLimit(INITIAL_GROUP_LIMIT);
+    if (activeSiteKey && window.history.state?.siteHubLayer === "history-detail") {
+      window.history.replaceState(
+        { ...(window.history.state ?? {}), siteHubLayer: "browser-history" },
+        "",
+        window.location.href,
+      );
+    }
     setActiveSiteKey(null);
     setSelectedUrls(new Set());
     setSelectionMode(false);
@@ -513,6 +544,14 @@ export function BrowserHistoryView({
       if (current) setSelectedUrls(new Set());
       return !current;
     });
+  }
+
+  function returnToHistoryOverview() {
+    if (window.history.state?.siteHubLayer === "history-detail") {
+      window.history.back();
+      return;
+    }
+    setActiveSiteKey(null);
   }
 
   async function deleteUrls(urls: string[]) {
@@ -626,17 +665,23 @@ export function BrowserHistoryView({
 
       <div className="history-toolbar">
         {activeSiteGroup && (
-          <button type="button" className="view-control-button" onClick={() => setActiveSiteKey(null)}>
+          <button
+            type="button"
+            className="view-control-button"
+            onClick={returnToHistoryOverview}
+          >
             <ArrowLeft size={16} />返回历史记录
           </button>
         )}
         <p className="history-summary" role="status">
-          {loading ? "正在同步浏览器记录…" : activeSiteGroup
-            ? `${activeSiteGroup.items.length} 个网页 · 访问 ${activeSiteGroup.visitCount} 次`
-            : `${siteGroups.length} 个网站 · ${items.length} 个网页`}
+          {loading
+            ? "正在同步浏览器记录…"
+            : activeSiteGroup
+              ? `${activeSiteGroup.items.length} 个网页 · 访问 ${activeSiteGroup.visitCount} 次`
+              : `${siteGroups.length} 个网站 · ${items.length} 个网页`}
         </p>
         <label className="history-range-select">
-          <span>时间范围</span>
+          <span className="history-range-label">时间范围</span>
           <select
             aria-label="历史记录时间范围"
             value={timeRange}
@@ -648,6 +693,7 @@ export function BrowserHistoryView({
               </option>
             ))}
           </select>
+          <CaretDown size={14} weight="bold" aria-hidden="true" />
         </label>
         <button
           type="button"

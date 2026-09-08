@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { FolderPlus, X } from "@phosphor-icons/react";
+import { ArrowLeft, FolderPlus, X } from "@phosphor-icons/react";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
 import type { CategoryIcon, SiteGroup } from "../types";
 import { CategoryIcon as GroupIcon } from "./category-icon";
@@ -80,11 +80,19 @@ export function NewGroupDialog({
                   : "分组会添加到选择栏末尾，并自动切换到新分组。"}
               </Dialog.Description>
             </div>
-            <Dialog.Close asChild>
-              <button type="button" className="icon-button" aria-label="关闭">
-                <X size={19} />
-              </button>
-            </Dialog.Close>
+            <div className="panel-header-actions">
+              <Dialog.Close asChild>
+                <button type="button" className="panel-back-button" aria-label="返回收藏主页">
+                  <ArrowLeft size={16} />
+                  返回
+                </button>
+              </Dialog.Close>
+              <Dialog.Close asChild>
+                <button type="button" className="icon-button" aria-label="关闭">
+                  <X size={19} />
+                </button>
+              </Dialog.Close>
+            </div>
           </div>
 
           <form className="new-group-dialog-form" onSubmit={handleSubmit}>

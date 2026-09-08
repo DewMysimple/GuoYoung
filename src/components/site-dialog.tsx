@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Globe, LinkSimple, X } from "@phosphor-icons/react";
+import { ArrowLeft, Globe, LinkSimple, X } from "@phosphor-icons/react";
 import {
   inferSiteName,
   normalizeOptionalIconUrl,
@@ -245,11 +245,19 @@ export function SiteDialog({
                 保存后会自动读取网站图标，也可以填写自己的图标地址。
               </Dialog.Description>
             </div>
-            <Dialog.Close asChild>
-              <button type="button" className="icon-button" aria-label="关闭">
-                <X size={19} />
-              </button>
-            </Dialog.Close>
+            <div className="panel-header-actions">
+              <Dialog.Close asChild>
+                <button type="button" className="panel-back-button" aria-label="返回收藏主页">
+                  <ArrowLeft size={16} />
+                  返回
+                </button>
+              </Dialog.Close>
+              <Dialog.Close asChild>
+                <button type="button" className="icon-button" aria-label="关闭">
+                  <X size={19} />
+                </button>
+              </Dialog.Close>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="site-form" noValidate>
