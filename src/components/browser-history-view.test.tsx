@@ -78,7 +78,11 @@ describe("BrowserHistoryView", () => {
     await waitFor(() => {
       expect(screen.getByText("GitHub")).toBeInTheDocument();
     });
-    expect(screen.getByRole("combobox", { name: "历史记录时间范围" })).toHaveValue("7d");
+    const rangeTrigger = screen.getByRole("button", { name: "历史记录时间范围" });
+    expect(rangeTrigger).toHaveTextContent("近 7 天");
+    await user.click(rangeTrigger);
+    expect(screen.getByRole("listbox", { name: "历史记录时间范围选项" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "近 7 天" }));
     await user.click(
       screen.getByRole("button", { name: "查看 GitHub 历史记录" }),
     );
@@ -102,7 +106,8 @@ describe("BrowserHistoryView", () => {
         expect.any(Function),
       );
     });
-    await user.selectOptions(screen.getByRole("combobox", { name: "历史记录时间范围" }), "7d");
+    await user.click(screen.getByRole("button", { name: "历史记录时间范围" }));
+    await user.click(screen.getByRole("option", { name: "今天" }));
     await waitFor(() => {
       expect(history.api.history!.search).toHaveBeenLastCalledWith(
         expect.objectContaining({ text: "GitHub" }),
@@ -185,6 +190,39 @@ describe("BrowserHistoryView", () => {
     expect(screen.getByRole("button", { name: "选择 GitHub 的全部历史记录" })).toHaveAttribute("data-indeterminate", "true");
     await user.keyboard("{Escape}");
     expect(screen.getByRole("button", { name: "删除历史记录 Repository" })).toBeEnabled();
+  });
+
+  it("keeps the whole range pill interactive and closes its rounded menu outside", async () => {
+    const user = userEvent.setup();
+    const history = createHistoryApi([
+      {
+        id: "one",
+        title: "One",
+        url: "https://one.example.com",
+        lastVisitTime: Date.now(),
+      },
+    ]);
+    render(
+      <BrowserHistoryView
+        api={history.api}
+        onBack={vi.fn()}
+        onRequestPermission={vi.fn().mockResolvedValue({ granted: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("history-site-card-example.com")).toBeInTheDocument());
+    const trigger = screen.getByRole("button", { name: "历史记录时间范围" });
+    await user.click(trigger);
+    expect(screen.getByRole("listbox", { name: "历史记录时间范围选项" })).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("listbox", { name: "历史记录时间范围选项" })).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    await waitFor(() => expect(screen.getByRole("option", { name: "近 7 天" })).toHaveFocus());
+    await user.keyboard("{ArrowDown}");
+    expect(trigger).toHaveTextContent("近 30 天");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox", { name: "历史记录时间范围选项" })).not.toBeInTheDocument();
   });
 
   it("returns from a history detail page when the browser back event fires", async () => {

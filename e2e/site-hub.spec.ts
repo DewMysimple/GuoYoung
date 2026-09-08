@@ -360,7 +360,11 @@ test("loads and deletes browser history through the extension adapter", async ({
     .locator(".history-workspace-intro .search-input")
     .boundingBox();
   if (!historySearchBox) throw new Error("History search box is not visible");
-  await expect(page.getByRole("combobox", { name: "历史记录时间范围" })).toHaveValue("7d");
+  const historyRange = page.getByRole("button", { name: "历史记录时间范围" });
+  await expect(historyRange).toContainText("近 7 天");
+  await historyRange.click();
+  await expect(page.getByRole("listbox", { name: "历史记录时间范围选项" })).toBeVisible();
+  await page.getByRole("option", { name: "近 7 天" }).click();
   expect(historySearchBox.y).toBeCloseTo(homeSearchBox.y, 0);
   expect(historySearchBox.x).toBeCloseTo(homeSearchBox.x, 0);
   expect(historySearchBox.width).toBeCloseTo(homeSearchBox.width, 0);
