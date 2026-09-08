@@ -2396,6 +2396,28 @@ test("positions the multi-select check at the card bottom right", async ({
   });
 });
 
+test("selects the inclusive site range with the native Shift gesture", async ({
+  page,
+}, testInfo) => {
+  await page.getByRole("button", { name: "多选" }).click();
+  await page.getByRole("button", { name: "选择 Google" }).click();
+  await page
+    .getByRole("button", { name: "选择 CodePen" })
+    .click({ modifiers: ["Shift"] });
+
+  for (const name of ["Google", "Bing", "GitHub", "Stack Overflow", "CodePen"]) {
+    await expect(page.getByRole("button", { name: `取消选择 ${name}` })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  }
+  await expect(page.getByRole("button", { name: "完成 5" })).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`multi-select-shift-range-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+});
+
 test("reflows vertical group sections at the boundary before drop", async ({
   page,
 }, testInfo) => {

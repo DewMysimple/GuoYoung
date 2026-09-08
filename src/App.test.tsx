@@ -566,6 +566,29 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "打开 Google" })).toBeInTheDocument();
   });
 
+  it("selects the inclusive site range with Shift from the first clicked card", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "多选" }));
+    await user.click(screen.getByRole("button", { name: "选择 Google" }));
+    fireEvent.click(screen.getByRole("button", { name: "选择 CodePen" }), {
+      shiftKey: true,
+    });
+
+    expect(screen.getByRole("button", { name: "取消选择 Google" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "取消选择 Bing" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消选择 GitHub" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "取消选择 Stack Overflow" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消选择 CodePen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "完成 5" })).toBeInTheDocument();
+  });
+
   it("loads selectable icon sources while adding a valid website", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -870,6 +893,27 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: "切换到链接多选 搜索 网站" }),
     ).toHaveTextContent("切换");
+  });
+
+  it("selects the inclusive group range with Shift", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "显示" }));
+    await user.click(
+      screen.getByRole("menuitemradio", { name: "按分组显示" }),
+    );
+    await user.click(screen.getByRole("button", { name: "多选 搜索 网站" }));
+    await user.click(screen.getByRole("heading", { level: 3, name: "搜索" }));
+    fireEvent.click(screen.getByRole("heading", { level: 3, name: "学习" }), {
+      shiftKey: true,
+    });
+
+    for (const name of ["搜索", "开发", "设计", "影音", "学习"]) {
+      expect(
+        screen.getByRole("button", { name: `取消选择 ${name} 分组` }),
+      ).toBeInTheDocument();
+    }
   });
 
   it("creates groups before or after a header and limits Other to before", async () => {

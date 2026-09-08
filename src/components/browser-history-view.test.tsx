@@ -192,6 +192,49 @@ describe("BrowserHistoryView", () => {
     expect(screen.getByRole("button", { name: "删除历史记录 Repository" })).toBeEnabled();
   });
 
+  it("selects the inclusive history-site range with Shift", async () => {
+    const user = userEvent.setup();
+    const history = createHistoryApi([
+      {
+        id: "one",
+        title: "One",
+        url: "https://one.example",
+        lastVisitTime: Date.now(),
+      },
+      {
+        id: "two",
+        title: "Two",
+        url: "https://two.example",
+        lastVisitTime: Date.now() - 1000,
+      },
+      {
+        id: "three",
+        title: "Three",
+        url: "https://three.example",
+        lastVisitTime: Date.now() - 2000,
+      },
+    ]);
+    render(
+      <BrowserHistoryView
+        api={history.api}
+        onBack={vi.fn()}
+        onRequestPermission={vi.fn().mockResolvedValue({ granted: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("history-site-card-one.example")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "多选" }));
+    const first = screen.getByRole("button", { name: "选择 One 的全部历史记录" });
+    const last = screen.getByRole("button", { name: "选择 Three 的全部历史记录" });
+    await user.click(first);
+    fireEvent.click(last, { shiftKey: true });
+
+    expect(screen.getByText("已选择 3 条")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "取消选择 Two 的全部历史记录" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("keeps the whole range control interactive and closes its rounded menu outside", async () => {
     const user = userEvent.setup();
     const history = createHistoryApi([

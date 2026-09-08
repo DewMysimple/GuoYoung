@@ -35,7 +35,7 @@ interface SiteCardProps {
   selectedCount?: number;
   batchDragging?: boolean;
   deleteArmed?: boolean;
-  onToggleSelected?: (site: SiteItem) => void;
+  onToggleSelected?: (site: SiteItem, shiftKey?: boolean) => void;
   onVisit: (site: SiteItem) => void;
   onEdit: (site: SiteItem) => void;
   onDelete: (site: SiteItem) => void;
@@ -173,7 +173,7 @@ function SiteCardFrame({
         if ((event.target as Element).closest("button")) return;
         event.preventDefault();
         event.stopPropagation();
-        onToggleSelected(site);
+        onToggleSelected(site, event.shiftKey);
       }}
     >
       <a
@@ -198,7 +198,7 @@ function SiteCardFrame({
           if (selectionEntryEnabled && onToggleSelected) {
             event.preventDefault();
             event.stopPropagation();
-            onToggleSelected(site);
+            onToggleSelected(site, event.shiftKey);
             return;
           }
           onVisit(site);
@@ -216,7 +216,7 @@ function SiteCardFrame({
             onTouchStart={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
-              onToggleSelected?.(site);
+              onToggleSelected?.(site, event.shiftKey);
             }}
           >
             {selected && <Check size={14} weight="bold" />}

@@ -28,6 +28,7 @@ import {
   type BrowserHistoryItem,
   type ChromiumExtensionApi,
 } from "../lib/browser-runtime";
+import { getInclusiveSelectionRange } from "../lib/selection-range";
 
 interface BrowserHistoryViewProps {
   onBack: () => void;
@@ -124,7 +125,7 @@ function HistorySelectionToggle({
   indeterminate?: boolean;
   label: string;
   disabled: boolean;
-  onToggle: () => void;
+  onToggle: (shiftKey?: boolean) => void;
 }) {
   return (
     <button
@@ -138,7 +139,7 @@ function HistorySelectionToggle({
       onTouchStart={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation();
-        onToggle();
+        onToggle(event.shiftKey);
       }}
     >
       {indeterminate ? <Minus size={14} weight="bold" /> : selected ? <Check size={14} weight="bold" /> : null}
@@ -158,7 +159,7 @@ function HistoryUrlCard({
   selectionMode: boolean;
   selected: boolean;
   busy: boolean;
-  onToggleSelected: () => void;
+  onToggleSelected: (shiftKey?: boolean) => void;
   onDelete: () => void;
 }) {
   const title = formatHistoryTitle(item);
@@ -194,7 +195,7 @@ function HistoryUrlCard({
         title={`${title} · 最近访问 ${formatHistoryTime(item.lastVisitTime)} · 访问 ${item.visitCount || 1} 次`}
         onClick={(event) => {
           if (selectionMode || busy) event.preventDefault();
-          if (selectionMode && !busy) onToggleSelected();
+          if (selectionMode && !busy) onToggleSelected(event.shiftKey);
         }}
       />
       <div className="site-card-link">
@@ -232,7 +233,7 @@ function HistorySiteCard({
   selectedUrls: Set<string>;
   busy: boolean;
   onOpen: () => void;
-  onToggleGroupSelected: () => void;
+  onToggleGroupSelected: (shiftKey?: boolean) => void;
 }) {
   const groupUrls = group.items.flatMap((item) =>
     item.url ? [item.url] : [],
@@ -266,7 +267,11 @@ function HistorySiteCard({
           title={`${group.label} · ${group.items.length} 个页面 · 访问 ${group.visitCount} 次 · 最近访问 ${formatHistoryTime(group.lastVisitTime)}`}
           aria-pressed={selectionMode ? allSelected : undefined}
           disabled={busy}
-          onClick={selectionMode ? onToggleGroupSelected : onOpen}
+          onClick={
+            selectionMode
+              ? (event) => onToggleGroupSelected(event.shiftKey)
+              : onOpen
+          }
         />
           <div className="site-card-topline">
             <span className="history-site-icon">
@@ -460,6 +465,7 @@ export function BrowserHistoryView({
   const loadSequence = useRef(0);
   const overviewScrollY = useRef(0);
   const previousSiteKey = useRef(activeSiteKey);
+  const selectionAnchorRef = useRef<string | null>(null);
 
   useEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration;
@@ -496,6 +502,7 @@ export function BrowserHistoryView({
       if (event.key !== "Escape" || busy) return;
       setSelectionMode(false);
       setSelectedUrls(new Set());
+      selectionAnchorRef.current = null;
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -576,7 +583,12 @@ export function BrowserHistoryView({
     setActiveSiteKey(null);
     setSelectedUrls(new Set());
     setSelectionMode(false);
+    selectionAnchorRef.current = null;
   }, [query, timeRange]);
+
+  useEffect(() => {
+    selectionAnchorRef.current = null;
+  }, [activeSiteKey]);
 
   const siteGroups = useMemo(() => groupBrowserHistoryItems(items), [items]);
   const visibleGroups = siteGroups.slice(0, visibleGroupLimit);
@@ -635,28 +647,55 @@ export function BrowserHistoryView({
     }
   }
 
-  function toggleSelected(url: string) {
+  function toggleSelected(url: string, shiftKey = false) {
+    const orderedUrls = selectableItemsInView.map((item) => item.url);
+    const anchorUrl = selectionAnchorRef.current;
+    const canSelectRange =
+      shiftKey && Boolean(anchorUrl && orderedUrls.includes(anchorUrl));
+    const range = canSelectRange
+      ? getInclusiveSelectionRange(orderedUrls, anchorUrl, url)
+      : [];
     setSelectedUrls((current) => {
       const next = new Set(current);
-      if (next.has(url)) next.delete(url);
+      if (canSelectRange) range.forEach((itemUrl) => next.add(itemUrl));
+      else if (next.has(url)) next.delete(url);
       else next.add(url);
       return next;
     });
+    if (!canSelectRange) selectionAnchorRef.current = url;
   }
 
-  function toggleGroupSelected(group: HistorySiteGroup) {
+  function toggleGroupSelected(group: HistorySiteGroup, shiftKey = false) {
     const groupUrls = group.items.flatMap((item) =>
       item.url ? [item.url] : [],
     );
+    const orderedGroups = visibleGroups.map((item) => item.key);
+    const anchorGroupKey = selectionAnchorRef.current;
+    const canSelectRange =
+      shiftKey &&
+      Boolean(anchorGroupKey && orderedGroups.includes(anchorGroupKey));
+    const groupRange = canSelectRange
+      ? getInclusiveSelectionRange(orderedGroups, anchorGroupKey, group.key)
+      : [];
     setSelectedUrls((current) => {
       const next = new Set(current);
-      const shouldDeselect = groupUrls.every((url) => next.has(url));
-      groupUrls.forEach((url) => {
-        if (shouldDeselect) next.delete(url);
-        else next.add(url);
-      });
+      if (canSelectRange) {
+        groupRange.forEach((groupKey) => {
+          const rangeGroup = visibleGroups.find((item) => item.key === groupKey);
+          rangeGroup?.items.forEach((item) => {
+            if (item.url) next.add(item.url);
+          });
+        });
+      } else {
+        const shouldDeselect = groupUrls.every((url) => next.has(url));
+        groupUrls.forEach((url) => {
+          if (shouldDeselect) next.delete(url);
+          else next.add(url);
+        });
+      }
       return next;
     });
+    if (!canSelectRange) selectionAnchorRef.current = group.key;
   }
 
   function toggleAll() {
@@ -665,11 +704,13 @@ export function BrowserHistoryView({
         ? new Set()
         : new Set(selectableItemsInView.map((item) => item.url)),
     );
+    selectionAnchorRef.current = null;
   }
 
   function toggleSelectionMode() {
     setSelectionMode((current) => {
       if (current) setSelectedUrls(new Set());
+      selectionAnchorRef.current = null;
       return !current;
     });
   }
@@ -901,7 +942,9 @@ export function BrowserHistoryView({
                 }
                 label={`选择 ${activeSiteGroup.label} 的全部历史记录`}
                 disabled={busy}
-                onToggle={() => toggleGroupSelected(activeSiteGroup)}
+                onToggle={(shiftKey) =>
+                  toggleGroupSelected(activeSiteGroup, shiftKey)
+                }
               />
             )}
             <span className="history-detail-icon">
@@ -931,7 +974,7 @@ export function BrowserHistoryView({
                   selectionMode={selectionMode}
                   selected={selectedUrls.has(url)}
                   busy={busy}
-                  onToggleSelected={() => toggleSelected(url)}
+                  onToggleSelected={(shiftKey) => toggleSelected(url, shiftKey)}
                   onDelete={() => void deleteUrls([url])}
                 />
               );
@@ -952,7 +995,9 @@ export function BrowserHistoryView({
                   overviewScrollY.current = window.scrollY;
                   setActiveSiteKey(group.key);
                 }}
-                onToggleGroupSelected={() => toggleGroupSelected(group)}
+                onToggleGroupSelected={(shiftKey) =>
+                  toggleGroupSelected(group, shiftKey)
+                }
               />
             ))}
           </div>

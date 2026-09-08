@@ -116,6 +116,7 @@ import {
   reorderSitesGlobally,
   sortSitesByHeat,
 } from "./lib/site-utils";
+import { getInclusiveSelectionRange } from "./lib/selection-range";
 import type {
   CategoryIcon as GroupIconName,
   SiteCollectionState,
@@ -413,6 +414,8 @@ export function App() {
   const groupSortIntentRef = useRef<GroupSortIntent | null>(null);
   const groupSortOrderRef = useRef<string[]>([]);
   const groupSortKeyboardRef = useRef(false);
+  const selectionAnchorSiteIdRef = useRef<string | null>(null);
+  const selectionAnchorGroupIdRef = useRef<string | null>(null);
   const groupSortPointerRef = useRef<{ x: number; y: number } | null>(null);
   const dragPointerXRef = useRef<number | null>(null);
   const tabsAutoScrollFrameRef = useRef<number | null>(null);
@@ -593,6 +596,17 @@ export function App() {
         .filter(({ sites }) => !isSearching || sites.length > 0),
     [groups, isSearching, sortMode, visibleSites],
   );
+  const selectableSiteIds = useMemo(
+    () =>
+      isGroupedView
+        ? groupedSections.flatMap(({ sites }) => sites.map((site) => site.id))
+        : visibleSites.map((site) => site.id),
+    [groupedSections, isGroupedView, visibleSites],
+  );
+  const selectableGroupIds = useMemo(
+    () => groups.filter((group) => !group.isProtected).map((group) => group.id),
+    [groups],
+  );
   const activeDraggedSite = activeDragId
     ? (dragSitesPreviewRef.current ?? renderedSites).find(
         (site) => site.id === activeDragId,
@@ -626,6 +640,8 @@ export function App() {
     setSelectedSiteIds(new Set());
     setSelectionArmed(false);
     setSelectionTarget(null);
+    selectionAnchorSiteIdRef.current = null;
+    selectionAnchorGroupIdRef.current = null;
   }, [isSearching]);
 
   useEffect(() => {
@@ -634,6 +650,7 @@ export function App() {
     if (!isGroupedView) {
       setSelectionArmed(false);
       setSelectionTarget(null);
+      selectionAnchorGroupIdRef.current = null;
     }
   }, [isGroupedView, isSearching]);
 
@@ -669,6 +686,8 @@ export function App() {
           setSelectedGroupIds(new Set());
           setSelectedSiteIds(new Set());
           setMultiSelectMode(false);
+          selectionAnchorSiteIdRef.current = null;
+          selectionAnchorGroupIdRef.current = null;
         }
       }
     }
@@ -681,6 +700,8 @@ export function App() {
       setSelectedSiteIds(new Set());
       setSelectedGroupIds(new Set());
       setMultiSelectMode(false);
+      selectionAnchorSiteIdRef.current = null;
+      selectionAnchorGroupIdRef.current = null;
     }
     window.addEventListener("pointerdown", handleOutsidePointer);
     window.addEventListener("keydown", handleEscape);
@@ -1753,11 +1774,25 @@ export function App() {
     }, 2000);
   }
 
-  function toggleSiteSelection(site: SiteItem) {
+  function toggleSiteSelection(site: SiteItem, shiftKey = false) {
     clearArmedDelete();
+    const anchorId = selectionAnchorSiteIdRef.current;
+    const range = shiftKey
+      ? getInclusiveSelectionRange(selectableSiteIds, anchorId, site.id)
+      : [];
+    const isRangeSelection =
+      shiftKey && Boolean(anchorId && selectableSiteIds.includes(anchorId));
     const next = new Set(selectedSiteIds);
-    if (next.has(site.id)) next.delete(site.id);
-    else next.add(site.id);
+    if (isRangeSelection) {
+      range.forEach((id) => next.add(id));
+    } else if (next.has(site.id)) {
+      next.delete(site.id);
+    } else {
+      next.add(site.id);
+    }
+    if (!shiftKey || !anchorId || !selectableSiteIds.includes(anchorId)) {
+      selectionAnchorSiteIdRef.current = site.id;
+    }
     setSelectedSiteIds(next);
     if (!isGroupedView) return;
     if (next.size > 0) {
@@ -1780,6 +1815,8 @@ export function App() {
     setSelectedSiteIds(new Set());
     setSelectedGroupIds(new Set());
     setMultiSelectMode(false);
+    selectionAnchorSiteIdRef.current = null;
+    selectionAnchorGroupIdRef.current = null;
   }
 
   function toggleMultiSelectMode() {
@@ -1791,6 +1828,8 @@ export function App() {
         setMultiSelectMode(false);
         setSelectionArmed(true);
         setSelectionTarget("sites");
+        selectionAnchorGroupIdRef.current = null;
+        selectionAnchorSiteIdRef.current = null;
         return;
       }
       if (multiSelectMode && selectedSiteIds.size > 0) {
@@ -1798,25 +1837,31 @@ export function App() {
         setMultiSelectMode(false);
         setSelectionArmed(true);
         setSelectionTarget("groups");
+        selectionAnchorSiteIdRef.current = null;
+        selectionAnchorGroupIdRef.current = null;
         return;
       }
       if (selectionArmed) {
         cancelSelection();
         return;
       }
+      selectionAnchorSiteIdRef.current = null;
+      selectionAnchorGroupIdRef.current = null;
       setSelectionArmed(true);
       setSelectionTarget(null);
       return;
     }
 
     setSelectedGroupIds(new Set());
+    selectionAnchorSiteIdRef.current = null;
+    selectionAnchorGroupIdRef.current = null;
     setMultiSelectMode((current) => {
       if (current) setSelectedSiteIds(new Set());
       return !current;
     });
   }
 
-  function toggleGroupSelection(groupId: string) {
+  function toggleGroupSelection(groupId: string, shiftKey = false) {
     clearArmedDelete();
     if (
       !isGroupedView ||
@@ -1826,10 +1871,21 @@ export function App() {
     ) {
       return;
     }
+    const anchorId = selectionAnchorGroupIdRef.current;
+    const range = shiftKey
+      ? getInclusiveSelectionRange(selectableGroupIds, anchorId, groupId)
+      : [];
+    const isRangeSelection =
+      shiftKey && Boolean(anchorId && selectableGroupIds.includes(anchorId));
     setSelectedGroupIds((current) => {
       const next = new Set(current);
-      if (next.has(groupId)) next.delete(groupId);
+      if (isRangeSelection) {
+        range.forEach((id) => next.add(id));
+      } else if (next.has(groupId)) next.delete(groupId);
       else next.add(groupId);
+      if (!shiftKey || !anchorId || !selectableGroupIds.includes(anchorId)) {
+        selectionAnchorGroupIdRef.current = groupId;
+      }
       if (next.size > 0) {
         setSelectionArmed(true);
         setSelectionTarget("groups");
@@ -1858,6 +1914,8 @@ export function App() {
     setSelectionArmed(true);
     setSelectionTarget("groups");
     setMultiSelectMode(false);
+    selectionAnchorGroupIdRef.current = groupId;
+    selectionAnchorSiteIdRef.current = null;
     setSelectedGroupIds((current) => {
       const next = new Set(current);
       next.add(groupId);
@@ -3303,8 +3361,8 @@ export function App() {
                               !group.isProtected &&
                               groupedGroupSelectionEntryEnabled
                             }
-                            onToggleGroupSelected={() =>
-                              toggleGroupSelection(group.id)
+                            onToggleGroupSelected={(shiftKey) =>
+                              toggleGroupSelection(group.id, shiftKey)
                             }
                             onEnterGroupSelection={() =>
                               enterGroupSelectionFromDoubleClick(group.id)

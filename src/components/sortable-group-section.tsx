@@ -28,7 +28,7 @@ interface SortableGroupSectionProps {
   groupSelected: boolean;
   groupSelectionMode: boolean;
   groupSelectionEntryEnabled: boolean;
-  onToggleGroupSelected: () => void;
+  onToggleGroupSelected: (shiftKey?: boolean) => void;
   onEnterGroupSelection: () => void;
   siteSelectionMode: boolean;
   groupSelectionActive: boolean;
@@ -143,7 +143,7 @@ export function SortableGroupSection({
             if ((event.target as Element).closest("button")) return;
             event.preventDefault();
             event.stopPropagation();
-            onToggleGroupSelected();
+            onToggleGroupSelected(event.shiftKey);
           }}
           onDoubleClick={(event) => {
             if (headerLocked || (event.target as Element).closest("button")) {
@@ -179,7 +179,7 @@ export function SortableGroupSection({
                 onTouchStart={stopSortPointer}
                 onClick={(event) => {
                   event.stopPropagation();
-                  onToggleGroupSelected();
+                  onToggleGroupSelected(event.shiftKey);
                 }}
               >
                 {groupSelected && (
