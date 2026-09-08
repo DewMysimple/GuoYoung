@@ -3406,7 +3406,7 @@ export function App() {
                                   <SiteCard
                                   site={site}
                                   group={group}
-                                  showHeatCount={sortMode === "heat"}
+                                  showClickCount={sortMode === "heat"}
                                   dragMode={siteDragMode}
                                   dragDisabledReason={
                                     isSearching
@@ -3498,7 +3498,7 @@ export function App() {
                               key={site.id}
                               site={site}
                               group={group}
-                              showHeatCount={sortMode === "heat"}
+                              showClickCount={sortMode === "heat"}
                               workspaceLabel={
                                 isGlobalCollectionSearch
                                   ? getGroupWorkspace(group) === "github"
@@ -3569,7 +3569,7 @@ export function App() {
                       <SiteCardDragPreview
                         site={activeDraggedSite}
                         group={activeDraggedGroup}
-                        showHeatCount={sortMode === "heat"}
+                        showClickCount={sortMode === "heat"}
                         overGroupTab={Boolean(dragHoverGroupId)}
                         batchCount={Math.max(1, batchDragIds.length)}
                       />

@@ -3101,7 +3101,7 @@ label:has(input:focus-visible) {
   flex: 1;
   flex-direction: column;
   justify-content: center;
-  padding: 8px 0 7px;
+  padding: 7px 0 5px;
   color: inherit;
   pointer-events: none;
   text-decoration: none;
@@ -3142,9 +3142,22 @@ label:has(input:focus-visible) {
 
 .site-domain {
   overflow: hidden;
-  margin-top: 5px;
+  margin-top: 4px;
   color: var(--text-faint);
   font-size: calc(12px * var(--card-font-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-click-count {
+  display: block;
+  overflow: hidden;
+  margin-top: 5px;
+  color: var(--accent-text);
+  font-size: calc(11px * var(--card-font-scale));
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3156,6 +3169,7 @@ label:has(input:focus-visible) {
   align-items: center;
   gap: 6px;
   align-self: flex-start;
+  margin-top: 2px;
   color: var(--text-soft);
   font-size: calc(12px * var(--card-font-scale));
   font-weight: 620;
@@ -3173,23 +3187,6 @@ label:has(input:focus-visible) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.site-heat-count {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 3px;
-  margin-left: auto;
-  color: var(--accent-text);
-  font-size: 0.92em;
-  font-variant-numeric: tabular-nums;
-  font-weight: 720;
-  white-space: nowrap;
-}
-
-.site-heat-count svg {
-  color: var(--accent);
 }
 
 .site-workspace-label {

@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   Check,
   DotsSixVertical,
-  Fire,
   PencilSimple,
   Trash,
 } from "@phosphor-icons/react";
@@ -22,7 +21,7 @@ interface SiteCardProps {
   site: SiteItem;
   group: SiteGroup;
   workspaceLabel?: string;
-  showHeatCount?: boolean;
+  showClickCount?: boolean;
   dragMode: SiteDragMode;
   dragDisabledReason?: string;
   dragPending: boolean;
@@ -98,7 +97,7 @@ function SiteCardFrame({
   site,
   group,
   workspaceLabel,
-  showHeatCount = false,
+  showClickCount = false,
   dragMode,
   dragDisabledReason = "当前视图无法手动排序",
   dragPending,
@@ -280,6 +279,15 @@ function SiteCardFrame({
           <ArrowUpRight className="open-arrow" size={18} weight="regular" />
         </span>
         <span className="site-domain">{getHostname(site.url)}</span>
+        {showClickCount && (
+          <span
+            className="site-click-count"
+            aria-label={`访问次数 ${site.clickCount}`}
+            title={`访问次数 ${site.clickCount}`}
+          >
+            {site.clickCount}
+          </span>
+        )}
       </div>
 
       <div className="site-category">
@@ -287,16 +295,6 @@ function SiteCardFrame({
           <CategoryIcon name={group.icon} size={15} />
           <span>{group.name}</span>
         </span>
-        {showHeatCount && (
-          <span
-            className="site-heat-count"
-            aria-label={`热量 ${site.clickCount} 次`}
-            title={`热量 ${site.clickCount} 次`}
-          >
-            <Fire size={14} weight="fill" aria-hidden="true" />
-            <span>热量 {site.clickCount} 次</span>
-          </span>
-        )}
         {workspaceLabel && (
           <span className="site-workspace-label">{workspaceLabel}</span>
         )}
@@ -310,7 +308,7 @@ interface SiteCardDragPreviewProps {
   group: SiteGroup;
   overGroupTab?: boolean;
   batchCount?: number;
-  showHeatCount?: boolean;
+  showClickCount?: boolean;
 }
 
 export function SiteCardDragPreview({
@@ -318,7 +316,7 @@ export function SiteCardDragPreview({
   group,
   overGroupTab = false,
   batchCount = 1,
-  showHeatCount = false,
+  showClickCount = false,
 }: SiteCardDragPreviewProps) {
   return (
     <article
@@ -349,6 +347,11 @@ export function SiteCardDragPreview({
           <ArrowUpRight className="open-arrow" size={18} weight="regular" />
         </span>
         <span className="site-domain">{getHostname(site.url)}</span>
+        {showClickCount && (
+          <span className="site-click-count" aria-label={`访问次数 ${site.clickCount}`}>
+            {site.clickCount}
+          </span>
+        )}
       </div>
 
       <div className="site-category">
@@ -356,12 +359,6 @@ export function SiteCardDragPreview({
           <CategoryIcon name={group.icon} size={15} />
           <span>{group.name}</span>
         </span>
-        {showHeatCount && (
-          <span className="site-heat-count">
-            <Fire size={14} weight="fill" aria-hidden="true" />
-            <span>热量 {site.clickCount} 次</span>
-          </span>
-        )}
       </div>
     </article>
   );

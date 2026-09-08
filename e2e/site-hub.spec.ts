@@ -1675,7 +1675,7 @@ test("records link clicks and persists heat sorting", async ({ page }) => {
     "data-testid",
     "site-card-github",
   );
-  await expect(page.getByLabel("热量 2 次")).toBeVisible();
+  await expect(page.getByLabel("访问次数 2")).toBeVisible();
 });
 
 test("moves a non-manually sorted card across grouped rows and keeps All grouped", async ({

@@ -764,10 +764,17 @@ describe("App", () => {
       "data-testid",
       "site-card-github",
     );
-    expect(screen.getByLabelText("热量 1 次")).toBeInTheDocument();
+    expect(screen.getByLabelText("访问次数 1")).toBeInTheDocument();
+    const card = screen.getByTestId("site-card-github");
+    expect(
+      Array.from(card.querySelector(".site-card-link")?.children ?? []).map(
+        (element) => element.className,
+      ),
+    ).toEqual(["site-name-row", "site-domain", "site-click-count"]);
+    expect(card.querySelector(".site-heat-count")).toBeNull();
   });
 
-  it("restores the selected sort mode on a new app session and shows heat counts", async () => {
+  it("restores the selected sort mode on a new app session and shows click counts", async () => {
     const user = userEvent.setup();
     const firstSession = render(<App />);
 
@@ -782,8 +789,9 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: /热量排列/ })).toBeInTheDocument();
-    expect(screen.getByTestId("site-card-google")).toHaveTextContent("热量");
-    expect(screen.getByTestId("site-card-google")).toHaveTextContent("0 次");
+    expect(screen.getByTestId("site-card-google")).toHaveTextContent("0");
+    expect(screen.getByTestId("site-card-google")).not.toHaveTextContent("热量");
+    expect(screen.getByTestId("site-card-google")).not.toHaveTextContent("次");
   });
 
   it("enters, switches, and cancels grouped link/group multi-select from one button", async () => {
