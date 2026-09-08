@@ -390,6 +390,12 @@ function HistoryRangeControl({
         onClick={() => setOpen((current) => !current)}
         onKeyDown={handleTriggerKeyDown}
       >
+        <ClockCounterClockwise
+          className="history-range-icon"
+          size={18}
+          weight="regular"
+          aria-hidden="true"
+        />
         <span className="history-range-label">时间范围</span>
         <span className="history-range-value">{selectedOption.label}</span>
         <CaretDown size={14} weight="bold" aria-hidden="true" />

@@ -800,7 +800,7 @@ label:has(input:focus-visible) {
   gap: 8px;
   padding: 0 11px 0 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
-  border-radius: 999px;
+  border-radius: 11px;
   color: var(--text-soft);
   background: color-mix(in srgb, var(--surface-raised) 74%, var(--surface));
   box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 5%, transparent);
@@ -809,6 +809,9 @@ label:has(input:focus-visible) {
   font-weight: 700;
   text-align: left;
   white-space: nowrap;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-synthesis: none;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
@@ -831,8 +834,9 @@ label:has(input:focus-visible) {
 .history-range-label {
   flex: 0 0 auto;
   color: var(--text-faint);
-  font-size: 10px;
-  font-weight: 760;
+  font-size: 12px;
+  font-weight: 680;
+  letter-spacing: 0.01em;
 }
 
 .history-range-value {
@@ -840,7 +844,17 @@ label:has(input:focus-visible) {
   overflow: hidden;
   color: var(--text);
   text-overflow: ellipsis;
-  font: 700 12px/1 var(--font-sans);
+  font: 650 13px/1.1 var(--font-sans);
+  letter-spacing: 0.01em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-synthesis: none;
+}
+
+.history-range-icon {
+  flex: 0 0 auto;
+  color: var(--accent-text);
+  pointer-events: none;
 }
 
 .history-range-trigger > svg {
@@ -866,7 +880,7 @@ label:has(input:focus-visible) {
   gap: 3px;
   padding: 7px;
   border: 1px solid var(--border-strong);
-  border-radius: 15px;
+  border-radius: 12px;
   color: var(--text);
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   box-shadow: var(--shadow-dialog);
@@ -877,8 +891,8 @@ label:has(input:focus-visible) {
 .history-range-menu-label {
   padding: 6px 8px;
   color: var(--text-faint);
-  font-size: 11px;
-  font-weight: 720;
+  font-size: 12px;
+  font-weight: 680;
 }
 
 .history-range-menu > button {
@@ -889,11 +903,16 @@ label:has(input:focus-visible) {
   gap: 14px;
   padding: 0 9px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 7px;
   color: var(--text-soft);
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-synthesis: none;
   text-align: left;
 }
 

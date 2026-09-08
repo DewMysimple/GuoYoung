@@ -192,7 +192,7 @@ describe("BrowserHistoryView", () => {
     expect(screen.getByRole("button", { name: "删除历史记录 Repository" })).toBeEnabled();
   });
 
-  it("keeps the whole range pill interactive and closes its rounded menu outside", async () => {
+  it("keeps the whole range control interactive and closes its rounded menu outside", async () => {
     const user = userEvent.setup();
     const history = createHistoryApi([
       {
@@ -202,7 +202,7 @@ describe("BrowserHistoryView", () => {
         lastVisitTime: Date.now(),
       },
     ]);
-    render(
+    const { container } = render(
       <BrowserHistoryView
         api={history.api}
         onBack={vi.fn()}
@@ -212,6 +212,7 @@ describe("BrowserHistoryView", () => {
 
     await waitFor(() => expect(screen.getByTestId("history-site-card-example.com")).toBeInTheDocument());
     const trigger = screen.getByRole("button", { name: "历史记录时间范围" });
+    expect(container.querySelector(".history-range-icon")).toBeInTheDocument();
     await user.click(trigger);
     expect(screen.getByRole("listbox", { name: "历史记录时间范围选项" })).toBeInTheDocument();
     fireEvent.pointerDown(document.body);
