@@ -74,7 +74,7 @@ WebPage/
 ## Git 协作与仓库
 
 - 当前 GitHub 仓库：[DewMysimple/GuoYoung](https://github.com/DewMysimple/GuoYoung.git)。本地远程名固定为 `origin`。
-- 每次产生文件修改都必须创建 Git commit；由项目所有者自行执行 `git push`，Agent 不代为推送。
+- 每次产生文件修改都必须创建 Git commit，并由 Agent 将当前分支推送到 `origin`；发布标签是否推送按具体发布任务执行。
 - 提交前执行 `npm run lint:wiki`，并按 `AGENTS.md` 要求完成对应验证。
 
 ## 数据与隐私
