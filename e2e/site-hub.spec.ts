@@ -350,6 +350,8 @@ test("loads and deletes browser history through the extension adapter", async ({
     };
   });
   await page.reload();
+  await expect(page.locator(".workspace-intro")).toHaveCSS("opacity", "1");
+  const homeCardBox = await page.locator(".site-card").first().boundingBox();
   const homeSearchBox = await page.locator(".workspace-intro .search-input").boundingBox();
   if (!homeSearchBox) throw new Error("Favorite search box is not visible");
   await page.getByRole("button", { name: "打开历史记录" }).click();
@@ -358,12 +360,18 @@ test("loads and deletes browser history through the extension adapter", async ({
     .locator(".history-workspace-intro .search-input")
     .boundingBox();
   if (!historySearchBox) throw new Error("History search box is not visible");
+  expect(historySearchBox.y).toBeCloseTo(homeSearchBox.y, 0);
   expect(historySearchBox.x).toBeCloseTo(homeSearchBox.x, 0);
   expect(historySearchBox.width).toBeCloseTo(homeSearchBox.width, 0);
   const githubCard = page.locator(".history-site-card").filter({ hasText: "GitHub" });
   const exampleCard = page.locator(".history-site-card").filter({ hasText: "Example" });
   await expect(githubCard).toBeVisible();
   await expect(exampleCard).toBeVisible();
+  const historyCardBox = await githubCard.boundingBox();
+  if (!homeCardBox || !historyCardBox) throw new Error("Card geometry unavailable");
+  expect(historyCardBox.height).toBeCloseTo(homeCardBox.height, 0);
+  expect(historyCardBox.width).toBeCloseTo(homeCardBox.width, 0);
+  await expect(page.locator(".history-page-header")).toHaveCount(0);
   await expect(page.locator(".history-site-card-summary").first()).toHaveCSS(
     "padding-left",
     "0px",
@@ -399,7 +407,11 @@ test("loads and deletes browser history through the extension adapter", async ({
     path: screenshotPath(`browser-history-selection-${testInfo.project.name}.png`),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "选择", exact: true }).click();
+  await githubCard.getByRole("button", { name: "查看 GitHub 历史记录" }).click();
+  await expect(githubCard.locator(".history-selection-toggle")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".history-site-detail")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".history-selection-toggle")).toHaveCount(0);
 
   const popupPromise = context.waitForEvent("page");
   await githubCard.getByRole("button", { name: "查看 GitHub 历史记录" }).click();
@@ -470,7 +482,7 @@ test("loads browser history through callback-style Edge APIs", async ({ page }) 
   await page.getByRole("button", { name: "打开历史记录" }).click();
   await page.getByRole("button", { name: /Edge/ }).click();
   await expect(page.getByText("Edge Callback Example", { exact: true })).toBeVisible();
-  await expect(page.locator(".history-url-card").getByText("访问 2 次", { exact: true })).toBeVisible();
+  await expect(page.locator(".history-url-link")).toHaveAttribute("title", /访问 2 次/);
 });
 
 test("drags beyond 50px without waiting and keeps the order after refresh", async ({

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserHistoryView } from "./browser-history-view";
@@ -53,7 +53,8 @@ function createHistoryApi(items: BrowserHistoryItem[] = []): {
 }
 
 describe("BrowserHistoryView", () => {
-  afterEach(() => cleanup());
+  beforeEach(() => { vi.spyOn(window, "scrollTo").mockImplementation(() => {}); });
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
   it("loads, searches, filters, and opens a browser history item in a new tab", async () => {
     const user = userEvent.setup();
@@ -144,6 +145,7 @@ describe("BrowserHistoryView", () => {
       expect(screen.getByTestId("history-site-card-chatgpt.com")).toBeInTheDocument();
     });
     expect(screen.queryByRole("link", { name: "打开历史记录 Repository" })).not.toBeInTheDocument();
+    vi.spyOn(window, "scrollY", "get").mockReturnValue(250);
 
     await user.click(
       screen.getByRole("button", { name: "查看 GitHub 历史记录" }),
@@ -152,8 +154,10 @@ describe("BrowserHistoryView", () => {
     expect(screen.getByRole("link", { name: "打开历史记录 Gist" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "打开历史记录 ChatGPT" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回历史记录" })).toBeInTheDocument();
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: "instant" });
 
     await user.click(screen.getByRole("button", { name: "返回历史记录" }));
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 250, behavior: "instant" });
     expect(screen.getByTestId("history-site-card-chatgpt.com")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "选择 GitHub 的全部历史记录" }),
@@ -167,6 +171,33 @@ describe("BrowserHistoryView", () => {
     expect(
       screen.getByRole("button", { name: "取消选择 GitHub 的全部历史记录" }),
     ).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "查看 GitHub 历史记录" }));
+    expect(screen.getByRole("button", { name: "选择 GitHub 的全部历史记录" })).toHaveAttribute("aria-pressed", "false");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("button", { name: "选择 GitHub 的全部历史记录" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "查看 GitHub 历史记录" }));
+    await user.click(screen.getByRole("button", { name: "多选" }));
+    const link = screen.getByRole("link", { name: "打开历史记录 Repository" });
+    expect(fireEvent.click(link)).toBe(false);
+    expect(screen.getByRole("button", { name: "取消选择 Repository" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "删除历史记录 Repository" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "选择 GitHub 的全部历史记录" })).toHaveAttribute("data-indeterminate", "true");
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("button", { name: "删除历史记录 Repository" })).toBeEnabled();
+  });
+
+  it("retries a failed read without presenting the failure as an empty history", async () => {
+    const user = userEvent.setup();
+    const history = createHistoryApi([
+      { id: "github", title: "GitHub", url: "https://github.com/openai", lastVisitTime: Date.now() },
+    ]);
+    vi.mocked(history.api.history!.search).mockRejectedValueOnce(new Error("Read failed"));
+    render(<BrowserHistoryView api={history.api} onBack={vi.fn()} onRequestPermission={vi.fn()} />);
+    expect(await screen.findByText("历史记录读取失败")).toBeInTheDocument();
+    expect(screen.queryByText("还没有可显示的历史记录")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "重新读取" }));
+    expect(await screen.findByTestId("history-site-card-github.com")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("deletes selected URLs and refreshes after browser history events", async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -70,6 +70,19 @@ function formatHistoryTime(timestamp?: number): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(timestamp);
+}
+
+function formatCompactHistoryTime(timestamp?: number): string {
+  if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) return "时间未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    ...(new Date(timestamp).getFullYear() !== new Date().getFullYear()
+      ? { year: "numeric" as const }
+      : {}),
+    month: "2-digit",
+    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   }).format(timestamp);
@@ -150,7 +163,7 @@ function HistoryUrlCard({
   const title = formatHistoryTitle(item);
 
   return (
-    <article className={`history-url-card ${selectionMode ? "is-selection-mode" : ""}`}>
+    <article className={`site-card history-url-card ${selectionMode ? "is-selection-mode" : ""} ${selected ? "is-selected" : ""}`} data-drag-disabled>
       {selectionMode && (
         <HistorySelectionToggle
           selected={selected}
@@ -159,39 +172,47 @@ function HistoryUrlCard({
           onToggle={onToggleSelected}
         />
       )}
-      <div className="history-url-card-topline">
-        <HistoryFavicon item={item} />
+      <div className="site-card-topline">
+        <HistoryFavicon item={item} size="large" />
         <button
           type="button"
           className="history-url-delete"
           aria-label={`删除历史记录 ${title}`}
-          disabled={busy}
+          disabled={busy || selectionMode}
           onClick={onDelete}
         >
           <Trash size={17} />
         </button>
       </div>
       <a
-        className="history-url-link"
+        className="site-card-full-link history-url-link"
         href={item.url}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`打开历史记录 ${title}`}
-      >
-        <strong title={title}>{title}</strong>
-        <span title={item.url}>{item.url}</span>
-      </a>
-      <div className="history-url-meta">
+        title={`${title} · 最近访问 ${formatHistoryTime(item.lastVisitTime)} · 访问 ${item.visitCount || 1} 次`}
+        onClick={(event) => {
+          if (selectionMode || busy) event.preventDefault();
+          if (selectionMode && !busy) onToggleSelected();
+        }}
+      />
+      <div className="site-card-link">
+        <span className="site-name" title={title}>{title}</span>
+        <span className="site-domain" title={item.url}>{item.url}</span>
+      </div>
+      <div className="site-category history-card-meta" title={`最近访问 ${formatHistoryTime(item.lastVisitTime)} · 访问 ${item.visitCount || 1} 次`}>
+        <ClockCounterClockwise size={15} aria-hidden="true" />
         <time
+          aria-label={`最近访问 ${formatHistoryTime(item.lastVisitTime)}`}
           dateTime={
             item.lastVisitTime
               ? new Date(item.lastVisitTime).toISOString()
               : undefined
           }
         >
-          {formatHistoryTime(item.lastVisitTime)}
+          {formatCompactHistoryTime(item.lastVisitTime)}
         </time>
-        <span>访问 {item.visitCount && item.visitCount > 1 ? item.visitCount : 1} 次</span>
+        <span className="visually-hidden">访问 {item.visitCount && item.visitCount > 1 ? item.visitCount : 1} 次</span>
       </div>
     </article>
   );
@@ -222,7 +243,8 @@ function HistorySiteCard({
 
   return (
     <article
-      className={`site-card history-site-card ${selectionMode ? "is-selection-mode" : ""}`}
+      className={`site-card history-site-card ${selectionMode ? "is-selection-mode" : ""} ${selectedCount > 0 ? "is-selected" : ""}`}
+      data-drag-disabled
       data-testid={`history-site-card-${group.key}`}
       data-history-site-key={group.key}
     >
@@ -238,12 +260,14 @@ function HistorySiteCard({
         )}
         <button
           type="button"
-          className="history-site-open"
+          className="site-card-full-link history-site-open"
           aria-label={`查看 ${group.label} 历史记录`}
-          disabled={selectionMode}
-          onClick={onOpen}
-        >
-          <span className="history-site-topline">
+          title={`${group.label} · ${group.items.length} 个页面 · 访问 ${group.visitCount} 次 · 最近访问 ${formatHistoryTime(group.lastVisitTime)}`}
+          aria-pressed={selectionMode ? allSelected : undefined}
+          disabled={busy}
+          onClick={selectionMode ? onToggleGroupSelected : onOpen}
+        />
+          <div className="site-card-topline">
             <span className="history-site-icon">
               {representative ? (
                 <HistoryFavicon item={representative} size="large" />
@@ -252,26 +276,25 @@ function HistorySiteCard({
               )}
             </span>
             <span className="history-site-summary-actions">
-              <span className="history-site-url-count">
+              <span className="history-site-url-count" title={`${group.items.length} 个页面 · 访问 ${group.visitCount} 次`}>
                 {group.items.length} 个页面
               </span>
             </span>
-          </span>
-          <span className="history-site-summary-copy">
-            <span className="history-site-title-row">
-              <strong title={group.label}>{group.label}</strong>
+          </div>
+          <div className="site-card-link">
+            <span className="site-name-row">
+              <span className="site-name" title={group.label}>{group.label}</span>
             </span>
-            <span className="history-site-hostname" title={group.hostname}>
+            <span className="site-domain" title={group.hostname}>
               {group.hostname}
             </span>
-          </span>
-          <span className="history-site-meta">
-            <span title={`最近访问 ${formatHistoryTime(group.lastVisitTime)}`}>
-              最近访问 {formatHistoryTime(group.lastVisitTime)}
-            </span>
-            <span>访问 {group.visitCount} 次</span>
-          </span>
-        </button>
+          </div>
+          <div className="site-category history-card-meta" title={`最近访问 ${formatHistoryTime(group.lastVisitTime)} · 访问 ${group.visitCount} 次`}>
+            <ClockCounterClockwise size={15} aria-hidden="true" />
+            <time aria-label={`最近访问 ${formatHistoryTime(group.lastVisitTime)}`}>
+              {formatCompactHistoryTime(group.lastVisitTime)}
+            </time>
+          </div>
       </div>
     </article>
   );
@@ -306,6 +329,25 @@ export function BrowserHistoryView({
     useState(INITIAL_GROUP_LIMIT);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const loadSequence = useRef(0);
+  const overviewScrollY = useRef(0);
+  const previousSiteKey = useRef(activeSiteKey);
+
+  useLayoutEffect(() => {
+    if (previousSiteKey.current === activeSiteKey) return;
+    previousSiteKey.current = activeSiteKey;
+    window.scrollTo({ top: activeSiteKey ? 0 : overviewScrollY.current, behavior: "instant" });
+  }, [activeSiteKey]);
+
+  useEffect(() => {
+    if (!selectionMode) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || busy) return;
+      setSelectionMode(false);
+      setSelectedUrls(new Set());
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectionMode, busy]);
 
   useEffect(() => {
     let active = true;
@@ -548,35 +590,7 @@ export function BrowserHistoryView({
 
   return (
     <section className="browser-history" aria-labelledby="history-title">
-      <div className="history-page-header">
-        <div>
-          <p className="history-kicker">
-            {activeSiteGroup ? "网站历史" : "浏览器历史"}
-          </p>
-          <h1 id="history-title">
-            {activeSiteGroup ? `${activeSiteGroup.label} 历史记录` : "历史记录"}
-          </h1>
-          <p className="history-summary">
-            {loading
-              ? "正在同步浏览器记录…"
-              : activeSiteGroup
-                ? `${activeSiteGroup.items.length} 个网页 · 访问 ${activeSiteGroup.visitCount} 次`
-                : `当前显示 ${items.length} 个网页 · ${siteGroups.length} 个网站`}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="button secondary-button"
-          onClick={() => {
-            if (activeSiteGroup) setActiveSiteKey(null);
-            else onBack();
-          }}
-        >
-          <ArrowLeft size={17} />
-          {activeSiteGroup ? "返回历史记录" : "返回收藏"}
-        </button>
-      </div>
-
+      <h1 id="history-title" className="visually-hidden">历史记录</h1>
       <div className="workspace-intro history-workspace-intro">
         <div className="search-panel">
           <form
@@ -611,6 +625,16 @@ export function BrowserHistoryView({
       </div>
 
       <div className="history-toolbar">
+        {activeSiteGroup && (
+          <button type="button" className="view-control-button" onClick={() => setActiveSiteKey(null)}>
+            <ArrowLeft size={16} />返回历史记录
+          </button>
+        )}
+        <p className="history-summary" role="status">
+          {loading ? "正在同步浏览器记录…" : activeSiteGroup
+            ? `${activeSiteGroup.items.length} 个网页 · 访问 ${activeSiteGroup.visitCount} 次`
+            : `${siteGroups.length} 个网站 · ${items.length} 个网页`}
+        </p>
         <label className="history-range-select">
           <span>时间范围</span>
           <select
@@ -677,6 +701,7 @@ export function BrowserHistoryView({
       {error && (
         <div className="history-error" role="alert">
           <span>{error}</span>
+          <button type="button" className="view-control-button" disabled={loading || busy} onClick={() => setRefreshVersion((current) => current + 1)}>重新读取</button>
           <button type="button" className="clear-search" aria-label="关闭错误提示" onClick={() => setError(null)}>
             <X size={16} />
           </button>
@@ -684,7 +709,7 @@ export function BrowserHistoryView({
       )}
 
       {loading && items.length === 0 ? (
-        <div className="history-list history-list-loading" aria-label="正在加载历史记录">
+        <div className="site-grid history-list-loading" aria-label="正在加载历史记录">
           {Array.from({ length: 6 }, (_, index) => (
             <div className="history-skeleton-card" key={index} />
           ))}
@@ -692,8 +717,8 @@ export function BrowserHistoryView({
       ) : items.length === 0 ? (
         <div className="history-empty" role="status">
           <ClockCounterClockwise size={30} weight="thin" />
-          <strong>{query.trim() ? "没有匹配的历史记录" : "还没有可显示的历史记录"}</strong>
-          <span>{query.trim() ? "换个关键词或扩大时间范围试试。" : "浏览网页后，记录会自动出现在这里。"}</span>
+          <strong>{error ? "历史记录读取失败" : query.trim() ? "没有匹配的历史记录" : "还没有可显示的历史记录"}</strong>
+          <span>{error ? "点击重新读取，再试一次。" : query.trim() ? "换个关键词或扩大时间范围试试。" : "浏览网页后，记录会自动出现在这里。"}</span>
         </div>
       ) : activeSiteGroup ? (
         <div
@@ -763,7 +788,10 @@ export function BrowserHistoryView({
                 selectionMode={selectionMode}
                 selectedUrls={selectedUrls}
                 busy={busy}
-                onOpen={() => setActiveSiteKey(group.key)}
+                onOpen={() => {
+                  overviewScrollY.current = window.scrollY;
+                  setActiveSiteKey(group.key);
+                }}
                 onToggleGroupSelected={() => toggleGroupSelected(group)}
               />
             ))}
