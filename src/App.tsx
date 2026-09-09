@@ -72,6 +72,11 @@ import { NewGroupDialog } from "./components/new-group-dialog";
 import { GroupSortDragPreview } from "./components/group-sort-preview";
 import { GithubHomeEntry } from "./components/github-home-entry";
 import { GithubRepositoryImportDialog } from "./components/github-repository-import-dialog";
+import {
+  GithubRefreshDetailsDialog,
+  type GithubRefreshReport,
+  type GithubRefreshReportEntry,
+} from "./components/github-refresh-details-dialog";
 import { SortableGroupSection } from "./components/sortable-group-section";
 import {
   SettingsPanel,
@@ -352,6 +357,8 @@ export function App() {
   const [githubImportConfirming, setGithubImportConfirming] = useState(false);
   const [githubImportError, setGithubImportError] = useState<string | null>(null);
   const [githubBulkRefreshLoading, setGithubBulkRefreshLoading] = useState(false);
+  const [githubRefreshReport, setGithubRefreshReport] =
+    useState<GithubRefreshReport | null>(null);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -571,6 +578,7 @@ export function App() {
     newGroupDialogOpen ||
     groupDialogOpen ||
     githubImportOpen ||
+    Boolean(githubRefreshReport) ||
     settingsOpen ||
     resetOpen ||
     Boolean(pendingImport);
@@ -2483,6 +2491,7 @@ export function App() {
 
   async function handleGithubHomeRefresh() {
     if (githubBulkRefreshLoading) return;
+    setGithubRefreshReport(null);
     const sources = state.groups
       .filter(
         (group) =>
@@ -2505,31 +2514,73 @@ export function App() {
 
     setGithubBulkRefreshLoading(true);
     const imports: GithubRepositoryBatchImport[] = [];
-    const failures: string[] = [];
+    const failures: GithubRefreshReportEntry[] = [];
     try {
       for (const source of sources) {
         try {
           imports.push(await fetchGithubOwnerRepositories(source.profileUrl));
         } catch (error) {
-          failures.push(`${source.login}：${formatGithubRepositoryError(error)}`);
+          failures.push({
+            owner: source,
+            addedRepositories: [],
+            skipped: 0,
+            skippedActive: 0,
+            skippedDeleted: 0,
+            error: formatGithubRepositoryError(error),
+          });
         }
       }
 
       if (imports.length === 0) {
+        setGithubRefreshReport({
+          refreshedAt: new Date().toISOString(),
+          refreshedOwners: sources.length,
+          added: 0,
+          skipped: 0,
+          failed: failures.length,
+          entries: failures,
+        });
         setTransferNotice({
           kind: "error",
-          message: `全部 ${sources.length} 个作者仓库刷新失败：${failures.join("；")}`,
+          message: `全部 ${sources.length} 个作者仓库刷新失败。`,
         });
         return;
       }
 
       const result = importGithubRepositoryBatch(imports);
+      const successfulByLogin = new Map(
+        result.details.map((detail) => [
+          detail.owner.login.toLocaleLowerCase("en-US"),
+          detail,
+        ]),
+      );
+      const failedByLogin = new Map(
+        failures.map((detail) => [
+          detail.owner.login.toLocaleLowerCase("en-US"),
+          detail,
+        ]),
+      );
+      const entries = sources
+        .map(
+          (source) =>
+            successfulByLogin.get(source.login.toLocaleLowerCase("en-US")) ??
+            failedByLogin.get(source.login.toLocaleLowerCase("en-US")),
+        )
+        .filter((entry): entry is GithubRefreshReportEntry => Boolean(entry));
+      setGithubRefreshReport({
+        refreshedAt: new Date().toISOString(),
+        refreshedOwners: sources.length,
+        added: result.added,
+        skipped: result.skipped,
+        failed: failures.length,
+        entries,
+      });
       const summary = `已刷新 ${imports.length} 个作者仓库，新增 ${result.added} 个，跳过 ${result.skipped} 个。`;
       setTransferNotice({
         kind: failures.length > 0 ? "error" : "success",
         message:
           failures.length > 0
-            ? `${summary}失败 ${failures.length} 个：${failures.join("；")}`
+            ? `${summary}失败 ${failures.length} 个。`
             : summary,
       });
     } finally {
@@ -3648,6 +3699,14 @@ export function App() {
           void handleGithubRepositoryRead(input);
         }}
         onConfirm={handleGithubRepositoryConfirm}
+      />
+
+      <GithubRefreshDetailsDialog
+        open={Boolean(githubRefreshReport)}
+        report={githubRefreshReport}
+        onOpenChange={(open) => {
+          if (!open) setGithubRefreshReport(null);
+        }}
       />
 
       <NewGroupDialog

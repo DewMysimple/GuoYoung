@@ -195,6 +195,7 @@ test("previews and imports a GitHub author's repositories while skipping duplica
     localStorage.setItem(key, JSON.stringify(state));
   });
   await page.reload();
+  let repositoryRequestCount = 0;
   await page.route("https://api.github.com/**", async (route) => {
     const url = route.request().url();
     if (url.endsWith("/users/acme")) {
@@ -206,6 +207,7 @@ test("previews and imports a GitHub author's repositories while skipping duplica
       return;
     }
     if (url.includes("/orgs/acme/repos")) {
+      repositoryRequestCount += 1;
       const duplicateRows = Array.from({ length: 24 }, (_, index) => ({
         id: 100 + index,
         name: `existing-${index}`,
@@ -237,6 +239,17 @@ test("previews and imports a GitHub author's repositories while skipping duplica
             fork: true,
             archived: true,
           },
+          ...(repositoryRequestCount > 1
+            ? [{
+                id: 3,
+                name: "refresh-repo",
+                full_name: "acme/refresh-repo",
+                html_url: "https://github.com/acme/refresh-repo",
+                private: false,
+                fork: false,
+                archived: false,
+              }]
+            : []),
           ...duplicateRows,
         ]),
       });
@@ -285,6 +298,17 @@ test("previews and imports a GitHub author's repositories while skipping duplica
   await expect(page.getByRole("heading", { name: "acme" })).toBeVisible();
   await page.getByRole("button", { name: "刷新仓库" }).click();
   await expect(page.getByRole("dialog", { name: "导入作者仓库" })).toHaveCount(0);
+  const refreshReport = page.getByRole("dialog", { name: "GitHub 刷新详情" });
+  await expect(refreshReport).toBeVisible();
+  await expect(refreshReport).toHaveCSS("opacity", "1");
+  await expect(refreshReport.getByText("@acme")).toBeVisible();
+  await expect(refreshReport.getByText("acme/refresh-repo")).toBeVisible();
+  await expect(refreshReport.getByText("新增 1 个")).toBeVisible();
+  await page.screenshot({
+    path: screenshotPath(`github-refresh-details-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+  await refreshReport.getByRole("button", { name: "知道了" }).click();
   await expect(page.locator(".transfer-banner")).toContainText("已刷新 1 个作者仓库");
 });
 
@@ -1635,6 +1659,13 @@ test("opens the GitHub home entry from its card surface", async ({ page, context
     };
   });
   expect(hoverChrome).toEqual(restingChrome);
+  await expect
+    .poll(() =>
+      page.locator(".collection-section").evaluate((element) =>
+        getComputedStyle(element, "::before").content,
+      ),
+    )
+    .toBe("none");
   await page.screenshot({
     path: screenshotPath(`github-home-entry-hover-${testInfo.project.name}.png`),
     fullPage: true,

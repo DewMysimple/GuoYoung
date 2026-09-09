@@ -523,6 +523,13 @@ describe("site state operations", () => {
     expect(refreshed.refreshedOwners).toBe(2);
     expect(refreshed.added).toBe(2);
     expect(refreshed.skippedActive).toBe(2);
+    expect(refreshed.details.map((detail) => ({
+      login: detail.owner.login,
+      added: detail.addedRepositories.map((repository) => repository.fullName),
+    }))).toEqual([
+      { login: "acme", added: ["acme/three"] },
+      { login: "octo", added: ["octo/four"] },
+    ]);
     expect(refreshed.state.sites.map((site) => site.name)).toEqual(
       expect.arrayContaining(["one", "three", "two", "four"]),
     );

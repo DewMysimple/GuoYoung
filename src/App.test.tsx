@@ -316,7 +316,16 @@ describe("App", () => {
         expect(saved.sites.some((site: { url: string }) => site.url === "https://github.com/octo/octo-repo")).toBe(true);
       });
       expect(screen.queryByRole("dialog", { name: "导入作者仓库" })).not.toBeInTheDocument();
+      const refreshReport = screen.getByRole("dialog", { name: "GitHub 刷新详情" });
+      expect(within(refreshReport).getByText("Acme")).toBeInTheDocument();
+      expect(within(refreshReport).getByText("acme/acme-repo")).toBeInTheDocument();
+      expect(within(refreshReport).getByText("Octo")).toBeInTheDocument();
+      expect(within(refreshReport).getByText("octo/octo-repo")).toBeInTheDocument();
+      const summaryStats = refreshReport.querySelectorAll(".github-refresh-stat strong");
+      expect(summaryStats[1]).toHaveTextContent("2");
       expect(screen.getByText(/已刷新 2 个作者仓库/)).toBeInTheDocument();
+      await user.click(within(refreshReport).getByRole("button", { name: "知道了" }));
+      expect(screen.queryByRole("dialog", { name: "GitHub 刷新详情" })).not.toBeInTheDocument();
     } finally {
       vi.stubGlobal("fetch", originalFetch);
     }

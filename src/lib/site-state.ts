@@ -37,6 +37,15 @@ export interface GithubRepositoryImportResult {
   state: SiteCollectionState;
   group?: SiteGroup;
   added: number;
+  addedRepositories: GithubRepositorySummary[];
+  skipped: number;
+  skippedActive: number;
+  skippedDeleted: number;
+}
+
+export interface GithubRepositoryImportDetail {
+  owner: GithubOwnerProfile;
+  addedRepositories: GithubRepositorySummary[];
   skipped: number;
   skippedActive: number;
   skippedDeleted: number;
@@ -54,6 +63,7 @@ export interface GithubRepositoryBatchImportResult {
   skipped: number;
   skippedActive: number;
   skippedDeleted: number;
+  details: GithubRepositoryImportDetail[];
 }
 
 export type GithubRepositoryStatus = "new" | "active" | "deleted";
@@ -187,6 +197,7 @@ export function importGithubRepositoriesToState(
     return {
       state,
       added: 0,
+      addedRepositories: [],
       skipped,
       skippedActive,
       skippedDeleted,
@@ -209,7 +220,16 @@ export function importGithubRepositoriesToState(
     );
     targetGroup = nextState.groups.find((group) => group.id === id);
   }
-  if (!targetGroup) return { state, added: 0, skipped, skippedActive, skippedDeleted };
+  if (!targetGroup) {
+    return {
+      state,
+      added: 0,
+      addedRepositories: [],
+      skipped,
+      skippedActive,
+      skippedDeleted,
+    };
+  }
 
   const source = githubSourceForOwner(owner, now);
   const groups = nextState.groups.map((group) =>
@@ -239,6 +259,7 @@ export function importGithubRepositoriesToState(
     state: finalState,
     group: finalState.groups.find((group) => group.id === targetGroup!.id),
     added: imported.length,
+    addedRepositories: candidates,
     skipped,
     skippedActive,
     skippedDeleted,
@@ -255,6 +276,7 @@ export function importGithubRepositoryBatchToState(
   let skipped = 0;
   let skippedActive = 0;
   let skippedDeleted = 0;
+  const details: GithubRepositoryImportDetail[] = [];
 
   for (const input of imports) {
     const result = importGithubRepositoriesToState(
@@ -269,6 +291,13 @@ export function importGithubRepositoryBatchToState(
     skipped += result.skipped;
     skippedActive += result.skippedActive;
     skippedDeleted += result.skippedDeleted;
+    details.push({
+      owner: input.owner,
+      addedRepositories: result.addedRepositories,
+      skipped: result.skipped,
+      skippedActive: result.skippedActive,
+      skippedDeleted: result.skippedDeleted,
+    });
   }
 
   return {
@@ -278,6 +307,7 @@ export function importGithubRepositoryBatchToState(
     skipped,
     skippedActive,
     skippedDeleted,
+    details,
   };
 }
 
