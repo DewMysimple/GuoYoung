@@ -2,7 +2,7 @@
 type: moc
 status: active
 created: 2026-08-09
-updated: 2026-08-09
+updated: 2026-09-10
 tags:
   - adr
   - moc
@@ -26,8 +26,9 @@ tags:
 | [[Wiki/决策/ADR-008\|ADR-008]] | 拖拽采用冻结槽位快照、18px 滞回与独立落点意图 | accepted | Bug处理·第007/008/009次、工程讨论·第002次 |
 | [[Wiki/决策/ADR-009\|ADR-009]] | 高级微调只开放几何参数，颜色统一由主题色管理 | accepted | [[Wiki/日志/功能添加/第012次\|功能添加·第012次]] |
 | [[Wiki/决策/ADR-010\|ADR-010]] | 锁定 framer-motion 精确版本并 override motion-dom | accepted | [[Wiki/日志/Bug处理/第003次\|Bug处理·第003次]] |
-| [[Wiki/决策/ADR-011\|ADR-011]] | 大改动走两段式协作，037 轮起每轮出 ZIP 并递增版本 | accepted | 功能添加·第013次、Bug处理·第006/008次 |
+| [[Wiki/决策/ADR-011\|ADR-011]] | 大改动走两段式协作，037 轮起每轮出 ZIP 并递增版本（由 ADR-013 取代） | superseded | 功能添加·第013次、Bug处理·第006/008次 |
 | [[Wiki/决策/ADR-012\|ADR-012]] | 采用分层 Wiki 与六分类独立编号日志 | accepted | 工程讨论·第003次、工程维护·第001次 |
+| [[Wiki/决策/ADR-013\|ADR-013]] | 用户明确要求执行即在任务范围内实施 | accepted | [[Wiki/日志/工程维护/第011次\|工程维护·第011次]] |
 
 ## 相关页面
 

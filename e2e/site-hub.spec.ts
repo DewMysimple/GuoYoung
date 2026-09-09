@@ -3128,6 +3128,10 @@ test("reorders card C to card A inside one group without opening it", async ({
 
   const cardC = page.getByTestId("site-card-codepen");
   const cardA = page.getByTestId("site-card-github");
+  // Grouped rows can extend below the default 720px desktop viewport.
+  // mouse.move does not scroll locators into view like locator.click does.
+  await cardC.scrollIntoViewIfNeeded();
+  await cardA.scrollIntoViewIfNeeded();
   const start = await cardC.boundingBox();
   const target = await cardA.boundingBox();
   if (!start || !target) throw new Error("Grouped drag cards are not visible");
@@ -3136,10 +3140,12 @@ test("reorders card C to card A inside one group without opening it", async ({
   await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
   await page.mouse.down();
   await page.mouse.move(start.x + start.width / 2 + 52, start.y + start.height / 2);
+  await expect(page.getByTestId("site-card-drag-preview")).toBeVisible();
   await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, {
     steps: 12,
   });
   await expect(cardA).toHaveClass(/is-drop-target/);
+  await page.screenshot({ path: screenshotPath("group-reorder-backward.png"), fullPage: false });
   await page.mouse.up();
   await page.waitForTimeout(250);
 
@@ -3153,6 +3159,10 @@ test("reorders card C to card A inside one group without opening it", async ({
         .getAttribute("data-testid"),
     )
     .toBe("site-card-codepen");
+  await page.reload();
+  await expect(developTrack.locator(":scope > .site-card").first()).toHaveAttribute(
+    "data-testid", "site-card-codepen",
+  );
 });
 
 test("keeps a forward drop target stable before committing the new position", async ({
@@ -3171,6 +3181,8 @@ test("keeps a forward drop target stable before committing the new position", as
 
   const firstCard = page.getByTestId("site-card-github");
   const nextCard = page.getByTestId("site-card-stackoverflow");
+  await firstCard.scrollIntoViewIfNeeded();
+  await nextCard.scrollIntoViewIfNeeded();
   const start = await firstCard.boundingBox();
   const target = await nextCard.boundingBox();
   if (!start || !target) throw new Error("Grouped drag cards are not visible");
@@ -3183,6 +3195,7 @@ test("keeps a forward drop target stable before committing the new position", as
     steps: 12,
   });
   await expect(nextCard).toHaveClass(/is-drop-target/);
+  await expect(page.getByTestId("site-card-drag-preview")).toBeVisible();
   for (const offset of [-3, 4, -2, 3, 0]) {
     await page.mouse.move(
       target.x + target.width / 2 + offset,
@@ -3191,6 +3204,7 @@ test("keeps a forward drop target stable before committing the new position", as
     await page.waitForTimeout(60);
     await expect(nextCard).toHaveClass(/is-drop-target/);
   }
+  await page.screenshot({ path: screenshotPath("group-reorder-forward.png"), fullPage: false });
   await page.mouse.up();
   await page.waitForTimeout(250);
 
@@ -3204,6 +3218,10 @@ test("keeps a forward drop target stable before committing the new position", as
         .getAttribute("data-testid"),
     )
     .toBe("site-card-github");
+  await page.reload();
+  await expect(developTrack.locator(":scope > .site-card").nth(1)).toHaveAttribute(
+    "data-testid", "site-card-github",
+  );
 });
 
 test("moves a card across grouped rows while preserving its global order", async ({

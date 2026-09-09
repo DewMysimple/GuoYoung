@@ -1,105 +1,118 @@
-# GuoYoung · Mysimple 网站收藏（site-hub）
+# Mysimple · 网站收藏
 
-> `GuoYoung` 是项目与 GitHub 仓库名称；`Mysimple` 是软件内部使用的品牌名。更新仓库或项目指引时保留 `Mysimple` 品牌，不将软件界面品牌替换为 `GuoYoung`。
+把常用网站、GitHub 仓库和浏览记录整理成一个顺手的浏览器起始页。
 
-一个可高度自定义的**本地网站收藏新标签页**。同一个 React 源码既可作为网页（`dist/`）使用，也可打包为 Chrome / Edge 的 MV3 扩展（`dist-extension/`）接管浏览器新标签页。所有数据只保存在本地浏览器，无后端、无账号。
+Mysimple 是一个以本地存储为主的网站收藏工具。你可以把链接按分组收好，搜索、拖动排序、批量移动，再用主题色、卡片布局和壁纸调整成自己的工作台。它既能作为网页运行，也能安装为 **Chrome / Edge 新标签页扩展**，无需注册账号或部署后端。
 
-## 两种形态
+[下载扩展](https://github.com/DewMysimple/GuoYoung/releases/latest) · [安装指南](./EXTENSION_INSTALL.md) · [本地开发](#本地开发)
 
-| 形态 | 产物 | 入口 | 适用场景 |
-| --- | --- | --- | --- |
-| 网页版 | `dist/` | 任意静态服务器 / 双击 `启动网站.bat`（Windows） | 本地当作起始页 |
-| 扩展版 | `dist-extension/` | 浏览器扩展管理页加载，接管新标签页 | 打开新标签页即用 |
+![Mysimple 收藏主页](./docs/images/home.png)
 
-两套产物由同一源码经不同构建模式生成（见下方「常用命令」）。
+默认收藏示例，使用内置品牌图标。
 
-## 技术栈
+## 可以用它做什么
 
-- React 19 + TypeScript + Vite 7 + Tailwind v4（Vite 插件形式，无独立 config）
-- 拖拽：`@dnd-kit/core` + `@dnd-kit/sortable`
-- 动效：`framer-motion`（**精确锁定 `12.23.12`**，见 `package.json` 的 `overrides`）
-- 图标：`@phosphor-icons/react` + `simple-icons`
-- 测试：vitest（单元）+ @playwright/test（E2E）
-- 状态集中在自研 hook（`src/lib/use-site-hub.ts`），不引入 Redux / Zustand
+- **整理网站收藏**：添加和编辑链接、自定义分组与图标、拖拽排序、跨组移动，以及批量选择和 Shift 范围选择。
+- **快速找回链接**：搜索同时覆盖普通收藏和 GitHub 收藏；支持手动、名称、添加时间和点击热度排列。
+- **集中管理 GitHub 收藏**：独立工作区收纳仓库、工具和文档；输入作者或组织主页，预览并导入公开仓库，后续刷新只追加新仓库。
+- **浏览历史记录**：扩展版经授权后按站点聚合浏览记录，支持时间筛选、搜索、详情浏览和删除。
+- **打造自己的新标签页**：浅色 / 深色主题、主题色、卡片密度、自定义品牌和本地 / 在线壁纸；设置可先预览再保存。
+- **备份和分享**：导入 / 导出收藏 JSON，或单独分享一个分组的资源包；误删的网站可从回收站恢复。
+- **随手收藏当前页**：扩展工具栏弹窗提供当前页收藏和浏览器书签管理、导入入口。
 
-## 快速开始
+## 开始使用
 
-```bash
-npm install
-npm run dev          # 开发服务器（端口 5173）
-```
+### 安装浏览器扩展
 
-Windows 用户也可直接双击 `启动网站.bat`。
+1. 在 [GitHub Releases](https://github.com/DewMysimple/GuoYoung/releases/latest) 下载 `site-hub-extension.zip`，解压到一个长期保留的文件夹。
+2. 打开 Chrome 的 `chrome://extensions/` 或 Edge 的 `edge://extensions/`，开启开发者模式。
+3. 点击“加载已解压的扩展程序”，选择**直接包含 `manifest.json` 的文件夹**。
+4. 打开一个新标签页，即可使用 Mysimple。
 
-## 常用命令
+扩展安装后不需要本地服务器。更新时替换安装目录中的文件，再到扩展管理页点**重新加载**。详细步骤见[安装指南](./EXTENSION_INSTALL.md)。
 
-| 命令 | 说明 | 产出 |
+### 网页版与扩展版的区别
+
+| 能力 | 网页版 | Chrome / Edge 扩展版 |
 | --- | --- | --- |
-| `npm run dev` | 开发服务器 | `http://localhost:5173` |
-| `npm run build` | 类型检查 + 网页版生产构建 | `dist/` |
-| `npm run build:extension` | 类型检查 + 扩展版生产构建 | `dist-extension/` |
-| `npm run package:extension` | 构建扩展并打包为 ZIP（PowerShell） | `artifacts/*.zip` |
-| `npm run preview` | 预览网页版构建产物 | 本地静态预览 |
-| `npm test` | 运行单元测试用例（vitest） | 控制台报告 |
-| `npm run test:watch` | 单元测试监听模式 | — |
-| `npm run test:e2e` | 运行 Playwright E2E | `playwright-report/` |
-| `npm run lint:wiki` | 校验工程记忆 Wiki 完整性 | 控制台报告 |
+| 网站收藏、分组、搜索、外观设置 | 支持 | 支持 |
+| GitHub 收藏与公开仓库导入 | 支持 | 支持 |
+| 自动接管新标签页 | 不接管，可自行设为起始页 | 支持 |
+| 工具栏收藏、浏览器书签管理 | 不支持 | 支持 |
+| 浏览器历史记录 | 显示扩展版说明 | 授权后可用 |
+| 搜索框按 Enter 搜索网页 | 使用 Google | 使用浏览器默认搜索引擎 |
 
-## 端口说明
-
-- 开发与 `start-site-hub.vbs` 使用 **5173**。
-- Playwright E2E 使用 **4173**（baseURL `127.0.0.1:4173`）。
-- 两套端口互不冲突，不要混用。
-
-## 目录结构导览
-
-```
-WebPage/
-├─ src/                  # 应用源码（App.tsx / components/ / lib/）
-├─ scripts/             # wiki-lint.mjs、package-extension.ps1 等
-├─ Wiki/                # 工程记忆（见下方「工程记忆」）
-├─ dist/                # 网页版构建产物
-├─ dist-extension/      # 扩展版构建产物
-├─ README.md            # 本文件
-├─ AGENTS.md            # AI 协作契约（Agent 必读）
-├─ EXTENSION_INSTALL.md # 扩展安装指引
-├─ package.json
-└─ .gitignore
-```
-
-## 扩展安装
-
-参见 [`EXTENSION_INSTALL.md`](./EXTENSION_INSTALL.md)。改动扩展相关代码后，需重新构建并**到扩展管理页点「重新加载」**才能生效（无热更新）。
-
-## Git 协作与仓库
-
-- 当前 GitHub 仓库：[DewMysimple/GuoYoung](https://github.com/DewMysimple/GuoYoung.git)。本地远程名固定为 `origin`。
-- 每次产生文件修改都必须创建 Git commit，并由 Agent 将当前分支推送到 `origin`；发布标签是否推送按具体发布任务执行。
-- 提交前执行 `npm run lint:wiki`，并按 `AGENTS.md` 要求完成对应验证。
+两种形态的数据相互独立，可通过“设置 → 数据”中的导出 / 导入迁移。项目暂不提供账号登录和跨设备自动同步。
 
 ## 数据与隐私
 
-- 全部数据保存在本地：网页版用 `localStorage`，扩展版用 `chrome.storage.local`，存储键恒为 **`site-hub:v1`**。
-- 不申请全站读取权限；图标获取依赖 `favicon` 权限与七级回退链。
-- 支持导出 / 导入为自描述 JSON，便于备份与迁移。
+收藏和设置保存在当前浏览器：网页版使用 `localStorage`，扩展版使用 `chrome.storage.local`；本地壁纸文件保存在 IndexedDB。不同浏览器、配置文件和网页地址的数据不会自动合并。
 
-## 测试
+“本地存储”不代表完全离线：网站图标可能向目标站点、Google、DuckDuckGo 等图标服务发送请求；在线壁纸和品牌图片会访问所填地址；作者仓库导入访问 GitHub 公开 API，可能受到限流；网页搜索会交给搜索引擎。项目没有自建账户或数据同步服务器。
 
-- 单元：约 14 个测试文件、89 例（vitest，`npm test`）。
-- E2E：Playwright 25 条 test × 2 project（chromium + Pixel 7 移动端），口径见 `Wiki/测试与验证基线.md`。
-- 拖拽、图标、布局等关键路径均有回归用例。
+扩展的常驻权限为 `favicon`、`activeTab`、`bookmarks`、`search`、`storage`，另有 GitHub API 主机权限。浏览器历史使用**可选 `history` 权限**，拒绝授权不影响收藏。历史记录来自当前浏览器配置文件，删除一条 URL 会影响该 URL 在浏览器中的访问记录。
 
-## 已知限制
+收藏备份包含活动收藏、分组和可导出的设置，**不包含回收站、搜索历史、浏览器历史或本地壁纸文件**；本地壁纸迁移后需重新选择。清理浏览器数据或移除扩展前，请先导出需要保留的收藏。
 
-- 原生新标签页的搜索框不可嵌入，搜索委托给浏览器搜索引擎。
-- 无痕窗口不接管新标签页；扩展无法自行固定到工具栏（均为浏览器平台限制）。
-- 发版目前全手工，无 CI。
-- 三处版本号尚未统一：`package.json` 1.0.0 / `public/manifest.json` 1.1.5 / `dist/manifest.json` 1.1.0。
+## 本地开发
 
-## 工程记忆
+使用 Node.js **22.12+ 的 22.x，或 24.x**，并安装依赖：
 
-本项目配套一套可持久化的工程记忆 Wiki，位于 `Wiki/`：
+```bash
+git clone https://github.com/DewMysimple/GuoYoung.git
+cd GuoYoung
+npm ci
+npm run dev
+```
 
-- **新人 / 新 Agent 接手**：先读 [`AGENTS.md`](./AGENTS.md)，再读 [`Wiki/MOC_项目知识.md`](./Wiki/MOC_项目知识.md)。
-- 记忆分层：源码/测试为事实层，`Wiki/日志` 为不可改写事件层，其余 `Wiki/` 为可修订知识层（含 12 篇 ADR 与 9 个主题页）。
-- 每次协作后按要求写日志；完成修改后必须提交 Git，提交前跑 `npm run lint:wiki`。
+打开终端显示的地址，默认是 `http://localhost:5173`。Windows 双击 `runStart.cmd` 也可启动已安装依赖的项目；在 PowerShell 中如遇执行策略限制，将 `npm` 写为 `npm.cmd`。
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run dev` | 开发服务器 |
+| `npm run typecheck` | TypeScript 类型检查 |
+| `npm test` | 单元与组件测试 |
+| `npm run test:watch` | 监听模式运行单元测试 |
+| `npm run test:e2e -- --workers=1` | 桌面 Chrome 与 Pixel 7 模拟设备回归 |
+| `npm run build` | 类型检查并生成网页版 `dist/` |
+| `npm run preview` | 本地预览网页生产构建 |
+| `npm run build:extension` | 生成扩展版 `dist-extension/` |
+| `npm run package:extension` | 构建扩展并生成 `artifacts/site-hub-extension.zip`，需要 PowerShell |
+| `npm run capture` | 对运行在 4173 端口的页面做浏览器截图巡检 |
+| `npm run lint:wiki` | 校验工程记忆的格式、链接与索引 |
+
+E2E 和截图使用 Chrome：未安装时运行 `npx playwright install chrome`。E2E 会启动 4173 端口的测试服务器；截图前可运行 `npm run preview -- --host 127.0.0.1 --port 4173`。详细验证记录见[测试与验证基线](./Wiki/测试与验证基线.md)。
+
+网页版可将 `dist/` 部署到静态服务器的站点根路径；不要直接双击其中的 HTML。部署到子路径时需相应调整 Vite 的 `base`。本地打包扩展也可双击 `buildStart.cmd`，再按安装指南加载生成目录。
+
+## 工程结构
+
+技术栈为 React 19、TypeScript、Vite 7、Tailwind CSS 4；使用 dnd-kit 处理排序，Vitest 与 Playwright 验证逻辑和交互。
+
+```text
+src/
+  App.tsx          主应用与交互编排
+  components/      收藏、分组、历史、设置等界面
+  hooks/           收藏状态、主题和壁纸 hooks
+  lib/             业务函数、存储迁移、浏览器与 GitHub API 适配
+  data/            默认收藏、分组与图标选项
+  popup/           扩展工具栏弹窗
+  background.ts    扩展后台事件桥接
+public/            静态资源与扩展 manifest
+e2e/               浏览器回归测试
+scripts/           打包、截图与 Wiki 校验脚本
+docs/images/       README 展示图片
+Wiki/              架构、契约、决策与工作日志
+artifacts/         本地交付与验收资料（产物不入 Git）
+.github/workflows/ 自动验证与扩展 Release 发布
+```
+
+单元测试就近放在被测源码旁。`dist/`、`dist-extension/`、测试报告和依赖目录均为生成物，不提交到源码仓库。目录维护和后续拆分建议见[工程维护清单](./Wiki/工程维护清单.md)。
+
+扩展版本以 `public/manifest.json` 为准；npm 包名 `site-hub` 和存储键 `site-hub:v1` 是内部兼容标识。发布工作流由版本标签触发，构建 ZIP 并上传 GitHub Release；源码最新状态可能领先于已发布安装包。
+
+## 参与开发
+
+提交问题时，请说明浏览器、网页 / 扩展形态、复现步骤，以及实际和预期表现。[AGENTS.md](./AGENTS.md) 记录协作规则，[项目知识入口](./Wiki/MOC_项目知识.md) 和[当前状态](./Wiki/当前状态.md) 记录项目约束与已知问题。
+
+项目目前没有附带开源许可证；代码使用和再分发授权需与作者确认。

@@ -1,0 +1,51 @@
+name: Validate project
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm.cmd ci
+      - name: Type check
+        run: npm.cmd run typecheck
+      - name: Unit and component tests
+        run: npm.cmd test
+      - name: Install test browser
+        run: npx.cmd playwright install chrome
+      - name: Desktop and mobile browser tests
+        run: npm.cmd run test:e2e -- --workers=1
+      - name: Build website
+        run: npm.cmd run build
+      - name: Build extension
+        run: npm.cmd run build:extension
+      - name: Validate project memory
+        run: npm.cmd run lint:wiki
+      - name: Save browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-diagnostics
+          path: |
+            test-results/
+            artifacts/releases/**/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
