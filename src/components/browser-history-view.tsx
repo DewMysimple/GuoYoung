@@ -1,5 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  useDraggable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
   ArrowLeft,
   CaretDown,
   Check,
@@ -39,6 +50,23 @@ interface BrowserHistoryViewProps {
   permissionError?: string | null;
   permissionVersion?: number;
   api?: ChromiumExtensionApi;
+}
+
+type HistoryUrlItem = BrowserHistoryItem & { url: string };
+
+interface HistoryDragData {
+  kind: "history-card";
+  item: HistoryUrlItem;
+}
+
+function readHistoryDragData(data: unknown): HistoryDragData | null {
+  if (!data || typeof data !== "object") return null;
+  const candidate = data as { kind?: unknown; item?: unknown };
+  if (candidate.kind !== "history-card" || !candidate.item) return null;
+  const item = candidate.item as Partial<HistoryUrlItem>;
+  return typeof item.url === "string" && item.url
+    ? { kind: "history-card", item: item as HistoryUrlItem }
+    : null;
 }
 
 const TIME_RANGE_OPTIONS: Array<{ value: HistoryTimeRange; label: string }> = [
@@ -114,6 +142,35 @@ function HistoryFavicon({
   );
 }
 
+function HistoryDragPreview({ item }: { item: HistoryUrlItem }) {
+  const title = formatHistoryTitle(item);
+
+  return (
+    <article
+      className="site-card site-card-drag-preview history-drag-preview"
+      aria-hidden="true"
+      data-testid="history-card-drag-preview"
+    >
+      <div className="site-card-topline">
+        <HistoryFavicon item={item} size="large" />
+      </div>
+      <div className="site-card-link">
+        <span className="site-name-row">
+          <span className="site-name" title={title}>{title}</span>
+        </span>
+        <span className="site-domain" title={item.url}>{item.url}</span>
+      </div>
+      <div
+        className="site-category history-card-meta"
+        title={`最近访问 ${formatHistoryTime(item.lastVisitTime)} · 访问 ${item.visitCount || 1} 次`}
+      >
+        <ClockCounterClockwise size={15} aria-hidden="true" />
+        <time>{formatCompactHistoryTime(item.lastVisitTime)}</time>
+      </div>
+    </article>
+  );
+}
+
 function HistorySelectionToggle({
   selected,
   indeterminate = false,
@@ -163,9 +220,31 @@ function HistoryUrlCard({
   onDelete: () => void;
 }) {
   const title = formatHistoryTitle(item);
+  const dragDisabled = selectionMode || busy;
+  const drag = useDraggable({
+    id: `history-url:${item.id}`,
+    disabled: dragDisabled,
+    data: { kind: "history-card", item } satisfies HistoryDragData,
+  });
+  const style = {
+    zIndex: drag.isDragging ? 10 : undefined,
+  };
 
   return (
-    <article className={`site-card history-url-card ${selectionMode ? "is-selection-mode" : ""} ${selected ? "is-selected" : ""}`} data-drag-disabled>
+    <article
+      ref={drag.setNodeRef}
+      style={style}
+      className={`site-card history-url-card ${drag.isDragging ? "is-dragging" : ""} ${selectionMode ? "is-selection-mode" : ""} ${selected ? "is-selected" : ""}`}
+      data-history-dnd-id={item.id}
+      data-drag-disabled={dragDisabled || undefined}
+      onMouseDown={(event) => {
+        if (!dragDisabled) drag.listeners?.onMouseDown?.(event);
+      }}
+      onTouchStart={(event) => {
+        if (!dragDisabled) drag.listeners?.onTouchStart?.(event);
+      }}
+      onDragStart={(event) => event.preventDefault()}
+    >
       {selectionMode && (
         <HistorySelectionToggle
           selected={selected}
@@ -176,15 +255,19 @@ function HistoryUrlCard({
       )}
       <div className="site-card-topline">
         <HistoryFavicon item={item} size="large" />
-        <button
-          type="button"
-          className="history-url-delete"
-          aria-label={`删除历史记录 ${title}`}
-          disabled={busy || selectionMode}
-          onClick={onDelete}
-        >
-          <Trash size={17} />
-        </button>
+        <div className="history-url-actions">
+          <button
+            type="button"
+            className="history-url-delete"
+            aria-label={`删除历史记录 ${title}`}
+            disabled={busy || selectionMode}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={onDelete}
+          >
+            <Trash size={17} />
+          </button>
+        </div>
       </div>
       <a
         className="site-card-full-link history-url-link"
@@ -192,6 +275,7 @@ function HistoryUrlCard({
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`打开历史记录 ${title}`}
+        draggable={false}
         title={`${title} · 最近访问 ${formatHistoryTime(item.lastVisitTime)} · 访问 ${item.visitCount || 1} 次`}
         onClick={(event) => {
           if (selectionMode || busy) event.preventDefault();
@@ -242,13 +326,37 @@ function HistorySiteCard({
   const allSelected = groupUrls.length > 0 && selectedCount === groupUrls.length;
 
   const representative = group.items[0];
+  const dragDisabled = selectionMode || busy || !representative?.url;
+  const drag = useDraggable({
+    id: `history-site:${group.key}`,
+    disabled: dragDisabled,
+    data: representative?.url
+      ? {
+          kind: "history-card",
+          item: representative as HistoryUrlItem,
+        } satisfies HistoryDragData
+      : undefined,
+  });
+  const style = {
+    zIndex: drag.isDragging ? 10 : undefined,
+  };
 
   return (
     <article
-      className={`site-card history-site-card ${selectionMode ? "is-selection-mode" : ""} ${selectedCount > 0 ? "is-selected" : ""}`}
-      data-drag-disabled
+      ref={drag.setNodeRef}
+      style={style}
+      className={`site-card history-site-card ${drag.isDragging ? "is-dragging" : ""} ${selectionMode ? "is-selection-mode" : ""} ${selectedCount > 0 ? "is-selected" : ""}`}
+      data-history-dnd-id={group.key}
+      data-drag-disabled={dragDisabled || undefined}
       data-testid={`history-site-card-${group.key}`}
       data-history-site-key={group.key}
+      onMouseDown={(event) => {
+        if (!dragDisabled) drag.listeners?.onMouseDown?.(event);
+      }}
+      onTouchStart={(event) => {
+        if (!dragDisabled) drag.listeners?.onTouchStart?.(event);
+      }}
+      onDragStart={(event) => event.preventDefault()}
     >
       <div className="history-site-card-summary">
         {selectionMode && (
@@ -282,7 +390,7 @@ function HistorySiteCard({
               )}
             </span>
             <span className="history-site-summary-actions">
-              <span className="history-site-url-count" title={`${group.items.length} 个页面 · 访问 ${group.visitCount} 次`}>
+            <span className="history-site-url-count" title={`${group.items.length} 个页面 · 访问 ${group.visitCount} 次`}>
                 {group.items.length} 个页面
               </span>
             </span>
@@ -466,6 +574,53 @@ export function BrowserHistoryView({
   const overviewScrollY = useRef(0);
   const previousSiteKey = useRef(activeSiteKey);
   const selectionAnchorRef = useRef<string | null>(null);
+  const historyDragClickSuppressedRef = useRef(false);
+  const historyDragSuppressionTimer = useRef<number | null>(null);
+  const [activeHistoryDrag, setActiveHistoryDrag] =
+    useState<HistoryUrlItem | null>(null);
+  const historySensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 50 } }),
+    useSensor(TouchSensor, { activationConstraint: { distance: 50 } }),
+  );
+
+  function clearHistoryDragClickSuppression() {
+    historyDragClickSuppressedRef.current = false;
+    if (historyDragSuppressionTimer.current !== null) {
+      window.clearTimeout(historyDragSuppressionTimer.current);
+      historyDragSuppressionTimer.current = null;
+    }
+  }
+
+  function armHistoryDragClickSuppression() {
+    historyDragClickSuppressedRef.current = true;
+    if (historyDragSuppressionTimer.current !== null) {
+      window.clearTimeout(historyDragSuppressionTimer.current);
+    }
+    historyDragSuppressionTimer.current = window.setTimeout(() => {
+      historyDragClickSuppressedRef.current = false;
+      historyDragSuppressionTimer.current = null;
+    }, 220);
+  }
+
+  function handleHistoryDragStart(event: DragStartEvent) {
+    const data = readHistoryDragData(event.active.data.current);
+    if (!data) return;
+    armHistoryDragClickSuppression();
+    setActiveHistoryDrag(data.item);
+  }
+
+  function finishHistoryDrag(_event?: DragEndEvent) {
+    setActiveHistoryDrag(null);
+    armHistoryDragClickSuppression();
+  }
+
+  useEffect(() => {
+    return () => {
+      if (historyDragSuppressionTimer.current !== null) {
+        window.clearTimeout(historyDragSuppressionTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration;
@@ -797,7 +952,22 @@ export function BrowserHistoryView({
   }
 
   return (
-    <section className="browser-history" aria-labelledby="history-title">
+    <DndContext
+      sensors={historySensors}
+      autoScroll={false}
+      onDragStart={handleHistoryDragStart}
+      onDragEnd={finishHistoryDrag}
+      onDragCancel={() => finishHistoryDrag()}
+    >
+      <section
+        className="browser-history"
+        aria-labelledby="history-title"
+        onClickCapture={(event) => {
+          if (!historyDragClickSuppressedRef.current) return;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      >
       <h1 id="history-title" className="visually-hidden">历史记录</h1>
       <div className="workspace-intro history-workspace-intro">
         <div className="search-panel">
@@ -1012,6 +1182,14 @@ export function BrowserHistoryView({
           )}
         </div>
       )}
-    </section>
+      </section>
+      <DragOverlay
+        adjustScale={false}
+        dropAnimation={null}
+        zIndex={90}
+      >
+        {activeHistoryDrag ? <HistoryDragPreview item={activeHistoryDrag} /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

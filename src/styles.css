@@ -1072,7 +1072,31 @@ label:has(input:focus-visible) {
 /* The outer site-card owns all geometry, including responsive overrides. */
 .site-card.history-site-card,
 .site-card.history-url-card {
+  cursor: grab;
+}
+
+.site-card.history-site-card[data-drag-disabled],
+.site-card.history-url-card[data-drag-disabled] {
   cursor: pointer;
+}
+
+.site-card.history-site-card.is-dragging,
+.site-card.history-url-card.is-dragging {
+  transform: none;
+  transition: none;
+}
+
+.history-url-actions {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.history-drag-preview {
+  cursor: grabbing;
 }
 
 .history-site-card-summary {
@@ -1150,8 +1174,15 @@ label:has(input:focus-visible) {
 }
 
 .history-site-summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
   max-width: calc(100% - var(--site-icon-size) - 8px);
+  pointer-events: auto;
+}
+
+.history-site-url-count {
   pointer-events: none;
 }
 

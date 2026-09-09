@@ -116,6 +116,39 @@ describe("BrowserHistoryView", () => {
     });
   });
 
+  it("supports whole-card dragging without a collection drop flow", async () => {
+    const user = userEvent.setup();
+    const history = createHistoryApi([
+      {
+        id: "github",
+        title: "GitHub",
+        url: "https://github.com/openai",
+        lastVisitTime: Date.now(),
+      },
+    ]);
+    render(
+      <BrowserHistoryView
+        api={history.api}
+        onBack={vi.fn()}
+        onRequestPermission={vi.fn().mockResolvedValue({ granted: true })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("history-site-card-github.com")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("history-site-card-github.com")).not.toHaveAttribute(
+      "data-drag-disabled",
+    );
+    expect(screen.queryByRole("button", { name: /拖动 GitHub 历史卡片/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("拖动历史卡片到收藏分组")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /添加网站/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "查看 GitHub 历史记录" }));
+    expect(screen.getByTestId("history-site-detail-github.com")).toBeInTheDocument();
+    expect(screen.queryByTestId("history-card-drag-preview")).not.toBeInTheDocument();
+  });
+
   it("opens a site detail page and uses the homepage-style selection control", async () => {
     const user = userEvent.setup();
     const history = createHistoryApi([

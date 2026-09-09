@@ -427,6 +427,30 @@ test("loads and deletes browser history through the extension adapter", async ({
     fullPage: true,
   });
 
+  const overviewDragStart = await githubCard.boundingBox();
+  if (!overviewDragStart) throw new Error("History overview drag source is not visible");
+  await page.mouse.move(
+    overviewDragStart.x + overviewDragStart.width / 2,
+    overviewDragStart.y + overviewDragStart.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    overviewDragStart.x + overviewDragStart.width / 2 + 51,
+    overviewDragStart.y + overviewDragStart.height / 2,
+  );
+  await expect(page.getByTestId("history-card-drag-preview")).toBeVisible();
+  await expect(githubCard).toHaveClass(/is-dragging/);
+  await expect(githubCard).toHaveCSS("opacity", "0.16");
+  await expect(page.getByText("拖动历史卡片到收藏分组")).toHaveCount(0);
+  await page.screenshot({
+    path: screenshotPath(`browser-history-drag-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+  await page.mouse.up();
+  await expect(page.getByTestId("history-card-drag-preview")).toHaveCount(0);
+  await expect(githubCard).not.toHaveClass(/is-dragging/);
+  await page.waitForTimeout(250);
+
   await page.getByRole("button", { name: "多选" }).click();
   const historySelectionToggle = githubCard.getByRole("button", {
     name: "选择 GitHub 的全部历史记录",
@@ -455,6 +479,28 @@ test("loads and deletes browser history through the extension adapter", async ({
   await githubCard.getByRole("button", { name: "查看 GitHub 历史记录" }).click();
   await expect(page.getByTestId("history-site-detail-github.com")).toBeVisible();
   await expect(page.locator(".history-url-card")).toHaveCount(1);
+  const detailCard = page.locator(".history-url-card").first();
+  const detailDragStart = await detailCard.boundingBox();
+  if (!detailDragStart) throw new Error("History detail drag source is not visible");
+  await page.mouse.move(
+    detailDragStart.x + detailDragStart.width / 2,
+    detailDragStart.y + detailDragStart.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    detailDragStart.x + detailDragStart.width / 2 + 51,
+    detailDragStart.y + detailDragStart.height / 2,
+  );
+  await expect(page.getByTestId("history-card-drag-preview")).toBeVisible();
+  await expect(detailCard).toHaveClass(/is-dragging/);
+  await page.screenshot({
+    path: screenshotPath(`browser-history-detail-drag-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
+  await page.mouse.up();
+  await expect(page.getByTestId("history-card-drag-preview")).toHaveCount(0);
+  await expect(detailCard).not.toHaveClass(/is-dragging/);
+  await page.waitForTimeout(250);
   await page.screenshot({
     path: screenshotPath(`browser-history-detail-${testInfo.project.name}.png`),
     fullPage: true,
@@ -523,7 +569,7 @@ test("loads browser history through callback-style Edge APIs", async ({ page }) 
   });
   await page.reload();
   await page.getByRole("button", { name: "打开历史记录" }).click();
-  await page.getByRole("button", { name: /Edge/ }).click();
+  await page.getByRole("button", { name: "查看 Edge Callback 历史记录" }).click();
   await expect(page.getByText("Edge Callback Example", { exact: true })).toBeVisible();
   await expect(page.locator(".history-url-link")).toHaveAttribute("title", /访问 2 次/);
 });
