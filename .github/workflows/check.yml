@@ -32,7 +32,7 @@ jobs:
       - name: Install test browser
         run: npx.cmd playwright install chrome
       - name: Desktop and mobile browser tests
-        run: npm.cmd run test:e2e -- --workers=1
+        run: npm.cmd run test:e2e -- --workers=1 --reporter=line
       - name: Build website
         run: npm.cmd run build
       - name: Build extension

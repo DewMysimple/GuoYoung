@@ -2253,6 +2253,13 @@ test("previews and commits group sorting with the keyboard", async ({
   await searchTab.focus();
   await page.keyboard.press("Space");
   await expect(searchTab).toHaveClass(/is-group-sorting/);
+  await expect(page.getByTestId("group-sort-horizontal-drag-preview")).toBeVisible();
+  // KeyboardSensor installs its keydown listener in a deferred task, and
+  // sortable coordinates need the following layout measurement. A class
+  // change alone does not mean the next keyboard event can be handled yet.
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
   await page.keyboard.press("ArrowRight");
   await expect(page.getByText("将搜索移动到设计之前", { exact: true })).toBeAttached();
   await page.keyboard.press("Space");
