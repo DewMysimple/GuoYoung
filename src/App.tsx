@@ -118,6 +118,9 @@ import {
 } from "./lib/site-utils";
 import { getInclusiveSelectionRange } from "./lib/selection-range";
 import type {
+  GithubRepositoryBatchImport,
+} from "./lib/site-state";
+import type {
   CategoryIcon as GroupIconName,
   SiteCollectionState,
   SiteFormValues,
@@ -266,6 +269,7 @@ export function App() {
     deleteGroup,
     importGroup,
     importGithubRepositories,
+    importGithubRepositoryBatch,
     migrateGithubSites,
     reset,
     replaceState,
@@ -347,6 +351,7 @@ export function App() {
   const [githubImportLoading, setGithubImportLoading] = useState(false);
   const [githubImportConfirming, setGithubImportConfirming] = useState(false);
   const [githubImportError, setGithubImportError] = useState<string | null>(null);
+  const [githubBulkRefreshLoading, setGithubBulkRefreshLoading] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -2476,12 +2481,60 @@ export function App() {
     openGithubRepositoryImport(source.profileUrl);
   }
 
-  function handleGithubHomeRefresh() {
-    if (activeGithubImportGroup) {
-      openGithubRefresh(activeGithubImportGroup);
+  async function handleGithubHomeRefresh() {
+    if (githubBulkRefreshLoading) return;
+    const sources = state.groups
+      .filter(
+        (group) =>
+          getGroupWorkspace(group) === "github" && group.githubImportSource,
+      )
+      .map((group) => group.githubImportSource!)
+      .filter(
+        (source, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate.login.toLocaleLowerCase("en-US") ===
+              source.login.toLocaleLowerCase("en-US"),
+          ) === index,
+      );
+
+    if (sources.length === 0) {
+      openGithubRepositoryImport();
       return;
     }
-    openGithubRepositoryImport();
+
+    setGithubBulkRefreshLoading(true);
+    const imports: GithubRepositoryBatchImport[] = [];
+    const failures: string[] = [];
+    try {
+      for (const source of sources) {
+        try {
+          imports.push(await fetchGithubOwnerRepositories(source.profileUrl));
+        } catch (error) {
+          failures.push(`${source.login}：${formatGithubRepositoryError(error)}`);
+        }
+      }
+
+      if (imports.length === 0) {
+        setTransferNotice({
+          kind: "error",
+          message: `全部 ${sources.length} 个作者仓库刷新失败：${failures.join("；")}`,
+        });
+        return;
+      }
+
+      const result = importGithubRepositoryBatch(imports);
+      const summary = `已刷新 ${imports.length} 个作者仓库，新增 ${result.added} 个，跳过 ${result.skipped} 个。`;
+      setTransferNotice({
+        kind: failures.length > 0 ? "error" : "success",
+        message:
+          failures.length > 0
+            ? `${summary}失败 ${failures.length} 个：${failures.join("；")}`
+            : summary,
+      });
+    } finally {
+      setGithubBulkRefreshLoading(false);
+    }
   }
 
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
@@ -2964,6 +3017,7 @@ export function App() {
             onAdd={openGithubHomeAdd}
             onOpen={(site) => recordSiteClick(site.id)}
             onRefresh={handleGithubHomeRefresh}
+            refreshing={githubBulkRefreshLoading}
             onEdit={openEditDialog}
             onDelete={requestSiteDelete}
           />

@@ -15,7 +15,8 @@ interface GithubHomeEntryProps {
   deleteArmed: boolean;
   onAdd: () => void;
   onOpen: (site: SiteItem) => void;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
+  refreshing: boolean;
   onEdit: (site: SiteItem) => void;
   onDelete: (site: SiteItem) => void;
 }
@@ -26,6 +27,7 @@ export function GithubHomeEntry({
   onAdd,
   onOpen,
   onRefresh,
+  refreshing,
   onEdit,
   onDelete,
 }: GithubHomeEntryProps) {
@@ -74,9 +76,15 @@ export function GithubHomeEntry({
             className="button icon-button primary-button github-home-entry-open"
             aria-label="刷新仓库"
             title="刷新仓库"
-            onClick={onRefresh}
+            aria-busy={refreshing || undefined}
+            disabled={refreshing}
+            onClick={() => void onRefresh()}
           >
-            <ArrowCounterClockwise size={18} weight="bold" />
+            <ArrowCounterClockwise
+              className={refreshing ? "spin" : undefined}
+              size={18}
+              weight="bold"
+            />
           </button>
         ) : (
           <button type="button" className="button primary-button github-home-entry-open" onClick={onAdd}>

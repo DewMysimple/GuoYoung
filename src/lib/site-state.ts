@@ -42,6 +42,20 @@ export interface GithubRepositoryImportResult {
   skippedDeleted: number;
 }
 
+export interface GithubRepositoryBatchImport {
+  owner: GithubOwnerProfile;
+  repositories: GithubRepositorySummary[];
+}
+
+export interface GithubRepositoryBatchImportResult {
+  state: SiteCollectionState;
+  refreshedOwners: number;
+  added: number;
+  skipped: number;
+  skippedActive: number;
+  skippedDeleted: number;
+}
+
 export type GithubRepositoryStatus = "new" | "active" | "deleted";
 
 export function getGithubRepositoryStatus(
@@ -225,6 +239,42 @@ export function importGithubRepositoriesToState(
     state: finalState,
     group: finalState.groups.find((group) => group.id === targetGroup!.id),
     added: imported.length,
+    skipped,
+    skippedActive,
+    skippedDeleted,
+  };
+}
+
+export function importGithubRepositoryBatchToState(
+  state: SiteCollectionState,
+  imports: GithubRepositoryBatchImport[],
+  now = new Date().toISOString(),
+): GithubRepositoryBatchImportResult {
+  let nextState = state;
+  let added = 0;
+  let skipped = 0;
+  let skippedActive = 0;
+  let skippedDeleted = 0;
+
+  for (const input of imports) {
+    const result = importGithubRepositoriesToState(
+      nextState,
+      input.owner,
+      input.repositories,
+      undefined,
+      now,
+    );
+    nextState = result.state;
+    added += result.added;
+    skipped += result.skipped;
+    skippedActive += result.skippedActive;
+    skippedDeleted += result.skippedDeleted;
+  }
+
+  return {
+    state: nextState,
+    refreshedOwners: imports.length,
+    added,
     skipped,
     skippedActive,
     skippedDeleted,

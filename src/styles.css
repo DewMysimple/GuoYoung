@@ -1450,9 +1450,6 @@ label:has(input:focus-visible) {
 
 .github-home-entry:hover,
 .github-home-entry:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 33%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 20%, var(--surface));
-  box-shadow: var(--shadow-soft);
   transform: translateY(-3px);
 }
 
@@ -1554,6 +1551,14 @@ label:has(input:focus-visible) {
   min-height: calc(40px * var(--control-scale));
   flex: 0 0 auto;
   padding: 0;
+  color: #f7f9fd;
+  background: var(--accent);
+}
+
+.github-home-entry.has-site .github-home-entry-open:hover:not(:disabled),
+.github-home-entry.has-site .github-home-entry-open:focus-visible {
+  color: #f7f9fd;
+  background: var(--accent-strong);
 }
 
 .github-home-entry-menu {
@@ -1584,9 +1589,8 @@ label:has(input:focus-visible) {
   padding: 6px;
   border: 1px solid var(--border-strong);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  background: var(--surface);
   box-shadow: var(--shadow-dialog);
-  backdrop-filter: blur(18px);
 }
 
 .github-home-entry-menu-popover button {

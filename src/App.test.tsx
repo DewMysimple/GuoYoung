@@ -222,14 +222,101 @@ describe("App", () => {
         )).toBe(true);
       });
       expect(screen.getByRole("heading", { name: "acme" })).toBeInTheDocument();
-      const githubEntry = screen.getByRole("region", { name: "GitHub 官方主页" });
-      await user.click(within(githubEntry).getByRole("button", { name: "刷新仓库" }));
-      const refreshDialog = screen.getByRole("dialog", { name: "导入作者仓库" });
-      expect(within(refreshDialog).getByLabelText("作者或组织主页")).toHaveValue(
-        "https://github.com/acme",
-      );
-      await user.click(within(refreshDialog).getByRole("button", { name: "返回收藏主页" }));
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it("refreshes every imported GitHub author from the fixed entry", async () => {
+    const state = createDefaultState();
+    const githubOther = state.groups.find((group) => group.id === "github-other")!;
+    state.groups.push({
+      ...githubOther,
+      id: "github-octo",
+      name: "octo",
+      order: githubOther.order + 1,
+      githubImportSource: {
+        login: "octo",
+        profileUrl: "https://github.com/octo",
+        entityType: "user",
+      },
+    });
+    state.groups = state.groups.map((group) =>
+      group.id === "github-other"
+        ? {
+            ...group,
+            githubImportSource: {
+              login: "acme",
+              profileUrl: "https://github.com/acme",
+              entityType: "organization" as const,
+            },
+          }
+        : group,
+    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ login: "acme", type: "Organization", name: "Acme" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => [
+          {
+            id: 201,
+            name: "acme-repo",
+            full_name: "acme/acme-repo",
+            html_url: "https://github.com/acme/acme-repo",
+            private: false,
+            fork: false,
+            archived: false,
+          },
+        ],
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ login: "octo", type: "User", name: "Octo" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => [
+          {
+            id: 202,
+            name: "octo-repo",
+            full_name: "octo/octo-repo",
+            html_url: "https://github.com/octo/octo-repo",
+            private: false,
+            fork: false,
+            archived: false,
+          },
+        ],
+      } as Response);
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+      await user.click(screen.getByRole("button", { name: "刷新仓库" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+      await waitFor(() => {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+        expect(saved.sites.some((site: { url: string }) => site.url === "https://github.com/acme/acme-repo")).toBe(true);
+        expect(saved.sites.some((site: { url: string }) => site.url === "https://github.com/octo/octo-repo")).toBe(true);
+      });
+      expect(screen.queryByRole("dialog", { name: "导入作者仓库" })).not.toBeInTheDocument();
+      expect(screen.getByText(/已刷新 2 个作者仓库/)).toBeInTheDocument();
     } finally {
       vi.stubGlobal("fetch", originalFetch);
     }

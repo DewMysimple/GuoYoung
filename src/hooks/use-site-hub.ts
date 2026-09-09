@@ -25,6 +25,9 @@ import {
   updateSiteInState,
   mergeGroupImportIntoState,
   type GroupImportResult,
+  importGithubRepositoryBatchToState,
+  type GithubRepositoryBatchImport,
+  type GithubRepositoryBatchImportResult,
   importGithubRepositoriesToState,
   type GithubRepositoryImportResult,
 } from "../lib/site-state";
@@ -97,6 +100,9 @@ interface SiteHubApi {
     repositories: GithubRepositorySummary[],
     selectedRepositoryIds?: Set<number>,
   ) => GithubRepositoryImportResult;
+  importGithubRepositoryBatch: (
+    imports: GithubRepositoryBatchImport[],
+  ) => GithubRepositoryBatchImportResult;
   migrateGithubSites: () => ReturnType<typeof migrateGithubSitesInState>;
   moveGithubHomeToMain: (siteId: string) => void;
   undoGithubMigration: () => ReturnType<typeof undoGithubMigrationInState>;
@@ -442,6 +448,16 @@ export function useSiteHub(): SiteHubApi {
     return result;
   }, []);
 
+  const importGithubRepositoryBatch = useCallback<
+    SiteHubApi["importGithubRepositoryBatch"]
+  >((imports) => {
+    const result = importGithubRepositoryBatchToState(stateRef.current, imports);
+    stateRef.current = result.state;
+    setState(result.state);
+    setRecovered(false);
+    return result;
+  }, []);
+
   const migrateGithubSites = useCallback(() => {
     const result = migrateGithubSitesInState(stateRef.current);
     stateRef.current = result.state;
@@ -591,6 +607,7 @@ export function useSiteHub(): SiteHubApi {
     deleteGroup,
     importGroup,
     importGithubRepositories,
+    importGithubRepositoryBatch,
     migrateGithubSites,
     moveGithubHomeToMain,
     undoGithubMigration,

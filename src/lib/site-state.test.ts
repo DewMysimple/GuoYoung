@@ -14,6 +14,7 @@ import {
   mergeGroupImportIntoState,
   findSiteByUrl,
   getGithubRepositoryStatus,
+  importGithubRepositoryBatchToState,
   importGithubRepositoriesToState,
 } from "./site-state";
 import type {
@@ -435,6 +436,101 @@ describe("site state operations", () => {
       fork: true,
       archived: true,
     })).toBe("active");
+  });
+
+  it("refreshes multiple GitHub author groups in one state update", () => {
+    const initial = createDefaultState();
+    const acme: GithubOwnerProfile = {
+      login: "acme",
+      profileUrl: "https://github.com/acme",
+      entityType: "organization",
+    };
+    const octo: GithubOwnerProfile = {
+      login: "octo",
+      profileUrl: "https://github.com/octo",
+      entityType: "user",
+    };
+    const first = importGithubRepositoriesToState(initial, acme, [
+      {
+        id: 1,
+        name: "one",
+        fullName: "acme/one",
+        htmlUrl: "https://github.com/acme/one",
+        fork: false,
+        archived: false,
+      },
+    ]);
+    const second = importGithubRepositoriesToState(first.state, octo, [
+      {
+        id: 2,
+        name: "two",
+        fullName: "octo/two",
+        htmlUrl: "https://github.com/octo/two",
+        fork: false,
+        archived: false,
+      },
+    ]);
+
+    const refreshed = importGithubRepositoryBatchToState(
+      second.state,
+      [
+        {
+          owner: acme,
+          repositories: [
+            {
+              id: 1,
+              name: "one",
+              fullName: "acme/one",
+              htmlUrl: "https://github.com/acme/one",
+              fork: false,
+              archived: false,
+            },
+            {
+              id: 3,
+              name: "three",
+              fullName: "acme/three",
+              htmlUrl: "https://github.com/acme/three",
+              fork: false,
+              archived: false,
+            },
+          ],
+        },
+        {
+          owner: octo,
+          repositories: [
+            {
+              id: 2,
+              name: "two",
+              fullName: "octo/two",
+              htmlUrl: "https://github.com/octo/two",
+              fork: false,
+              archived: false,
+            },
+            {
+              id: 4,
+              name: "four",
+              fullName: "octo/four",
+              htmlUrl: "https://github.com/octo/four",
+              fork: false,
+              archived: false,
+            },
+          ],
+        },
+      ],
+      "2026-09-09T10:00:00.000Z",
+    );
+
+    expect(refreshed.refreshedOwners).toBe(2);
+    expect(refreshed.added).toBe(2);
+    expect(refreshed.skippedActive).toBe(2);
+    expect(refreshed.state.sites.map((site) => site.name)).toEqual(
+      expect.arrayContaining(["one", "three", "two", "four"]),
+    );
+    expect(
+      refreshed.state.groups
+        .filter((group) => group.githubImportSource)
+        .map((group) => group.githubImportSource?.lastFetchedAt),
+    ).toEqual(["2026-09-09T10:00:00.000Z", "2026-09-09T10:00:00.000Z"]);
   });
 
   it("creates a suffixed author group when a same-name group belongs to another source", () => {

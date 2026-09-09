@@ -284,9 +284,8 @@ test("previews and imports a GitHub author's repositories while skipping duplica
   })).toEqual({ added: true, group: "acme" });
   await expect(page.getByRole("heading", { name: "acme" })).toBeVisible();
   await page.getByRole("button", { name: "刷新仓库" }).click();
-  const refreshDialog = page.getByRole("dialog", { name: "导入作者仓库" });
-  await expect(refreshDialog.getByLabel("作者或组织主页")).toHaveValue("https://github.com/acme");
-  await refreshDialog.getByRole("button", { name: "返回收藏主页" }).click();
+  await expect(page.getByRole("dialog", { name: "导入作者仓库" })).toHaveCount(0);
+  await expect(page.locator(".transfer-banner")).toContainText("已刷新 1 个作者仓库");
 });
 
 test("loads and deletes browser history through the extension adapter", async ({
@@ -1610,6 +1609,16 @@ test("opens the GitHub home entry from its card surface", async ({ page, context
   if (!refreshBox || !menuBox) throw new Error("GitHub home actions are not visible");
   expect(refreshBox.width).toBeCloseTo(menuBox.width, 1);
   expect(refreshBox.height).toBeCloseTo(menuBox.height, 1);
+  const restingChrome = await entry.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderColor,
+      boxShadow: style.boxShadow,
+    };
+  });
+  await expect(refreshButton).toHaveCSS("background-color", "rgb(51, 103, 214)");
+  await expect(refreshButton).toHaveCSS("color", "rgb(247, 249, 253)");
 
   const requestPromise = context.waitForEvent("request", {
     predicate: (request) => request.url().startsWith("https://github.com"),
@@ -1617,6 +1626,15 @@ test("opens the GitHub home entry from its card surface", async ({ page, context
   const popupPromise = context.waitForEvent("page");
   await page.mouse.move(box.x + box.width * 0.38, box.y + box.height * 0.5);
   await expect.poll(() => entry.evaluate((element) => getComputedStyle(element).transform)).not.toBe("none");
+  const hoverChrome = await entry.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderColor,
+      boxShadow: style.boxShadow,
+    };
+  });
+  expect(hoverChrome).toEqual(restingChrome);
   await page.screenshot({
     path: screenshotPath(`github-home-entry-hover-${testInfo.project.name}.png`),
     fullPage: true,
@@ -1630,6 +1648,16 @@ test("opens the GitHub home entry from its card surface", async ({ page, context
       return state.sites.find((site: { id: string }) => site.id === "github")?.clickCount;
     }),
   ).toBe(1);
+
+  await menuButton.click();
+  const menu = page.locator(".github-home-entry-menu-popover");
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveCSS("background-color", "rgb(249, 250, 252)");
+  await expect(menu).toHaveCSS("backdrop-filter", "none");
+  await page.screenshot({
+    path: screenshotPath(`github-home-entry-menu-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
 });
 
 test("persists grouped display and combines it with sorting and search", async ({
