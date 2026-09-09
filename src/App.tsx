@@ -267,8 +267,6 @@ export function App() {
     importGroup,
     importGithubRepositories,
     migrateGithubSites,
-    moveGithubHomeToMain,
-    undoGithubMigration,
     reset,
     replaceState,
     saveSettings,
@@ -2397,19 +2395,6 @@ export function App() {
     migrateGithubSites();
   }
 
-  function handleUndoGithubMigration() {
-    const result = undoGithubMigration();
-    if (result.restoredCount > 0 || result.skippedCount > 0) {
-      setTransferNotice({
-        kind: "success",
-        message:
-          result.skippedCount > 0
-            ? `已恢复 ${result.restoredCount} 个链接，${result.skippedCount} 个已被手动调整，保持原位置。`
-            : `已恢复 ${result.restoredCount} 个链接的原分组。`,
-      });
-    }
-  }
-
   function openGithubHomeAdd() {
     const mainGroups = getWorkspaceGroups(state.groups, "main");
     const targetGroup =
@@ -2491,12 +2476,12 @@ export function App() {
     openGithubRepositoryImport(source.profileUrl);
   }
 
-  function handleMoveGithubHomeToMain(site: SiteItem) {
-    moveGithubHomeToMain(site.id);
-    setTransferNotice({
-      kind: "success",
-      message: "GitHub 官方主页已放回收藏主页，并继续显示在顶部入口。",
-    });
+  function handleGithubHomeRefresh() {
+    if (activeGithubImportGroup) {
+      openGithubRefresh(activeGithubImportGroup);
+      return;
+    }
+    openGithubRepositoryImport();
   }
 
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
@@ -2975,26 +2960,12 @@ export function App() {
         {activeWorkspace === "github" && (
           <GithubHomeEntry
             site={githubHomeSite}
-            canMoveToMain={Boolean(
-              githubHomeSite &&
-                getGroupWorkspace(
-                  state.groups.find((group) => group.id === githubHomeSite.groupId) ?? {
-                    workspace: "github",
-                  },
-                ) === "github",
-            )}
-            canUndoMigration={
-              state.githubMigration?.status === "completed" &&
-              state.githubMigration.entries.length > 0
-            }
-            migrationCount={state.githubMigration?.entries.length ?? 0}
             deleteArmed={armedDeleteSiteId === githubHomeSite?.id}
             onAdd={openGithubHomeAdd}
             onOpen={(site) => recordSiteClick(site.id)}
+            onRefresh={handleGithubHomeRefresh}
             onEdit={openEditDialog}
             onDelete={requestSiteDelete}
-            onMoveToMain={handleMoveGithubHomeToMain}
-            onUndoMigration={handleUndoGithubMigration}
           />
         )}
 

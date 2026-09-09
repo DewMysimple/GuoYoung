@@ -12,30 +12,22 @@ import type { SiteItem } from "../types";
 
 interface GithubHomeEntryProps {
   site: SiteItem | null;
-  canMoveToMain: boolean;
-  canUndoMigration: boolean;
-  migrationCount: number;
   deleteArmed: boolean;
   onAdd: () => void;
   onOpen: (site: SiteItem) => void;
+  onRefresh: () => void;
   onEdit: (site: SiteItem) => void;
   onDelete: (site: SiteItem) => void;
-  onMoveToMain: (site: SiteItem) => void;
-  onUndoMigration: () => void;
 }
 
 export function GithubHomeEntry({
   site,
-  canMoveToMain,
-  canUndoMigration,
-  migrationCount,
   deleteArmed,
   onAdd,
   onOpen,
+  onRefresh,
   onEdit,
   onDelete,
-  onMoveToMain,
-  onUndoMigration,
 }: GithubHomeEntryProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -77,15 +69,15 @@ export function GithubHomeEntry({
       </div>
       <div className="github-home-entry-actions">
         {site ? (
-          <a
-            className="button primary-button github-home-entry-open"
-            href={site.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => onOpen(site)}
+          <button
+            type="button"
+            className="button icon-button primary-button github-home-entry-open"
+            aria-label="刷新仓库"
+            title="刷新仓库"
+            onClick={onRefresh}
           >
-            打开 GitHub
-          </a>
+            <ArrowCounterClockwise size={18} weight="bold" />
+          </button>
         ) : (
           <button type="button" className="button primary-button github-home-entry-open" onClick={onAdd}>
             <Plus size={16} weight="bold" />
@@ -99,7 +91,7 @@ export function GithubHomeEntry({
             aria-label="管理 GitHub 官方主页"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            disabled={!site && !canUndoMigration}
+            disabled={!site}
             onClick={() => setMenuOpen((current) => !current)}
           >
             <DotsThreeVertical size={18} weight="bold" />
@@ -111,11 +103,6 @@ export function GithubHomeEntry({
                   <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onEdit(site); }}>
                     <PencilSimple size={16} />编辑官方入口
                   </button>
-                  {canMoveToMain && (
-                    <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onMoveToMain(site); }}>
-                      <GithubLogo size={16} />放回收藏主页
-                    </button>
-                  )}
                   <button
                     type="button"
                     role="menuitem"
@@ -129,11 +116,6 @@ export function GithubHomeEntry({
                     <Trash size={16} />{deleteArmed ? "再次点击删除官方入口" : "删除官方入口"}
                   </button>
                 </>
-              )}
-              {canUndoMigration && (
-                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onUndoMigration(); }}>
-                  <ArrowCounterClockwise size={16} />撤销上次整理（{migrationCount} 项）
-                </button>
               )}
             </div>
           )}

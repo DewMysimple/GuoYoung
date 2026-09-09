@@ -83,7 +83,7 @@ test("opens the browser history entry and explains the web-only limitation", asy
   await expect(page.getByRole("heading", { name: "全部网站" })).toBeVisible();
 });
 
-test("opens the independent GitHub workspace and can undo its first migration", async ({
+test("opens the independent GitHub workspace and hides one-time migration controls", async ({
   page,
 }, testInfo) => {
   await page.evaluate(() => {
@@ -105,7 +105,7 @@ test("opens the independent GitHub workspace and can undo its first migration", 
   const githubButton = page.getByRole("button", { name: "打开 GitHub 收藏" });
   await githubButton.click();
   await expect(page.getByRole("heading", { name: "全部 GitHub" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "打开 GitHub", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "刷新仓库" })).toBeVisible();
   await expect(page.getByText("GitHub 收藏已整理")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "打开 GitHub Test Repo" })).toBeVisible();
   await page.screenshot({
@@ -113,9 +113,15 @@ test("opens the independent GitHub workspace and can undo its first migration", 
     fullPage: true,
   });
 
+  await page.getByRole("button", { name: "刷新仓库" }).click();
+  const refreshDialog = page.getByRole("dialog", { name: "导入作者仓库" });
+  await expect(refreshDialog).toBeVisible();
+  await refreshDialog.getByRole("button", { name: "返回收藏主页" }).click();
+
   await page.getByRole("button", { name: "管理 GitHub 官方主页" }).click();
-  await page.getByRole("menuitem", { name: /撤销上次整理（1 项）/ }).click();
-  await expect(page.getByRole("link", { name: "打开 GitHub Test Repo" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "放回收藏主页" })).toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: /撤销上次整理/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "打开收藏主页" }).click();
   await expect(page.getByRole("heading", { name: "全部网站" })).toBeVisible();
@@ -156,7 +162,7 @@ test("searches the whole collection from every collection page and restores the 
   await search.fill("secret-repo");
   await expect(page.getByRole("link", { name: "打开 Acme Secret Repo" })).toBeVisible();
   await expect(page.getByTestId("site-card-cross-workspace-repo")).toContainText("GitHub");
-  await expect(page.getByRole("link", { name: "打开 GitHub", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "刷新仓库" })).toBeVisible();
   await page.screenshot({
     path: screenshotPath(`global-collection-search-${testInfo.project.name}.png`),
     fullPage: true,
@@ -277,6 +283,10 @@ test("previews and imports a GitHub author's repositories while skipping duplica
     };
   })).toEqual({ added: true, group: "acme" });
   await expect(page.getByRole("heading", { name: "acme" })).toBeVisible();
+  await page.getByRole("button", { name: "刷新仓库" }).click();
+  const refreshDialog = page.getByRole("dialog", { name: "导入作者仓库" });
+  await expect(refreshDialog.getByLabel("作者或组织主页")).toHaveValue("https://github.com/acme");
+  await refreshDialog.getByRole("button", { name: "返回收藏主页" }).click();
 });
 
 test("loads and deletes browser history through the extension adapter", async ({
@@ -1587,20 +1597,39 @@ test("opens a favorite in a new tab", async ({ page, context }) => {
   expect((await requestPromise).url()).toContain("github.com");
 });
 
-test("opens the GitHub home entry from its card surface", async ({ page, context }) => {
+test("opens the GitHub home entry from its card surface", async ({ page, context }, testInfo) => {
   await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
   const entry = page.locator(".github-home-entry");
   await expect(entry).toBeVisible();
   const box = await entry.boundingBox();
   if (!box) throw new Error("GitHub home entry is not visible");
+  const refreshButton = page.getByRole("button", { name: "刷新仓库" });
+  const menuButton = page.getByRole("button", { name: "管理 GitHub 官方主页" });
+  const refreshBox = await refreshButton.boundingBox();
+  const menuBox = await menuButton.boundingBox();
+  if (!refreshBox || !menuBox) throw new Error("GitHub home actions are not visible");
+  expect(refreshBox.width).toBeCloseTo(menuBox.width, 1);
+  expect(refreshBox.height).toBeCloseTo(menuBox.height, 1);
 
   const requestPromise = context.waitForEvent("request", {
     predicate: (request) => request.url().startsWith("https://github.com"),
   });
   const popupPromise = context.waitForEvent("page");
+  await page.mouse.move(box.x + box.width * 0.38, box.y + box.height * 0.5);
+  await expect.poll(() => entry.evaluate((element) => getComputedStyle(element).transform)).not.toBe("none");
+  await page.screenshot({
+    path: screenshotPath(`github-home-entry-hover-${testInfo.project.name}.png`),
+    fullPage: true,
+  });
   await page.mouse.click(box.x + box.width * 0.38, box.y + box.height * 0.5);
   await popupPromise;
   expect((await requestPromise).url()).toContain("github.com");
+  expect(
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+      return state.sites.find((site: { id: string }) => site.id === "github")?.clickCount;
+    }),
+  ).toBe(1);
 });
 
 test("persists grouped display and combines it with sorting and search", async ({

@@ -96,13 +96,9 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
     expect(screen.getByRole("heading", { name: "全部 GitHub" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "打开 GitHub" })).toBeInTheDocument();
     const githubEntry = screen.getByRole("region", { name: "GitHub 官方主页" });
     expect(githubEntry).toBeInTheDocument();
-    expect(within(githubEntry).getByRole("link", { name: "打开 GitHub" })).toHaveAttribute(
-      "target",
-      "_blank",
-    );
+    expect(within(githubEntry).getByRole("button", { name: "刷新仓库" })).toBeInTheDocument();
     expect(githubEntry.querySelector(".github-home-entry-full-link")).toHaveAttribute(
       "href",
       "https://github.com",
@@ -157,8 +153,12 @@ describe("App", () => {
     );
     expect(screen.getByRole("link", { name: "打开 Acme Secret Repo" })).toBeInTheDocument();
     expect(screen.getByTestId("site-card-cross-workspace-repo")).toHaveTextContent("GitHub");
-    expect(screen.getByRole("link", { name: "打开 GitHub" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "打开 GitHub" })).toHaveLength(1);
+    expect(
+      within(screen.getByRole("region", { name: "GitHub 官方主页" })).getByRole(
+        "button",
+        { name: "刷新仓库" },
+      ),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "清空搜索" }));
     await user.click(screen.getByRole("button", { name: "打开收藏主页" }));
@@ -222,6 +222,13 @@ describe("App", () => {
         )).toBe(true);
       });
       expect(screen.getByRole("heading", { name: "acme" })).toBeInTheDocument();
+      const githubEntry = screen.getByRole("region", { name: "GitHub 官方主页" });
+      await user.click(within(githubEntry).getByRole("button", { name: "刷新仓库" }));
+      const refreshDialog = screen.getByRole("dialog", { name: "导入作者仓库" });
+      expect(within(refreshDialog).getByLabelText("作者或组织主页")).toHaveValue(
+        "https://github.com/acme",
+      );
+      await user.click(within(refreshDialog).getByRole("button", { name: "返回收藏主页" }));
       expect(fetchMock).toHaveBeenCalledTimes(2);
     } finally {
       vi.stubGlobal("fetch", originalFetch);
@@ -727,6 +734,8 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
     await user.click(screen.getByRole("button", { name: "管理 GitHub 官方主页" }));
+    expect(screen.queryByRole("menuitem", { name: "放回收藏主页" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /撤销上次整理/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: "删除官方入口" }));
     expect(screen.getByRole("menuitem", { name: "再次点击删除官方入口" })).toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: "再次点击删除官方入口" }));
@@ -734,6 +743,19 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "添加官方主页" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "打开收藏主页" }));
     expect(screen.queryByTestId("site-card-github")).not.toBeInTheDocument();
+  });
+
+  it("opens the author repository flow from the GitHub home refresh action", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+    const githubEntry = screen.getByRole("region", { name: "GitHub 官方主页" });
+    const refreshButton = within(githubEntry).getByRole("button", { name: "刷新仓库" });
+    expect(refreshButton).toHaveAttribute("title", "刷新仓库");
+
+    await user.click(refreshButton);
+    expect(screen.getByRole("dialog", { name: "导入作者仓库" })).toBeInTheDocument();
   });
 
   it("records a real link click and places the hottest site first", async () => {
