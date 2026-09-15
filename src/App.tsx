@@ -2814,9 +2814,9 @@ export function App() {
         <div className="topbar-inner">
           <div className="topbar-navigation">
             {(effectiveBrand.showLogo || effectiveBrand.showName) && (
-              <a
+              <button
+                type="button"
                 className="brand"
-                href="/"
                 aria-label={`${effectiveBrand.name} 首页`}
                 onClick={openCollectionHome}
               >
@@ -2824,7 +2824,7 @@ export function App() {
                 {effectiveBrand.showName && (
                   <span className="brand-name">{effectiveBrand.name}</span>
                 )}
-              </a>
+              </button>
             )}
             <button
               type="button"

@@ -69,11 +69,11 @@ describe("App", () => {
     clearFaviconResolutionCache();
   });
 
-  it("shows the Mysimple brand without a duplicate page heading", () => {
+  it("shows the Mysimple brand as an in-app button without a duplicate page heading", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("link", { name: "Mysimple 首页" }),
+      screen.getByRole("button", { name: "Mysimple 首页" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { level: 1, name: "WebSite" }),
@@ -88,6 +88,20 @@ describe("App", () => {
       screen.getByRole("button", { name: "打开历史记录" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开 GitHub 收藏" })).toBeInTheDocument();
+  });
+
+  it("returns to the collection without navigating when the brand is clicked", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const initialUrl = window.location.href;
+
+    await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+    expect(screen.getByRole("heading", { name: "全部 GitHub" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Mysimple 首页" }));
+
+    expect(window.location.href).toBe(initialUrl);
+    expect(screen.getByRole("heading", { name: "全部网站" })).toBeInTheDocument();
   });
 
   it("switches between the main collection and the GitHub workspace", async () => {
@@ -390,7 +404,7 @@ describe("App", () => {
       target: { value: "My Workspace" },
     });
     expect(
-      screen.getByRole("link", { name: "My Workspace 首页" }),
+      screen.getByRole("button", { name: "My Workspace 首页" }),
     ).toBeInTheDocument();
     expect(document.title).toBe("My Workspace · 网站收藏");
 
@@ -447,7 +461,7 @@ describe("App", () => {
     );
     expect(screen.queryByRole("dialog", { name: "设置" })).toBeNull();
     expect(
-      screen.getByRole("link", { name: "Mysimple 首页" }),
+      screen.getByRole("button", { name: "Mysimple 首页" }),
     ).toBeInTheDocument();
   });
 

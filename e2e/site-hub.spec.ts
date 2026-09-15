@@ -58,7 +58,7 @@ test("filters favorites and disables sorting", async ({ page }) => {
 test("opens the browser history entry and explains the web-only limitation", async ({
   page,
 }) => {
-  const brand = page.getByRole("link", { name: "Mysimple 首页" });
+  const brand = page.getByRole("button", { name: "Mysimple 首页" });
   const homeButton = page.getByRole("button", { name: "打开收藏主页" });
   const githubButton = page.getByRole("button", { name: "打开 GitHub 收藏" });
   const historyButton = page.getByRole("button", { name: "打开历史记录" });
@@ -81,6 +81,13 @@ test("opens the browser history entry and explains the web-only limitation", asy
   ).toBeVisible();
   await homeButton.click();
   await expect(page.getByRole("heading", { name: "全部网站" })).toBeVisible();
+
+  const initialUrl = page.url();
+  await githubButton.click();
+  await expect(page.getByRole("heading", { name: "全部 GitHub" })).toBeVisible();
+  await brand.click();
+  await expect(page.getByRole("heading", { name: "全部网站" })).toBeVisible();
+  await expect(page).toHaveURL(initialUrl);
 });
 
 test("opens the independent GitHub workspace and hides one-time migration controls", async ({
@@ -911,7 +918,7 @@ test("dismisses clean settings outside and warns before discarding changes", asy
     .getByRole("button", { name: "放弃更改" })
     .click();
   await expect(page.getByRole("dialog", { name: "设置" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Mysimple 首页" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Mysimple 首页" })).toBeVisible();
 });
 
 test("previews and persists a custom brand without changing the extension name", async ({
@@ -929,7 +936,7 @@ test("previews and persists a custom brand without changing the extension name",
   const panel = page.getByRole("dialog", { name: "设置" });
   await panel.getByRole("textbox", { name: "品牌名称" }).fill("Studio North");
   await expect(page).toHaveTitle("Studio North · 网站收藏");
-  await expect(page.getByRole("link", { name: "Studio North 首页" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Studio North 首页" })).toBeVisible();
 
   await panel.getByRole("radio", { name: "网络地址" }).click();
   await panel.getByLabel("网络 Logo 地址").fill("https://example.test/brand.svg");
@@ -944,7 +951,7 @@ test("previews and persists a custom brand without changing the extension name",
   await page.reload();
 
   await expect(page).toHaveTitle("Studio North · 网站收藏");
-  await expect(page.getByRole("link", { name: "Studio North 首页" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Studio North 首页" })).toBeVisible();
   await expect(page.locator(".topbar .brand-mark")).toHaveCount(0);
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
@@ -1497,10 +1504,10 @@ test("fills the wider desktop grid while keeping the last row aligned", async ({
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   await expect(
-    page.getByRole("link", { name: "Mysimple 首页" }),
+    page.getByRole("button", { name: "Mysimple 首页" }),
   ).toBeVisible();
   const brandBox = await page
-    .getByRole("link", { name: "Mysimple 首页" })
+    .getByRole("button", { name: "Mysimple 首页" })
     .boundingBox();
   const searchBox = await page.locator(".search-input").boundingBox();
   if (!brandBox || !searchBox) {

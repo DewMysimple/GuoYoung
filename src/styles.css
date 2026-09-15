@@ -327,11 +327,15 @@ label:has(input:focus-visible) {
   display: inline-flex;
   align-items: center;
   gap: var(--brand-gap);
+  padding: 0;
+  border: 0;
   color: var(--text);
+  background: transparent;
+  cursor: pointer;
   font-size: calc(18px * var(--brand-font-scale));
   font-weight: 760;
   letter-spacing: -0.03em;
-  text-decoration: none;
+  text-align: left;
 }
 
 .brand-mark {
