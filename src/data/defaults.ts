@@ -310,7 +310,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 14,
+    version: 15,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),
@@ -318,7 +318,6 @@ export function createDefaultState(): SiteCollectionState {
     sites: DEFAULT_SITES.map((item) => ({ ...item })),
     deletedSites: [],
     trashRetentionDays: 30,
-    themePreference: "system",
     brand: { ...DEFAULT_BRAND },
     appearance: { ...DEFAULT_APPEARANCE },
     wallpaper: { ...DEFAULT_WALLPAPER },

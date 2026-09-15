@@ -130,8 +130,6 @@ export interface GithubMigrationRecord {
   entries: GithubMigrationEntry[];
 }
 
-export type ThemePreference = "system" | "light" | "dark";
-
 export type LayoutPreset = "compact" | "standard" | "spacious" | "custom";
 
 export type BrandLogoSource = "default" | "local" | "url";
@@ -209,7 +207,6 @@ export interface SiteCollectionState {
   sites: SiteItem[];
   deletedSites: TrashedSite[];
   trashRetentionDays: TrashRetentionDays;
-  themePreference: ThemePreference;
   brand: BrandSettings;
   appearance: AppearanceSettings;
   wallpaper: WallpaperSettings;

@@ -25,7 +25,6 @@ import type {
   SiteItem,
   SiteSortMode,
   SiteWorkspace,
-  ThemePreference,
   TrashedSite,
   TrashRetentionDays,
   WallpaperFit,
@@ -39,7 +38,6 @@ import { ensureGithubWorkspace, getGroupWorkspace } from "./github-workspace";
 
 export const STORAGE_KEY = "site-hub:v1";
 
-const themePreferences: ThemePreference[] = ["system", "light", "dark"];
 const layoutPresets: LayoutPreset[] = [
   "compact",
   "standard",
@@ -510,8 +508,7 @@ function baseStateIsValid(
     !Array.isArray(value.groups) ||
     value.groups.length === 0 ||
     !value.groups.every(isSiteGroup) ||
-    !Array.isArray(value.sites) ||
-    !themePreferences.includes(value.themePreference as ThemePreference)
+    !Array.isArray(value.sites)
   ) {
     return false;
   }
@@ -575,7 +572,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 14 &&
+    state.version === 15 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -728,7 +725,6 @@ function upgradeToVersion10(
     )
       ? (legacy.trashRetentionDays as TrashRetentionDays)
       : 30,
-    themePreference: legacy.themePreference as ThemePreference,
     brand: normalizeBrand(legacy.brand),
     appearance: normalizeAppearance(legacy.appearance),
     wallpaper: normalizeWallpaper(legacy.wallpaper),
@@ -890,6 +886,30 @@ function upgradeToVersion14(
   };
 }
 
+function upgradeToVersion15(
+  legacy: Record<string, unknown> | SiteCollectionState,
+): SiteCollectionState | undefined {
+  const base =
+    legacy.version === 15
+      ? legacy
+      : legacy.version === 14 ||
+          legacy.version === 13 ||
+          legacy.version === 12 ||
+          legacy.version === 11 ||
+          legacy.version === 10
+        ? upgradeToVersion14(legacy as Record<string, unknown>)
+        : undefined;
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) {
+    return undefined;
+  }
+  const { themePreference: _themePreference, ...withoutThemePreference } =
+    base as SiteCollectionState & { themePreference?: unknown };
+  return {
+    ...withoutThemePreference,
+    version: 15,
+  };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -935,8 +955,7 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
   if (
     value.version === 2 &&
     Array.isArray(value.groups) &&
-    Array.isArray(value.sites) &&
-    themePreferences.includes(value.themePreference as ThemePreference)
+    Array.isArray(value.sites)
   ) {
     const rawGroups = value.groups as Array<Record<string, unknown>>;
     if (!rawGroups.every(hasBaseGroupFields)) return undefined;
@@ -955,14 +974,12 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
       version: 4,
       groups,
       sites,
-      themePreference: value.themePreference,
     });
   }
 
   if (
     value.version === 1 &&
-    Array.isArray(value.sites) &&
-    themePreferences.includes(value.themePreference as ThemePreference)
+    Array.isArray(value.sites)
   ) {
     const legacySites = value.sites as Array<Record<string, unknown>>;
     if (
@@ -990,7 +1007,6 @@ function migrateLegacy(value: Record<string, unknown>): SiteCollectionState | un
       version: 4,
       groups: DEFAULT_GROUPS.map((group) => ({ ...group })),
       sites,
-      themePreference: value.themePreference,
     });
   }
   return undefined;
@@ -1008,7 +1024,11 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 14 || candidate.version === 13 || candidate.version === 12 || candidate.version === 11
+        candidate.version === 15 ||
+          candidate.version === 14 ||
+          candidate.version === 13 ||
+          candidate.version === 12 ||
+          candidate.version === 11
           ? candidate
           : candidate.version === 10 ||
               candidate.version === 9 ||
@@ -1016,7 +1036,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion14(baseCandidate)
+        ? upgradeToVersion15(baseCandidate)
         : undefined;
       if (migrated) {
         return {

@@ -42,13 +42,12 @@ async function capture(page, name) {
 
 try {
   for (const spec of [
-    { name: "desktop-light", width: 1440, height: 1100, dark: false },
-    { name: "desktop-dark", width: 1440, height: 1100, dark: true },
-    { name: "mobile-light", width: 390, height: 844, dark: false },
+    { name: "desktop-light", width: 1440, height: 1100 },
+    { name: "mobile-light", width: 390, height: 844 },
   ]) {
     const { context, page } = await openPage({
       viewport: { width: spec.width, height: spec.height },
-      colorScheme: spec.dark ? "dark" : "light",
+      colorScheme: "light",
     });
     await capture(page, spec.name);
     await context.close();

@@ -68,27 +68,6 @@
   background: var(--page);
 }
 
-:root[data-theme="dark"] {
-  --page: #11151c;
-  --surface: #171c25;
-  --surface-raised: #202631;
-  --surface-hover: #262e3b;
-  --text: #edf0f5;
-  --text-soft: #aab2c0;
-  --text-faint: #858e9e;
-  --border: #2b3340;
-  --border-strong: #3a4454;
-  --accent: #7598e7;
-  --accent-strong: #8aa8eb;
-  --accent-soft: #202d4d;
-  --accent-text: #a9c0f2;
-  --danger: #ef8790;
-  --danger-soft: #3a222a;
-  --shadow-soft: 0 16px 44px rgba(4, 8, 15, 0.24);
-  --shadow-dialog: 0 30px 90px rgba(2, 5, 10, 0.52);
-  --wallpaper-overlay-color: 17 21 28;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -569,11 +548,6 @@ label:has(input:focus-visible) {
 
 .destructive-button:hover {
   background: #922d36;
-}
-
-:root[data-theme="dark"] .destructive-button {
-  color: #221317;
-  background: #ef8790;
 }
 
 .icon-button {
@@ -3091,12 +3065,6 @@ label:has(input:focus-visible) {
 }
 
 .site-drag-overlay { pointer-events: none; }
-
-:root[data-theme="dark"] .site-card.site-card-drag-preview {
-  box-shadow:
-    0 30px 68px rgba(2, 5, 10, 0.58),
-    0 8px 22px color-mix(in srgb, var(--accent) 18%, transparent);
-}
 
 .drag-preview-grip {
   display: grid;
@@ -5875,7 +5843,7 @@ label:has(input:focus-visible) {
     clip-path: inset(50%);
   }
 
-  .theme-button {
+  .settings-button {
     width: 42px;
     height: 42px;
   }

@@ -287,14 +287,12 @@ export function App() {
   } = useSiteHub();
   const [settingsPreview, setSettingsPreview] =
     useState<SettingsDraft | null>(null);
-  const effectiveTheme =
-    settingsPreview?.themePreference ?? state.themePreference;
   const effectiveBrand = settingsPreview?.brand ?? state.brand;
   const effectiveAppearance =
     settingsPreview?.appearance ?? state.appearance;
   const effectiveWallpaper =
     settingsPreview?.wallpaper ?? state.wallpaper;
-  const resolvedTheme = useTheme(effectiveTheme);
+  useTheme();
   const { imageUrl: wallpaperUrl, error: wallpaperError } =
     useWallpaper(effectiveWallpaper);
   const reduceMotion = useReducedMotion();
@@ -2657,10 +2655,7 @@ export function App() {
     "--accent": effectiveAppearance.accentColor,
     "--accent-strong": `color-mix(in srgb, ${effectiveAppearance.accentColor} 84%, black)`,
     "--accent-soft": `color-mix(in srgb, ${effectiveAppearance.accentColor} 14%, var(--surface))`,
-    "--accent-text":
-      resolvedTheme === "dark"
-        ? `color-mix(in srgb, ${effectiveAppearance.accentColor} 52%, white)`
-        : effectiveAppearance.accentColor,
+    "--accent-text": effectiveAppearance.accentColor,
     "--font-scale": String(effectiveAppearance.fontScale / 100),
     "--ui-icon-scale": String(effectiveAppearance.uiIconScale / 100),
     "--control-scale": String(effectiveAppearance.controlScale / 100),
@@ -2729,7 +2724,6 @@ export function App() {
   }, [
     effectiveAppearance,
     effectiveWallpaper,
-    resolvedTheme,
   ]);
 
   useEffect(() => {
@@ -2879,7 +2873,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className="icon-button theme-button"
+              className="icon-button settings-button"
               onClick={() => openSettingsPanel()}
               aria-label="打开设置"
               title="设置"
@@ -3754,7 +3748,6 @@ export function App() {
         onPreview={setSettingsPreview}
         onSave={(draft) =>
           saveSettings(
-            draft.themePreference,
             draft.brand,
             draft.appearance,
             draft.wallpaper,

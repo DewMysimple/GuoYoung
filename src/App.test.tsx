@@ -590,7 +590,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":14');
+      expect(stored).toContain('"version":15');
     });
   });
 
@@ -863,7 +863,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(14);
+      expect(stored.version).toBe(15);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -1223,11 +1223,16 @@ describe("App", () => {
   it("previews appearance changes and rolls them back on cancel", async () => {
     const user = userEvent.setup();
     render(<App />);
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.style.colorScheme).toBe("light");
     const shell = document.querySelector(".app-shell") as HTMLElement;
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("160px");
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
 
     await user.click(screen.getByRole("button", { name: "打开设置" }));
+    expect(screen.queryByRole("button", { name: "跟随系统" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "浅色" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "深色" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "紧凑" }));
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("140px");
     expect(shell.style.getPropertyValue("--font-scale")).toBe("0.95");

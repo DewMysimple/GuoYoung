@@ -48,7 +48,6 @@ import type {
   SiteDisplayMode,
   SiteSortMode,
   SiteWorkspace,
-  ThemePreference,
   TrashRetentionDays,
   WallpaperSettings,
 } from "../types";
@@ -108,9 +107,7 @@ interface SiteHubApi {
   undoGithubMigration: () => ReturnType<typeof undoGithubMigrationInState>;
   reset: () => void;
   replaceState: (state: SiteCollectionState) => void;
-  setThemePreference: (preference: ThemePreference) => void;
   saveSettings: (
-    themePreference: ThemePreference,
     brand: BrandSettings,
     appearance: AppearanceSettings,
     wallpaper: WallpaperSettings,
@@ -483,7 +480,6 @@ export function useSiteHub(): SiteHubApi {
     const defaults = createDefaultState();
     setState((current) => ({
       ...defaults,
-      themePreference: current.themePreference,
       brand: current.brand,
       appearance: current.appearance,
       wallpaper: current.wallpaper,
@@ -509,16 +505,10 @@ export function useSiteHub(): SiteHubApi {
     setRecovered(false);
   }, []);
 
-  const setThemePreference = useCallback((themePreference: ThemePreference) => {
-    setState((current) => ({ ...current, themePreference }));
-    setRecovered(false);
-  }, []);
-
   const saveSettings = useCallback<SiteHubApi["saveSettings"]>(
-    (themePreference, brand, appearance, wallpaper) => {
+    (brand, appearance, wallpaper) => {
       setState((current) => ({
         ...current,
-        themePreference,
         brand,
         appearance,
         wallpaper,
@@ -613,7 +603,6 @@ export function useSiteHub(): SiteHubApi {
     undoGithubMigration,
     reset,
     replaceState,
-    setThemePreference,
     saveSettings,
     recordSearch,
     deleteSearchHistory,

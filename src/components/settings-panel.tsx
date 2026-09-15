@@ -48,7 +48,6 @@ import type {
   BrandSettings,
   LayoutPreset,
   SiteCollectionState,
-  ThemePreference,
   TrashRetentionDays,
   WallpaperSettings,
 } from "../types";
@@ -59,7 +58,6 @@ import { Favicon } from "./favicon";
 import { getHostname } from "../lib/site-utils";
 
 export interface SettingsDraft {
-  themePreference: ThemePreference;
   brand: BrandSettings;
   appearance: AppearanceSettings;
   wallpaper: WallpaperSettings;
@@ -176,7 +174,6 @@ const LAYOUT_FIELD_KEYS = new Set<keyof AppearanceSettings>(
 
 function cloneDraft(state: SiteCollectionState): SettingsDraft {
   return {
-    themePreference: state.themePreference,
     brand: { ...state.brand },
     appearance: { ...state.appearance },
     wallpaper: { ...state.wallpaper },
@@ -1099,35 +1096,6 @@ export function SettingsPanel({
                 </fieldset>
 
                 <fieldset className="settings-group">
-                  <legend>主题</legend>
-                  <div className="segmented-control">
-                    {(["system", "light", "dark"] as ThemePreference[]).map(
-                      (value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className={
-                            draft.themePreference === value ? "active" : ""
-                          }
-                          onClick={() =>
-                            setDraft((current) => ({
-                              ...current,
-                              themePreference: value,
-                            }))
-                          }
-                        >
-                          {value === "system"
-                            ? "跟随系统"
-                            : value === "light"
-                              ? "浅色"
-                              : "深色"}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </fieldset>
-
-                <fieldset className="settings-group">
                   <legend>强调色</legend>
                   <div className="accent-grid">
                     {ACCENTS.map((color) => (
@@ -1289,7 +1257,6 @@ export function SettingsPanel({
                     setDraft((current) => ({
                       ...current,
                       appearance: { ...DEFAULT_APPEARANCE },
-                      themePreference: "system",
                     }))
                   }
                 >
