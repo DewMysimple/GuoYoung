@@ -926,7 +926,7 @@ describe("App", () => {
     expect(screen.getByTestId("site-card-google")).not.toHaveTextContent("次");
   });
 
-  it("enters, switches, and cancels grouped link/group multi-select from one button", async () => {
+  it("selects all sites in one group and switches directly between site and group selection", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -940,15 +940,29 @@ describe("App", () => {
 
     expect(document.querySelectorAll(".grouped-site-select-group")).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "多选 搜索 网站" }));
-    expect(screen.getByRole("button", { name: "选择 搜索 网站" })).toHaveTextContent("选择");
-    expect(screen.getByRole("button", { name: "选择 搜索 网站" })).toHaveClass("pending");
+    expect(screen.getByRole("button", { name: "全选 搜索 网站" })).toHaveTextContent("全选");
+    expect(screen.getByRole("button", { name: "选择 Google" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "管理 搜索 分组" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "编辑 Google" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "删除 Google" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "选择 Google" })).not.toBeInTheDocument();
     expect(document.querySelectorAll(".group-selection-trigger")).toHaveLength(6);
 
+    await user.click(screen.getByRole("button", { name: "全选 搜索 网站" }));
+    expect(screen.getByRole("button", { name: "取消全选 搜索 网站" })).toHaveTextContent(
+      "取消全选",
+    );
+    expect(screen.getByRole("button", { name: "取消选择 Google" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消选择 Bing" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "全选 设计 网站" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "选择 Figma" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "取消全选 搜索 网站" }));
+    expect(screen.getByRole("button", { name: "全选 搜索 网站" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "选择 Google" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "选择 Google" }));
     await user.click(screen.getByRole("heading", { level: 3, name: "搜索" }));
+    expect(screen.queryByRole("button", { name: "取消选择 Google" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "取消选择 搜索 分组" })).toHaveClass(
       "group-selection-trigger",
     );
@@ -959,53 +973,33 @@ describe("App", () => {
     expect(designGroupCheckbox).toBeInTheDocument();
     expect(designGroupCheckbox.querySelector("svg")).toBeNull();
     expect(screen.getByRole("button", { name: "管理 搜索 分组" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "切换到链接多选 搜索 网站" })).toHaveTextContent("切换");
-    expect(screen.getByRole("button", { name: "切换到链接多选 开发 网站" })).toHaveTextContent("切换");
+    expect(screen.getByRole("button", { name: "全选 搜索 网站" })).toHaveTextContent("全选");
+    expect(screen.getByRole("button", { name: "全选 开发 网站" })).toHaveTextContent("全选");
     expect(
       screen.getByTestId("site-card-google").querySelector(".site-card-full-link"),
-    ).toHaveAttribute("aria-disabled", "true");
+    ).toHaveAttribute("aria-label", "选择 Google");
+    expect(
+      screen.getByTestId("site-card-google").querySelector(".site-card-full-link"),
+    ).not.toHaveAttribute("aria-disabled");
 
-    await user.click(screen.getByRole("heading", { level: 3, name: "搜索" }));
-    expect(screen.queryByRole("button", { name: "取消选择 搜索 分组" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "选择 搜索 分组" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "选择 搜索 网站" })).toHaveClass("pending");
-
-    await user.click(screen.getByRole("button", { name: "选择 搜索 网站" }));
-    expect(screen.getAllByRole("button", { name: /多选 .+ 网站/ })).toHaveLength(6);
-    expect(screen.queryByRole("button", { name: /选择 .+ 网站/ })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "多选 搜索 网站" }));
     fireEvent.click(screen.getByTestId("site-card-google"));
     expect(screen.getByRole("button", { name: "取消选择 Google" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "取消选择 搜索 分组" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "编辑 Google" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "删除 Google" })).toBeDisabled();
-    expect(
-      screen.getByRole("heading", { level: 3, name: "搜索" }).closest(
-        ".grouped-site-header-main",
-      ),
-    ).toHaveClass("is-selection-locked");
     expect(screen.getByRole("button", { name: "管理 搜索 分组" })).toBeDisabled();
     expect(document.querySelectorAll(".group-selection-trigger")).toHaveLength(6);
-    expect(
-      screen.getByRole("button", { name: "搜索 分组选择在链接多选时不可用" }),
-    ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "切换到分组多选 搜索 网站" })).toHaveTextContent("切换");
-
-    fireEvent.click(screen.getByTestId("site-card-google"));
-    expect(screen.queryByRole("button", { name: "取消选择 Google" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "选择 搜索 网站" })).toHaveClass("pending");
-    fireEvent.click(screen.getByTestId("site-card-google"));
-    expect(screen.getByRole("button", { name: "取消选择 Google" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "切换到分组多选 搜索 网站" }));
-    expect(screen.queryByRole("button", { name: "取消选择 Google" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "选择 搜索 网站" })).toHaveTextContent("选择");
-    await user.click(screen.getByRole("button", { name: "选择 搜索 网站" }));
-    expect(screen.getByRole("button", { name: "多选 搜索 网站" })).toHaveTextContent("多选");
-    await user.click(screen.getByRole("button", { name: "多选 搜索 网站" }));
+    expect(screen.getByRole("button", { name: "选择 搜索 分组" })).toBeEnabled();
 
     await user.click(screen.getByRole("heading", { level: 3, name: "设计" }));
-    expect(screen.getByRole("button", { name: "切换到链接多选 设计 网站" })).toHaveTextContent("切换");
+    expect(screen.queryByRole("button", { name: "取消选择 Google" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消选择 设计 分组" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "全选 设计 网站" })).toHaveTextContent("全选");
+
+    await user.click(screen.getByRole("button", { name: "全选 设计 网站" }));
+    expect(screen.queryByRole("button", { name: "取消选择 设计 分组" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消全选 设计 网站" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消选择 Figma" })).toBeInTheDocument();
 
     await user.click(document.querySelector(".page-container")!);
     expect(screen.getAllByRole("button", { name: /多选 .+ 网站/ })).toHaveLength(6);
@@ -1031,8 +1025,8 @@ describe("App", () => {
       screen.getByRole("button", { name: "取消选择 搜索 分组" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "切换到链接多选 搜索 网站" }),
-    ).toHaveTextContent("切换");
+      screen.getByRole("button", { name: "全选 搜索 网站" }),
+    ).toHaveTextContent("全选");
   });
 
   it("selects the inclusive group range with Shift", async () => {

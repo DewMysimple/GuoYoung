@@ -2663,8 +2663,8 @@ test("moves non-contiguous selected groups as one ordered block", async ({
     searchSection.locator(".grouped-site-header-main"),
   ).toHaveClass(/is-sortable/);
   await expect(
-    searchSection.getByRole("button", { name: "切换到链接多选 搜索 网站" }),
-  ).toHaveText("切换");
+    searchSection.getByRole("button", { name: "全选 搜索 网站" }),
+  ).toHaveText("全选");
 
   const source = await searchSection.locator(".grouped-site-header-main").boundingBox();
   const target = await mediaSection.locator(".grouped-site-header-main").boundingBox();
@@ -2691,7 +2691,7 @@ test("moves non-contiguous selected groups as one ordered block", async ({
   await expect(page.getByRole("button", { name: "多选 搜索 网站" })).toBeVisible();
 });
 
-test("enters grouped selection from the clicked element and switches only from the header control", async ({
+test("selects one group's sites and switches directly between site and group modes", async ({
   page,
 }, testInfo) => {
   await page.getByRole("button", { name: "显示" }).click();
@@ -2701,14 +2701,13 @@ test("enters grouped selection from the clicked element and switches only from t
   const designSection = page.locator('[data-group-sort-section-id="design"]');
   await searchSection.getByRole("button", { name: "多选 搜索 网站" }).click();
   await expect(
-    searchSection.getByRole("button", { name: "选择 搜索 网站" }),
-  ).toHaveClass(/pending/);
+    searchSection.getByRole("button", { name: "全选 搜索 网站" }),
+  ).toHaveText("全选");
   await page.screenshot({
-    path: screenshotPath(`selection-mode-pending-${testInfo.project.name}.png`),
+    path: screenshotPath(`selection-mode-sites-${testInfo.project.name}.png`),
     fullPage: true,
   });
-  await expect(page.locator(".site-selection-toggle")).toHaveCount(0);
-  await expect(page.locator(".grouped-site-select-group")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "选择 Google" })).toBeVisible();
   await expect(page.locator(".group-selection-trigger")).toHaveCount(6);
   await expect(searchSection.getByRole("button", { name: "管理 搜索 分组" })).toBeDisabled();
   await expect(
@@ -2717,26 +2716,20 @@ test("enters grouped selection from the clicked element and switches only from t
   await expect(
     searchSection.getByTestId("site-card-google").getByRole("button", { name: "删除 Google" }),
   ).toBeDisabled();
-  const searchTab = page.locator('[data-group-drop-id="search"]');
-  const searchTabBox = await searchTab.boundingBox();
-  if (!searchTabBox) throw new Error("Search group tab is not visible");
-  await searchTab.dispatchEvent("pointerdown", {
-    button: 0,
-    pointerId: 23,
-    pointerType: "touch",
-    clientX: searchTabBox.x + searchTabBox.width / 2,
-    clientY: searchTabBox.y + searchTabBox.height / 2,
-  });
-  await page.waitForTimeout(500);
-  await expect(page.getByRole("dialog", { name: "管理分组" })).toBeHidden();
-  await searchTab.dispatchEvent("pointerup", {
-    button: 0,
-    pointerId: 23,
-    pointerType: "touch",
-  });
-  await searchSection.getByRole("button", { name: "多选 搜索 网站" }).click();
+  await searchSection.getByRole("button", { name: "全选 搜索 网站" }).click();
+  await expect(
+    searchSection.getByRole("button", { name: "取消全选 搜索 网站" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "取消选择 Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "取消选择 Bing" })).toBeVisible();
+
+  await searchSection.getByRole("button", { name: "取消全选 搜索 网站" }).click();
+  await expect(searchSection.getByRole("button", { name: "全选 搜索 网站" })).toBeVisible();
+  await page.getByTestId("site-card-google").click();
+  await expect(page.getByRole("button", { name: "取消选择 Google" })).toBeVisible();
 
   await searchSection.getByRole("heading", { level: 3, name: "搜索" }).click();
+  await expect(page.locator(".site-selection-toggle")).toHaveCount(0);
   await expect(searchSection).toHaveClass(/is-group-selected/);
   await expect
     .poll(() =>
@@ -2775,8 +2768,8 @@ test("enters grouped selection from the clicked element and switches only from t
     designSection.getByRole("button", { name: "选择 设计 分组" }),
   ).toBeVisible();
   await expect(
-    searchSection.getByRole("button", { name: "切换到链接多选 搜索 网站" }),
-  ).toHaveText("切换");
+    searchSection.getByRole("button", { name: "全选 搜索 网站" }),
+  ).toHaveText("全选");
   await expect(searchSection.getByRole("button", { name: "管理 搜索 分组" })).toBeDisabled();
   await expect(
     searchSection.getByTestId("site-card-google").getByRole("button", { name: "编辑 Google" }),
@@ -2786,69 +2779,33 @@ test("enters grouped selection from the clicked element and switches only from t
   ).toBeDisabled();
   await expect(
     searchSection.getByTestId("site-card-google").locator(".site-card-full-link"),
-  ).toHaveAttribute("aria-disabled", "true");
+  ).toHaveAttribute("aria-label", "选择 Google");
+  await expect(
+    searchSection.getByTestId("site-card-google").locator(".site-card-full-link"),
+  ).not.toHaveAttribute("aria-disabled");
   await page.screenshot({
     path: screenshotPath(`selection-mode-groups-${testInfo.project.name}.png`),
     fullPage: true,
   });
 
-  await searchSection.getByRole("heading", { level: 3, name: "搜索" }).click();
+  await page.getByTestId("site-card-google").click();
   await expect(searchSection).not.toHaveClass(/is-group-selected/);
   await expect(
-    searchSection.getByRole("button", { name: "选择 搜索 分组" }),
+    page.getByRole("button", { name: "取消选择 Google" }),
   ).toBeVisible();
-  await expect(
-    searchSection.getByRole("button", { name: "选择 搜索 网站" }),
-  ).toHaveClass(/pending/);
-
-  await searchSection.getByRole("button", { name: "选择 搜索 网站" }).click();
-  await expect(page.locator(".site-selection-toggle")).toHaveCount(0);
-  await expect(searchSection.getByRole("button", { name: "多选 搜索 网站" })).toHaveText("多选");
-  await searchSection.getByRole("button", { name: "多选 搜索 网站" }).click();
-  await page.getByTestId("site-card-google").click();
-  await expect(page.getByTestId("site-card-google").locator(".site-selection-toggle")).toBeVisible();
-  await expect(searchSection).not.toHaveClass(/is-group-selected/);
-  await expect(
-    page.getByTestId("site-card-google").getByRole("button", { name: "编辑 Google" }),
-  ).toBeDisabled();
-  await expect(
-    page.getByTestId("site-card-google").getByRole("button", { name: "删除 Google" }),
-  ).toBeDisabled();
-  await page.getByTestId("site-card-google").click();
-  await expect(
-    page.getByTestId("site-card-google").locator(".site-selection-toggle"),
-  ).toHaveCount(0);
-  await expect(
-    searchSection.getByRole("button", { name: "选择 搜索 网站" }),
-  ).toHaveText("选择");
-  await page.getByTestId("site-card-google").click();
-  await expect(
-    page.getByTestId("site-card-google").locator(".site-selection-toggle"),
-  ).toBeVisible();
-  await expect(
-    searchSection.locator(".grouped-site-header-main"),
-  ).toHaveClass(/is-selection-locked/);
-  await expect(searchSection.getByRole("button", { name: "管理 搜索 分组" })).toBeDisabled();
-  await expect(page.locator(".group-selection-trigger")).toHaveCount(6);
-  await expect(
-    searchSection.getByRole("button", { name: "搜索 分组选择在链接多选时不可用" }),
-  ).toBeDisabled();
-  await page.screenshot({
-    path: screenshotPath(`selection-mode-sites-${testInfo.project.name}.png`),
-    fullPage: true,
-  });
-  await searchSection
-    .getByRole("button", { name: "切换到分组多选 搜索 网站" })
-    .click();
-  await expect(page.locator(".site-selection-toggle")).toHaveCount(0);
-  await searchSection.getByRole("button", { name: "选择 搜索 网站" }).click();
-  await expect(searchSection.getByRole("button", { name: "多选 搜索 网站" })).toHaveText("多选");
-  await searchSection.getByRole("button", { name: "多选 搜索 网站" }).click();
 
   await designSection.getByRole("heading", { level: 3, name: "设计" }).click();
   await expect(designSection).toHaveClass(/is-group-selected/);
+  await expect(page.locator(".site-selection-toggle")).toHaveCount(0);
+  await designSection.getByRole("button", { name: "全选 设计 网站" }).click();
+  await expect(designSection).not.toHaveClass(/is-group-selected/);
+  await expect(
+    designSection.getByRole("button", { name: "取消全选 设计 网站" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "取消选择 Figma" })).toBeVisible();
   await page.locator("main.page-container").click({ position: { x: 5, y: 5 } });
   await expect(designSection).not.toHaveClass(/is-group-selected/);
+  await expect(page.getByRole("button", { name: "多选 搜索 网站" })).toBeVisible();
   await page.screenshot({
     path: screenshotPath(`selection-mode-switch-${testInfo.project.name}.png`),
     fullPage: true,
@@ -2869,8 +2826,8 @@ test("double-clicking a grouped title enters group multi-select", async ({
     searchSection.getByRole("button", { name: "取消选择 搜索 分组" }),
   ).toBeVisible();
   await expect(
-    searchSection.getByRole("button", { name: "切换到链接多选 搜索 网站" }),
-  ).toHaveText("切换");
+    searchSection.getByRole("button", { name: "全选 搜索 网站" }),
+  ).toHaveText("全选");
   await page.screenshot({
     path: screenshotPath(`selection-double-click-groups-${testInfo.project.name}.png`),
     fullPage: true,
@@ -2888,7 +2845,7 @@ test("moves selected sites together from grouped All without leaving All", async
     .locator('[data-group-sort-section-id="search"]')
     .getByRole("button", { name: "多选 搜索 网站" })
     .click();
-  await page.getByRole("link", { name: "打开 Google" }).click();
+  await page.getByRole("button", { name: "选择 Google" }).click();
   await page.getByTestId("site-card-github").click();
 
   const google = page.getByTestId("site-card-google");
@@ -2922,7 +2879,7 @@ test("moves selected sites together from grouped All without leaving All", async
   await expect(
     page
       .locator('[data-group-sort-section-id="search"]')
-      .getByRole("button", { name: "选择 搜索 网站" }),
+      .getByRole("button", { name: "多选 搜索 网站" }),
   ).toBeVisible();
   await page.waitForTimeout(220);
   await page.screenshot({

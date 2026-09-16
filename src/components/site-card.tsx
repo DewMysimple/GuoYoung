@@ -180,10 +180,20 @@ function SiteCardFrame({
         href={selectionMode || linkInteractionDisabled ? undefined : site.url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`打开 ${site.name}`}
+        aria-label={`${
+          linkInteractionDisabled && selectionEntryEnabled ? "选择" : "打开"
+        } ${site.name}`}
         draggable={false}
-        aria-disabled={linkInteractionDisabled || undefined}
+        aria-disabled={
+          linkInteractionDisabled && !selectionEntryEnabled ? true : undefined
+        }
         onClick={(event) => {
+          if (selectionEntryEnabled && onToggleSelected) {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleSelected(site, event.shiftKey);
+            return;
+          }
           if (linkInteractionDisabled) {
             event.preventDefault();
             event.stopPropagation();
@@ -192,12 +202,6 @@ function SiteCardFrame({
           if (selectionMode && !selectionEntryEnabled) {
             event.preventDefault();
             event.stopPropagation();
-            return;
-          }
-          if (selectionEntryEnabled && onToggleSelected) {
-            event.preventDefault();
-            event.stopPropagation();
-            onToggleSelected(site, event.shiftKey);
             return;
           }
           onVisit(site);

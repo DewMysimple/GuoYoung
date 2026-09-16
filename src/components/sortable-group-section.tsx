@@ -26,13 +26,11 @@ interface SortableGroupSectionProps {
   onInsert: (position: "before" | "after") => void;
   onManage: () => void;
   groupSelected: boolean;
-  groupSelectionMode: boolean;
-  groupSelectionEntryEnabled: boolean;
+  selectionActive: boolean;
   onToggleGroupSelected: (shiftKey?: boolean) => void;
   onEnterGroupSelection: () => void;
   siteSelectionMode: boolean;
-  groupSelectionActive: boolean;
-  selectionPending: boolean;
+  allSitesSelected: boolean;
   onToggleSiteSelectionMode: () => void;
   children: ReactNode;
 }
@@ -45,13 +43,11 @@ export function SortableGroupSection({
   onInsert,
   onManage,
   groupSelected,
-  groupSelectionMode,
-  groupSelectionEntryEnabled,
+  selectionActive,
   onToggleGroupSelected,
   onEnterGroupSelection,
   siteSelectionMode,
-  groupSelectionActive,
-  selectionPending,
+  allSitesSelected,
   onToggleSiteSelectionMode,
   children,
 }: SortableGroupSectionProps) {
@@ -62,18 +58,15 @@ export function SortableGroupSection({
     transition: { duration: 160, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
   });
   const canSort = !disabled && !group.isProtected;
-  const headerLocked = siteSelectionMode;
-  const manageLocked = siteSelectionMode || groupSelectionMode || selectionPending;
-  const selectionTriggerVisible =
-    selectionPending || siteSelectionMode || groupSelectionMode || groupSelectionActive;
-  const selectionTriggerEnabled =
-    !siteSelectionMode && groupSelectionEntryEnabled && !group.isProtected;
+  const manageLocked = selectionActive;
+  const selectionTriggerVisible = selectionActive;
+  const selectionTriggerEnabled = selectionActive && !group.isProtected;
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const insertControlRef = useRef<HTMLDivElement>(null);
   const pointerListeners: Pick<
     HTMLAttributes<HTMLElement>,
     "onMouseDown" | "onTouchStart"
-  > = canSort && !headerLocked
+  > = canSort
     ? {
         onMouseDown: sortable.listeners?.onMouseDown as
           | HTMLAttributes<HTMLElement>["onMouseDown"]
@@ -125,28 +118,21 @@ export function SortableGroupSection({
     >
       <header className="grouped-site-header">
         <div
-          className={`grouped-site-header-main ${canSort ? "is-sortable" : ""} ${
-            headerLocked ? "is-selection-locked" : ""
-          }`}
-          data-group-sort-handle={canSort && !headerLocked ? "true" : undefined}
+          className={`grouped-site-header-main ${canSort ? "is-sortable" : ""}`}
+          data-group-sort-handle={canSort ? "true" : undefined}
           data-selection-surface="group-header"
-          aria-disabled={headerLocked || undefined}
           aria-label={
-            headerLocked
-              ? `${group.name} 标题在链接多选时不可交互`
-              : canSort
-                ? `拖动 ${group.name} 分组调整顺序`
-                : undefined
+            canSort ? `拖动 ${group.name} 分组调整顺序` : undefined
           }
           onClick={(event) => {
-            if (headerLocked || !groupSelectionEntryEnabled) return;
+            if (!selectionActive || group.isProtected) return;
             if ((event.target as Element).closest("button")) return;
             event.preventDefault();
             event.stopPropagation();
             onToggleGroupSelected(event.shiftKey);
           }}
           onDoubleClick={(event) => {
-            if (headerLocked || (event.target as Element).closest("button")) {
+            if (selectionActive || (event.target as Element).closest("button")) {
               return;
             }
             event.preventDefault();
@@ -169,9 +155,7 @@ export function SortableGroupSection({
                 }`}
                 disabled={!selectionTriggerEnabled}
                 aria-label={
-                  siteSelectionMode
-                    ? `${group.name} 分组选择在链接多选时不可用`
-                    : `${groupSelected ? "取消选择" : "选择"} ${group.name} 分组`
+                    `${groupSelected ? "取消选择" : "选择"} ${group.name} 分组`
                 }
                 aria-pressed={groupSelected}
                 onPointerDown={stopSortPointer}
@@ -190,7 +174,7 @@ export function SortableGroupSection({
               <button
                 type="button"
                 className="group-add-trigger"
-                disabled={headerLocked || insertDisabled}
+                disabled={insertDisabled}
                 aria-label={`在 ${group.name} 附近添加分组`}
                 aria-haspopup="menu"
                 aria-expanded={insertMenuOpen}
@@ -271,25 +255,15 @@ export function SortableGroupSection({
         </div>
         <button
           type="button"
-          className={`grouped-site-multi-select ${
-            siteSelectionMode || groupSelectionActive || groupSelectionMode
-              ? "active"
-              : ""
-          } ${selectionPending ? "pending" : ""}`}
+          className={`grouped-site-multi-select ${selectionActive ? "active" : ""}`}
           data-selection-surface="selection-switch"
-          aria-pressed={
-            siteSelectionMode || groupSelectionActive || groupSelectionMode || selectionPending
-          }
+          aria-pressed={selectionActive}
           aria-label={
-            selectionPending
-              ? `选择 ${group.name} 网站`
-              : groupSelectionActive || groupSelectionMode
-              ? groupSelectionActive
-                ? `切换到链接多选 ${group.name} 网站`
-                : `多选 ${group.name} 网站`
-              : siteSelectionMode
-                ? `切换到分组多选 ${group.name} 网站`
-                : `多选 ${group.name} 网站`
+            !selectionActive
+              ? `多选 ${group.name} 网站`
+              : allSitesSelected && siteSelectionMode
+                ? `取消全选 ${group.name} 网站`
+                : `全选 ${group.name} 网站`
           }
           onPointerDown={stopSortPointer}
           onMouseDown={stopSortPointer}
@@ -301,11 +275,11 @@ export function SortableGroupSection({
         >
           <CheckSquare size={15} />
           <span>
-            {selectionPending
-              ? "选择"
-              : siteSelectionMode || groupSelectionActive
-                ? "切换"
-                : "多选"}
+            {!selectionActive
+              ? "多选"
+              : allSitesSelected && siteSelectionMode
+                ? "取消全选"
+                : "全选"}
           </span>
         </button>
       </header>

@@ -2531,12 +2531,6 @@ label:has(input:focus-visible) {
   cursor: grabbing;
 }
 
-.grouped-site-header-main.is-selection-locked {
-  cursor: default;
-  opacity: 0.46;
-  pointer-events: none;
-}
-
 .grouped-site-icon {
   display: grid;
   width: calc(var(--group-icon-size) + 14px);
@@ -2805,18 +2799,6 @@ label:has(input:focus-visible) {
   color: var(--accent-text);
   border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
   background: var(--accent-soft);
-  outline: none;
-}
-
-.grouped-site-multi-select.pending,
-.grouped-site-multi-select.pending:hover,
-.grouped-site-multi-select.pending:focus-visible {
-  color: var(--accent-text);
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--accent) 18%, transparent),
-    0 5px 14px color-mix(in srgb, var(--accent) 16%, transparent);
   outline: none;
 }
 
