@@ -80,6 +80,7 @@ test("dismisses clean settings outside and warns before discarding changes", asy
   );
 
   await page.getByRole("button", { name: "打开设置" }).click();
+  await page.getByRole("button", { name: "名称与图标" }).click();
   await page.getByRole("textbox", { name: "品牌名称" }).fill("未保存品牌");
   await dismissLayer.click({ position: { x: 180, y: 210 } });
   const warning = page.getByRole("alertdialog", {
@@ -117,6 +118,7 @@ test("previews and persists a custom brand without changing the extension name",
 
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置" });
+  await panel.getByRole("button", { name: "名称与图标" }).click();
   await panel.getByRole("textbox", { name: "品牌名称" }).fill("Studio North");
   await expect(page).toHaveTitle("Studio North · 网站收藏");
   await expect(page.getByRole("button", { name: "Studio North 首页" })).toBeVisible();
@@ -148,17 +150,19 @@ test("previews and persists a custom brand without changing the extension name",
   });
 });
 
-test("applies advanced controls live while narrow screens keep safe geometry", async ({
+test("preserves legacy custom geometry while narrow screens keep safe sizes", async ({
   page,
 }, testInfo) => {
+  await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    Object.assign(saved.appearance, { brandFontScale: 150, brandLogoSize: 62, siteIconSize: 60 });
+    localStorage.setItem("site-hub:v1", JSON.stringify(saved));
+  });
+  await page.reload();
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置" });
-  await panel.getByRole("button", { name: /高级微调/ }).click();
-  await panel.getByRole("tab", { name: "品牌" }).click();
-  await panel.getByRole("slider", { name: "Logo 字号" }).fill("150");
-  await panel.getByRole("slider", { name: "品牌 Logo 框尺寸" }).fill("62");
-  await panel.getByRole("tab", { name: "卡片" }).click();
-  await panel.getByRole("slider", { name: "网站图标框尺寸" }).fill("60");
+  await expect(panel.getByText("保留自定义字号")).toBeVisible();
+  await expect(panel.getByRole("slider")).toHaveCount(0);
 
   const shellValues = await page.locator(".app-shell").evaluate((element) => ({
     logoFont: element.style.getPropertyValue("--brand-font-scale"),
@@ -204,6 +208,11 @@ test("applies advanced controls live while narrow screens keep safe geometry", a
       )
       .toBe("60px");
   }
+  await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();
+  await panel.getByRole("button", { name: "保存设置" }).click();
+  await page.reload();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  expect(saved.appearance).toMatchObject({ brandFontScale: 150, brandLogoSize: 62, siteIconSize: 60, accentColor: "#00897b" });
 });
 
 test("drags and zooms wallpaper with live preview before saving", async ({
@@ -284,4 +293,87 @@ test("drags and zooms wallpaper with live preview before saving", async ({
   expect(saved.wallpaper.positionX).not.toBe(50);
   expect(saved.wallpaper.positionY).not.toBe(50);
   expect(saved.wallpaper.zoom).toBeGreaterThan(100);
+});
+
+test("simplifies appearance choices and preserves preview, save, reload and reset boundaries", async ({ page }, testInfo) => {
+  await page.getByRole("button", { name: "打开设置" }).click();
+  const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  const presets = panel.getByRole("group", { name: "布局预设" });
+  const reading = panel.getByRole("group", { name: "文字大小" });
+  await expect(panel.getByRole("slider")).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "名称与图标" })).toHaveAttribute("aria-expanded", "false");
+  await page.screenshot({ path: screenshotPath(`appearance-overview-${testInfo.project.name}.png`), animations: "disabled" });
+
+  await reading.getByRole("button", { name: "较大" }).click();
+  await presets.getByRole("button", { name: "紧凑" }).click();
+  await expect(reading.getByRole("button", { name: "较大" })).toHaveAttribute("aria-pressed", "true");
+  await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();
+  await panel.getByRole("button", { name: /布局微调/ }).focus();
+  await page.keyboard.press("Enter");
+  await expect(panel.getByRole("slider")).toHaveCount(4);
+  await panel.getByRole("slider", { name: "卡片宽度" }).fill("210");
+  await panel.getByRole("slider", { name: "卡片间距" }).fill("20");
+  await expect(panel.getByText("已自定义", { exact: true })).toBeVisible();
+  await expect(presets.locator('[aria-pressed="true"]')).toHaveCount(0);
+  const beforeSave = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance);
+  expect(beforeSave).toMatchObject({ cardWidth: 160, gap: 12, fontScale: 100, accentColor: "#3367d6" });
+  await page.screenshot({ path: screenshotPath(`appearance-details-${testInfo.project.name}.png`), animations: "disabled" });
+  await panel.getByRole("button", { name: "保存设置" }).click();
+  await page.reload();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  expect(saved.appearance).toMatchObject({ cardWidth: 210, gap: 20, fontScale: 110, accentColor: "#00897b", layoutPreset: "custom" });
+
+  await page.getByRole("button", { name: "打开设置" }).click();
+  await expect(panel.getByRole("slider")).toHaveCount(0);
+  await panel.getByRole("button", { name: "名称与图标" }).click();
+  await panel.getByRole("textbox", { name: "品牌名称" }).fill("我的书签");
+  await panel.getByRole("button", { name: "恢复默认外观" }).click();
+  await expect(panel.getByRole("textbox", { name: "品牌名称" })).toHaveValue("我的书签");
+  await expect(presets.getByRole("button", { name: "标准" })).toHaveAttribute("aria-pressed", "true");
+  await panel.getByRole("button", { name: "取消" }).click();
+  await expect(page).toHaveTitle("Mysimple · 网站收藏");
+  const afterCancel = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  expect(afterCancel.appearance).toEqual(saved.appearance);
+  expect(afterCancel.sites).toEqual(saved.sites);
+});
+
+test("keeps the color picker and brand errors usable inside the appearance drawer", async ({ page }, testInfo) => {
+  await page.getByRole("button", { name: "打开设置" }).click();
+  const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  await panel.getByRole("button", { name: "自定义强调色" }).click();
+  const picker = page.getByRole("dialog", { name: "选择自定义颜色" });
+  await picker.scrollIntoViewIfNeeded();
+  const panelBox = (await panel.boundingBox())!;
+  const pickerBox = (await picker.boundingBox())!;
+  const footerBox = (await panel.locator(".settings-footer").boundingBox())!;
+  expect(pickerBox.x).toBeGreaterThanOrEqual(panelBox.x);
+  expect(pickerBox.x + pickerBox.width).toBeLessThanOrEqual(panelBox.x + panelBox.width);
+  expect(pickerBox.y + pickerBox.height).toBeLessThanOrEqual(footerBox.y);
+  await picker.getByRole("textbox", { name: "十六进制颜色" }).fill("b45309");
+  await picker.getByRole("textbox", { name: "十六进制颜色" }).press("Enter");
+  await page.screenshot({ path: screenshotPath(`appearance-color-${testInfo.project.name}.png`), animations: "disabled" });
+  await panel.getByRole("button", { name: "自定义强调色" }).click();
+  await panel.getByRole("button", { name: "名称与图标" }).click();
+  await panel.getByRole("textbox", { name: "品牌名称" }).fill(" ");
+  await panel.getByRole("button", { name: "名称与图标" }).click();
+  await panel.getByRole("button", { name: "保存设置" }).click();
+  await expect(panel.getByRole("alert")).toHaveText("请输入品牌名称");
+  await expect(panel.getByRole("textbox", { name: "品牌名称" })).toBeVisible();
+  await panel.getByRole("button", { name: "恢复默认品牌" }).click();
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await panel.locator('.brand-settings-fields input[type="file"]').setInputFiles({
+    name: "personal-logo.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="24" fill="#b45309"/><path d="M32 64h64M64 32v64" stroke="white" stroke-width="12"/></svg>'),
+  });
+  await expect(panel.getByRole("radio", { name: "本地图片", exact: true })).toHaveAttribute("aria-checked", "true");
+  await expect(panel.locator(".brand-settings-summary img")).toBeVisible();
+  await page.screenshot({ path: screenshotPath(`appearance-brand-${testInfo.project.name}.png`), animations: "disabled" });
+  await panel.getByRole("button", { name: "保存设置" }).click();
+  await page.reload();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  expect(saved.appearance.accentColor).toBe("#b45309");
+  expect(saved.brand.name).toBe("Mysimple");
+  expect(saved.brand.logoSource).toBe("local");
+  expect(saved.brand.logoDataUrl).toMatch(/^data:image\//);
 });

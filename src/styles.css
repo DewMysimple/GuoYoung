@@ -4406,53 +4406,11 @@ label:has(input:focus-visible) {
   font-weight: 720;
 }
 
-.brand-settings-card {
-  gap: 14px;
-  padding: 15px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));
-}
-
-.brand-settings-card legend {
-  margin-left: -2px;
-  padding-inline: 4px;
-}
-
-.brand-settings-preview {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-}
-
 .brand-mark-preview {
   width: 46px;
   height: 46px;
   flex: 0 0 46px;
   border-radius: 13px;
-}
-
-.brand-settings-preview > div {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.brand-settings-preview strong {
-  overflow: hidden;
-  font-size: 14px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.brand-settings-preview span:not(.brand-mark) {
-  color: var(--text-faint);
-  font-size: 11px;
 }
 
 .brand-visibility-options {
@@ -4724,58 +4682,6 @@ label:has(input:focus-visible) {
   text-transform: uppercase;
 }
 
-.layout-presets {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.layout-presets > button {
-  display: grid;
-  min-height: 86px;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text-soft);
-  background: var(--page);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 680;
-}
-
-.layout-presets > button.active {
-  color: var(--accent-text);
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
-  background: var(--accent-soft);
-}
-
-.layout-preview {
-  display: flex;
-  width: 52px;
-  height: 28px;
-  align-items: stretch;
-  gap: 3px;
-}
-
-.layout-preview i {
-  display: block;
-  flex: 1;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  opacity: 0.64;
-}
-
-.layout-preview-compact {
-  gap: 2px;
-}
-
-.layout-preview-spacious {
-  gap: 5px;
-}
-
-.advanced-toggle,
 .text-action {
   display: flex;
   min-height: 40px;
@@ -4787,93 +4693,6 @@ label:has(input:focus-visible) {
   background: transparent;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 680;
-}
-
-.advanced-toggle {
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: var(--surface-raised);
-}
-
-.advanced-toggle span {
-  margin-left: auto;
-  color: var(--text-faint);
-  font-weight: 550;
-}
-
-.advanced-editor {
-  display: grid;
-  gap: 9px;
-}
-
-.advanced-section-tabs {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(72px, 1fr));
-  gap: 5px;
-  overflow-x: auto;
-  padding: 4px;
-  border-radius: 12px;
-  background: var(--surface-raised);
-  scrollbar-width: none;
-}
-
-.advanced-section-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.advanced-section-tabs button {
-  display: grid;
-  min-height: 52px;
-  place-items: center;
-  align-content: center;
-  gap: 4px;
-  border: 0;
-  border-radius: 9px;
-  color: var(--text-faint);
-  background: transparent;
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: 680;
-  white-space: nowrap;
-}
-
-.advanced-section-tabs button.active {
-  color: var(--accent-text);
-  background: var(--surface);
-  box-shadow: 0 1px 5px color-mix(in srgb, var(--text) 9%, transparent);
-}
-
-.advanced-controls {
-  display: grid;
-  gap: 17px;
-  padding: 15px;
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  background: var(--surface-raised);
-}
-
-.advanced-controls-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.advanced-controls-header strong {
-  font-size: 12px;
-}
-
-.advanced-controls-header button {
-  padding: 4px 0;
-  border: 0;
-  color: var(--accent-text);
-  background: transparent;
-  cursor: pointer;
-  font-size: 10px;
   font-weight: 680;
 }
 

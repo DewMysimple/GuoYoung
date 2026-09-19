@@ -57,8 +57,6 @@ export const DEFAULT_GITHUB_GROUPS: SiteGroup[] = [
 
 export type LayoutPresetSettings = Pick<
   AppearanceSettings,
-  | "fontScale"
-  | "cardFontScale"
   | "uiIconScale"
   | "controlScale"
   | "controlRadius"
@@ -67,7 +65,6 @@ export type LayoutPresetSettings = Pick<
   | "searchWidth"
   | "searchHeight"
   | "searchRadius"
-  | "groupFontScale"
   | "groupTabHeight"
   | "groupIconSize"
   | "groupGap"
@@ -86,8 +83,6 @@ export const LAYOUT_PRESETS: Record<
   LayoutPresetSettings
 > = {
   compact: {
-    fontScale: 95,
-    cardFontScale: 95,
     uiIconScale: 95,
     controlScale: 92,
     controlRadius: 10,
@@ -96,7 +91,6 @@ export const LAYOUT_PRESETS: Record<
     searchWidth: 620,
     searchHeight: 48,
     searchRadius: 13,
-    groupFontScale: 95,
     groupTabHeight: 34,
     groupIconSize: 15,
     groupGap: 3,
@@ -110,8 +104,6 @@ export const LAYOUT_PRESETS: Record<
     siteIconScale: 92,
   },
   standard: {
-    fontScale: 100,
-    cardFontScale: 100,
     uiIconScale: 100,
     controlScale: 100,
     controlRadius: 12,
@@ -120,7 +112,6 @@ export const LAYOUT_PRESETS: Record<
     searchWidth: 680,
     searchHeight: 52,
     searchRadius: 15,
-    groupFontScale: 100,
     groupTabHeight: 38,
     groupIconSize: 16,
     groupGap: 5,
@@ -134,8 +125,6 @@ export const LAYOUT_PRESETS: Record<
     siteIconScale: 100,
   },
   spacious: {
-    fontScale: 105,
-    cardFontScale: 105,
     uiIconScale: 105,
     controlScale: 108,
     controlRadius: 14,
@@ -144,7 +133,6 @@ export const LAYOUT_PRESETS: Record<
     searchWidth: 760,
     searchHeight: 58,
     searchRadius: 18,
-    groupFontScale: 105,
     groupTabHeight: 44,
     groupIconSize: 17,
     groupGap: 7,
@@ -169,6 +157,9 @@ export const DEFAULT_BRAND: BrandSettings = {
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   accentColor: "#3367d6",
   layoutPreset: "standard",
+  fontScale: 100,
+  cardFontScale: 100,
+  groupFontScale: 100,
   brandFontScale: 100,
   brandLogoSize: 36,
   brandLogoScale: 61,

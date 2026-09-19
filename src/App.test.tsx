@@ -401,6 +401,7 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "打开设置" }));
+    await user.click(screen.getByRole("button", { name: "名称与图标" }));
     fireEvent.change(screen.getByLabelText("品牌名称"), {
       target: { value: "My Workspace" },
     });
@@ -441,6 +442,7 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: "设置" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "打开设置" }));
+    await user.click(screen.getByRole("button", { name: "名称与图标" }));
     fireEvent.change(screen.getByLabelText("品牌名称"), {
       target: { value: "未保存品牌" },
     });
@@ -516,6 +518,7 @@ describe("App", () => {
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "打开设置" }));
+    await user.click(screen.getByRole("button", { name: "名称与图标" }));
     await user.click(screen.getByRole("radio", { name: "网络地址" }));
     fireEvent.change(screen.getByLabelText("网络 Logo 地址"), {
       target: { value: "https://example.com/logo.png" },
@@ -1244,23 +1247,18 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "深色" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "紧凑" }));
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("140px");
-    expect(shell.style.getPropertyValue("--font-scale")).toBe("0.95");
+    expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
 
-    await user.click(screen.getByRole("button", { name: /高级微调/ }));
-    fireEvent.change(screen.getByRole("slider", { name: "界面字号" }), {
-      target: { value: "112" },
+    await user.click(within(screen.getByRole("group", { name: "文字大小" })).getByRole("button", { name: "较大" }));
+    expect(shell.style.getPropertyValue("--font-scale")).toBe("1.1");
+    await user.click(screen.getByRole("button", { name: /布局微调/ }));
+    expect(screen.getAllByRole("slider")).toHaveLength(4);
+    fireEvent.change(screen.getByRole("slider", { name: "卡片宽度" }), {
+      target: { value: "210" },
     });
-    expect(shell.style.getPropertyValue("--font-scale")).toBe("1.12");
-    await user.click(screen.getByRole("tab", { name: "品牌" }));
-    fireEvent.change(screen.getByRole("slider", { name: "Logo 字号" }), {
-      target: { value: "150" },
-    });
-    await user.click(screen.getByRole("tab", { name: "卡片" }));
-    fireEvent.change(screen.getByRole("slider", { name: "卡片文字比例" }), {
-      target: { value: "110" },
-    });
-    expect(shell.style.getPropertyValue("--brand-font-scale")).toBe("1.68");
-    expect(shell.style.getPropertyValue("--card-font-scale")).toBe("1.232");
+    expect(shell.style.getPropertyValue("--card-min-width")).toBe("210px");
+    expect(shell.style.getPropertyValue("--brand-font-scale")).toBe("1.1");
+    expect(shell.style.getPropertyValue("--card-font-scale")).toBe("1.1");
 
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("160px");

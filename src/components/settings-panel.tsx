@@ -15,13 +15,10 @@ import {
   ArrowsOutCardinal,
   CaretDown,
   CaretUp,
-  Check,
   Crosshair,
   DownloadSimple,
   Image as ImageIcon,
   PaintBrush,
-  MagnifyingGlass,
-  SquaresFour,
   SlidersHorizontal,
   Trash,
   UploadSimple,
@@ -31,7 +28,6 @@ import {
   DEFAULT_APPEARANCE,
   DEFAULT_BRAND,
   DEFAULT_WALLPAPER,
-  LAYOUT_PRESETS,
 } from "../data/defaults";
 import {
   isHttpImageUrl,
@@ -44,15 +40,14 @@ import {
 import type {
   AppearanceSettings,
   BrandSettings,
-  LayoutPreset,
   SiteCollectionState,
   TrashRetentionDays,
   WallpaperSettings,
 } from "../types";
 import { useImageImport } from "../hooks/use-image-import";
-import { CustomColorPicker } from "./custom-color-picker";
-import { BrandMark } from "./brand-mark";
 import { ConfirmDialog } from "./confirm-dialog";
+import { AppearanceSettingsEditor } from "./appearance-settings";
+import { BrandSettingsEditor } from "./brand-settings-editor";
 import { Favicon } from "./favicon";
 import { getHostname } from "../lib/site-utils";
 
@@ -84,15 +79,6 @@ interface SettingsPanelProps {
 
 export type SettingsSection = "appearance" | "wallpaper" | "data";
 
-const ACCENTS = [
-  "#3367d6",
-  "#6750a4",
-  "#00897b",
-  "#d97706",
-  "#dc4f64",
-  "#4f657d",
-];
-
 const SETTINGS_WIDTH_KEY = "site-hub:settings-panel-width";
 const DEFAULT_PANEL_WIDTH = 440;
 const MIN_PANEL_WIDTH = 360;
@@ -109,67 +95,6 @@ function getMaximumPanelWidth() {
 function clampPanelWidth(width: number) {
   return Math.min(getMaximumPanelWidth(), Math.max(MIN_PANEL_WIDTH, width));
 }
-
-type AdvancedSection = "global" | "brand" | "header" | "groups" | "cards";
-type AppearanceNumberKey = {
-  [Key in keyof AppearanceSettings]: AppearanceSettings[Key] extends number
-    ? Key
-    : never;
-}[keyof AppearanceSettings];
-
-interface RangeField {
-  key: AppearanceNumberKey;
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  suffix: string;
-  description?: string;
-}
-
-const RANGE_FIELD_GROUPS: Record<AdvancedSection, RangeField[]> = {
-  global: [
-    { key: "fontScale", label: "界面字号", min: 85, max: 120, step: 0.5, suffix: "%" },
-    { key: "uiIconScale", label: "UI 图标比例", min: 75, max: 150, step: 1, suffix: "%" },
-    { key: "controlScale", label: "控件整体比例", min: 80, max: 130, step: 1, suffix: "%" },
-    { key: "controlRadius", label: "控件圆角", min: 4, max: 24, step: 1, suffix: "px" },
-    { key: "contentWidth", label: "内容最大宽度", min: 960, max: 1920, step: 10, suffix: "px" },
-    { key: "pagePadding", label: "页面左右留白", min: 12, max: 80, step: 1, suffix: "px" },
-  ],
-  brand: [
-    { key: "brandFontScale", label: "Logo 字号", min: 70, max: 180, step: 0.5, suffix: "%", description: "品牌名称文字大小" },
-    { key: "brandLogoSize", label: "品牌 Logo 框尺寸", min: 24, max: 64, step: 1, suffix: "px" },
-    { key: "brandLogoScale", label: "Logo 图片占比", min: 40, max: 120, step: 1, suffix: "%" },
-    { key: "brandLogoRadius", label: "Logo 圆角", min: 0, max: 24, step: 1, suffix: "px" },
-    { key: "brandGap", label: "Logo 与名称间距", min: 0, max: 24, step: 1, suffix: "px" },
-  ],
-  header: [
-    { key: "topbarHeight", label: "顶栏高度", min: 48, max: 96, step: 1, suffix: "px" },
-    { key: "searchWidth", label: "搜索框宽度", min: 320, max: 960, step: 10, suffix: "px" },
-    { key: "searchHeight", label: "搜索框高度", min: 40, max: 72, step: 1, suffix: "px" },
-    { key: "searchRadius", label: "搜索框圆角", min: 4, max: 32, step: 1, suffix: "px" },
-  ],
-  groups: [
-    { key: "groupFontScale", label: "分组文字比例", min: 80, max: 140, step: 0.5, suffix: "%" },
-    { key: "groupTabHeight", label: "分组按钮高度", min: 30, max: 54, step: 1, suffix: "px" },
-    { key: "groupIconSize", label: "分组图标尺寸", min: 12, max: 28, step: 1, suffix: "px" },
-    { key: "groupGap", label: "分组项目间距", min: 2, max: 20, step: 1, suffix: "px" },
-  ],
-  cards: [
-    { key: "cardFontScale", label: "卡片文字比例", min: 80, max: 140, step: 0.5, suffix: "%" },
-    { key: "cardWidth", label: "卡片宽度", min: 132, max: 260, step: 1, suffix: "px" },
-    { key: "cardHeight", label: "卡片高度", min: 112, max: 240, step: 1, suffix: "px" },
-    { key: "gap", label: "卡片间距", min: 4, max: 32, step: 1, suffix: "px" },
-    { key: "radius", label: "卡片圆角", min: 4, max: 28, step: 1, suffix: "px" },
-    { key: "cardPadding", label: "卡片内边距", min: 6, max: 28, step: 1, suffix: "px" },
-    { key: "siteIconSize", label: "网站图标框尺寸", min: 24, max: 64, step: 1, suffix: "px" },
-    { key: "siteIconScale", label: "网站图标内容占比", min: 60, max: 120, step: 1, suffix: "%" },
-  ],
-};
-
-const LAYOUT_FIELD_KEYS = new Set<keyof AppearanceSettings>(
-  Object.keys(LAYOUT_PRESETS.standard) as Array<keyof AppearanceSettings>,
-);
 
 function cloneDraft(state: SiteCollectionState): SettingsDraft {
   return {
@@ -226,7 +151,6 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const titleId = useId();
   const wallpaperFileRef = useRef<HTMLInputElement>(null);
-  const logoFileRef = useRef<HTMLInputElement>(null);
   const resizeState = useRef<{
     pointerId: number;
     startX: number;
@@ -250,9 +174,6 @@ export function SettingsPanel({
   const initialDraftSnapshot = useRef(JSON.stringify(cloneDraft(state)));
   const [draft, setDraft] = useState<SettingsDraft>(() => cloneDraft(state));
   const [section, setSection] = useState<SettingsSection>("appearance");
-  const [advanced, setAdvanced] = useState(false);
-  const [advancedSection, setAdvancedSection] =
-    useState<AdvancedSection>("global");
   const [logoError, setLogoError] = useState("");
   const [trashOpen, setTrashOpen] = useState(false);
   const [armedTrashDeleteId, setArmedTrashDeleteId] = useState<string | null>(
@@ -346,7 +267,6 @@ export function SettingsPanel({
     setDraft(nextDraft);
     setSection(initialSection ?? "appearance");
     setTrashOpen(initialTrashOpen);
-    setAdvancedSection("global");
     setLogoError("");
     setWallpaperError("");
     setWallpaperEditing(false);
@@ -467,21 +387,6 @@ export function SettingsPanel({
     window.localStorage.setItem(SETTINGS_WIDTH_KEY, String(nextWidth));
   }
 
-  function updateAppearance(patch: Partial<AppearanceSettings>) {
-    setDraft((current) => ({
-      ...current,
-      appearance: {
-        ...current.appearance,
-        ...patch,
-        ...(Object.keys(patch).some((key) =>
-          LAYOUT_FIELD_KEYS.has(key as keyof AppearanceSettings),
-        )
-          ? { layoutPreset: "custom" as const }
-          : {}),
-      },
-    }));
-  }
-
   function updateBrand(patch: Partial<BrandSettings>) {
     if (patch.logoSource !== undefined) logoImport.cancel();
     setLogoError("");
@@ -489,14 +394,6 @@ export function SettingsPanel({
       ...current,
       brand: { ...current.brand, ...patch },
     }));
-  }
-
-  function resetAdvancedSection(sectionToReset: AdvancedSection) {
-    const fields = RANGE_FIELD_GROUPS[sectionToReset];
-    const defaults = Object.fromEntries(
-      fields.map((field) => [field.key, DEFAULT_APPEARANCE[field.key]]),
-    ) as Partial<AppearanceSettings>;
-    updateAppearance(defaults);
   }
 
   async function chooseLocalLogo(event: ChangeEvent<HTMLInputElement>) {
@@ -519,17 +416,6 @@ export function SettingsPanel({
             : current.appearance,
       }));
     });
-  }
-
-  function choosePreset(preset: Exclude<LayoutPreset, "custom">) {
-    setDraft((current) => ({
-      ...current,
-      appearance: {
-        ...current.appearance,
-        layoutPreset: preset,
-        ...LAYOUT_PRESETS[preset],
-      },
-    }));
   }
 
   function updateWallpaper(patch: Partial<WallpaperSettings>) {
@@ -934,322 +820,16 @@ export function SettingsPanel({
 
           <div className="settings-body">
             {section === "appearance" && (
-              <div className="settings-section">
-                <fieldset className="settings-group brand-settings-card">
-                  <legend>品牌</legend>
-                  <div className="brand-settings-preview">
-                    <BrandMark
-                      brand={draft.brand}
-                      preview
-                      onImageError={() =>
-                        setLogoError("这张网络 Logo 暂时无法加载，已回退默认图标")
-                      }
-                    />
-                    <div>
-                      <strong>{draft.brand.name.trim() || "Mysimple"}</strong>
-                      <span>顶部品牌实时预览</span>
-                    </div>
-                  </div>
-
-                  <label className="settings-field">
-                    <span>品牌名称</span>
-                    <input
-                      type="text"
-                      aria-label="品牌名称"
-                      maxLength={32}
-                      value={draft.brand.name}
-                      placeholder="Mysimple"
-                      onChange={(event) =>
-                        updateBrand({ name: event.target.value.slice(0, 32) })
-                      }
-                    />
-                    <small>{draft.brand.name.length}/32</small>
-                  </label>
-
-                  <div className="brand-visibility-options">
-                    <label className="toggle-row compact-toggle-row">
-                      <span><strong>显示 Logo</strong></span>
-                      <input
-                        type="checkbox"
-                        checked={draft.brand.showLogo}
-                        onChange={(event) =>
-                          updateBrand({ showLogo: event.target.checked })
-                        }
-                      />
-                    </label>
-                    <label className="toggle-row compact-toggle-row">
-                      <span><strong>显示品牌名称</strong></span>
-                      <input
-                        type="checkbox"
-                        checked={draft.brand.showName}
-                        onChange={(event) =>
-                          updateBrand({ showName: event.target.checked })
-                        }
-                      />
-                    </label>
-                  </div>
-
-                  <div className="brand-source-block">
-                    <span className="settings-inline-label">Logo 来源</span>
-                    <div className="brand-source-options" role="radiogroup" aria-label="Logo 来源">
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={draft.brand.logoSource === "default"}
-                        className={draft.brand.logoSource === "default" ? "active" : ""}
-                        onClick={() =>
-                          updateBrand({
-                            logoSource: "default",
-                            logoUrl: undefined,
-                            logoDataUrl: undefined,
-                          })
-                        }
-                      >
-                        默认方格
-                      </button>
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={draft.brand.logoSource === "local"}
-                        className={draft.brand.logoSource === "local" ? "active" : ""}
-                        onClick={() =>
-                          draft.brand.logoDataUrl
-                            ? updateBrand({ logoSource: "local", logoUrl: undefined })
-                            : logoFileRef.current?.click()
-                        }
-                      >
-                        {logoProcessing ? "正在处理…" : "本地图片"}
-                      </button>
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={draft.brand.logoSource === "url"}
-                        className={draft.brand.logoSource === "url" ? "active" : ""}
-                        onClick={() =>
-                          updateBrand({ logoSource: "url", logoDataUrl: undefined })
-                        }
-                      >
-                        网络地址
-                      </button>
-                    </div>
-                  </div>
-
-                  <input
-                    ref={logoFileRef}
-                    className="visually-hidden"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    onChange={chooseLocalLogo}
-                  />
-                  {draft.brand.logoSource === "local" && (
-                    <button
-                      type="button"
-                      className="button secondary-button brand-replace-button"
-                      onClick={() => logoFileRef.current?.click()}
-                      disabled={logoProcessing}
-                    >
-                      <UploadSimple size={17} />更换本地 Logo
-                    </button>
-                  )}
-                  {draft.brand.logoSource === "url" && (
-                    <label className="settings-field">
-                      <span>网络 Logo 地址</span>
-                      <input
-                        type="url"
-                        aria-label="网络 Logo 地址"
-                        placeholder="https://example.com/logo.png"
-                        value={draft.brand.logoUrl ?? ""}
-                        onChange={(event) =>
-                          updateBrand({ logoUrl: event.target.value })
-                        }
-                      />
-                    </label>
-                  )}
-                  {(logoError || logoImport.error) && (
-                    <p className="field-error" role="alert">{logoError || logoImport.error}</p>
-                  )}
-                  <button
-                    type="button"
-                    className="text-action brand-reset-action"
-                    onClick={() => {
-                      setLogoError("");
-                      setDraft((current) => ({
-                        ...current,
-                        brand: { ...DEFAULT_BRAND },
-                      }));
-                    }}
-                  >
-                    <ArrowCounterClockwise size={16} />恢复默认品牌
-                  </button>
-                </fieldset>
-
-                <fieldset className="settings-group">
-                  <legend>强调色</legend>
-                  <div className="accent-grid">
-                    {ACCENTS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        className="accent-swatch"
-                        style={{ backgroundColor: color }}
-                        aria-label={`使用颜色 ${color}`}
-                        aria-pressed={draft.appearance.accentColor === color}
-                        onClick={() => updateAppearance({ accentColor: color })}
-                      >
-                        {draft.appearance.accentColor === color && (
-                          <Check size={16} weight="bold" />
-                        )}
-                      </button>
-                    ))}
-                    <CustomColorPicker
-                      value={draft.appearance.accentColor}
-                      selected={!ACCENTS.includes(draft.appearance.accentColor)}
-                      onChange={(accentColor) => updateAppearance({ accentColor })}
-                    />
-                  </div>
-                </fieldset>
-
-                <fieldset className="settings-group">
-                  <legend>布局预设</legend>
-                  <div className="layout-presets">
-                    {(["compact", "standard", "spacious"] as const).map(
-                      (preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          className={
-                            draft.appearance.layoutPreset === preset
-                              ? "active"
-                              : ""
-                          }
-                          onClick={() => choosePreset(preset)}
-                        >
-                          <span
-                            className={`layout-preview layout-preview-${preset}`}
-                          >
-                            <i />
-                            <i />
-                            <i />
-                          </span>
-                          {preset === "compact"
-                            ? "紧凑"
-                            : preset === "standard"
-                              ? "标准"
-                              : "宽松"}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </fieldset>
-
-                <button
-                  type="button"
-                  className="advanced-toggle"
-                  aria-expanded={advanced}
-                  onClick={() => setAdvanced((value) => !value)}
-                >
-                  <SlidersHorizontal size={17} />
-                  高级微调
-                  <span>{advanced ? "收起" : "展开"}</span>
-                </button>
-
-                {advanced && (
-                  <div className="advanced-editor">
-                    <div
-                      className="advanced-section-tabs"
-                      role="tablist"
-                      aria-label="高级微调分类"
-                    >
-                      {([
-                        { value: "global" as const, label: "全局", icon: SlidersHorizontal },
-                        { value: "brand" as const, label: "品牌", icon: PaintBrush },
-                        { value: "header" as const, label: "顶栏搜索", icon: MagnifyingGlass },
-                        { value: "groups" as const, label: "分组", icon: SquaresFour },
-                        { value: "cards" as const, label: "卡片", icon: ImageIcon },
-                      ]).map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            key={item.value}
-                            type="button"
-                            role="tab"
-                            aria-selected={advancedSection === item.value}
-                            className={advancedSection === item.value ? "active" : ""}
-                            onClick={() => setAdvancedSection(item.value)}
-                          >
-                            <Icon size={16} />
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div
-                      className="advanced-controls"
-                      role="tabpanel"
-                      aria-label={`高级微调：${advancedSection}`}
-                    >
-                      <div className="advanced-controls-header">
-                        <strong>
-                          {advancedSection === "global"
-                            ? "全局界面"
-                            : advancedSection === "brand"
-                              ? "品牌 Logo"
-                              : advancedSection === "header"
-                                ? "顶栏与搜索"
-                                : advancedSection === "groups"
-                                  ? "分组选择栏"
-                                  : "网站卡片"}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => resetAdvancedSection(advancedSection)}
-                        >
-                          恢复本组默认值
-                        </button>
-                      </div>
-                      {RANGE_FIELD_GROUPS[advancedSection].map((field) => (
-                        <label key={field.key} className="range-control">
-                          <span>
-                            <span>
-                              {field.label}
-                              {field.description && <small>{field.description}</small>}
-                            </span>
-                            <output>
-                              {draft.appearance[field.key]}
-                              {field.suffix}
-                            </output>
-                          </span>
-                          <input
-                            type="range"
-                            aria-label={field.label}
-                            min={field.min}
-                            max={field.max}
-                            step={field.step}
-                            value={draft.appearance[field.key]}
-                            onChange={(event) =>
-                              updateAppearance({
-                                [field.key]: Number(event.target.value),
-                              })
-                            }
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  className="text-action"
-                  onClick={() =>
-                    setDraft((current) => ({
-                      ...current,
-                      appearance: { ...DEFAULT_APPEARANCE },
-                    }))
-                  }
-                >
-                  <ArrowCounterClockwise size={16} />
-                  恢复默认外观
+              <div className="settings-section appearance-settings">
+                <AppearanceSettingsEditor value={draft.appearance}
+                  onChange={(appearance) => setDraft((current) => ({ ...current, appearance }))} />
+                <BrandSettingsEditor value={draft.brand}
+                  error={logoError || logoImport.error} logoProcessing={logoProcessing}
+                  onChange={updateBrand} onChooseLogo={chooseLocalLogo} onError={setLogoError}
+                  onReset={() => updateBrand({ ...DEFAULT_BRAND, logoUrl: undefined, logoDataUrl: undefined })} />
+                <button type="button" className="text-action appearance-reset"
+                  onClick={() => setDraft((current) => ({ ...current, appearance: { ...DEFAULT_APPEARANCE } }))}>
+                  <ArrowCounterClockwise size={16} />恢复默认外观
                 </button>
               </div>
             )}
