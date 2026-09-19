@@ -13,7 +13,7 @@ import {
   updateSiteInState,
   mergeGroupImportIntoState,
   findSiteByUrl,
-  getGithubRepositoryStatus,
+  getGithubRepositoryStatuses,
   importGithubRepositoryBatchToState,
   importGithubRepositoriesToState,
 } from "./site-state";
@@ -428,14 +428,14 @@ describe("site state operations", () => {
       "手动命名",
     );
     expect(second.state.groups.filter((group) => group.name === "acme")).toHaveLength(1);
-    expect(getGithubRepositoryStatus(second.state, {
+    expect(getGithubRepositoryStatuses(second.state, [{
       id: 2,
       name: "two",
       fullName: "acme/two",
       htmlUrl: "https://github.com/acme/two",
       fork: true,
       archived: true,
-    })).toBe("active");
+    }]).get(2)).toBe("active");
   });
 
   it("refreshes multiple GitHub author groups in one state update", () => {

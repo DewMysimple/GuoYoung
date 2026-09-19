@@ -35,7 +35,6 @@ export function indexBookmarkTree(
   roots: BrowserBookmarkTreeNode[],
 ): Map<string, IndexedBookmarkNode> {
   const indexed = new Map<string, IndexedBookmarkNode>();
-  const invisibleRootIds = new Set<string>();
   const systemRootIds = new Set(roots.map((root) => root.id));
 
   function visit(
@@ -46,7 +45,7 @@ export function indexBookmarkTree(
     const systemRoot = systemRootIds.has(node.id);
     const nextMappedGroup =
       mappedGroupName ??
-      (!node.url && !systemRoot && !invisibleRootIds.has(node.id)
+      (!node.url && !systemRoot
         ? node.title.trim() || undefined
         : undefined);
     indexed.set(node.id, {

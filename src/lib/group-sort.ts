@@ -26,7 +26,7 @@ interface ResolveGroupSortIntentOptions {
 export function groupSortIntentFromTargetIndex(
   axis: GroupSortAxis,
   activeGroupId: string,
-  orderedGroupIds: string[],
+  orderedGroupIds: readonly string[],
   targetIndex: number,
 ): GroupSortIntent | null {
   const activeIndex = orderedGroupIds.indexOf(activeGroupId);

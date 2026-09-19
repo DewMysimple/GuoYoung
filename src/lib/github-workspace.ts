@@ -12,8 +12,6 @@ import type {
 } from "../types";
 import { reindexSites } from "./site-utils";
 
-export const GITHUB_WORKSPACE_LABEL = "GitHub";
-
 export function isGithubHomeUrl(input: string): boolean {
   try {
     const url = new URL(input);
@@ -31,10 +29,6 @@ export function findGithubHomeSite(
   sites: SiteItem[],
 ): SiteItem | undefined {
   return sites.find((site) => isGithubHomeUrl(site.url));
-}
-
-export function isGithubHomeSite(site: Pick<SiteItem, "url">): boolean {
-  return isGithubHomeUrl(site.url);
 }
 
 export function moveGithubHomeToMainInState(
@@ -99,7 +93,7 @@ export function getGithubOtherGroupId(state: SiteCollectionState): string {
         )?.id ?? GITHUB_OTHER_GROUP_ID;
 }
 
-function normalizeWorkspaceGroupOrder(groups: SiteGroup[]): SiteGroup[] {
+export function normalizeWorkspaceGroupOrder(groups: SiteGroup[]): SiteGroup[] {
   const next = groups.map((group) => ({ ...group }));
   for (const workspace of ["main", "github"] as const) {
     const scoped = next
@@ -125,7 +119,12 @@ export function ensureGithubWorkspace(
     ...group,
     workspace: group.workspace ?? "main",
   }));
-  for (const defaultGroup of DEFAULT_GITHUB_GROUPS) {
+  // Seed ordinary defaults only when the workspace is first created.
+  // A later missing ordinary group represents a user's deletion.
+  const defaults = groups.some((group) => group.workspace === "github")
+    ? DEFAULT_GITHUB_GROUPS.filter((group) => group.isProtected)
+    : DEFAULT_GITHUB_GROUPS;
+  for (const defaultGroup of defaults) {
     if (!existing.has(defaultGroup.id)) groups.push({ ...defaultGroup });
   }
   const githubOther = groups.find((group) => group.id === GITHUB_OTHER_GROUP_ID);

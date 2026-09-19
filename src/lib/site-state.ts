@@ -17,6 +17,7 @@ import type { GroupExportPayload } from "./data-transfer";
 import {
   getGithubOtherGroupId,
   getGroupWorkspace,
+  normalizeWorkspaceGroupOrder,
   isGithubHomeUrl,
   isGithubUrl,
 } from "./github-workspace";
@@ -68,27 +69,21 @@ export interface GithubRepositoryBatchImportResult {
 
 export type GithubRepositoryStatus = "new" | "active" | "deleted";
 
-export function getGithubRepositoryStatus(
+export function getGithubRepositoryStatuses(
   state: SiteCollectionState,
-  repository: GithubRepositorySummary,
-): GithubRepositoryStatus {
-  let key: string;
-  try {
-    key = comparableSiteUrl(normalizeUrl(repository.htmlUrl));
-  } catch {
-    return "deleted";
-  }
-  if (state.sites.some((site) => comparableSiteUrl(site.url) === key)) {
-    return "active";
-  }
-  if (
-    state.deletedSites.some(
-      (entry) => comparableSiteUrl(entry.site.url) === key,
-    )
-  ) {
-    return "deleted";
-  }
-  return "new";
+  repositories: GithubRepositorySummary[],
+): Map<number, GithubRepositoryStatus> {
+  const active = new Set(state.sites.map((site) => comparableSiteUrl(site.url)));
+  const deleted = new Set(state.deletedSites.map((entry) => comparableSiteUrl(entry.site.url)));
+  return new Map(repositories.map((repository) => {
+    let key: string;
+    try {
+      key = comparableSiteUrl(normalizeUrl(repository.htmlUrl));
+    } catch {
+      return [repository.id, "deleted"];
+    }
+    return [repository.id, active.has(key) ? "active" : deleted.has(key) ? "deleted" : "new"];
+  }));
 }
 
 function githubSourceForOwner(
@@ -320,22 +315,6 @@ function comparableSiteUrl(url: string): string {
   }
 }
 
-function normalizeGroupOrder(groups: SiteGroup[]): SiteGroup[] {
-  const next = groups.map((group) => ({ ...group }));
-  for (const workspace of ["main", "github"] as const) {
-    const scoped = next
-      .filter((group) => getGroupWorkspace(group) === workspace)
-      .sort((a, b) => {
-        if (a.isProtected !== b.isProtected) return a.isProtected ? 1 : -1;
-        return a.order - b.order;
-      });
-    scoped.forEach((group, order) => {
-      group.order = order;
-    });
-  }
-  return next;
-}
-
 function resolveSiteGroupId(
   state: SiteCollectionState,
   groupId: string,
@@ -520,7 +499,7 @@ export function addGroupToState(
   };
   return {
     ...state,
-    groups: normalizeGroupOrder([...state.groups, group]),
+    groups: normalizeWorkspaceGroupOrder([...state.groups, group]),
   };
 }
 
@@ -545,7 +524,7 @@ export function deleteGroupFromState(
 
   return {
     ...state,
-    groups: normalizeGroupOrder(
+    groups: normalizeWorkspaceGroupOrder(
       state.groups.filter((group) => group.id !== id),
     ),
     sites: reindexSites(

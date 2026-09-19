@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultState } from "../data/defaults";
-import { isSiteCollectionState, loadState, saveState, STORAGE_KEY } from "./storage";
+import { isSiteCollectionState, loadState, parseStoredState, saveState, STORAGE_KEY } from "./storage";
+import { migrateGithubSitesInState } from "./github-workspace";
+import { parseImportFile, serializeExport } from "./data-transfer";
 
 function memoryStorage(initial?: string) {
   const values = new Map<string, string>();
@@ -13,6 +15,60 @@ function memoryStorage(initial?: string) {
 }
 
 describe("local storage", () => {
+  it.each([11, 12, 13, 14, 15])("normalizes incomplete version %s preferences without losing collections", (version) => {
+    const defaults = createDefaultState();
+    const raw = JSON.stringify({
+      ...defaults,
+      version,
+      displayMode: "grouped",
+      sortMode: "heat",
+      displayModeByWorkspace: undefined,
+      sortModeByWorkspace: undefined,
+      deletedSites: null,
+      trashRetentionDays: undefined,
+      githubMigration: undefined,
+      sites: defaults.sites.map((site) => ({ ...site, clickCount: -1 })),
+    });
+    const storage = memoryStorage(raw);
+    const loaded = loadState(storage);
+    expect(loaded.recovered).toBe(false);
+    expect(isSiteCollectionState(loaded.state)).toBe(true);
+    expect(loaded.state.displayModeByWorkspace).toEqual({ main: "grouped", github: "flat" });
+    expect(loaded.state.sortModeByWorkspace).toEqual({ main: "heat", github: "manual" });
+    expect(loaded.state.sites).toEqual(defaults.sites);
+    expect(loaded.state.groups).toEqual(defaults.groups);
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
+    expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
+  });
+
+  it.each([11, 12, 13, 14, 15])("preserves deleted GitHub groups when loading version %s", (version) => {
+    const defaults = createDefaultState();
+    const customized = {
+      ...defaults, version,
+      groups: defaults.groups.filter((group) => group.workspace !== "github" || group.isProtected).map((group) => group.workspace === "github" ? { ...group, order: 0 } : group),
+      brand: { ...defaults.brand, name: "Personal collection" },
+    };
+    const loaded = parseStoredState(JSON.stringify(customized));
+    expect(loaded.recovered).toBe(false);
+    expect(loaded.state.brand.name).toBe("Personal collection");
+    expect(loaded.state.groups.filter((group) => group.workspace === "github")).toHaveLength(1);
+    const visited = migrateGithubSitesInState(loaded.state).state;
+    expect(visited.groups).toEqual(loaded.state.groups);
+    expect(parseImportFile(serializeExport(visited)).groups).toEqual(loaded.state.groups);
+  });
+
+  it.each(["duplicate-id", "blank-id", "invalid-url", "invalid-date", "extra-protected-group"])("rejects %s without overwriting the source", (invalid) => {
+    const state = createDefaultState();
+    if (invalid === "duplicate-id") state.sites[1].id = state.sites[0].id;
+    if (invalid === "blank-id") state.sites[0].id = "";
+    if (invalid === "invalid-url") state.sites[0].url = "invalid";
+    if (invalid === "invalid-date") state.sites[0].createdAt = "invalid";
+    if (invalid === "extra-protected-group") state.groups.find((group) => group.workspace === "github" && !group.isProtected)!.isProtected = true;
+    const raw = JSON.stringify(state);
+    const storage = memoryStorage(raw);
+    expect(loadState(storage).recovered).toBe(true);
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
+  });
   it("loads defaults for a new browser", () => {
     const result = loadState(memoryStorage());
     expect(result.recovered).toBe(false);

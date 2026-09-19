@@ -56,7 +56,7 @@ function readResetAt(response: Response): number | undefined {
 async function requestJson<T>(
   url: string,
   fetchImpl: typeof fetch,
-): Promise<T> {
+): Promise<{ data: T; response: Response }> {
   let response: Response;
   try {
     response = await fetchImpl(url, { headers: API_HEADERS });
@@ -73,7 +73,7 @@ async function requestJson<T>(
     );
   }
   try {
-    return (await response.json()) as T;
+    return { data: (await response.json()) as T, response };
   } catch {
     throw new GithubRepositoryApiError("GitHub API 返回的数据无法读取。", response.status);
   }
@@ -131,12 +131,15 @@ export async function fetchGithubOwnerRepositories(
 ): Promise<GithubOwnerRepositories> {
   const inputProfile = typeof input === "string" ? parseGithubOwnerUrl(input) : input;
   const encodedLogin = encodeURIComponent(inputProfile.login);
-  const profile = await requestJson<{
+  const { data: profile } = await requestJson<{
     login?: unknown;
     type?: unknown;
     name?: unknown;
     html_url?: unknown;
   }>(`https://api.github.com/users/${encodedLogin}`, fetchImpl);
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    throw new GithubRepositoryApiError("GitHub API 返回的作者资料格式无效。");
+  }
   const login = typeof profile.login === "string" ? profile.login : inputProfile.login;
   const entityType: GithubImportSource["entityType"] =
     profile.type === "Organization" ? "organization" : "user";
@@ -153,23 +156,13 @@ export async function fetchGithubOwnerRepositories(
   let nextUrl = `https://api.github.com/${
     entityType === "organization" ? "orgs" : "users"
   }/${encodedLogin}/repos?per_page=100&sort=full_name&direction=asc`;
+  const visitedPages = new Set<string>();
   while (nextUrl) {
-    const response = await fetchImpl(nextUrl, { headers: API_HEADERS }).catch(() => {
-      throw new GithubRepositoryApiError("无法连接 GitHub API，请检查网络后重试。");
-    });
-    if (!response.ok) {
-      throw new GithubRepositoryApiError(
-        apiErrorMessage(response.status),
-        response.status,
-        readResetAt(response),
-      );
+    if (visitedPages.has(nextUrl)) {
+      throw new GithubRepositoryApiError("GitHub API 返回了重复的分页地址，请重试。");
     }
-    let items: unknown;
-    try {
-      items = await response.json();
-    } catch {
-      throw new GithubRepositoryApiError("GitHub API 返回的数据无法读取。", response.status);
-    }
+    visitedPages.add(nextUrl);
+    const { data: items, response } = await requestJson<unknown>(nextUrl, fetchImpl);
     if (!Array.isArray(items)) {
       throw new GithubRepositoryApiError("GitHub API 返回的仓库列表格式无效。", response.status);
     }

@@ -1,6 +1,7 @@
+import { DialogNavigation } from "./dialog-navigation";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowLeft, Globe, LinkSimple, X } from "@phosphor-icons/react";
+import { Globe, LinkSimple } from "@phosphor-icons/react";
 import {
   inferSiteName,
   normalizeOptionalIconUrl,
@@ -93,7 +94,15 @@ export function SiteDialog({
     setIconPickerUrl(editingSite?.url ?? prefill?.url);
     setErrors({});
     setDuplicateSite(null);
-  }, [editingSite, groups, initialGroupId, open, prefill, workspace]);
+    // The draft belongs to this dialog session. External data refreshes with
+    // the same site ID must not replace edits that have not been submitted.
+  }, [editingSite?.id, initialGroupId, open, prefill, workspace]);
+
+  useEffect(() => {
+    if (!open) return;
+    setValues((current) => groups.some((group) => group.id === current.groupId)
+      ? current : { ...current, groupId: groups[0]?.id ?? "" });
+  }, [groups, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -245,19 +254,7 @@ export function SiteDialog({
                 保存后会自动读取网站图标，也可以填写自己的图标地址。
               </Dialog.Description>
             </div>
-            <div className="panel-header-actions">
-              <Dialog.Close asChild>
-                <button type="button" className="panel-back-button" aria-label="返回收藏主页">
-                  <ArrowLeft size={16} />
-                  返回
-                </button>
-              </Dialog.Close>
-              <Dialog.Close asChild>
-                <button type="button" className="icon-button" aria-label="关闭">
-                  <X size={19} />
-                </button>
-              </Dialog.Close>
-            </div>
+            <DialogNavigation />
           </div>
 
           <form onSubmit={handleSubmit} className="site-form" noValidate>

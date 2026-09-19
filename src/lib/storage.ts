@@ -2,7 +2,6 @@ import {
   createDefaultState,
   DEFAULT_APPEARANCE,
   DEFAULT_BRAND,
-  DEFAULT_GITHUB_GROUPS,
   DEFAULT_GROUPS,
   DEFAULT_WALLPAPER,
   GITHUB_OTHER_GROUP_ID,
@@ -396,14 +395,19 @@ function normalizeSearchHistory(value: unknown): SearchHistoryEntry[] {
 function hasBaseSiteFields(item: Record<string, unknown>): boolean {
   return (
     typeof item.id === "string" &&
+    item.id.trim().length > 0 &&
     typeof item.name === "string" &&
-    typeof item.url === "string" &&
+    item.name.trim().length > 0 &&
+    isHttpImageUrl(item.url) &&
     (item.customIconUrl === undefined || typeof item.customIconUrl === "string") &&
     (item.iconSource === undefined ||
       siteIconSources.includes(item.iconSource as SiteIconSource)) &&
     typeof item.order === "number" &&
+    Number.isFinite(item.order) &&
     typeof item.createdAt === "string" &&
-    typeof item.updatedAt === "string"
+    Number.isFinite(Date.parse(item.createdAt)) &&
+    typeof item.updatedAt === "string" &&
+    Number.isFinite(Date.parse(item.updatedAt))
   );
 }
 
@@ -415,6 +419,7 @@ function hasBaseGroupFields(group: Record<string, unknown>): boolean {
     group.name.trim().length > 0 &&
     groupIcons.includes(group.icon as CategoryIcon) &&
     typeof group.order === "number" &&
+    Number.isFinite(group.order) &&
     typeof group.createdAt === "string" &&
     typeof group.updatedAt === "string"
   );
@@ -454,7 +459,8 @@ function isSiteItem(value: unknown, groupIds: Set<string>): value is SiteItem {
     hasBaseSiteFields(item) &&
     typeof item.groupId === "string" &&
     groupIds.has(item.groupId) &&
-    typeof item.globalOrder === "number"
+    typeof item.globalOrder === "number" &&
+    Number.isFinite(item.globalOrder)
   );
 }
 
@@ -525,10 +531,10 @@ function baseStateIsValid(
     protectedGroups.length === 1 &&
     protectedGroups[0].id === OTHER_GROUP_ID &&
     (!requireGithubWorkspace ||
-      (githubGroups.some(
-        (group) => group.id === GITHUB_OTHER_GROUP_ID && group.isProtected,
-      ) && githubGroups.length >= DEFAULT_GITHUB_GROUPS.length)) &&
-    (value.sites as unknown[]).every((site) => isSiteItem(site, groupIds))
+      (githubGroups.filter((group) => group.isProtected).length === 1 &&
+        githubGroups.some((group) => group.id === GITHUB_OTHER_GROUP_ID && group.isProtected))) &&
+    (value.sites as unknown[]).every((site) => isSiteItem(site, groupIds)) &&
+    new Set((value.sites as SiteItem[]).map((site) => site.id)).size === value.sites.length
   );
 }
 
@@ -594,7 +600,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
     isDisplayModeByWorkspace(state.displayModeByWorkspace) &&
     sortModes.includes(state.sortMode as SiteSortMode) &&
     isSortModeByWorkspace(state.sortModeByWorkspace) &&
-    (state.githubMigration === null ||
+    (state.githubMigration === undefined || state.githubMigration === null ||
       isGithubMigrationRecord(state.githubMigration))
   );
 }
@@ -1038,10 +1044,44 @@ export function parseStoredState(raw: string | null): LoadedState {
         ? upgradeToVersion15(baseCandidate)
         : undefined;
       if (migrated) {
+        // Current-version input also crosses the untrusted storage boundary.
+        // Version upgrades alone cannot guarantee its preferences are complete.
+        const displayMode = displayModes.includes(migrated.displayMode)
+          ? migrated.displayMode
+          : DEFAULT_DISPLAY_MODE_BY_WORKSPACE.main;
+        const sortMode = sortModes.includes(migrated.sortMode)
+          ? migrated.sortMode
+          : DEFAULT_SORT_MODE_BY_WORKSPACE.main;
         return {
           state: purgeExpiredTrashFromState(
             repairDuplicateOtherGroups({
               ...migrated,
+              groups: migrated.groups.map((group) => ({
+                ...group,
+                workspace: getGroupWorkspace(group),
+              })),
+              sites: migrated.sites.map((site) => ({
+                ...site,
+                clickCount: normalizeClickCount(site.clickCount),
+              })),
+              deletedSites: normalizeDeletedSites(migrated.deletedSites),
+              trashRetentionDays: trashRetentionOptions.includes(migrated.trashRetentionDays)
+                ? migrated.trashRetentionDays
+                : 30,
+              githubMigration: migrated.githubMigration === undefined ||
+                isGithubMigrationRecord(migrated.githubMigration)
+                  ? migrated.githubMigration
+                  : null,
+              displayMode,
+              displayModeByWorkspace: normalizeDisplayModeByWorkspace(
+                migrated.displayModeByWorkspace,
+                displayMode,
+              ),
+              sortMode,
+              sortModeByWorkspace: normalizeSortModeByWorkspace(
+                migrated.sortModeByWorkspace,
+                sortMode,
+              ),
               brand: normalizeBrand(migrated.brand),
               appearance: normalizeAppearance(migrated.appearance),
               wallpaper: normalizeWallpaper(migrated.wallpaper),

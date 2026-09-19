@@ -20,30 +20,35 @@ function openDatabase(): Promise<IDBDatabase> {
 
 export async function saveWallpaperBlob(id: string, blob: Blob): Promise<void> {
   const database = await openDatabase();
-  await new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction(STORE_NAME, "readwrite");
-    transaction.objectStore(STORE_NAME).put(blob, id);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () =>
-      reject(transaction.error ?? new Error("无法保存壁纸"));
-  });
-  database.close();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, "readwrite");
+      transaction.objectStore(STORE_NAME).put(blob, id);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = transaction.onabort = () =>
+        reject(transaction.error ?? new Error("无法保存壁纸"));
+    });
+  } finally {
+    database.close();
+  }
 }
 
 export async function loadWallpaperBlob(id: string): Promise<Blob | undefined> {
   const database = await openDatabase();
-  const result = await new Promise<Blob | undefined>((resolve, reject) => {
-    const request = database
-      .transaction(STORE_NAME, "readonly")
-      .objectStore(STORE_NAME)
-      .get(id);
-    request.onsuccess = () =>
-      resolve(request.result instanceof Blob ? request.result : undefined);
-    request.onerror = () =>
-      reject(request.error ?? new Error("无法读取壁纸"));
-  });
-  database.close();
-  return result;
+  try {
+    return await new Promise<Blob | undefined>((resolve, reject) => {
+      const request = database
+        .transaction(STORE_NAME, "readonly")
+        .objectStore(STORE_NAME)
+        .get(id);
+      request.onsuccess = () =>
+        resolve(request.result instanceof Blob ? request.result : undefined);
+      request.onerror = () =>
+        reject(request.error ?? new Error("无法读取壁纸"));
+    });
+  } finally {
+    database.close();
+  }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -72,11 +77,11 @@ export async function prepareWallpaper(file: File): Promise<Blob> {
   canvas.width = Math.max(1, Math.round(image.width * scale));
   canvas.height = Math.max(1, Math.round(image.height * scale));
   const context = canvas.getContext("2d");
-  if (!context) {
+  try {
+    if (!context) throw new Error("浏览器无法处理这张图片");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  } finally {
     image.close();
-    throw new Error("浏览器无法处理这张图片");
   }
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  image.close();
   return canvasToBlob(canvas);
 }

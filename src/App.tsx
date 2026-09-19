@@ -91,6 +91,7 @@ import {
 import { SiteDialog } from "./components/site-dialog";
 import { OTHER_GROUP_ID } from "./data/defaults";
 import { useSiteHub } from "./hooks/use-site-hub";
+import { useGroupSortSession } from "./hooks/use-group-sort-session";
 import { useCollectionSelection } from "./hooks/use-collection-selection";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
@@ -104,7 +105,6 @@ import {
   groupSortIntentFromTargetIndex,
   resolveGroupSortIntent,
   type GroupSortAxis,
-  type GroupSortIntent,
   type GroupSortRect,
 } from "./lib/group-sort";
 import {
@@ -256,6 +256,8 @@ export function App() {
     state,
     isLoading,
     recovered,
+    storageError,
+    retrySave,
     storageMode,
     addSite,
     updateSite,
@@ -361,11 +363,10 @@ export function App() {
   const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [batchDragIds, setBatchDragIds] = useState<string[]>([]);
-  const [activeGroupSortId, setActiveGroupSortId] = useState<string | null>(null);
-  const [activeGroupSortAxis, setActiveGroupSortAxis] =
-    useState<GroupSortAxis | null>(null);
-  const [groupSortIntent, setGroupSortIntent] =
-    useState<GroupSortIntent | null>(null);
+  const groupSort = useGroupSortSession();
+  const activeGroupSortId = groupSort.view?.activeId ?? null;
+  const activeGroupSortAxis = groupSort.view?.axis ?? null;
+  const groupSortIntent = groupSort.view?.intent ?? null;
   const importInputRef = useRef<HTMLInputElement>(null);
   const groupImportInputRef = useRef<HTMLInputElement>(null);
   const groupImportTargetRef = useRef<string | null>(null);
@@ -406,13 +407,6 @@ export function App() {
   const groupOverlapFrameRef = useRef<number | null>(null);
   const batchDragIdsRef = useRef<string[]>([]);
   const armedDeleteTimerRef = useRef<number | null>(null);
-  const activeGroupSortIdRef = useRef<string | null>(null);
-  const activeGroupSortIdsRef = useRef<string[]>([]);
-  const activeGroupSortAxisRef = useRef<GroupSortAxis | null>(null);
-  const groupSortIntentRef = useRef<GroupSortIntent | null>(null);
-  const groupSortOrderRef = useRef<string[]>([]);
-  const groupSortKeyboardRef = useRef(false);
-  const groupSortPointerRef = useRef<{ x: number; y: number } | null>(null);
   const dragPointerXRef = useRef<number | null>(null);
   const tabsAutoScrollFrameRef = useRef<number | null>(null);
 
@@ -1012,19 +1006,6 @@ export function App() {
     groupOverlapFrameRef.current = window.requestAnimationFrame(trackOverlap);
   }
 
-  function setNextGroupSortIntent(intent: GroupSortIntent | null) {
-    const current = groupSortIntentRef.current;
-    if (
-      current?.axis === intent?.axis &&
-      current?.activeGroupId === intent?.activeGroupId &&
-      current?.beforeGroupId === intent?.beforeGroupId
-    ) {
-      return;
-    }
-    groupSortIntentRef.current = intent;
-    setGroupSortIntent(intent);
-  }
-
   function readLiveGroupSortRects(axis: GroupSortAxis): GroupSortRect[] {
     const selector =
       axis === "horizontal"
@@ -1041,7 +1022,7 @@ export function App() {
       ),
     );
 
-    return groupSortOrderRef.current.flatMap((groupId) => {
+    return (groupSort.read()?.order ?? []).flatMap((groupId) => {
       const element = elementsByGroupId.get(groupId);
       if (!element) return [];
       const rect = element.getBoundingClientRect();
@@ -1097,7 +1078,7 @@ export function App() {
       });
     }
 
-    const orderedGroupIds = groupSortOrderRef.current;
+    const orderedGroupIds = (groupSort.read()?.order ?? []);
     const orderedRects = orderedGroupIds.flatMap((groupId) => {
       const rect = args.droppableRects.get(idForGroup(groupId));
       if (!rect) return [];
@@ -1138,12 +1119,12 @@ export function App() {
   }
 
   function updateGroupSortIntentFromPointer(x: number, y: number) {
-    const activeGroupId = activeGroupSortIdRef.current;
-    const axis = activeGroupSortAxisRef.current;
-    if (!activeGroupId || !axis || groupSortKeyboardRef.current) return;
-    groupSortPointerRef.current = { x, y };
+    const activeGroupId = groupSort.read()?.activeId;
+    const axis = groupSort.read()?.axis;
+    if (!activeGroupId || !axis || groupSort.read()?.keyboard) return;
+    groupSort.trackPointer(x, y);
     const orderedRects = readLiveGroupSortRects(axis);
-    setNextGroupSortIntent(
+    groupSort.preview(
       resolveGroupSortIntent({
         axis,
         activeGroupId,
@@ -1155,17 +1136,17 @@ export function App() {
   }
 
   function updateKeyboardGroupSortIntent(overId?: string) {
-    if (!groupSortKeyboardRef.current || !overId) return;
-    const activeGroupId = activeGroupSortIdRef.current;
-    const axis = activeGroupSortAxisRef.current;
+    if (!groupSort.read()?.keyboard || !overId) return;
+    const activeGroupId = groupSort.read()?.activeId;
+    const axis = groupSort.read()?.axis;
     const overGroupId = readGroupSortId(overId);
     if (!activeGroupId || !axis || !overGroupId) return;
-    setNextGroupSortIntent(
+    groupSort.preview(
       groupSortIntentFromTargetIndex(
         axis,
         activeGroupId,
-        groupSortOrderRef.current,
-        groupSortOrderRef.current.indexOf(overGroupId),
+        (groupSort.read()?.order ?? []),
+        (groupSort.read()?.order ?? []).indexOf(overGroupId),
       ),
     );
   }
@@ -1181,7 +1162,7 @@ export function App() {
   function startTabsAutoScroll() {
     if (tabsAutoScrollFrameRef.current !== null) return;
     const tick = () => {
-      if (!activeDragIdRef.current && !activeGroupSortIdRef.current) {
+      if (!activeDragIdRef.current && !groupSort.read()?.activeId) {
         tabsAutoScrollFrameRef.current = null;
         return;
       }
@@ -1213,12 +1194,12 @@ export function App() {
               const overlappingGroupId = readOverlappingGroupTab();
               if (overlappingGroupId) scheduleGroupTabSwitch(overlappingGroupId);
             } else if (
-              activeGroupSortAxisRef.current === "horizontal" &&
-              groupSortPointerRef.current
+              groupSort.read()?.axis === "horizontal" &&
+              groupSort.read()?.pointer
             ) {
               updateGroupSortIntentFromPointer(
-                groupSortPointerRef.current.x,
-                groupSortPointerRef.current.y,
+                groupSort.read()!.pointer!.x,
+                groupSort.read()!.pointer!.y,
               );
             }
           }
@@ -1602,7 +1583,7 @@ export function App() {
       document.dispatchEvent(new Event("touchcancel", { bubbles: true }));
     };
     const cancelDragOnWindowLoss = () => {
-      if (activeGroupSortIdRef.current) {
+      if (groupSort.read()?.activeId) {
         // dnd-kit may not receive the pointer-up once the browser window loses
         // focus. Clear the preview and intent immediately instead of leaving
         // the floating group card behind until the next in-page event.
@@ -1616,10 +1597,10 @@ export function App() {
       }
     };
     const handlePointerMove = (event: PointerEvent | MouseEvent) => {
-      if (activeDragIdRef.current || activeGroupSortIdRef.current) {
+      if (activeDragIdRef.current || groupSort.read()?.activeId) {
         dragPointerXRef.current = event.clientX;
       }
-      if (activeGroupSortIdRef.current) {
+      if (groupSort.read()?.activeId) {
         updateGroupSortIntentFromPointer(event.clientX, event.clientY);
       }
       if (!dragSitesPreviewRef.current) return;
@@ -1639,10 +1620,10 @@ export function App() {
     };
     const handleTouchMove = (event: TouchEvent) => {
       const touch = event.touches[0];
-      if (touch && (activeDragIdRef.current || activeGroupSortIdRef.current)) {
+      if (touch && (activeDragIdRef.current || groupSort.read()?.activeId)) {
         dragPointerXRef.current = touch.clientX;
       }
-      if (touch && activeGroupSortIdRef.current) {
+      if (touch && groupSort.read()?.activeId) {
         updateGroupSortIntentFromPointer(touch.clientX, touch.clientY);
       }
     };
@@ -1782,65 +1763,18 @@ export function App() {
             )
             .map((group) => group.id)
         : [groupId];
-    activeGroupSortIdRef.current = groupId;
-    activeGroupSortIdsRef.current = activeIds;
-    activeGroupSortAxisRef.current = axis;
-    groupSortOrderRef.current = groups
-      .filter((group) => !group.isProtected)
-      .map((group) => group.id);
-    groupSortKeyboardRef.current = activatorEvent.type.startsWith("key");
-    groupSortPointerRef.current =
-      "clientX" in activatorEvent && "clientY" in activatorEvent
-        ? {
-            x: Number(activatorEvent.clientX),
-            y: Number(activatorEvent.clientY),
-          }
-        : null;
-    setNextGroupSortIntent(null);
-    setActiveGroupSortId(groupId);
-    setActiveGroupSortAxis(axis);
+    groupSort.begin(groupId, axis, groups.filter((group) => !group.isProtected).map((group) => group.id), activeIds, activatorEvent);
     if (axis === "horizontal") startTabsAutoScroll();
   }
 
   function finishGroupSort(commit = true) {
     const hadGroupSelection = selectedGroupIds.size > 0;
-    const intent = groupSortIntentRef.current;
-    if (
-      commit &&
-      intent &&
-      intent.activeGroupId === activeGroupSortIdRef.current
-    ) {
-      const activeIds = activeGroupSortIdsRef.current.length
-        ? activeGroupSortIdsRef.current
-        : [intent.activeGroupId];
-      const activeSet = new Set(activeIds);
-      let beforeGroupId = intent.beforeGroupId;
-      if (beforeGroupId && activeSet.has(beforeGroupId)) {
-        const targetIndex = groupSortOrderRef.current.indexOf(beforeGroupId);
-        beforeGroupId =
-          groupSortOrderRef.current.find(
-            (groupId, index) => index > targetIndex && !activeSet.has(groupId),
-          ) ?? null;
-      }
-      if (activeIds.length > 1) {
-        reorderGroupBlock(activeIds, beforeGroupId);
-      } else {
-        reorderGroups(intent.activeGroupId, beforeGroupId);
-      }
-      // A canceled or targetless drop only ends the drag. Selection is
-      // consumed by a committed move, or explicitly cleared by Esc/outside.
-      if (activeIds.length > 1 || hadGroupSelection) cancelSelection();
+    const move = groupSort.finish(commit);
+    if (move) {
+      if (move.activeIds.length > 1) reorderGroupBlock(move.activeIds, move.beforeGroupId);
+      else reorderGroups(move.activeIds[0], move.beforeGroupId);
+      if (move.activeIds.length > 1 || hadGroupSelection) cancelSelection();
     }
-    activeGroupSortIdRef.current = null;
-    activeGroupSortIdsRef.current = [];
-    activeGroupSortAxisRef.current = null;
-    groupSortOrderRef.current = [];
-    groupSortKeyboardRef.current = false;
-    groupSortPointerRef.current = null;
-    groupSortIntentRef.current = null;
-    setActiveGroupSortId(null);
-    setActiveGroupSortAxis(null);
-    setGroupSortIntent(null);
     stopTabsAutoScroll();
   }
 
@@ -1887,7 +1821,7 @@ export function App() {
   }
 
   function handleCollectionDragCancel() {
-    if (activeGroupSortIdRef.current) {
+    if (groupSort.read()?.activeId) {
       finishGroupSort(false);
       return;
     }
@@ -2851,6 +2785,13 @@ export function App() {
           </div>
         </motion.section>
 
+        {storageError && (
+          <div className="recovery-banner" role="alert">
+            <span>{storageError}</span>
+            <button type="button" className="button secondary-button" onClick={() => void retrySave()}>重试保存</button>
+          </div>
+        )}
+
         {recovered && (
           <div className="recovery-banner" role="status">
             <div>
@@ -3364,7 +3305,7 @@ export function App() {
                         axis="vertical"
                         group={activeSortedGroup}
                         count={activeSortedGroupCount}
-                        batchCount={activeGroupSortIdsRef.current.length || 1}
+                        batchCount={groupSort.view?.activeIds.length || 1}
                       />
                     ) : activeDraggedSite && activeDraggedGroup ? (
                       <SiteCardDragPreview

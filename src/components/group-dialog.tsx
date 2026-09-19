@@ -1,3 +1,4 @@
+import { DialogNavigation } from "./dialog-navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -20,13 +21,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  ArrowLeft,
   DownloadSimple,
   DotsSixVertical,
   LockSimple,
   Trash,
   UploadSimple,
-  X,
 } from "@phosphor-icons/react";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
 import type { CategoryIcon, SiteGroup, SiteItem } from "../types";
@@ -496,19 +495,7 @@ export function GroupDialog({
                 选择分组后在右侧编辑；拖动左侧列表可调整顺序。
               </Dialog.Description>
             </div>
-            <div className="panel-header-actions">
-              <Dialog.Close asChild>
-                <button type="button" className="panel-back-button" aria-label="返回收藏主页">
-                  <ArrowLeft size={16} />
-                  返回
-                </button>
-              </Dialog.Close>
-              <Dialog.Close asChild>
-                <button type="button" className="icon-button" aria-label="关闭">
-                  <X size={19} />
-                </button>
-              </Dialog.Close>
-            </div>
+            <DialogNavigation />
           </div>
 
           <div className="group-dialog-scroll">

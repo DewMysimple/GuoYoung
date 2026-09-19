@@ -56,6 +56,25 @@ describe("BrowserHistoryView", () => {
   beforeEach(() => { vi.spyOn(window, "scrollTo").mockImplementation(() => {}); });
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+  it("preserves failed URL selections so a partial deletion can be retried", async () => {
+    const user = userEvent.setup();
+    const history = createHistoryApi([
+      { id: "one", title: "One", url: "https://example.com/one", lastVisitTime: Date.now() },
+      { id: "two", title: "Two", url: "https://example.com/two", lastVisitTime: Date.now() },
+    ]);
+    vi.mocked(history.api.history!.deleteUrl).mockImplementation(async ({ url }) => {
+      if (url.endsWith("two")) throw new Error("cannot delete");
+    });
+    render(<BrowserHistoryView api={history.api} onBack={vi.fn()} onRequestPermission={vi.fn()} />);
+    await user.click(await screen.findByRole("button", { name: "查看 Example 历史记录" }));
+    await user.click(screen.getByRole("button", { name: "多选" }));
+    await user.click(screen.getByRole("checkbox", { name: "全选当前结果" }));
+    await user.click(screen.getByRole("button", { name: "删除选中" }));
+    expect(await screen.findByText(/1 条删除失败/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消选择 Two" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "选择 One" })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("loads, searches, filters, and opens a browser history item in a new tab", async () => {
     const user = userEvent.setup();
     const history = createHistoryApi([

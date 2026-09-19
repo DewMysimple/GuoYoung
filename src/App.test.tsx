@@ -248,6 +248,7 @@ describe("App", () => {
       ...githubOther,
       id: "github-octo",
       name: "octo",
+      isProtected: false,
       order: githubOther.order + 1,
       githubImportSource: {
         login: "octo",

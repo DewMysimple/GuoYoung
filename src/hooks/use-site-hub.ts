@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from "react";
 import { createDefaultState } from "../data/defaults";
 import {
   createSiteHubStore,
@@ -9,8 +9,6 @@ import {
   reindexSites,
   reorderGroups as reorderGroupItems,
   reorderGroupBlock,
-  reorderSites,
-  reorderSitesGlobally,
 } from "../lib/site-utils";
 import {
   addGroupToState,
@@ -33,8 +31,6 @@ import {
 } from "../lib/site-state";
 import {
   migrateGithubSitesInState,
-  moveGithubHomeToMainInState,
-  undoGithubMigrationInState,
 } from "../lib/github-workspace";
 import type { GroupExportPayload } from "../lib/data-transfer";
 import { addSearchHistory, removeSearchHistory } from "../lib/search-history";
@@ -60,6 +56,8 @@ interface SiteHubApi {
   state: SiteCollectionState;
   isLoading: boolean;
   recovered: boolean;
+  storageError: string | null;
+  retrySave: () => Promise<void>;
   storageMode: StorageMode;
   addSite: (values: SiteFormValues & { url: string; customIconUrl?: string }) => void;
   updateSite: (
@@ -73,12 +71,6 @@ interface SiteHubApi {
   permanentlyDeleteSite: (id: string) => void;
   emptyTrash: () => void;
   setTrashRetentionDays: (days: TrashRetentionDays) => void;
-  reorder: (
-    activeId: string,
-    overId: string,
-    scope: "all" | "group",
-    workspaceGroupIds?: Set<string>,
-  ) => void;
   commitSites: (sites: SiteItem[]) => void;
   addGroup: (
     name: string,
@@ -103,8 +95,6 @@ interface SiteHubApi {
     imports: GithubRepositoryBatchImport[],
   ) => GithubRepositoryBatchImportResult;
   migrateGithubSites: () => ReturnType<typeof migrateGithubSitesInState>;
-  moveGithubHomeToMain: (siteId: string) => void;
-  undoGithubMigration: () => ReturnType<typeof undoGithubMigrationInState>;
   reset: () => void;
   replaceState: (state: SiteCollectionState) => void;
   saveSettings: (
@@ -124,19 +114,41 @@ export function useSiteHub(): SiteHubApi {
   if (!storeRef.current) storeRef.current = createSiteHubStore();
   const store = storeRef.current;
   const initial = store.initial;
-  const [state, setState] = useState(
+  const [state, setRenderedState] = useState(
     () => initial?.state ?? createDefaultState(),
   );
   const [isLoading, setIsLoading] = useState(!initial);
   const [recovered, setRecovered] = useState(initial?.recovered ?? false);
   const stateRef = useRef(state);
   const hasLoaded = useRef(Boolean(initial));
-  const skipInitialSave = useRef(initial?.recovered ?? false);
-  const applyingExternalState = useRef(false);
-
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
+  // Mutations and result-returning imports share the same current value,
+  // including multiple commands issued before React commits a render.
+  const setState = useCallback((update: SetStateAction<SiteCollectionState>) => {
+    const next = typeof update === "function" ? update(stateRef.current) : update;
+    stateRef.current = next;
+    setRenderedState(next);
+  }, []);
+  const skipSaveState = useRef<SiteCollectionState | null>(
+    initial?.recovered ? state : null,
+  );
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const lastSave = useRef<{ state: SiteCollectionState; result: Promise<void> } | null>(null);
+  const saveSnapshot = useCallback((next: SiteCollectionState) => {
+    if (lastSave.current?.state === next) return lastSave.current.result;
+    const result = store.save(next).then(
+      () => { if (stateRef.current === next) setStorageError(null); },
+      (error: unknown) => {
+        if (stateRef.current === next) setStorageError("更改尚未保存，请重试保存。");
+        throw error;
+      },
+    );
+    lastSave.current = { state: next, result };
+    return result;
+  }, [store]);
+  const retrySave = useCallback(() => {
+    lastSave.current = null;
+    return saveSnapshot(stateRef.current).catch(() => undefined);
+  }, [saveSnapshot]);
 
   useEffect(() => {
     if (hasLoaded.current) return;
@@ -148,15 +160,16 @@ export function useSiteHub(): SiteHubApi {
         if (!active) return;
         setState(loaded.state);
         setRecovered(loaded.recovered);
-        skipInitialSave.current = loaded.recovered;
+        skipSaveState.current = loaded.recovered ? loaded.state : null;
         hasLoaded.current = true;
         setIsLoading(false);
       })
       .catch(() => {
         if (!active) return;
-        setState(createDefaultState());
+        const defaults = createDefaultState();
+        setState(defaults);
         setRecovered(true);
-        skipInitialSave.current = true;
+        skipSaveState.current = defaults;
         hasLoaded.current = true;
         setIsLoading(false);
       });
@@ -171,25 +184,18 @@ export function useSiteHub(): SiteHubApi {
     return store.subscribe((loaded) => {
       const incoming = JSON.stringify(loaded.state);
       if (incoming === JSON.stringify(stateRef.current)) return;
-      applyingExternalState.current = true;
-      stateRef.current = loaded.state;
+      skipSaveState.current = loaded.state;
       setState(loaded.state);
       setRecovered(loaded.recovered);
+      setStorageError(null);
     });
   }, [isLoading, store]);
 
   useEffect(() => {
     if (!hasLoaded.current || isLoading) return;
-    if (applyingExternalState.current) {
-      applyingExternalState.current = false;
-      return;
-    }
-    if (skipInitialSave.current) {
-      skipInitialSave.current = false;
-      return;
-    }
-    void store.save(state);
-  }, [isLoading, state]);
+    if (state === skipSaveState.current) return;
+    void saveSnapshot(state).catch(() => undefined);
+  }, [isLoading, state, saveSnapshot]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -255,7 +261,6 @@ export function useSiteHub(): SiteHubApi {
         site.id === id ? { ...site, clickCount: site.clickCount + 1 } : site,
       ),
     };
-    stateRef.current = next;
     setState(next);
     setRecovered(false);
   }, []);
@@ -293,25 +298,6 @@ export function useSiteHub(): SiteHubApi {
     setState((current) => setTrashRetentionInState(current, days));
     setRecovered(false);
   }, []);
-
-  const reorder = useCallback<SiteHubApi["reorder"]>(
-    (activeId, overId, scope, workspaceGroupIds) => {
-      setState((current) => ({
-        ...current,
-        sites:
-          scope === "all"
-            ? reorderSitesGlobally(
-                current.sites,
-                activeId,
-                overId,
-                workspaceGroupIds,
-              )
-            : reorderSites(current.sites, activeId, overId),
-      }));
-      setRecovered(false);
-    },
-    [],
-  );
 
   const commitSites = useCallback((sites: SiteItem[]) => {
     setState((current) => ({
@@ -422,7 +408,6 @@ export function useSiteHub(): SiteHubApi {
         targetGroupId,
         payload,
       );
-      stateRef.current = result.state;
       setState(result.state);
       setRecovered(false);
       return result;
@@ -439,7 +424,6 @@ export function useSiteHub(): SiteHubApi {
       repositories,
       selectedRepositoryIds,
     );
-    stateRef.current = result.state;
     setState(result.state);
     setRecovered(false);
     return result;
@@ -449,7 +433,6 @@ export function useSiteHub(): SiteHubApi {
     SiteHubApi["importGithubRepositoryBatch"]
   >((imports) => {
     const result = importGithubRepositoryBatchToState(stateRef.current, imports);
-    stateRef.current = result.state;
     setState(result.state);
     setRecovered(false);
     return result;
@@ -457,20 +440,6 @@ export function useSiteHub(): SiteHubApi {
 
   const migrateGithubSites = useCallback(() => {
     const result = migrateGithubSitesInState(stateRef.current);
-    stateRef.current = result.state;
-    setState(result.state);
-    setRecovered(false);
-    return result;
-  }, []);
-
-  const moveGithubHomeToMain = useCallback((siteId: string) => {
-    setState((current) => moveGithubHomeToMainInState(current, siteId));
-    setRecovered(false);
-  }, []);
-
-  const undoGithubMigration = useCallback(() => {
-    const result = undoGithubMigrationInState(stateRef.current);
-    stateRef.current = result.state;
     setState(result.state);
     setRecovered(false);
     return result;
@@ -495,7 +464,7 @@ export function useSiteHub(): SiteHubApi {
   }, []);
 
   const replaceState = useCallback((nextState: SiteCollectionState) => {
-    skipInitialSave.current = false;
+    skipSaveState.current = null;
     setState((current) => ({
       ...nextState,
       searchHistory: current.searchHistory,
@@ -526,11 +495,10 @@ export function useSiteHub(): SiteHubApi {
         ...stateRef.current,
         searchHistory: addSearchHistory(stateRef.current.searchHistory, query),
       };
-      stateRef.current = next;
       setState(next);
-      await store.save(next);
+      await saveSnapshot(next);
     },
-    [store],
+    [saveSnapshot],
   );
 
   const deleteSearchHistory = useCallback((query: string) => {
@@ -578,6 +546,8 @@ export function useSiteHub(): SiteHubApi {
     state,
     isLoading,
     recovered,
+    storageError,
+    retrySave,
     storageMode: store.mode,
     addSite,
     updateSite,
@@ -588,7 +558,6 @@ export function useSiteHub(): SiteHubApi {
     permanentlyDeleteSite,
     emptyTrash,
     setTrashRetentionDays,
-    reorder,
     commitSites,
     addGroup,
     updateGroup,
@@ -599,8 +568,6 @@ export function useSiteHub(): SiteHubApi {
     importGithubRepositories,
     importGithubRepositoryBatch,
     migrateGithubSites,
-    moveGithubHomeToMain,
-    undoGithubMigration,
     reset,
     replaceState,
     saveSettings,

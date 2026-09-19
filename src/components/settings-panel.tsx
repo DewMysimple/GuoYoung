@@ -34,12 +34,10 @@ import {
   LAYOUT_PRESETS,
 } from "../data/defaults";
 import {
-  MAX_BRAND_LOGO_BYTES,
   isHttpImageUrl,
   prepareBrandLogo,
 } from "../lib/brand-logo";
 import {
-  MAX_WALLPAPER_BYTES,
   prepareWallpaper,
   saveWallpaperBlob,
 } from "../lib/wallpaper-store";
@@ -51,6 +49,7 @@ import type {
   TrashRetentionDays,
   WallpaperSettings,
 } from "../types";
+import { useImageImport } from "../hooks/use-image-import";
 import { CustomColorPicker } from "./custom-color-picker";
 import { BrandMark } from "./brand-mark";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -320,9 +319,11 @@ export function SettingsPanel({
     },
     [],
   );
-  const [logoProcessing, setLogoProcessing] = useState(false);
+  const logoImport = useImageImport(open);
+  const logoProcessing = logoImport.pending;
   const [wallpaperError, setWallpaperError] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
+  const wallpaperImport = useImageImport(open);
+  const isProcessing = wallpaperImport.pending;
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const [wallpaperEditing, setWallpaperEditing] = useState(false);
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
@@ -482,6 +483,7 @@ export function SettingsPanel({
   }
 
   function updateBrand(patch: Partial<BrandSettings>) {
+    if (patch.logoSource !== undefined) logoImport.cancel();
     setLogoError("");
     setDraft((current) => ({
       ...current,
@@ -502,12 +504,7 @@ export function SettingsPanel({
     event.currentTarget.value = "";
     if (!file) return;
     setLogoError("");
-    setLogoProcessing(true);
-    try {
-      if (file.size > MAX_BRAND_LOGO_BYTES) {
-        throw new Error("Logo 图片不能超过 5MB");
-      }
-      const logoDataUrl = await prepareBrandLogo(file);
+    await logoImport.run(() => prepareBrandLogo(file), (logoDataUrl) => {
       setDraft((current) => ({
         ...current,
         brand: {
@@ -521,13 +518,7 @@ export function SettingsPanel({
             ? { ...current.appearance, brandLogoScale: 100 }
             : current.appearance,
       }));
-    } catch (error) {
-      setLogoError(
-        error instanceof Error ? error.message : "无法处理这张 Logo 图片",
-      );
-    } finally {
-      setLogoProcessing(false);
-    }
+    });
   }
 
   function choosePreset(preset: Exclude<LayoutPreset, "custom">) {
@@ -542,6 +533,7 @@ export function SettingsPanel({
   }
 
   function updateWallpaper(patch: Partial<WallpaperSettings>) {
+    if (patch.source !== undefined) wallpaperImport.cancel();
     const pendingGesture = wallpaperGestureValue.current;
     if (wallpaperFrame.current !== null) {
       window.cancelAnimationFrame(wallpaperFrame.current);
@@ -709,14 +701,12 @@ export function SettingsPanel({
     event.currentTarget.value = "";
     if (!file) return;
     setWallpaperError("");
-    setIsProcessing(true);
-    try {
-      if (file.size > MAX_WALLPAPER_BYTES) {
-        throw new Error("图片不能超过 20MB");
-      }
+    await wallpaperImport.run(async () => {
       const blob = await prepareWallpaper(file);
       const id = crypto.randomUUID();
       await saveWallpaperBlob(id, blob);
+      return id;
+    }, (id) => {
       setDraft((current) => ({
         ...current,
         wallpaper: {
@@ -726,16 +716,12 @@ export function SettingsPanel({
           url: undefined,
         },
       }));
-    } catch (error) {
-      setWallpaperError(
-        error instanceof Error ? error.message : "无法处理这张图片",
-      );
-    } finally {
-      setIsProcessing(false);
-    }
+    });
   }
 
   function closeWithoutSaving() {
+    logoImport.cancel();
+    wallpaperImport.cancel();
     if (wallpaperFrame.current !== null) {
       window.cancelAnimationFrame(wallpaperFrame.current);
       wallpaperFrame.current = null;
@@ -770,13 +756,15 @@ export function SettingsPanel({
     }
     if (
       draft.wallpaper.source === "url" &&
-      !/^https?:\/\//i.test(draft.wallpaper.url ?? "")
+      !isHttpImageUrl(draft.wallpaper.url)
     ) {
       setSection("wallpaper");
       setWallpaperError("网络壁纸地址需要以 http:// 或 https:// 开头");
       return;
     }
     const pendingWallpaper = wallpaperGestureValue.current;
+    logoImport.cancel();
+    wallpaperImport.cancel();
     onSave(
       pendingWallpaper
         ? {
@@ -1077,8 +1065,8 @@ export function SettingsPanel({
                       />
                     </label>
                   )}
-                  {logoError && (
-                    <p className="field-error" role="alert">{logoError}</p>
+                  {(logoError || logoImport.error) && (
+                    <p className="field-error" role="alert">{logoError || logoImport.error}</p>
                   )}
                   <button
                     type="button"
@@ -1281,12 +1269,7 @@ export function SettingsPanel({
                   <button
                     type="button"
                     className="button secondary-button"
-                    onClick={() =>
-                      setDraft((current) => ({
-                        ...current,
-                        wallpaper: { ...DEFAULT_WALLPAPER },
-                      }))
-                    }
+                    onClick={() => updateWallpaper({ ...DEFAULT_WALLPAPER })}
                   >
                     <Trash size={17} />清除壁纸
                   </button>
@@ -1310,24 +1293,20 @@ export function SettingsPanel({
                     }
                     onChange={(event) => {
                       setWallpaperError("");
-                      setDraft((current) => ({
-                        ...current,
-                        wallpaper: {
-                          ...current.wallpaper,
-                          source: event.target.value ? "url" : "none",
-                          url: event.target.value,
-                          localAssetId: undefined,
-                        },
-                      }));
+                      updateWallpaper({
+                        source: event.target.value ? "url" : "none",
+                        url: event.target.value,
+                        localAssetId: undefined,
+                      });
                     }}
                   />
                 </label>
-                {wallpaperError && (
+                {(wallpaperError || wallpaperImport.error) && (
                   <p className="field-error" role="alert">
-                    {wallpaperError}
+                    {wallpaperError || wallpaperImport.error}
                   </p>
                 )}
-                {!wallpaperError && wallpaperLoadError && (
+                {!wallpaperError && !wallpaperImport.error && wallpaperLoadError && (
                   <p className="field-error" role="alert">
                     {wallpaperLoadError}
                   </p>

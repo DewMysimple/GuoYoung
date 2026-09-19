@@ -1,12 +1,13 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { DialogNavigation } from "./dialog-navigation";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowLeft, Check, GithubLogo, LinkSimple, Spinner, X } from "@phosphor-icons/react";
+import { Check, GithubLogo, LinkSimple, Spinner } from "@phosphor-icons/react";
 import type { SiteCollectionState } from "../types";
 import type {
   GithubOwnerRepositories,
 } from "../lib/github-repository-api";
 import {
-  getGithubRepositoryStatus,
+  getGithubRepositoryStatuses,
   type GithubRepositoryStatus,
 } from "../lib/site-state";
 
@@ -44,22 +45,27 @@ export function GithubRepositoryImportDialog({
   const [input, setInput] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const titleId = useId();
+  const previousPreview = useRef(preview);
+  const wasOpen = useRef(false);
+  const statuses = useMemo(
+    () => getGithubRepositoryStatuses(state, preview?.repositories ?? []),
+    [state.sites, state.deletedSites, preview],
+  );
 
   useEffect(() => {
     if (!open) return;
     setInput(initialInput);
-    if (!preview) {
-      setSelectedIds(new Set());
-      return;
-    }
-    setSelectedIds(
-      new Set(
-        preview.repositories
-          .filter((repository) => getGithubRepositoryStatus(state, repository) === "new")
-          .map((repository) => repository.id),
-      ),
-    );
-  }, [initialInput, open, preview, state]);
+  }, [initialInput, open]);
+
+  useEffect(() => {
+    const initialize = open && (!wasOpen.current || preview !== previousPreview.current);
+    wasOpen.current = open;
+    previousPreview.current = preview;
+    if (!open) return;
+    setSelectedIds((current) => new Set(
+      [...statuses].filter(([id, status]) => status === "new" && (initialize || current.has(id))).map(([id]) => id),
+    ));
+  }, [open, preview, statuses]);
 
   function submitInput(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,15 +81,8 @@ export function GithubRepositoryImportDialog({
     });
   }
 
-  const selectableCount = preview?.repositories.filter(
-    (repository) => getGithubRepositoryStatus(state, repository) === "new",
-  ).length ?? 0;
-  const activeCount = preview?.repositories.filter(
-    (repository) => getGithubRepositoryStatus(state, repository) === "active",
-  ).length ?? 0;
-  const deletedCount = preview?.repositories.filter(
-    (repository) => getGithubRepositoryStatus(state, repository) === "deleted",
-  ).length ?? 0;
+  const counts = { new: 0, active: 0, deleted: 0 };
+  statuses.forEach((status) => { counts[status] += 1; });
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -106,19 +105,7 @@ export function GithubRepositoryImportDialog({
                 输入 GitHub 作者或组织主页，读取公开仓库后再确认添加。
               </Dialog.Description>
             </div>
-            <div className="panel-header-actions">
-              <Dialog.Close asChild>
-                <button type="button" className="panel-back-button" aria-label="返回收藏主页">
-                  <ArrowLeft size={16} />
-                  返回
-                </button>
-              </Dialog.Close>
-              <Dialog.Close asChild>
-                <button type="button" className="icon-button" aria-label="关闭">
-                  <X size={19} />
-                </button>
-              </Dialog.Close>
-            </div>
+            <DialogNavigation />
           </div>
 
           <form className="github-import-form" onSubmit={submitInput}>
@@ -171,14 +158,14 @@ export function GithubRepositoryImportDialog({
               </div>
 
               <div className="github-import-statuses">
-                <span>可添加 {selectableCount}</span>
-                <span>已收藏 {activeCount}</span>
-                <span>回收站 {deletedCount}</span>
+                <span>可添加 {counts.new}</span>
+                <span>已收藏 {counts.active}</span>
+                <span>回收站 {counts.deleted}</span>
               </div>
 
               <div className="github-import-list">
                 {preview.repositories.map((repository) => {
-                  const status = getGithubRepositoryStatus(state, repository);
+                  const status = statuses.get(repository.id)!;
                   const selectable = status === "new";
                   return (
                     <label

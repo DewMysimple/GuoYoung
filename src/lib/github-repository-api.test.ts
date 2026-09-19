@@ -17,6 +17,19 @@ function response(body: unknown, status = 200, link?: string): Response {
 }
 
 describe("GitHub repository API", () => {
+  it("rejects malformed owner data with a readable API error", async () => {
+    await expect(fetchGithubOwnerRepositories("github.com/acme", vi.fn<typeof fetch>().mockResolvedValue(response(null))))
+      .rejects.toThrow("作者资料格式无效");
+  });
+
+  it("stops cyclic pagination without returning a partial import", async () => {
+    const next = "https://api.github.com/users/acme/repos?per_page=100&sort=full_name&direction=asc";
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ login: "acme", type: "User" }))
+      .mockResolvedValue(response([], 200, `<${next}>; rel="next"`));
+    await expect(fetchGithubOwnerRepositories("github.com/acme", fetchImpl)).rejects.toThrow("重复的分页地址");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
   it("accepts author and organization profile URLs but rejects repository URLs", () => {
     expect(parseGithubOwnerUrl("https://www.github.com/DewMysimple/")).toMatchObject({
       login: "DewMysimple",

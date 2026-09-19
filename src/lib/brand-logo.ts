@@ -110,12 +110,12 @@ export async function prepareBrandLogo(file: File): Promise<string> {
   canvas.width = Math.max(1, Math.round(decoded.width * scale));
   canvas.height = Math.max(1, Math.round(decoded.height * scale));
   const context = canvas.getContext("2d");
-  if (!context) {
+  try {
+    if (!context) throw new Error("浏览器无法处理这张 Logo 图片");
+    context.drawImage(decoded.image, 0, 0, canvas.width, canvas.height);
+  } finally {
     decoded.release();
-    throw new Error("浏览器无法处理这张 Logo 图片");
   }
-  context.drawImage(decoded.image, 0, 0, canvas.width, canvas.height);
-  decoded.release();
   const dataUrl = await canvasToDataUrl(canvas);
   if (!isBrandLogoDataUrl(dataUrl)) {
     throw new Error("压缩后的 Logo 图片仍然过大");

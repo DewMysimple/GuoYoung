@@ -882,7 +882,9 @@ export function BrowserHistoryView({
     const deleted = uniqueUrls.length - failed;
     setSelectedUrls((current) => {
       const next = new Set(current);
-      uniqueUrls.forEach((url) => next.delete(url));
+      uniqueUrls.forEach((url, index) => {
+        if (results[index].status === "fulfilled") next.delete(url);
+      });
       return next;
     });
     setBusy(false);

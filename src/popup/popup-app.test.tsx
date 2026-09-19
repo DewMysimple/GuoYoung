@@ -62,7 +62,8 @@ function installChromeMock(options: {
       removeTree,
     },
   };
-  return { set, remove, removeTree };
+  const chrome = (globalThis as typeof globalThis & { chrome: { storage: { local: { get: ReturnType<typeof vi.fn> } }; bookmarks: { getTree: ReturnType<typeof vi.fn> } } }).chrome;
+  return { set, remove, removeTree, get: chrome.storage.local.get, getTree: chrome.bookmarks.getTree };
 }
 
 afterEach(() => {
@@ -72,6 +73,34 @@ afterEach(() => {
 });
 
 describe("toolbar popup", () => {
+  it("keeps an unsaved addition retryable when storage rejects the write", async () => {
+    const { set } = installChromeMock();
+    set.mockRejectedValueOnce(new Error("write failed"));
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "添加到主页" }));
+    expect(await screen.findByText("保存失败，请稍后重试。")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "添加到主页" }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("当前网页已添加到主页。")).toBeInTheDocument();
+  });
+
+  it("shows a load failure instead of an endless loading screen", async () => {
+    const { get } = installChromeMock();
+    get.mockRejectedValue(new Error("read failed"));
+    render(<PopupApp />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("无法读取扩展数据");
+    expect(screen.queryByText("正在读取收藏…")).not.toBeInTheDocument();
+  });
+
+  it("can still save the current page when the independent bookmark read fails", async () => {
+    const { getTree, set } = installChromeMock();
+    getTree.mockRejectedValue(new Error("bookmarks unavailable"));
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "添加到主页" }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+  });
   it("reads the active tab and adds it to the shared homepage state", async () => {
     const { set } = installChromeMock();
     const user = userEvent.setup();

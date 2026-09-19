@@ -22,6 +22,7 @@ export function useWallpaper(wallpaper: WallpaperSettings) {
           wallpaper.localAssetId
         ) {
           const blob = await loadWallpaperBlob(wallpaper.localAssetId);
+          if (!active) return;
           if (!blob) throw new Error("本地壁纸文件已丢失，请重新选择");
           objectUrl = URL.createObjectURL(blob);
           candidate = objectUrl;

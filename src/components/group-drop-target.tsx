@@ -8,7 +8,6 @@ import type { SiteGroup } from "../types";
 const GROUP_LONG_PRESS_DELAY = 450;
 const GROUP_LONG_PRESS_MOVE_TOLERANCE = 8;
 
-export const groupTabDropId = (groupId: string) => `group-tab:${groupId}`;
 export const groupZoneDropId = (groupId: string) => `group-zone:${groupId}`;
 export const groupSortTabId = (groupId: string) => `group-sort-tab:${groupId}`;
 export const groupSortRowId = (groupId: string) => `group-sort-row:${groupId}`;

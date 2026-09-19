@@ -99,8 +99,3 @@ export async function isBrowserFaviconPlaceholder(
   if (!candidateFingerprint || !placeholderFingerprint) return true;
   return candidateFingerprint === placeholderFingerprint;
 }
-
-/** @internal Used by tests and when an extension is hot-reloaded. */
-export function clearBrowserFaviconPlaceholderCache() {
-  placeholderFingerprintCache.clear();
-}

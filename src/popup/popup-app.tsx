@@ -183,6 +183,8 @@ export function PopupApp() {
   const [bookmarkQuery, setBookmarkQuery] = useState("");
   const [deleteSummary, setDeleteSummary] = useState<BookmarkDeleteSummary | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadVersion, setLoadVersion] = useState(0);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string }>();
 
   useEffect(() => {
@@ -218,12 +220,25 @@ export function PopupApp() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
+    setLoadError(null);
+    Promise.allSettled([
       store.load(),
       api?.tabs?.query({ active: true, currentWindow: true }) ?? Promise.resolve([]),
       api?.bookmarks?.getTree() ?? Promise.resolve([]),
-    ]).then(([loaded, tabs, tree]) => {
+    ]).then(([collectionResult, tabsResult, bookmarksResult]) => {
       if (!active) return;
+      if (collectionResult.status === "rejected") {
+        setLoadError("无法读取扩展数据，请重新加载扩展。");
+        return;
+      }
+      const loaded = collectionResult.value;
+      const tabs = tabsResult.status === "fulfilled" ? tabsResult.value : [];
+      const tree = bookmarksResult.status === "fulfilled" ? bookmarksResult.value : [];
+      const failures = [
+        ...(tabsResult.status === "rejected" ? ["无法读取当前网页"] : []),
+        ...(bookmarksResult.status === "rejected" ? ["无法读取浏览器书签"] : []),
+      ];
+      if (failures.length) setNotice({ kind: "error", text: `${failures.join("；")}，请重新打开弹窗重试。` });
       setState(loaded.state);
       const current = tabs[0] ?? null;
       const normalizedCurrentUrl = (() => {
@@ -258,13 +273,11 @@ export function PopupApp() {
       const roots = tree.flatMap((root) => root.children ?? [root]);
       setBookmarkRoots(roots);
       setExpandedIds(new Set(roots.map((root) => root.id)));
-    }).catch(() => {
-      if (active) setNotice({ kind: "error", text: "无法读取扩展数据，请重新加载扩展。" });
     });
     return () => {
       active = false;
     };
-  }, [api, store]);
+  }, [api, store, loadVersion]);
 
   const quickUrl = useMemo(() => {
     try {
@@ -296,8 +309,8 @@ export function PopupApp() {
   );
 
   async function saveNextState(next: SiteCollectionState) {
-    setState(next);
     await store.save(next);
+    setState(next);
   }
 
   async function handleQuickAdd() {
@@ -308,6 +321,14 @@ export function PopupApp() {
     }
     setBusy(true);
     try {
+      const loaded = await store.load();
+      if (loaded.recovered) throw new Error("Invalid stored collection");
+      const existing = findSiteByUrl(loaded.state.sites, quickUrl);
+      if (existing && quickDuplicateId !== existing.id) {
+        setState(loaded.state);
+        setQuickDuplicateId(existing.id);
+        return;
+      }
       const values = {
         name: quickName.trim(),
         url: quickUrl,
@@ -315,9 +336,9 @@ export function PopupApp() {
         customIconUrl: "",
         iconSource: "auto" as const,
       };
-      const next = duplicate
-        ? updateSiteInState(state, duplicate.id, values)
-        : addSiteToState(state, values);
+      const next = existing
+        ? updateSiteInState(loaded.state, existing.id, values)
+        : addSiteToState(loaded.state, values);
       await saveNextState(next);
       if (quickWorkspace === "github") {
         savePopupPreferences({ lastGithubGroupId: quickGroupId });
@@ -325,7 +346,7 @@ export function PopupApp() {
       setQuickDuplicateId(undefined);
       setNotice({
         kind: "success",
-        text: duplicate
+        text: existing
           ? quickWorkspace === "github"
             ? "已移动并更新 GitHub 收藏。"
             : "已移动并更新现有收藏。"
@@ -356,8 +377,10 @@ export function PopupApp() {
     if (!state || !defaultGroup || selectedIds.size === 0) return;
     setBusy(true);
     try {
+      const loaded = await store.load();
+      if (loaded.recovered) throw new Error("Invalid stored collection");
       const result = importSelectedBookmarks(
-        state,
+        loaded.state,
         bookmarkRoots,
         selectedIds,
         quickGroupId || defaultGroup.id,
@@ -402,7 +425,12 @@ export function PopupApp() {
   }
 
   if (!state) {
-    return <main className="popup-loading">正在读取收藏…</main>;
+    return <main className="popup-loading">
+      {loadError ? <>
+        <p role="alert">{loadError}</p>
+        <button type="button" className="popup-primary" onClick={() => setLoadVersion((current) => current + 1)}>重新读取</button>
+      </> : "正在读取收藏…"}
+    </main>;
   }
 
   const selectedVisibleCount = [...visibleIds].filter((id) => selectedIds.has(id)).length;

@@ -71,7 +71,7 @@ export function createSiteHubStore(
     mode: "web",
     initial,
     async load() {
-      return initial;
+      return loadState(webStorage);
     },
     async save(state) {
       saveState(state, webStorage);
