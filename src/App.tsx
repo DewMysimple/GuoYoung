@@ -91,6 +91,7 @@ import {
 import { SiteDialog } from "./components/site-dialog";
 import { OTHER_GROUP_ID } from "./data/defaults";
 import { useSiteHub } from "./hooks/use-site-hub";
+import { useCollectionSelection } from "./hooks/use-collection-selection";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
 import {
@@ -121,7 +122,7 @@ import {
   reorderSitesGlobally,
   sortSitesByHeat,
 } from "./lib/site-utils";
-import { getInclusiveSelectionRange } from "./lib/selection-range";
+import { getGroupedSiteSections } from "./lib/grouped-sites";
 import type {
   GithubRepositoryBatchImport,
 } from "./lib/site-state";
@@ -150,7 +151,6 @@ import {
 } from "./lib/github-workspace";
 
 type GroupFilter = "all" | string;
-type SelectionMode = "none" | "sites" | "groups";
 type CollectionSearchOrigin = {
   workspace: SiteWorkspace;
   groupId: GroupFilter;
@@ -360,13 +360,6 @@ export function App() {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>("none");
-  const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(
-    () => new Set(),
-  );
   const [batchDragIds, setBatchDragIds] = useState<string[]>([]);
   const [activeGroupSortId, setActiveGroupSortId] = useState<string | null>(null);
   const [activeGroupSortAxis, setActiveGroupSortAxis] =
@@ -419,8 +412,6 @@ export function App() {
   const groupSortIntentRef = useRef<GroupSortIntent | null>(null);
   const groupSortOrderRef = useRef<string[]>([]);
   const groupSortKeyboardRef = useRef(false);
-  const selectionAnchorSiteIdRef = useRef<string | null>(null);
-  const selectionAnchorGroupIdRef = useRef<string | null>(null);
   const groupSortPointerRef = useRef<{ x: number; y: number } | null>(null);
   const dragPointerXRef = useRef<number | null>(null);
   const tabsAutoScrollFrameRef = useRef<number | null>(null);
@@ -538,6 +529,28 @@ export function App() {
     !isGlobalCollectionSearch &&
     activeGroupId === "all" &&
     state.displayModeByWorkspace[activeWorkspace] === "grouped";
+  const addCardGroup = activeGroup ?? defaultGroup;
+  const groupedSections = useMemo(
+    () => getGroupedSiteSections(groups, visibleSites, sortMode, isSearching),
+    [groups, isSearching, sortMode, visibleSites],
+  );
+  const selectableSiteIds = useMemo(
+    () =>
+      isGroupedView
+        ? groupedSections.flatMap(({ sites }) => sites.map((site) => site.id))
+        : visibleSites.map((site) => site.id),
+    [groupedSections, isGroupedView, visibleSites],
+  );
+  const selection = useCollectionSelection({
+    sites: state.sites,
+    groups,
+    orderedSiteIds: selectableSiteIds,
+    isGroupedView,
+    isSearching,
+  });
+  const {
+    selectionMode, selectedSiteIds, selectedGroupIds, cancelSelection,
+  } = selection;
   const selectionArmed = selectionMode !== "none";
   const multiSelectMode = selectionMode === "sites";
   const groupSelectionActive = selectedGroupIds.size > 0;
@@ -566,36 +579,6 @@ export function App() {
     (groupSelectionMode && !groupSelectionActive) ||
     Boolean(activeDragId) ||
     anyModalOpen;
-  const addCardGroup = activeGroup ?? defaultGroup;
-  const groupedSections = useMemo(
-    () =>
-      groups
-        .map((group) => {
-          const sites = visibleSites
-            .filter((site) => site.groupId === group.id)
-            .sort((a, b) =>
-              sortMode === "manual"
-                ? a.order - b.order
-                : sortMode === "heat"
-                  ? b.clickCount - a.clickCount || a.order - b.order
-                  : 0,
-            );
-          return { group, sites };
-        })
-        .filter(({ sites }) => !isSearching || sites.length > 0),
-    [groups, isSearching, sortMode, visibleSites],
-  );
-  const selectableSiteIds = useMemo(
-    () =>
-      isGroupedView
-        ? groupedSections.flatMap(({ sites }) => sites.map((site) => site.id))
-        : visibleSites.map((site) => site.id),
-    [groupedSections, isGroupedView, visibleSites],
-  );
-  const selectableGroupIds = useMemo(
-    () => groups.filter((group) => !group.isProtected).map((group) => group.id),
-    [groups],
-  );
   const activeDraggedSite = activeDragId
     ? (dragSitesPreviewRef.current ?? renderedSites).find(
         (site) => site.id === activeDragId,
@@ -614,32 +597,6 @@ export function App() {
       setActiveGroupId("all");
     }
   }, [activeGroupId, groups]);
-
-  useEffect(() => {
-    setSelectedSiteIds((current) => {
-      const validIds = new Set(state.sites.map((site) => site.id));
-      const next = new Set([...current].filter((id) => validIds.has(id)));
-      return next.size === current.size ? current : next;
-    });
-  }, [state.sites]);
-
-  useEffect(() => {
-    if (!isSearching) return;
-    setSelectionMode("none");
-    setSelectedSiteIds(new Set());
-    setSelectedGroupIds(new Set());
-    selectionAnchorSiteIdRef.current = null;
-    selectionAnchorGroupIdRef.current = null;
-  }, [isSearching]);
-
-  useEffect(() => {
-    if (isGroupedView && !isSearching) return;
-    setSelectedGroupIds(new Set());
-    if (!isGroupedView) {
-      if (selectionMode === "groups") setSelectionMode("none");
-      selectionAnchorGroupIdRef.current = null;
-    }
-  }, [isGroupedView, isSearching, selectionMode]);
 
   useEffect(() => {
     function handleOutsidePointer(event: PointerEvent) {
@@ -668,11 +625,7 @@ export function App() {
           "[data-selection-surface]",
         );
         if (!selectionSurface) {
-          setSelectionMode("none");
-          setSelectedGroupIds(new Set());
-          setSelectedSiteIds(new Set());
-          selectionAnchorSiteIdRef.current = null;
-          selectionAnchorGroupIdRef.current = null;
+          cancelSelection();
         }
       }
     }
@@ -680,11 +633,7 @@ export function App() {
       if (event.key !== "Escape") return;
       setAddMenuOpen(false);
       clearArmedDelete();
-      setSelectionMode("none");
-      setSelectedSiteIds(new Set());
-      setSelectedGroupIds(new Set());
-      selectionAnchorSiteIdRef.current = null;
-      selectionAnchorGroupIdRef.current = null;
+      cancelSelection();
     }
     window.addEventListener("pointerdown", handleOutsidePointer);
     window.addEventListener("keydown", handleEscape);
@@ -692,7 +641,7 @@ export function App() {
       window.removeEventListener("pointerdown", handleOutsidePointer);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [armedDeleteSiteId, selectionArmed]);
+  }, [armedDeleteSiteId, selectionArmed, cancelSelection]);
 
   useEffect(() => {
     if (!transferNotice) return;
@@ -927,21 +876,14 @@ export function App() {
 
   function handleDragStart(event: DragStartEvent) {
     clearArmedDelete();
-    if (
-      selectionArmed &&
-      selectedSiteIds.size === 0 &&
-      selectedGroupIds.size === 0
-    ) {
-      setSelectionMode("none");
-    }
     const preview = state.sites.map((site) => ({ ...site }));
     const activeId = String(event.active.id);
+    selection.prepareSiteDrag(activeId);
     let nextBatchIds = [activeId];
     if (multiSelectMode) {
       const selectedForDrag = selectedSiteIds.has(activeId)
         ? new Set(selectedSiteIds)
         : new Set([activeId]);
-      if (!selectedSiteIds.has(activeId)) setSelectedSiteIds(selectedForDrag);
       const domOrder = Array.from(
         document.querySelectorAll<HTMLElement>("[data-site-dnd-id]"),
       ).map((element) => element.dataset.siteDndId!);
@@ -1576,8 +1518,7 @@ export function App() {
           setActiveGroupId(targetGroupId);
         }
         if (multiSelectMode) {
-          setSelectionMode("none");
-          setSelectedSiteIds(new Set());
+          cancelSelection();
         }
       }
       clearDragState();
@@ -1740,12 +1681,6 @@ export function App() {
         kind: "success",
         message: `“${site.name}”已移入回收站。`,
       });
-      setSelectedSiteIds((current) => {
-        if (!current.has(site.id)) return current;
-        const next = new Set(current);
-        next.delete(site.id);
-        return next;
-      });
       return;
     }
     clearArmedDelete();
@@ -1758,129 +1693,62 @@ export function App() {
 
   function toggleSiteSelection(site: SiteItem, shiftKey = false) {
     clearArmedDelete();
-    const switchingToSites = isGroupedView && selectionMode !== "sites";
-    const anchorId = switchingToSites ? null : selectionAnchorSiteIdRef.current;
-    const range = shiftKey
-      ? getInclusiveSelectionRange(selectableSiteIds, anchorId, site.id)
-      : [];
-    const isRangeSelection =
-      shiftKey && Boolean(anchorId && selectableSiteIds.includes(anchorId));
-    const next = new Set(switchingToSites ? [] : selectedSiteIds);
-    if (isRangeSelection) {
-      range.forEach((id) => next.add(id));
-    } else if (next.has(site.id)) {
-      next.delete(site.id);
-    } else {
-      next.add(site.id);
-    }
-    if (!shiftKey || !anchorId || !selectableSiteIds.includes(anchorId)) {
-      selectionAnchorSiteIdRef.current = site.id;
-    }
-    setSelectedSiteIds(next);
-    if (!isGroupedView) return;
-    setSelectedGroupIds(new Set());
-    setSelectionMode("sites");
-    selectionAnchorGroupIdRef.current = null;
-  }
-
-  function cancelSelection() {
-    setSelectionMode("none");
-    setSelectedSiteIds(new Set());
-    setSelectedGroupIds(new Set());
-    selectionAnchorSiteIdRef.current = null;
-    selectionAnchorGroupIdRef.current = null;
+    selection.toggleSiteSelection(site, shiftKey);
   }
 
   function toggleMultiSelectMode() {
     clearArmedDelete();
-    if (selectionMode === "sites") {
-      cancelSelection();
-      return;
-    }
-    setSelectedGroupIds(new Set());
-    setSelectedSiteIds(new Set());
-    selectionAnchorSiteIdRef.current = null;
-    selectionAnchorGroupIdRef.current = null;
-    setSelectionMode("sites");
+    selection.toggleMultiSelectMode();
   }
 
   function toggleGroupedSiteSelection(groupSiteIds: string[]) {
     clearArmedDelete();
-    if (selectionMode === "none") {
-      setSelectedSiteIds(new Set());
-      setSelectedGroupIds(new Set());
-      selectionAnchorSiteIdRef.current = null;
-      selectionAnchorGroupIdRef.current = null;
-      setSelectionMode("sites");
-      return;
-    }
-
-    const allSelected =
-      groupSiteIds.length > 0 &&
-      groupSiteIds.every((siteId) => selectedSiteIds.has(siteId));
-    const next = new Set(selectionMode === "sites" ? selectedSiteIds : []);
-    groupSiteIds.forEach((siteId) => {
-      if (allSelected) next.delete(siteId);
-      else next.add(siteId);
-    });
-    setSelectedSiteIds(next);
-    setSelectedGroupIds(new Set());
-    setSelectionMode("sites");
-    selectionAnchorSiteIdRef.current = groupSiteIds.at(-1) ?? null;
-    selectionAnchorGroupIdRef.current = null;
+    selection.toggleGroupedSiteSelection(groupSiteIds);
   }
 
   function toggleGroupSelection(groupId: string, shiftKey = false) {
     clearArmedDelete();
-    if (
-      !isGroupedView ||
-      groups.find((group) => group.id === groupId)?.isProtected
-    ) {
-      return;
-    }
-    const switchingToGroups = selectionMode !== "groups";
-    const anchorId = switchingToGroups
-      ? null
-      : selectionAnchorGroupIdRef.current;
-    const range = shiftKey
-      ? getInclusiveSelectionRange(selectableGroupIds, anchorId, groupId)
-      : [];
-    const isRangeSelection =
-      shiftKey && Boolean(anchorId && selectableGroupIds.includes(anchorId));
-    setSelectedGroupIds((current) => {
-      const next = new Set(switchingToGroups ? [] : current);
-      if (isRangeSelection) {
-        range.forEach((id) => next.add(id));
-      } else if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      if (!shiftKey || !anchorId || !selectableGroupIds.includes(anchorId)) {
-        selectionAnchorGroupIdRef.current = groupId;
-      }
-      return next;
-    });
-    setSelectedSiteIds(new Set());
-    setSelectionMode("groups");
-    selectionAnchorSiteIdRef.current = null;
+    selection.toggleGroupSelection(groupId, shiftKey);
   }
 
   function enterGroupSelectionFromDoubleClick(groupId: string) {
     clearArmedDelete();
-    if (
-      !isGroupedView ||
-      selectionMode !== "none" ||
-      groups.find((group) => group.id === groupId)?.isProtected
-    ) {
-      return;
-    }
-    setSelectedSiteIds(new Set());
-    setSelectionMode("groups");
-    selectionAnchorGroupIdRef.current = groupId;
-    selectionAnchorSiteIdRef.current = null;
-    setSelectedGroupIds((current) => {
-      const next = new Set(current);
-      next.add(groupId);
-      return next;
-    });
+    selection.enterGroupSelectionFromDoubleClick(groupId);
+  }
+
+  function renderCollectionCard(site: SiteItem, group: SiteGroup) {
+    return (
+      <SiteCard
+        key={site.id}
+        site={site}
+        group={group}
+        showClickCount={sortMode === "heat"}
+        workspaceLabel={
+          isGlobalCollectionSearch
+            ? getGroupWorkspace(group) === "github" ? "GitHub" : "收藏主页"
+            : undefined
+        }
+        dragMode={siteDragMode}
+        dragDisabledReason={isSearching ? "搜索时无法排序" : undefined}
+        dragPending={pendingDragId === site.id}
+        selectionMode={multiSelectMode}
+        selectionEntryEnabled={isGroupedView && selectionArmed}
+        linkInteractionDisabled={groupSelectionMode}
+        actionsDisabled={selectionArmed}
+        selected={selectedSiteIds.has(site.id)}
+        selectedCount={selectedSiteCount}
+        batchDragging={Boolean(activeDragId) && batchDragIds.includes(site.id)}
+        deleteArmed={armedDeleteSiteId === site.id}
+        dropTarget={
+          canReorderSites && !multiSelectMode && Boolean(activeDragId) &&
+          overDragId === site.id && activeDragId !== site.id
+        }
+        onEdit={openEditDialog}
+        onDelete={requestSiteDelete}
+        onVisit={(visitedSite) => recordSiteClick(visitedSite.id)}
+        onToggleSelected={toggleSiteSelection}
+      />
+    );
   }
 
   function reorderManagedGroups(activeId: string, overId: string) {
@@ -1904,9 +1772,7 @@ export function App() {
     clearArmedDelete();
     setGroupDialogOpen(false);
     setManagedGroupId(undefined);
-    if (selectedGroupIds.size === 0) {
-      setSelectionMode("none");
-    }
+    selection.prepareGroupDrag(groupId, axis === "vertical");
     const activeIds =
       axis === "vertical" && selectedGroupIds.has(groupId)
         ? groups
@@ -1916,9 +1782,6 @@ export function App() {
             )
             .map((group) => group.id)
         : [groupId];
-    if (axis === "vertical" && !selectedGroupIds.has(groupId)) {
-      setSelectedGroupIds(new Set());
-    }
     activeGroupSortIdRef.current = groupId;
     activeGroupSortIdsRef.current = activeIds;
     activeGroupSortAxisRef.current = axis;
@@ -1964,8 +1827,10 @@ export function App() {
       } else {
         reorderGroups(intent.activeGroupId, beforeGroupId);
       }
+      // A canceled or targetless drop only ends the drag. Selection is
+      // consumed by a committed move, or explicitly cleared by Esc/outside.
+      if (activeIds.length > 1 || hadGroupSelection) cancelSelection();
     }
-    const wasBatch = activeGroupSortIdsRef.current.length > 1;
     activeGroupSortIdRef.current = null;
     activeGroupSortIdsRef.current = [];
     activeGroupSortAxisRef.current = null;
@@ -1976,9 +1841,6 @@ export function App() {
     setActiveGroupSortId(null);
     setActiveGroupSortAxis(null);
     setGroupSortIntent(null);
-    if (wasBatch || hadGroupSelection) {
-      cancelSelection();
-    }
     stopTabsAutoScroll();
   }
 
@@ -3421,42 +3283,7 @@ export function App() {
                                         aria-hidden="true"
                                       />
                                     )}
-                                  <SiteCard
-                                  site={site}
-                                  group={group}
-                                  showClickCount={sortMode === "heat"}
-                                  dragMode={siteDragMode}
-                                  dragDisabledReason={
-                                    isSearching
-                                      ? "搜索时无法排序"
-                                      : undefined
-                                  }
-                                  dragPending={pendingDragId === site.id}
-                                  selectionMode={multiSelectMode}
-                                  selectionEntryEnabled={selectionArmed}
-                                  linkInteractionDisabled={groupSelectionMode}
-                                  actionsDisabled={
-                                    isGroupedView && selectionArmed
-                                  }
-                                  selected={selectedSiteIds.has(site.id)}
-                                  selectedCount={selectedSiteCount}
-                                  batchDragging={
-                                    Boolean(activeDragId) &&
-                                    batchDragIds.includes(site.id)
-                                  }
-                                  deleteArmed={armedDeleteSiteId === site.id}
-                                  dropTarget={
-                                    canReorderSites &&
-                                    !multiSelectMode &&
-                                    Boolean(activeDragId) &&
-                                    overDragId === site.id &&
-                                    activeDragId !== site.id
-                                  }
-                                  onEdit={openEditDialog}
-                                  onDelete={requestSiteDelete}
-                                  onVisit={(site) => recordSiteClick(site.id)}
-                                  onToggleSelected={toggleSiteSelection}
-                                  />
+                                  {renderCollectionCard(site, group)}
                                 </Fragment>
                               ))}
                               {canReorderSites &&
@@ -3509,49 +3336,7 @@ export function App() {
                           const group =
                             searchGroups.find((item) => item.id === site.groupId) ??
                             addCardGroup;
-                            return (
-                            <SiteCard
-                              key={site.id}
-                              site={site}
-                              group={group}
-                              showClickCount={sortMode === "heat"}
-                              workspaceLabel={
-                                isGlobalCollectionSearch
-                                  ? getGroupWorkspace(group) === "github"
-                                    ? "GitHub"
-                                    : "收藏主页"
-                                  : undefined
-                              }
-                              dragMode={siteDragMode}
-                              dragDisabledReason={
-                                isSearching
-                                  ? "搜索时无法排序"
-                                  : undefined
-                              }
-                              dragPending={pendingDragId === site.id}
-                              selectionMode={multiSelectMode}
-                              selectionEntryEnabled={false}
-                              actionsDisabled={selectionArmed}
-                              selected={selectedSiteIds.has(site.id)}
-                              selectedCount={selectedSiteCount}
-                              batchDragging={
-                                Boolean(activeDragId) &&
-                                batchDragIds.includes(site.id)
-                              }
-                              deleteArmed={armedDeleteSiteId === site.id}
-                              dropTarget={
-                                canReorderSites &&
-                                !multiSelectMode &&
-                                Boolean(activeDragId) &&
-                                overDragId === site.id &&
-                                activeDragId !== site.id
-                              }
-                              onEdit={openEditDialog}
-                              onDelete={requestSiteDelete}
-                              onVisit={(site) => recordSiteClick(site.id)}
-                              onToggleSelected={toggleSiteSelection}
-                            />
-                          );
+                          return renderCollectionCard(site, group);
                         })}
                         <AddSiteCard
                           group={addCardGroup}

@@ -583,14 +583,6 @@ export function BrowserHistoryView({
     useSensor(TouchSensor, { activationConstraint: { distance: 50 } }),
   );
 
-  function clearHistoryDragClickSuppression() {
-    historyDragClickSuppressedRef.current = false;
-    if (historyDragSuppressionTimer.current !== null) {
-      window.clearTimeout(historyDragSuppressionTimer.current);
-      historyDragSuppressionTimer.current = null;
-    }
-  }
-
   function armHistoryDragClickSuppression() {
     historyDragClickSuppressedRef.current = true;
     if (historyDragSuppressionTimer.current !== null) {

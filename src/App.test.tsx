@@ -1372,7 +1372,6 @@ describe("App", () => {
     Object.defineProperty(file, "text", {
       value: () => Promise.resolve("{broken"),
     });
-    const user = userEvent.setup();
     render(<App />);
 
     const importInput = screen.getByLabelText("选择要导入的收藏文件");

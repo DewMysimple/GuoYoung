@@ -2,7 +2,6 @@ import {
   BookmarkSimple,
   CaretDown,
   CaretRight,
-  Check,
   Folder,
   Globe,
   MagnifyingGlass,

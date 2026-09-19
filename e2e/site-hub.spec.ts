@@ -2691,6 +2691,38 @@ test("moves non-contiguous selected groups as one ordered block", async ({
   await expect(page.getByRole("button", { name: "多选 搜索 网站" })).toBeVisible();
 });
 
+test("keeps selected groups when a drag is released outside the sorting corridor", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop mouse sorting corridor assertion");
+  await page.setViewportSize({ width: 1440, height: 1200 });
+  await page.getByRole("button", { name: "显示" }).click();
+  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+  const search = page.locator('[data-group-sort-section-id="search"]');
+  const design = page.locator('[data-group-sort-section-id="design"]');
+  await search.getByRole("heading", { level: 3, name: "搜索" }).dblclick();
+  await design.getByRole("heading", { level: 3, name: "设计" }).click();
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).groups);
+  const handle = search.locator(".grouped-site-header-main");
+  await handle.scrollIntoViewIfNeeded();
+  const source = await handle.boundingBox();
+  if (!source) throw new Error("Selected group header is not visible");
+  await page.mouse.move(source.x + 48, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(source.x + 48, source.y + source.height / 2 + 9);
+  const preview = page.getByTestId("group-sort-vertical-drag-preview");
+  await expect(preview).toContainText("2 个分组");
+  await page.mouse.move(5, source.y + source.height / 2, { steps: 10 });
+  await page.screenshot({ path: screenshotPath("group-selection-no-target-during.png") });
+  await page.mouse.up();
+  await expect(preview).toHaveCount(0);
+  await expect(search).not.toHaveClass(/is-group-sorting/);
+  await expect(search).toHaveClass(/is-group-selected/);
+  await expect(design).toHaveClass(/is-group-selected/);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).groups)).toEqual(before);
+  await page.screenshot({ path: screenshotPath("group-selection-no-target-after.png") });
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".is-group-selected")).toHaveCount(0);
+});
+
 test("selects one group's sites and switches directly between site and group modes", async ({
   page,
 }, testInfo) => {

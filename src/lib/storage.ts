@@ -24,7 +24,6 @@ import type {
   SiteDisplayMode,
   SiteItem,
   SiteSortMode,
-  SiteWorkspace,
   TrashedSite,
   TrashRetentionDays,
   WallpaperFit,
