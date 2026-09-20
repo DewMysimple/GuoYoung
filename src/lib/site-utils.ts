@@ -1,3 +1,4 @@
+import { collectionSearchScore } from "./collection-search";
 import type { SiteGroup, SiteIconSource, SiteItem } from "../types";
 import { getBrowserFaviconUrl, getBrowserFaviconUrls } from "./browser-runtime";
 
@@ -218,7 +219,7 @@ export function filterSites(
   const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");
   const groupNames = new Map(groups.map((group) => [group.id, group.name]));
 
-  return [...sites]
+  const eligible = [...sites]
     .sort((a, b) =>
       groupId === "all"
         ? a.globalOrder - b.globalOrder
@@ -229,13 +230,11 @@ export function filterSites(
         groups.some((group) => group.id === site.groupId) &&
         (groupId === "all" || site.groupId === groupId),
     )
-    .filter((site) => {
-      if (!normalizedQuery) return true;
-      const groupName = groupNames.get(site.groupId) ?? "";
-      return [site.name, site.url, getHostname(site.url), groupName].some((value) =>
-        value.toLocaleLowerCase("zh-CN").includes(normalizedQuery),
-      );
-    });
+    ;
+  if (!normalizedQuery) return eligible;
+  return eligible.map(site => ({ site, score: collectionSearchScore(site.name, site.url,
+    groupNames.get(site.groupId) ?? "", normalizedQuery) }))
+    .filter(result => result.score > 0).sort((a, b) => b.score - a.score).map(result => result.site);
 }
 
 export function sortSitesByHeat(

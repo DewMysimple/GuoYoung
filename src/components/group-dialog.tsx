@@ -1,3 +1,7 @@
+import { CardSelectionToggle } from "./card-primitives";
+import { ConfirmDialog } from "./confirm-dialog";
+import { useGroupManagerSelection } from "../hooks/use-group-manager-selection";
+import "./group-manager-selection.css";
 import { DialogNavigation } from "./dialog-navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -40,6 +44,7 @@ interface GroupDialogProps {
   onUpdate: (id: string, name: string, icon: CategoryIcon) => void;
   onReorder: (activeId: string, overId: string) => void;
   onDelete: (group: SiteGroup) => void;
+  onDeleteMany: (ids: string[]) => void;
   onExportGroup: (groupId: string) => void;
   onImportGroup: (groupId: string) => void;
 }
@@ -54,11 +59,15 @@ function SortableGroupItem({
   count,
   selected,
   onSelect,
+  checked,
+  onToggle,
 }: {
   group: SiteGroup;
   count: number;
   selected: boolean;
   onSelect: () => void;
+  checked: boolean;
+  onToggle: (shift: boolean) => void;
 }) {
   const {
     attributes,
@@ -78,10 +87,12 @@ function SortableGroupItem({
         transition: isDragging ? undefined : transition,
         willChange: isDragging ? "transform" : undefined,
       }}
-      className={`group-list-item ${selected ? "selected" : ""} ${
+      className={`group-list-item has-selection ${checked ? "is-checked" : ""} ${selected ? "selected" : ""} ${
         isDragging ? "is-dragging" : ""
       }`}
     >
+      <CardSelectionToggle selected={checked} label={`${checked ? "取消选择" : "选择"} ${group.name} 分组`}
+        disabled={group.isProtected} onToggle={onToggle} className="group-manager-check" />
       <button
         type="button"
         className="group-list-select"
@@ -151,6 +162,7 @@ export function GroupDialog({
   onUpdate,
   onReorder,
   onDelete,
+  onDeleteMany,
   onExportGroup,
   onImportGroup,
 }: GroupDialogProps) {
@@ -159,6 +171,9 @@ export function GroupDialog({
     () => groups.slice().sort((a, b) => a.order - b.order),
     [groups],
   );
+  const selection = useGroupManagerSelection(open, orderedGroups);
+  const [deleteRequested, setDeleteRequested] = useState(false);
+  const selectedSiteCount = sites.filter(site => selection.selectedIds.includes(site.groupId)).length;
   const [selectedId, setSelectedId] = useState("");
   const [drafts, setDrafts] = useState<Record<string, GroupDraft>>({});
   const [error, setError] = useState("");
@@ -301,6 +316,7 @@ export function GroupDialog({
 
   useEffect(() => {
     if (!open) {
+      setDeleteRequested(false);
       activeDragRef.current = false;
       setActiveDragGroupId(null);
       setDndContextKey((current) => current + 1);
@@ -492,13 +508,22 @@ export function GroupDialog({
                 管理分组
               </Dialog.Title>
               <Dialog.Description className="dialog-description">
-                选择分组后在右侧编辑；拖动左侧列表可调整顺序。
+                点击名称编辑，勾选圆圈可批量删除；拖动手柄调整顺序。
               </Dialog.Description>
             </div>
             <DialogNavigation />
           </div>
 
           <div className="group-dialog-scroll">
+            <div className="group-manager-batchbar">
+              <CardSelectionToggle selected={selection.allSelected} indeterminate={selection.selectedIds.length > 0 && !selection.allSelected}
+                disabled={Boolean(activeDragGroupId)} label={selection.allSelected ? "取消全选分组" : "全选可删除分组"}
+                onToggle={() => selection.allSelected ? selection.clear() : selection.selectAll()} className="group-manager-check" />
+              <span role="status" aria-label="分组选择数量">{selection.selectedIds.length ? `已选 ${selection.selectedIds.length} 个分组 · ${selectedSiteCount} 个网站` : "选择分组"}</span>
+              <button type="button" className="button secondary-button" onClick={selection.invert} disabled={Boolean(activeDragGroupId)}>反选</button>
+              <button type="button" className="button destructive-button" disabled={!selection.selectedIds.length || Boolean(activeDragGroupId)}
+                onClick={() => { clearArmedDelete(); setDeleteRequested(true); }}>删除所选</button>
+            </div>
             <div className="group-manager-layout">
               <div
                 ref={groupListRef}
@@ -537,6 +562,8 @@ export function GroupDialog({
                         count={
                           siteCountByGroup.get(group.id) ?? 0
                         }
+                        checked={selection.selectedIds.includes(group.id)}
+                        onToggle={shift => { clearArmedDelete(); selection.toggle(group.id, shift); }}
                         selected={selected?.id === group.id}
                         onSelect={() => {
                           clearArmedDelete();
@@ -698,6 +725,12 @@ export function GroupDialog({
               保存分组
             </button>
           </div>
+          <ConfirmDialog open={deleteRequested && selection.selectedIds.length > 0} onOpenChange={setDeleteRequested}
+            title={`删除 ${selection.selectedIds.length} 个分组？`}
+            description={`所选分组将删除，其中 ${selectedSiteCount} 个网站移入回收站，可在回收站恢复网站。受保护分组不受影响。`}
+            confirmLabel="删除所选分组" destructive onConfirm={() => {
+              onDeleteMany(selection.selectedIds); selection.clear(); setDeleteRequested(false);
+            }} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

@@ -508,28 +508,33 @@ export function deleteGroupFromState(
   id: string,
   now = new Date().toISOString(),
 ): SiteCollectionState {
-  const target = state.groups.find((group) => group.id === id);
-  if (!target || target.isProtected) return state;
-  const removedSites = state.sites.filter((site) => site.groupId === id);
+  return deleteGroupsFromState(state, [id], now);
+}
+
+export function deleteGroupsFromState(state: SiteCollectionState, ids: string[], now = new Date().toISOString()): SiteCollectionState {
+  const requested = new Set(ids);
+  const targets = new Map(state.groups.filter(group => requested.has(group.id) && !group.isProtected).map(group => [group.id, group]));
+  if (!targets.size) return state;
+  const removedSites = state.sites.filter(site => targets.has(site.groupId));
   const deletedSites = [
     ...state.deletedSites,
     ...removedSites.map((site) => ({
       site: { ...site },
       deletedAt: now,
-      originalGroupId: target.id,
-      originalGroupName: target.name,
-      originalWorkspace: getGroupWorkspace(target),
+      originalGroupId: site.groupId,
+      originalGroupName: targets.get(site.groupId)!.name,
+      originalWorkspace: getGroupWorkspace(targets.get(site.groupId)!),
     })),
   ];
 
   return {
     ...state,
     groups: normalizeWorkspaceGroupOrder(
-      state.groups.filter((group) => group.id !== id),
+      state.groups.filter((group) => !targets.has(group.id)),
     ),
     sites: reindexSites(
       state.sites
-        .filter((site) => site.groupId !== id)
+        .filter((site) => !targets.has(site.groupId))
         .map((site) => ({ ...site })),
     ),
     deletedSites,

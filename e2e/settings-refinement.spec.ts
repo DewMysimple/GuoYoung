@@ -28,6 +28,28 @@ test("resizes the topbar live with cancel, keyboard, save and reload", async ({ 
   await page.setViewportSize({ width: 1440, height: 1000 });
   const bar = page.locator(".topbar");
   const handle = page.getByRole("separator", { name: "调整顶栏高度", exact: true });
+  async function checkReveal(label: string, dimension: "width" | "height", idle: number, expanded: number, imageName: string) {
+    const divider = page.getByRole("separator", { name: label, exact: true });
+    const grip = divider.locator("span");
+    await divider.hover();
+    await page.mouse.move(0, 0);
+    await expect(grip).toHaveCSS(dimension, `${idle}px`);
+    const before = (await divider.boundingBox())!;
+    const originalBar = (await bar.boundingBox())!;
+    await page.screenshot({ path: screenshotPath(`${imageName}-idle.png`), animations: "disabled" });
+    await divider.hover();
+    await expect(grip).toHaveCSS(dimension, `${expanded}px`);
+    const after = (await divider.boundingBox())!;
+    expect(after).toEqual(before);
+    expect((await bar.boundingBox())!.height).toBe(originalBar.height);
+    await page.screenshot({ path: screenshotPath(`${imageName}-expanded.png`), animations: "disabled" });
+    await divider.focus();
+    await page.mouse.move(0, 0);
+    await expect(grip).toHaveCSS(dimension, `${expanded}px`);
+    await divider.evaluate(element => (element as HTMLElement).blur());
+    await expect(grip).toHaveCSS(dimension, `${idle}px`);
+  }
+  await checkReveal("调整顶栏高度", "width", 64, 96, "topbar-hover");
   await handle.focus();
   await page.keyboard.press("ArrowDown");
   await expect(bar).toHaveCSS("height", "68px");
@@ -36,12 +58,14 @@ test("resizes the topbar live with cancel, keyboard, save and reload", async ({ 
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await expect(panel).toHaveCSS("box-shadow", "none");
+  await checkReveal("调整设置栏宽度", "height", 54, 72, "sidebar-hover");
   await panel.locator(".interface-dimensions summary").click();
   const box = (await handle.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 20, { steps: 8 });
   await expect(bar).toHaveCSS("height", "88px");
+  await expect(handle.locator("span")).toHaveCSS("width", "96px");
   await page.mouse.up();
   await expect(panel.getByRole("slider", { name: "顶栏高度" })).toHaveValue("88");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance.topbarHeight)).toBe(68);

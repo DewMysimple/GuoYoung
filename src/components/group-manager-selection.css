@@ -1,0 +1,19 @@
+.group-dialog-scroll { grid-template-rows: auto minmax(0, 1fr); }
+.group-manager-batchbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; min-height: 38px; }
+.group-manager-batchbar > span { margin-right: auto; color: var(--text-soft); font-size: 12px; }
+.group-manager-batchbar .button { min-height: 32px; padding: 5px 10px; font-size: 12px; }
+.group-list-item.has-selection { grid-template-columns: 26px minmax(0, 1fr) auto; padding-left: 4px; }
+.group-list-item.is-checked { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.group-manager-check.site-selection-toggle { position: relative; inset: auto; width: 20px; height: 20px; min-width: 20px; margin: 3px; border: 1px solid var(--border-strong); box-shadow: none; opacity: 1; visibility: visible; pointer-events: auto; }
+.group-manager-check[aria-pressed="true"], .group-manager-check[data-indeterminate="true"] { border-color: var(--accent); }
+.group-manager-check.site-selection-toggle:disabled { opacity: .3; }
+.group-manager-check.site-selection-toggle::before { inset: -4px; }
+.group-list-item.has-selection .group-list-select { gap: 7px; padding-left: 4px; }
+.group-manager-list { flex-shrink: 0; }
+@media (max-width: 599px) {
+  .group-manager-batchbar { position: sticky; top: 0; z-index: 2; background: var(--surface); padding-bottom: 6px; }
+  .group-manager-editor .group-editor-summary { grid-template-columns: auto minmax(0, 1fr); }
+  .group-editor-summary > div { min-width: 0; }
+  .group-editor-summary > div > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group-manager-editor .group-editor-summary-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}

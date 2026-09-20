@@ -267,7 +267,7 @@ test("reorders group rows and inserts a new group between rows", async ({
   const searchAdd = page.getByRole("button", {
     name: "在 搜索 附近添加分组",
   });
-  await expect(searchAdd).toHaveCSS("opacity", "0");
+  await expect(searchAdd).toHaveCSS("opacity", "1");
   await searchHeader.hover();
   await expect(searchAdd).toHaveCSS("opacity", "1");
   await searchAdd.click();
@@ -294,7 +294,7 @@ test("reorders group rows and inserts a new group between rows", async ({
   ).toEqual(["设计", "中间分组", "搜索"]);
 });
 
-test("keeps group Add discoverable on touch and limits Other to before", async ({
+test("keeps group Add visible without hover and limits Other to before", async ({
   page,
 }, testInfo) => {
   if (testInfo.project.name === "chromium") {
@@ -324,9 +324,9 @@ test("keeps group Add discoverable on touch and limits Other to before", async (
   if (testInfo.project.name === "mobile") {
     await expect(searchAdd).toHaveCSS("opacity", "1");
   } else {
-    await expect(searchAdd).toHaveCSS("opacity", "0");
+    await expect(searchAdd).toHaveCSS("opacity", "1");
     await page.mouse.move(sectionBox!.x + sectionBox!.width / 2, addBox!.y + addBox!.height / 2);
-    await expect(searchAdd).toHaveCSS("opacity", "0");
+    await expect(searchAdd).toHaveCSS("opacity", "1");
     await page.mouse.move(
       addBox!.x + addBox!.width / 2,
       addBox!.y + addBox!.height / 2,

@@ -2212,68 +2212,6 @@ label:has(input:focus-visible) {
   justify-content: start;
 }
 
-.group-sort-drag-preview {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--border));
-  color: var(--text);
-  background: color-mix(in srgb, var(--surface) 93%, var(--accent-soft));
-  box-shadow:
-    0 24px 52px color-mix(in srgb, var(--text) 18%, transparent),
-    0 8px 20px color-mix(in srgb, var(--accent) 14%, transparent);
-  cursor: grabbing;
-  pointer-events: none;
-}
-
-.group-sort-drag-preview.is-horizontal {
-  min-height: var(--group-tab-height);
-  padding: 0 11px;
-  border-radius: 999px;
-  font-size: calc(12px * var(--group-font-scale));
-}
-
-.group-sort-drag-preview.is-vertical {
-  width: min(280px, calc(100vw - 32px));
-  min-height: 58px;
-  padding: 10px 13px;
-  border-radius: 15px;
-}
-
-.group-sort-preview-icon {
-  display: grid;
-  width: 24px;
-  height: 28px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent-soft) 74%, var(--surface));
-}
-
-.group-sort-drag-preview.is-horizontal .group-sort-preview-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-}
-
-.group-sort-drag-preview strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.group-sort-preview-count {
-  color: var(--text-faint);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.group-sort-preview-grip {
-  margin-left: auto;
-  color: var(--text-faint);
-}
-
 .grouped-site-track.is-group-drag-over,
 .site-grid.is-group-drag-over {
   border-radius: calc(var(--radius-card) + 4px);

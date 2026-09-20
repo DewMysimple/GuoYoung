@@ -13,7 +13,7 @@ import {
 import {
   addGroupToState,
   addSiteToState,
-  deleteGroupFromState,
+  deleteGroupsFromState,
   permanentlyDeleteTrashedSiteFromState,
   purgeExpiredTrashFromState,
   restoreAllTrashedSitesFromState,
@@ -82,6 +82,7 @@ interface SiteHubApi {
   reorderGroups: (activeId: string, beforeGroupId: string | null) => void;
   reorderGroupBlock: (activeIds: string[], beforeGroupId: string | null) => void;
   deleteGroup: (id: string) => void;
+  deleteGroups: (ids: string[]) => void;
   importGroup: (
     targetGroupId: string,
     payload: GroupExportPayload,
@@ -396,10 +397,14 @@ export function useSiteHub(): SiteHubApi {
     [],
   );
 
-  const deleteGroup = useCallback<SiteHubApi["deleteGroup"]>((id) => {
-    setState((current) => deleteGroupFromState(current, id));
+  const deleteGroups = useCallback<SiteHubApi["deleteGroups"]>((ids) => {
+    setState(current => deleteGroupsFromState(current, ids));
     setRecovered(false);
   }, []);
+
+  const deleteGroup = useCallback<SiteHubApi["deleteGroup"]>((id) => {
+    deleteGroups([id]);
+  }, [deleteGroups]);
 
   const importGroup = useCallback<SiteHubApi["importGroup"]>(
     (targetGroupId, payload) => {
@@ -564,6 +569,7 @@ export function useSiteHub(): SiteHubApi {
     reorderGroups,
     reorderGroupBlock: reorderGroupsBlock,
     deleteGroup,
+    deleteGroups,
     importGroup,
     importGithubRepositories,
     importGithubRepositoryBatch,

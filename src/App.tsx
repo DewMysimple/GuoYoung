@@ -175,6 +175,7 @@ export function App() {
     reorderGroups,
     reorderGroupBlock,
     deleteGroup,
+    deleteGroups,
     importGroup,
     importGithubRepositories,
     importGithubRepositoryBatch,
@@ -344,7 +345,7 @@ export function App() {
     [activeGroupId, isGlobalCollectionSearch, query, searchGroups, searchSites],
   );
   const visibleSites = useMemo(() => {
-    if (sortMode === "manual") return scopedSites;
+    if (isGlobalCollectionSearch || sortMode === "manual") return scopedSites;
     const sortGroupId = isGlobalCollectionSearch ? "all" : activeGroupId;
     if (sortMode === "heat") return sortSitesByHeat(scopedSites, sortGroupId);
     return [...scopedSites].sort((a, b) => {
@@ -858,7 +859,7 @@ export function App() {
   }
 
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (!historyOpen || state.searchHistory.length === 0) return;
+    if (query.trim() || !historyOpen || state.searchHistory.length === 0) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setHistoryIndex((current) =>
@@ -1472,10 +1473,10 @@ export function App() {
           />
         ) : (
           <>
-        <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏"
+        <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏" placeholder="搜索收藏，支持拼音、首字母缩写"
           onSubmit={handleSearchSubmit} inputProps={{ id: "site-search", onFocus: () => { setHistoryOpen(true); setHistoryIndex(-1); },
             onBlur: () => { window.setTimeout(() => setHistoryOpen(false), 120); }, onKeyDown: handleSearchKeyDown }}>
-            {historyOpen && state.searchHistory.length > 0 && (
+            {historyOpen && !query.trim() && state.searchHistory.length > 0 && (
               <div className="search-history" role="listbox" aria-label="最近搜索">
                 <div className="search-history-header">
                   <span>最近搜索</span>
@@ -1731,7 +1732,9 @@ export function App() {
                     sortMode !== "manual" ? "active" : ""
                   }`}
                   aria-haspopup="menu"
-                  aria-expanded={sortMenuOpen}
+                  aria-expanded={!isSearching && sortMenuOpen}
+                  disabled={isSearching}
+                  title={isSearching ? "搜索结果按相关度排列，清空搜索后恢复原排列" : undefined}
                   onClick={() => {
                     setSortMenuOpen((current) => !current);
                     setDisplayMenuOpen(false);
@@ -1739,12 +1742,12 @@ export function App() {
                 >
                   <ArrowsDownUp size={16} />
                   <span>
-                    {SORT_OPTIONS.find((option) => option.value === sortMode)
-                      ?.label ?? "排列"}
+                    {isSearching ? "相关度" : (SORT_OPTIONS.find((option) => option.value === sortMode)
+                      ?.label ?? "排列")}
                   </span>
                   <CaretDown size={13} />
                 </button>
-                {sortMenuOpen && (
+                {sortMenuOpen && !isSearching && (
                   <div className="view-popover sort-popover" role="menu">
                     <span className="view-popover-label">排列方式</span>
                     {SORT_OPTIONS.map((option) => (
@@ -1769,7 +1772,7 @@ export function App() {
                 )}
               </div>
 
-              {activeGroupId === "all" && (
+              {activeGroupId === "all" && !isSearching && (
                 <div className="view-control">
                   <button
                     type="button"
@@ -1906,6 +1909,7 @@ export function App() {
                     {activeSortedGroup && activeGroupSortAxis === "vertical" ? (
                       <GroupSortDragPreview
                         axis="vertical"
+                        sites={visibleSites.filter(site => groupSort.view?.activeIds.includes(site.groupId))}
                         group={activeSortedGroup}
                         count={activeSortedGroupCount}
                         batchCount={groupSort.view?.activeIds.length || 1}
@@ -2004,6 +2008,13 @@ export function App() {
         onUpdate={updateGroup}
         onReorder={reorderManagedGroups}
         onDelete={handleGroupDelete}
+        onDeleteMany={(ids) => {
+          const deleted = groups.filter(group => ids.includes(group.id) && !group.isProtected);
+          const count = state.sites.filter(site => deleted.some(group => group.id === site.groupId)).length;
+          deleteGroups(deleted.map(group => group.id));
+          if (ids.includes(activeGroupId)) setActiveGroupId("all");
+          setTransferNotice({ kind: "success", message: `已删除 ${deleted.length} 个分组，${count} 个链接已移入回收站。` });
+        }}
         onExportGroup={handleGroupExport}
         onImportGroup={requestGroupImport}
       />

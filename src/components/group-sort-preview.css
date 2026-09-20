@@ -1,0 +1,28 @@
+.group-sort-drag-preview {
+  display: grid;
+  gap: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 8px 24px rgb(24 35 58 / 12%), 0 2px 6px rgb(24 35 58 / 6%);
+  cursor: grabbing;
+  pointer-events: none;
+}
+.group-sort-drag-preview.is-vertical { width: min(360px, calc(100vw - 32px)); border-radius: var(--radius-card); padding: 16px; }
+.group-sort-preview-heading { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.group-sort-preview-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 10px; color: var(--accent-text); background: var(--accent-soft); }
+.group-sort-preview-copy { display: grid; min-width: 0; gap: 3px; }
+.group-sort-preview-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; }
+.group-sort-preview-count { color: var(--text-soft); font-size: 11px; }
+.group-sort-preview-grip { margin-left: auto; flex-shrink: 0; color: var(--text-faint); }
+.group-sort-preview-sites { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.group-sort-preview-site { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; }
+.group-sort-preview-site .favicon-frame, .group-sort-preview-site .favicon-fallback { width: 22px; height: 22px; flex: 0 0 22px; border-radius: 6px; }
+.group-sort-preview-site .favicon-frame img, .group-sort-preview-site .favicon-frame svg { width: 18px; height: 18px; }
+.group-sort-preview-site > span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+.group-sort-preview-more { color: var(--text-faint); font-size: 11px; }
+.group-sort-preview-empty { margin-top: 12px; color: var(--text-faint); font-size: 12px; }
+.group-sort-drag-preview.is-horizontal { min-height: var(--group-tab-height); padding: 6px 12px; border-radius: 14px; }
+.group-sort-drag-preview.is-horizontal .group-sort-preview-copy { display: flex; align-items: center; gap: 8px; }
+.group-sort-drag-preview.is-horizontal strong { font-size: calc(12px * var(--group-font-scale)); }
+.group-sort-drag-preview.is-horizontal .group-sort-preview-icon { flex-basis: 24px; height: 24px; border-radius: 7px; }

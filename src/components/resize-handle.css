@@ -1,14 +1,30 @@
 .resize-handle { position: absolute; z-index: 2; touch-action: none; user-select: none; }
-.resize-handle span { position: absolute; display: block; border-radius: 8px; background: var(--border-strong); transition: background-color 120ms, box-shadow 120ms; }
-.resize-handle:hover span, .resize-handle:focus-visible span, .resize-handle.is-resizing span { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.resize-handle span {
+  position: absolute;
+  display: block;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-strong) 48%, transparent);
+  box-shadow: 0 0 0 0 transparent;
+  transition: width 160ms ease, height 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.resize-handle:hover span, .resize-handle:focus-visible span, .resize-handle.is-resizing span {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 11%, transparent);
+}
 .resize-handle:focus-visible { outline: none; }
-.resize-handle-x { top: 0; bottom: 0; left: -6px; width: 12px; cursor: col-resize; }
-.resize-handle-x span { top: calc(50% - 26px); left: 5px; width: 3px; height: 52px; }
-.resize-handle-y { left: calc(50% - 42px); width: 84px; height: 12px; bottom: -6px; cursor: row-resize; }
-.resize-handle-y span { left: 16px; top: 5px; width: 52px; height: 3px; }
-.topbar-resize-portal { position: fixed; z-index: 40; left: calc((100% - var(--resize-panel-width, 0px)) / 2 - 42px); top: calc(var(--topbar-height) - 6px); bottom: auto; }
+.resize-handle-x { top: 0; bottom: 0; left: -7px; width: 14px; cursor: col-resize; }
+.resize-handle-x span { width: 3px; height: 54px; }
+.resize-handle-x:hover span, .resize-handle-x:focus-visible span, .resize-handle-x.is-resizing span { height: 72px; }
+.resize-handle-y { left: calc(50% - 56px); width: 112px; height: 14px; bottom: -7px; cursor: row-resize; }
+.resize-handle-y span { width: 64px; height: 3px; }
+.resize-handle-y:hover span, .resize-handle-y:focus-visible span, .resize-handle-y.is-resizing span { width: 96px; }
+.topbar-resize-portal { position: fixed; z-index: 40; left: calc((100% - var(--resize-panel-width, 0px)) / 2 - 56px); top: calc(var(--topbar-height) - 7px); bottom: auto; }
 :root.resizing-x *, :root.resizing-y * { user-select: none !important; }
 :root.resizing-x * { cursor: col-resize !important; }
 :root.resizing-y * { cursor: row-resize !important; }
 :root.resizing-x .app-shell, :root.resizing-y .app-shell { transition: none; }
+@media (prefers-reduced-motion: reduce) { .resize-handle span { transition: none; } }
 @media (max-width: 899px) { .settings-resize-handle, .topbar-resize-portal { display: none; } }
