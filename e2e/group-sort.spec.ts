@@ -317,13 +317,15 @@ test("keeps group Add discoverable on touch and limits Other to before", async (
   expect(sectionBox).not.toBeNull();
   expect(addBox).not.toBeNull();
   expect(iconBox).not.toBeNull();
-  expect(addBox!.x + addBox!.width).toBeLessThanOrEqual(sectionBox!.x);
+  expect(addBox!.x).toBeGreaterThan(iconBox!.x + iconBox!.width);
+  expect(addBox!.x + addBox!.width).toBeLessThan(sectionBox!.x + sectionBox!.width);
+  expect(Math.abs(addBox!.y + addBox!.height / 2 - iconBox!.y - iconBox!.height / 2)).toBeLessThanOrEqual(1);
   expect(Math.abs(iconBox!.x - sectionBox!.x)).toBeLessThanOrEqual(1);
   if (testInfo.project.name === "mobile") {
     await expect(searchAdd).toHaveCSS("opacity", "1");
   } else {
     await expect(searchAdd).toHaveCSS("opacity", "0");
-    await page.mouse.move(sectionBox!.x + 240, addBox!.y + addBox!.height / 2);
+    await page.mouse.move(sectionBox!.x + sectionBox!.width / 2, addBox!.y + addBox!.height / 2);
     await expect(searchAdd).toHaveCSS("opacity", "0");
     await page.mouse.move(
       addBox!.x + addBox!.width / 2,
@@ -332,8 +334,8 @@ test("keeps group Add discoverable on touch and limits Other to before", async (
     );
     await expect(searchAdd).toHaveCSS("opacity", "1");
   }
-  await expect(searchAdd).toHaveCSS("border-radius", "999px");
-  await expect(searchAdd).not.toHaveCSS("box-shadow", "none");
+  await expect(searchAdd).toHaveCSS("border-radius", "8px");
+  await expect(searchAdd).toHaveCSS("box-shadow", "none");
   await searchAdd.click();
   await expect(
     page.getByRole("menuitem", { name: "在“搜索”前添加" }),

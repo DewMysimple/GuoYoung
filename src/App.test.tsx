@@ -1063,9 +1063,8 @@ describe("App", () => {
       screen.getByRole("menuitemradio", { name: "按分组显示" }),
     );
     expect(screen.queryByText("在此添加分组")).not.toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "在 开发 附近添加分组" }),
-    );
+    screen.getByRole("button", { name: "在 开发 附近添加分组" }).focus();
+    await user.keyboard("{Enter}");
     await user.click(
       screen.getByRole("menuitem", { name: "在“开发”前添加" }),
     );
@@ -1092,9 +1091,8 @@ describe("App", () => {
       ).toEqual(["搜索", "中间分组", "开发"]);
     });
 
-    await user.click(
-      screen.getByRole("button", { name: "在 搜索 附近添加分组" }),
-    );
+    screen.getByRole("button", { name: "在 搜索 附近添加分组" }).focus();
+    await user.keyboard("{Enter}");
     await user.click(
       screen.getByRole("menuitem", { name: "在“搜索”后添加" }),
     );
@@ -1102,9 +1100,8 @@ describe("App", () => {
     expect(within(afterDialog).getByText(/创建在“搜索”之后/)).toBeInTheDocument();
     await user.click(within(afterDialog).getByRole("button", { name: "取消" }));
 
-    await user.click(
-      screen.getByRole("button", { name: "在 其他 附近添加分组" }),
-    );
+    screen.getByRole("button", { name: "在 其他 附近添加分组" }).focus();
+    await user.keyboard("{Enter}");
     expect(
       screen.getByRole("menuitem", { name: "在“其他”前添加" }),
     ).toBeInTheDocument();

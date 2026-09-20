@@ -13,15 +13,11 @@ import {
   type KeyboardEvent,
 } from "react";
 import {
-  closestCorners,
-  closestCenter,
   DndContext,
   DragOverlay,
   KeyboardSensor,
   MeasuringStrategy,
   MouseSensor,
-  pointerWithin,
-  rectIntersection,
   TouchSensor,
   useSensor,
   useSensors,
@@ -34,8 +30,6 @@ import {
   horizontalListSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
-  rectSortingStrategy,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
   ArrowsDownUp,
@@ -56,18 +50,12 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { motion, useReducedMotion } from "framer-motion";
-import { AddSiteCard } from "./components/add-site-card";
 import { BrandMark } from "./components/brand-mark";
 import { BrowserHistoryView } from "./components/browser-history-view";
 import { ConfirmDialog } from "./components/confirm-dialog";
 import { GroupDialog } from "./components/group-dialog";
 import {
-  GroupDropGrid,
   GroupDropTab,
-  groupSortRowId,
-  groupSortTabId,
-  readDropGroupId,
-  readGroupSortId,
 } from "./components/group-drop-target";
 import { NewGroupDialog } from "./components/new-group-dialog";
 import { GroupSortDragPreview } from "./components/group-sort-preview";
@@ -78,7 +66,8 @@ import {
   type GithubRefreshReport,
   type GithubRefreshReportEntry,
 } from "./components/github-refresh-details-dialog";
-import { SortableGroupSection } from "./components/sortable-group-section";
+import { GroupedCollection } from "./components/grouped-collection";
+import { CollectionSiteGrid } from "./components/collection-site-grid";
 import {
   SettingsPanel,
   type SettingsDraft,
@@ -92,7 +81,11 @@ import {
 import { SiteDialog } from "./components/site-dialog";
 import { OTHER_GROUP_ID } from "./data/defaults";
 import { useSiteHub } from "./hooks/use-site-hub";
-import { useGroupSortSession } from "./hooks/use-group-sort-session";
+import { useGroupSorting } from "./hooks/use-group-sorting";
+import { useSiteDragging } from "./hooks/use-site-dragging";
+import { useSiteClickGuard } from "./hooks/use-site-click-guard";
+import { groupSortTabId, readGroupSortId } from "./lib/collection-drag-ids";
+import { CollectionMouseSensor, CollectionTouchSensor, GROUP_SORT_ACTIVATION_DISTANCE, SITE_DRAG_ACTIVATION_DISTANCE } from "./lib/collection-drag-sensors";
 import { useCollectionSelection } from "./hooks/use-collection-selection";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
@@ -104,9 +97,6 @@ import { searchWeb } from "./lib/browser-search";
 import type { DroppedSitePreview } from "./lib/external-link-drop";
 import {
   groupSortIntentFromTargetIndex,
-  resolveGroupSortIntent,
-  type GroupSortAxis,
-  type GroupSortRect,
 } from "./lib/group-sort";
 import {
   downloadExport,
@@ -117,10 +107,6 @@ import {
 } from "./lib/data-transfer";
 import {
   filterSites,
-  moveSiteToGroupEnd,
-  moveSitesToGroupEnd,
-  reorderSites,
-  reorderSitesGlobally,
   sortSitesByHeat,
 } from "./lib/site-utils";
 import { getGroupedSiteSections } from "./lib/grouped-sites";
@@ -156,92 +142,6 @@ type CollectionSearchOrigin = {
   workspace: SiteWorkspace;
   groupId: GroupFilter;
 };
-
-interface StableDropRect {
-  id: string;
-  groupId: string;
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-  centerX: number;
-  centerY: number;
-}
-
-interface StableDropGeometry {
-  sites: StableDropRect[];
-  groups: StableDropRect[];
-  groupEnds: StableDropRect[];
-}
-
-interface RectEdges {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
-type SiteDropIntent =
-  | { type: "site"; siteId: string; groupId: string }
-  | { type: "group-end"; groupId: string };
-
-const DROP_TARGET_HYSTERESIS = 18;
-const GROUP_SORT_ACTIVATION_DISTANCE = 8;
-const SITE_DRAG_ACTIVATION_DISTANCE = 50;
-const TAB_EDGE_SCROLL_ZONE = 56;
-const TAB_EDGE_SCROLL_MIN_SPEED = 4;
-const TAB_EDGE_SCROLL_MAX_SPEED = 18;
-class CollectionMouseSensor extends MouseSensor {
-  constructor(props: ConstructorParameters<typeof MouseSensor>[0]) {
-    const target = props.event.target;
-    const groupSortGesture =
-      target instanceof Element && Boolean(target.closest("[data-group-sort-handle]"));
-    super({
-      ...props,
-      options: {
-        ...props.options,
-        activationConstraint: {
-          distance: groupSortGesture
-            ? GROUP_SORT_ACTIVATION_DISTANCE
-            : SITE_DRAG_ACTIVATION_DISTANCE,
-        },
-      },
-    });
-  }
-}
-
-class CollectionTouchSensor extends TouchSensor {
-  constructor(props: ConstructorParameters<typeof TouchSensor>[0]) {
-    const target = props.event.target;
-    const groupSortGesture =
-      target instanceof Element && Boolean(target.closest("[data-group-sort-handle]"));
-    super({
-      ...props,
-      options: {
-        ...props.options,
-        activationConstraint: {
-          distance: groupSortGesture
-            ? GROUP_SORT_ACTIVATION_DISTANCE
-            : SITE_DRAG_ACTIVATION_DISTANCE,
-        },
-      },
-    });
-  }
-}
-
-function pointInDropRect(rect: StableDropRect, x: number, y: number) {
-  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-}
-
-function distanceToDropRect(rect: StableDropRect, x: number, y: number) {
-  return Math.hypot(x - rect.centerX, y - rect.centerY);
-}
-
-function rectOverlapArea(first: RectEdges, second: RectEdges) {
-  const width = Math.min(first.right, second.right) - Math.max(first.left, second.left);
-  const height = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top);
-  return width > 0 && height > 0 ? width * height : 0;
-}
 
 const SORT_OPTIONS: Array<{ value: SiteSortMode; label: string }> = [
   { value: "manual", label: "手动排列" },
@@ -335,13 +235,9 @@ export function App() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
-  const [pendingDragId, setPendingDragId] = useState<string | null>(null);
-  const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  const [overDragId, setOverDragId] = useState<string | null>(null);
   const [dragSitesPreview, setDragSitesPreview] = useState<SiteItem[] | null>(
     null,
   );
-  const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [browserHistoryOpen, setBrowserHistoryOpen] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<SiteWorkspace>("main");
@@ -363,54 +259,13 @@ export function App() {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [batchDragIds, setBatchDragIds] = useState<string[]>([]);
-  const groupSort = useGroupSortSession();
-  const activeGroupSortId = groupSort.view?.activeId ?? null;
-  const activeGroupSortAxis = groupSort.view?.axis ?? null;
-  const groupSortIntent = groupSort.view?.intent ?? null;
   const importInputRef = useRef<HTMLInputElement>(null);
   const groupImportInputRef = useRef<HTMLInputElement>(null);
   const groupImportTargetRef = useRef<string | null>(null);
   const viewControlsRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const collectionSearchOriginRef = useRef<CollectionSearchOrigin | null>(null);
-  const dragSitesPreviewRef = useRef<SiteItem[] | null>(null);
-  const dragBaseSitesRef = useRef<SiteItem[] | null>(null);
-  const suppressSiteClickRef = useRef(false);
-  const suppressSiteClickTimerRef = useRef<number | null>(null);
-  const suppressedSiteLinkRef = useRef<{
-    element: HTMLAnchorElement;
-    href: string;
-  } | null>(null);
-  const sitePointerGestureRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    crossedDragThreshold: boolean;
-    link: HTMLAnchorElement;
-  } | null>(null);
-  const hoveredGroupTabRef = useRef<string | null>(null);
-  const pointerGroupZoneRef = useRef<string | null>(null);
-  const pointerAtGroupEndRef = useRef(false);
-  const stableDropGeometryRef = useRef<StableDropGeometry | null>(null);
-  const stableCollisionIdRef = useRef<string | null>(null);
-  const activeDragIdRef = useRef<string | null>(null);
-  const dragCanReorderRef = useRef(true);
-  const siteDropIntentRef = useRef<SiteDropIntent | null>(null);
-  const lastValidSiteTargetRef = useRef<{
-    siteId: string;
-    groupId: string;
-  } | null>(null);
-  const dragOriginGroupIdRef = useRef<string | null>(null);
-  const dragStartedFromAllRef = useRef(true);
-  const switchedDragGroupIdRef = useRef<string | null>(null);
-  const groupHoverTimerRef = useRef<number | null>(null);
-  const groupOverlapFrameRef = useRef<number | null>(null);
-  const batchDragIdsRef = useRef<string[]>([]);
   const armedDeleteTimerRef = useRef<number | null>(null);
-  const dragPointerXRef = useRef<number | null>(null);
-  const tabsAutoScrollFrameRef = useRef<number | null>(null);
-
   const sortMode: SiteSortMode =
     state.sortModeByWorkspace[activeWorkspace] ?? state.sortMode ?? "manual";
 
@@ -447,21 +302,6 @@ export function App() {
     activeWorkspace === "github" && activeGroup?.githubImportSource
       ? activeGroup
       : undefined;
-  const activeSortedGroup = activeGroupSortId
-    ? groups.find((group) => group.id === activeGroupSortId)
-    : undefined;
-  const activeSortedGroupCount = activeSortedGroup
-    ? state.sites.filter((site) => site.groupId === activeSortedGroup.id).length
-    : 0;
-  const groupSortAnnouncement = groupSortIntent
-    ? `将${activeSortedGroup?.name ?? "分组"}移动到${
-        groupSortIntent.beforeGroupId
-          ? `${groups.find((group) => group.id === groupSortIntent.beforeGroupId)?.name ?? "目标分组"}之前`
-          : "普通分组末尾"
-      }`
-    : activeSortedGroup
-      ? `${activeSortedGroup.name}保持原位置`
-      : "";
   const workspaceGroupIds = useMemo(
     () => new Set(groups.map((group) => group.id)),
     [groups],
@@ -568,20 +408,52 @@ export function App() {
     settingsOpen ||
     resetOpen ||
     Boolean(pendingImport);
+  const { armSiteClickSuppression, handlers: siteClickHandlers } = useSiteClickGuard();
+  const groupSort = useGroupSorting({ groups, selection, reorderGroups, reorderGroupBlock,
+    onStart: () => { clearArmedDelete(); cancelGroupManagementForSort(); },
+  });
+  const { beginGroupSort, finishGroupSort, detectGroupSortCollisions, updateKeyboardGroupSortIntent,
+    handleGroupTabDragStart, handleGroupTabDragOver, handleGroupTabDragEnd } = groupSort;
+  const { pendingDragId, activeDragId, overDragId, dragHoverGroupId, batchDragIds, originGroupId,
+    activeDraggedSite, setPendingDragId, activeCollisionDetection: siteCollisionDetection,
+    handleDragStart, handleDragOver, handleDragEnd, handleDragCancel,
+  } = useSiteDragging({ sites: state.sites, groups: state.groups, renderedSites, workspaceGroupIds,
+    activeGroupId, isGroupedView, canReorderSites, dragDisabled, selection, setActiveGroupId,
+    setDragSitesPreview, commitSites, onStart: clearArmedDelete, armSiteClickSuppression });
+  const activeCollisionDetection: CollisionDetection = args => args.active.data.current?.type === "group-row-sort"
+    ? detectGroupSortCollisions(args, "vertical") : siteCollisionDetection(args);
+  const activeDraggedGroup = activeDraggedSite ? groups.find(group => group.id === activeDraggedSite.groupId) : undefined;
+  const activeGroupSortId = groupSort.view?.activeId ?? null;
+  const activeGroupSortAxis = groupSort.view?.axis ?? null;
+  const groupSortIntent = groupSort.view?.intent ?? null;
+  const activeSortedGroup = activeGroupSortId
+    ? groups.find((group) => group.id === activeGroupSortId)
+    : undefined;
+  const activeSortedGroupCount = activeSortedGroup
+    ? state.sites.filter((site) => site.groupId === activeSortedGroup.id).length
+    : 0;
+  const groupSortAnnouncement = groupSortIntent
+    ? `将${activeSortedGroup?.name ?? "分组"}移动到${
+        groupSortIntent.beforeGroupId
+          ? `${groups.find((group) => group.id === groupSortIntent.beforeGroupId)?.name ?? "目标分组"}之前`
+          : "普通分组末尾"
+      }`
+    : activeSortedGroup
+      ? `${activeSortedGroup.name}保持原位置`
+      : "";
   const groupSortDisabled =
     isSearching ||
     multiSelectMode ||
     (groupSelectionMode && !groupSelectionActive) ||
     Boolean(activeDragId) ||
     anyModalOpen;
-  const activeDraggedSite = activeDragId
-    ? (dragSitesPreviewRef.current ?? renderedSites).find(
-        (site) => site.id === activeDragId,
-      )
-    : undefined;
-  const activeDraggedGroup = activeDraggedSite
-    ? groups.find((group) => group.id === activeDraggedSite.groupId)
-    : undefined;
+
+  useEffect(() => () => {
+    if (armedDeleteTimerRef.current !== null) window.clearTimeout(armedDeleteTimerRef.current);
+  }, []);
+
+  const gridDrag = { activeId: activeDragId, overId: overDragId, originGroupId,
+    reorder: canReorderSites && !multiSelectMode, disabled: dragDisabled };
   const selectedSiteCount = selectedSiteIds.size;
 
   useEffect(() => {
@@ -644,212 +516,6 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [transferNotice]);
 
-  function captureStableDropGeometry() {
-    const readRect = (
-      element: HTMLElement,
-      id: string,
-      groupId: string,
-    ): StableDropRect => {
-      const rect = element.getBoundingClientRect();
-      const left = rect.left + window.scrollX;
-      const top = rect.top + window.scrollY;
-      return {
-        id,
-        groupId,
-        left,
-        right: left + rect.width,
-        top,
-        bottom: top + rect.height,
-        centerX: left + rect.width / 2,
-        centerY: top + rect.height / 2,
-      };
-    };
-
-    const sites = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-site-dnd-id]"),
-    ).map((element) =>
-      readRect(
-        element,
-        element.dataset.siteDndId!,
-        element.dataset.siteGroupId!,
-      ),
-    );
-    const groups = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-group-zone-id]"),
-    ).map((element) =>
-      readRect(
-        element,
-        `group-zone:${element.dataset.groupZoneId!}`,
-        element.dataset.groupZoneId!,
-      ),
-    );
-    const groupEnds = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-add-site-group-id]"),
-    ).map((element) =>
-      readRect(
-        element,
-        `group-zone:${element.dataset.addSiteGroupId!}`,
-        element.dataset.addSiteGroupId!,
-      ),
-    );
-
-    stableDropGeometryRef.current = { sites, groups, groupEnds };
-  }
-
-  const activeCollisionDetection = useMemo<CollisionDetection>(
-    () => (args) => {
-      if (args.active.data.current?.type === "group-row-sort") {
-        return detectGroupSortCollisions(args, "vertical");
-      }
-      const siteIds = new Set(renderedSites.map((site) => site.id));
-      const activeId = String(args.active.id);
-      const pointerCollisions = pointerWithin(args);
-      const groupTabCollision = pointerCollisions.find(({ id }) =>
-        String(id).startsWith("group-tab:"),
-      );
-      if (groupTabCollision) return [groupTabCollision];
-
-      const geometry = stableDropGeometryRef.current;
-      const pointer = args.pointerCoordinates;
-      if (!dragCanReorderRef.current) {
-        if (geometry && pointer) {
-          const pointerX = pointer.x + window.scrollX;
-          const pointerY = pointer.y + window.scrollY;
-          const pointedGroup = geometry.groups.find(
-            (rect) =>
-              !isTransferTargetNoOp(rect.groupId) &&
-              pointInDropRect(rect, pointerX, pointerY),
-          );
-          if (pointedGroup) return [{ id: pointedGroup.id }];
-        }
-
-        const pointedGroupZone = pointerCollisions.find(({ id }) => {
-          const groupId = readDropGroupId(String(id));
-          return groupId && !isTransferTargetNoOp(groupId);
-        });
-        return pointedGroupZone ? [pointedGroupZone] : [];
-      }
-
-      if (geometry && pointer) {
-        const pointerX = pointer.x + window.scrollX;
-        const pointerY = pointer.y + window.scrollY;
-        const groupEnd = geometry.groupEnds.find((rect) =>
-          pointInDropRect(rect, pointerX, pointerY),
-        );
-        if (groupEnd) {
-          stableCollisionIdRef.current = groupEnd.id;
-          return [{ id: groupEnd.id }];
-        }
-
-        const pointedGroup = geometry.groups.find((rect) =>
-          pointInDropRect(rect, pointerX, pointerY),
-        );
-        const isGlobalFlatView = activeGroupId === "all" && !isGroupedView;
-        const candidates = geometry.sites.filter(
-          (rect) => isGlobalFlatView || rect.groupId === pointedGroup?.groupId,
-        );
-
-        if (candidates.length > 0 && (pointedGroup || isGlobalFlatView)) {
-          const collisionRect = {
-            left: args.collisionRect.left + window.scrollX,
-            right: args.collisionRect.right + window.scrollX,
-            top: args.collisionRect.top + window.scrollY,
-            bottom: args.collisionRect.bottom + window.scrollY,
-          };
-          const collisionCenterX =
-            (collisionRect.left + collisionRect.right) / 2;
-          const collisionCenterY =
-            (collisionRect.top + collisionRect.bottom) / 2;
-          const overlappingCandidates = candidates
-            .map((rect) => ({
-              rect,
-              area: rectOverlapArea(collisionRect, rect),
-            }))
-            .filter(({ area }) => area > 0);
-          const candidate =
-            overlappingCandidates.length > 0
-              ? overlappingCandidates.reduce((best, current) =>
-                  current.area > best.area ? current : best,
-                ).rect
-              : candidates.reduce((nearest, rect) =>
-                  distanceToDropRect(
-                    rect,
-                    collisionCenterX,
-                    collisionCenterY,
-                  ) <
-                  distanceToDropRect(
-                    nearest,
-                    collisionCenterX,
-                    collisionCenterY,
-                  )
-                    ? rect
-                    : nearest,
-                );
-          const previous = candidates.find(
-            (rect) => rect.id === stableCollisionIdRef.current,
-          );
-          const shouldKeepPrevious =
-            previous &&
-            previous.id !== candidate.id &&
-            distanceToDropRect(
-              candidate,
-              collisionCenterX,
-              collisionCenterY,
-            ) +
-              DROP_TARGET_HYSTERESIS >=
-              distanceToDropRect(
-                previous,
-                collisionCenterX,
-                collisionCenterY,
-              );
-          const stableTarget = shouldKeepPrevious ? previous : candidate;
-          stableCollisionIdRef.current = stableTarget.id;
-          return [{ id: stableTarget.id }];
-        }
-
-        if (pointedGroup) {
-          stableCollisionIdRef.current = pointedGroup.id;
-          return [{ id: pointedGroup.id }];
-        }
-
-        const previousId = stableCollisionIdRef.current;
-        if (previousId) return [{ id: previousId }];
-      }
-
-      const activeSite = renderedSites.find((site) => site.id === activeId);
-      const pointedSitesInActiveGroup = pointerCollisions.filter(({ id }) => {
-        const pointedSite = renderedSites.find(
-          (site) => site.id === String(id),
-        );
-        return (
-          pointedSite &&
-          pointedSite.id !== activeId &&
-          pointedSite.groupId === activeSite?.groupId
-        );
-      });
-      if (pointedSitesInActiveGroup.length > 0) {
-        return pointedSitesInActiveGroup;
-      }
-
-      const intersections = rectIntersection(args);
-      const intersectedSites = intersections.filter(
-        ({ id }) => String(id) !== activeId && siteIds.has(String(id)),
-      );
-      if (intersectedSites.length > 0) return intersectedSites;
-
-      const nearest = closestCorners(args);
-      const nearestSites = nearest.filter(
-        ({ id }) => String(id) !== activeId && siteIds.has(String(id)),
-      );
-      if (nearestSites.length > 0) return nearestSites;
-
-      return intersections.length > 0
-        ? intersections
-        : nearest;
-    },
-    [activeGroupId, isGroupedView, renderedSites],
-  );
-
   const sensors = useSensors(
     useSensor(CollectionMouseSensor, {
       activationConstraint: { distance: SITE_DRAG_ACTIVATION_DISTANCE },
@@ -868,784 +534,6 @@ export function App() {
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-
-  function handleDragStart(event: DragStartEvent) {
-    clearArmedDelete();
-    const preview = state.sites.map((site) => ({ ...site }));
-    const activeId = String(event.active.id);
-    selection.prepareSiteDrag(activeId);
-    let nextBatchIds = [activeId];
-    if (multiSelectMode) {
-      const selectedForDrag = selectedSiteIds.has(activeId)
-        ? new Set(selectedSiteIds)
-        : new Set([activeId]);
-      const domOrder = Array.from(
-        document.querySelectorAll<HTMLElement>("[data-site-dnd-id]"),
-      ).map((element) => element.dataset.siteDndId!);
-      nextBatchIds = domOrder.filter((id) => selectedForDrag.has(id));
-      for (const id of selectedForDrag) {
-        if (!nextBatchIds.includes(id)) nextBatchIds.push(id);
-      }
-    }
-    batchDragIdsRef.current = nextBatchIds;
-    setBatchDragIds(nextBatchIds);
-    activeDragIdRef.current = activeId;
-    dragCanReorderRef.current = canReorderSites && !multiSelectMode;
-    siteDropIntentRef.current = null;
-    dragBaseSitesRef.current = preview;
-    dragSitesPreviewRef.current = preview;
-    dragOriginGroupIdRef.current =
-      preview.find((site) => site.id === activeId)?.groupId ??
-      null;
-    dragStartedFromAllRef.current = activeGroupId === "all";
-    switchedDragGroupIdRef.current = null;
-    pointerGroupZoneRef.current = null;
-    pointerAtGroupEndRef.current = false;
-    stableCollisionIdRef.current = activeId;
-    captureStableDropGeometry();
-    lastValidSiteTargetRef.current = null;
-    setDragSitesPreview(preview);
-    setPendingDragId(null);
-    setActiveDragId(activeId);
-    setOverDragId(activeId);
-    startGroupOverlapTracking();
-    startTabsAutoScroll();
-  }
-
-  function armSiteClickSuppression() {
-    suppressSiteClickRef.current = true;
-    if (suppressSiteClickTimerRef.current !== null) {
-      window.clearTimeout(suppressSiteClickTimerRef.current);
-    }
-    suppressSiteClickTimerRef.current = window.setTimeout(() => {
-      clearSiteClickSuppression();
-    }, 700);
-  }
-
-  function disableGestureSiteLink(link: HTMLAnchorElement) {
-    if (suppressedSiteLinkRef.current?.element === link) return;
-    const href = link.getAttribute("href");
-    if (!href) return;
-    suppressedSiteLinkRef.current = { element: link, href };
-    link.removeAttribute("href");
-  }
-
-  function clearSiteClickSuppression() {
-    suppressSiteClickRef.current = false;
-    if (suppressSiteClickTimerRef.current !== null) {
-      window.clearTimeout(suppressSiteClickTimerRef.current);
-      suppressSiteClickTimerRef.current = null;
-    }
-    const suppressedLink = suppressedSiteLinkRef.current;
-    if (suppressedLink?.element.isConnected) {
-      suppressedLink.element.setAttribute("href", suppressedLink.href);
-    }
-    suppressedSiteLinkRef.current = null;
-  }
-
-  function clearGroupHoverTimer() {
-    if (groupHoverTimerRef.current !== null) {
-      window.clearTimeout(groupHoverTimerRef.current);
-      groupHoverTimerRef.current = null;
-    }
-    hoveredGroupTabRef.current = null;
-    setDragHoverGroupId(null);
-  }
-
-  function readOverlappingGroupTab() {
-    const preview = document.querySelector<HTMLElement>(
-      '[data-testid="site-card-drag-preview"]',
-    );
-    const tabsViewport = document.querySelector<HTMLElement>(".category-tabs");
-    if (!preview || !tabsViewport) return null;
-
-    const previewRect = preview.getBoundingClientRect();
-    const viewportRect = tabsViewport.getBoundingClientRect();
-    let bestMatch: { groupId: string; area: number } | null = null;
-
-    const tabs = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-group-drop-id]"),
-    );
-    for (const tab of tabs) {
-      if (tab.dataset.dragActive !== "true") continue;
-      const tabRect = tab.getBoundingClientRect();
-      const visibleTabRect = {
-        left: Math.max(tabRect.left, viewportRect.left, 0),
-        right: Math.min(tabRect.right, viewportRect.right, window.innerWidth),
-        top: Math.max(tabRect.top, viewportRect.top, 0),
-        bottom: Math.min(tabRect.bottom, viewportRect.bottom, window.innerHeight),
-      };
-      const area = rectOverlapArea(previewRect, visibleTabRect);
-      const groupId = tab.dataset.groupDropId;
-      if (groupId && area > 0 && (!bestMatch || area > bestMatch.area)) {
-        bestMatch = { groupId, area };
-      }
-    }
-
-    return bestMatch?.groupId ?? null;
-  }
-
-  function stopGroupOverlapTracking() {
-    if (groupOverlapFrameRef.current !== null) {
-      window.cancelAnimationFrame(groupOverlapFrameRef.current);
-      groupOverlapFrameRef.current = null;
-    }
-  }
-
-  function startGroupOverlapTracking() {
-    stopGroupOverlapTracking();
-    const trackOverlap = () => {
-      if (!activeDragIdRef.current) {
-        groupOverlapFrameRef.current = null;
-        return;
-      }
-      const overlappingGroupId = readOverlappingGroupTab();
-      if (overlappingGroupId) scheduleGroupTabSwitch(overlappingGroupId);
-      else if (hoveredGroupTabRef.current) clearGroupHoverTimer();
-      groupOverlapFrameRef.current = window.requestAnimationFrame(trackOverlap);
-    };
-    groupOverlapFrameRef.current = window.requestAnimationFrame(trackOverlap);
-  }
-
-  function readLiveGroupSortRects(axis: GroupSortAxis): GroupSortRect[] {
-    const selector =
-      axis === "horizontal"
-        ? "[data-group-sort-tab-id]"
-        : "[data-group-sort-section-id]";
-    const elementsByGroupId = new Map(
-      Array.from(document.querySelectorAll<HTMLElement>(selector)).map(
-        (element) => [
-          axis === "horizontal"
-            ? element.dataset.groupSortTabId!
-            : element.dataset.groupSortSectionId!,
-          element,
-        ],
-      ),
-    );
-
-    return (groupSort.read()?.order ?? []).flatMap((groupId) => {
-      const element = elementsByGroupId.get(groupId);
-      if (!element) return [];
-      const rect = element.getBoundingClientRect();
-      const computedTransform = window.getComputedStyle(element).transform;
-      let translateX = 0;
-      let translateY = 0;
-      if (computedTransform && computedTransform !== "none") {
-        const matrix = new DOMMatrixReadOnly(computedTransform);
-        translateX = matrix.m41;
-        translateY = matrix.m42;
-      }
-      return [
-        {
-          groupId,
-          start:
-            axis === "horizontal"
-              ? rect.left - translateX
-              : rect.top - translateY,
-          end:
-            axis === "horizontal"
-              ? rect.right - translateX
-              : rect.bottom - translateY,
-          crossStart:
-            axis === "horizontal"
-              ? rect.top - translateY
-              : rect.left - translateX,
-          crossEnd:
-            axis === "horizontal"
-              ? rect.bottom - translateY
-              : rect.right - translateX,
-        },
-      ];
-    });
-  }
-
-  function detectGroupSortCollisions(
-    args: Parameters<CollisionDetection>[0],
-    axis: GroupSortAxis,
-  ): ReturnType<CollisionDetection> {
-    const activeGroupId = readGroupSortId(String(args.active.id));
-    if (!activeGroupId) return [];
-
-    const idForGroup = axis === "horizontal" ? groupSortTabId : groupSortRowId;
-    const groupContainers = args.droppableContainers.filter(({ id }) =>
-      String(id).startsWith(
-        axis === "horizontal" ? "group-sort-tab:" : "group-sort-row:",
-      ),
-    );
-    if (!args.pointerCoordinates) {
-      return closestCenter({
-        ...args,
-        droppableContainers: groupContainers,
-      });
-    }
-
-    const orderedGroupIds = (groupSort.read()?.order ?? []);
-    const orderedRects = orderedGroupIds.flatMap((groupId) => {
-      const rect = args.droppableRects.get(idForGroup(groupId));
-      if (!rect) return [];
-      return [
-        {
-          groupId,
-          start: axis === "horizontal" ? rect.left : rect.top,
-          end: axis === "horizontal" ? rect.right : rect.bottom,
-          crossStart: axis === "horizontal" ? rect.top : rect.left,
-          crossEnd: axis === "horizontal" ? rect.bottom : rect.right,
-        },
-      ];
-    });
-    const intent = resolveGroupSortIntent({
-      axis,
-      activeGroupId,
-      pointerPrimary:
-        axis === "horizontal"
-          ? args.pointerCoordinates.x
-          : args.pointerCoordinates.y,
-      pointerCross:
-        axis === "horizontal"
-          ? args.pointerCoordinates.y
-          : args.pointerCoordinates.x,
-      orderedRects,
-    });
-    const activeIndex = orderedGroupIds.indexOf(activeGroupId);
-    const remainingGroupIds = orderedGroupIds.filter(
-      (groupId) => groupId !== activeGroupId,
-    );
-    const targetIndex = intent
-      ? intent.beforeGroupId === null
-        ? orderedGroupIds.length - 1
-        : remainingGroupIds.indexOf(intent.beforeGroupId)
-      : activeIndex;
-    const targetGroupId = orderedGroupIds[targetIndex] ?? activeGroupId;
-    return [{ id: idForGroup(targetGroupId) }];
-  }
-
-  function updateGroupSortIntentFromPointer(x: number, y: number) {
-    const activeGroupId = groupSort.read()?.activeId;
-    const axis = groupSort.read()?.axis;
-    if (!activeGroupId || !axis || groupSort.read()?.keyboard) return;
-    groupSort.trackPointer(x, y);
-    const orderedRects = readLiveGroupSortRects(axis);
-    groupSort.preview(
-      resolveGroupSortIntent({
-        axis,
-        activeGroupId,
-        pointerPrimary: axis === "horizontal" ? x : y,
-        pointerCross: axis === "horizontal" ? y : x,
-        orderedRects,
-      }),
-    );
-  }
-
-  function updateKeyboardGroupSortIntent(overId?: string) {
-    if (!groupSort.read()?.keyboard || !overId) return;
-    const activeGroupId = groupSort.read()?.activeId;
-    const axis = groupSort.read()?.axis;
-    const overGroupId = readGroupSortId(overId);
-    if (!activeGroupId || !axis || !overGroupId) return;
-    groupSort.preview(
-      groupSortIntentFromTargetIndex(
-        axis,
-        activeGroupId,
-        (groupSort.read()?.order ?? []),
-        (groupSort.read()?.order ?? []).indexOf(overGroupId),
-      ),
-    );
-  }
-
-  function stopTabsAutoScroll() {
-    if (tabsAutoScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(tabsAutoScrollFrameRef.current);
-      tabsAutoScrollFrameRef.current = null;
-    }
-    dragPointerXRef.current = null;
-  }
-
-  function startTabsAutoScroll() {
-    if (tabsAutoScrollFrameRef.current !== null) return;
-    const tick = () => {
-      if (!activeDragIdRef.current && !groupSort.read()?.activeId) {
-        tabsAutoScrollFrameRef.current = null;
-        return;
-      }
-      const viewport = document.querySelector<HTMLElement>(".category-tabs");
-      const pointerX = dragPointerXRef.current;
-      if (viewport && pointerX !== null) {
-        const rect = viewport.getBoundingClientRect();
-        let direction = 0;
-        let depth = 0;
-        if (pointerX >= rect.left && pointerX < rect.left + TAB_EDGE_SCROLL_ZONE) {
-          direction = -1;
-          depth = (rect.left + TAB_EDGE_SCROLL_ZONE - pointerX) / TAB_EDGE_SCROLL_ZONE;
-        } else if (
-          pointerX <= rect.right &&
-          pointerX > rect.right - TAB_EDGE_SCROLL_ZONE
-        ) {
-          direction = 1;
-          depth = (pointerX - (rect.right - TAB_EDGE_SCROLL_ZONE)) / TAB_EDGE_SCROLL_ZONE;
-        }
-        if (direction !== 0) {
-          const speed =
-            TAB_EDGE_SCROLL_MIN_SPEED +
-            (TAB_EDGE_SCROLL_MAX_SPEED - TAB_EDGE_SCROLL_MIN_SPEED) *
-              Math.min(1, Math.max(0, depth));
-          const before = viewport.scrollLeft;
-          viewport.scrollLeft += direction * speed;
-          if (viewport.scrollLeft !== before) {
-            if (activeDragIdRef.current) {
-              const overlappingGroupId = readOverlappingGroupTab();
-              if (overlappingGroupId) scheduleGroupTabSwitch(overlappingGroupId);
-            } else if (
-              groupSort.read()?.axis === "horizontal" &&
-              groupSort.read()?.pointer
-            ) {
-              updateGroupSortIntentFromPointer(
-                groupSort.read()!.pointer!.x,
-                groupSort.read()!.pointer!.y,
-              );
-            }
-          }
-        }
-      }
-      tabsAutoScrollFrameRef.current = window.requestAnimationFrame(tick);
-    };
-    tabsAutoScrollFrameRef.current = window.requestAnimationFrame(tick);
-  }
-
-  function scheduleGroupTabSwitch(groupId: string) {
-    if (isGithubHomeDragBlocked(groupId)) {
-      clearGroupHoverTimer();
-      setDragHoverGroupId(null);
-      siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
-      if (activeDragIdRef.current) setOverDragId(activeDragIdRef.current);
-      return;
-    }
-    if (!dragCanReorderRef.current) {
-      const previewGroupId =
-        switchedDragGroupIdRef.current ?? dragOriginGroupIdRef.current;
-      if (hoveredGroupTabRef.current !== groupId) {
-        clearGroupHoverTimer();
-        hoveredGroupTabRef.current = groupId;
-        if (
-          !dragStartedFromAllRef.current &&
-          groupId !== previewGroupId
-        ) {
-          groupHoverTimerRef.current = window.setTimeout(() => {
-            if (hoveredGroupTabRef.current !== groupId) return;
-            switchedDragGroupIdRef.current = groupId;
-            setActiveGroupId(groupId);
-            groupHoverTimerRef.current = null;
-          }, 450);
-        }
-      }
-      setDragHoverGroupId(groupId);
-      targetTransferGroup(groupId);
-      return;
-    }
-
-    if (hoveredGroupTabRef.current === groupId) {
-      setDragHoverGroupId(groupId);
-      return;
-    }
-    clearGroupHoverTimer();
-    hoveredGroupTabRef.current = groupId;
-    setDragHoverGroupId(groupId);
-    groupHoverTimerRef.current = window.setTimeout(() => {
-      switchedDragGroupIdRef.current = groupId;
-      stableCollisionIdRef.current = `group-zone:${groupId}`;
-      previewGroupEndDrop(groupId);
-      setActiveGroupId(groupId);
-      groupHoverTimerRef.current = null;
-
-      // Switching tabs replaces the visible grid. Rebuild the frozen drop
-      // slots from the new group before interpreting another pointer move.
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          if (!dragSitesPreviewRef.current) return;
-          captureStableDropGeometry();
-          stableCollisionIdRef.current = `group-zone:${groupId}`;
-        });
-      });
-    }, 450);
-  }
-
-  function updateDragPreview(next: SiteItem[]) {
-    dragSitesPreviewRef.current = next;
-  }
-
-  function targetTransferGroup(groupId: string) {
-    const activeId = activeDragIdRef.current;
-    if (
-      !activeId ||
-      !groupId ||
-      isGithubHomeDragBlocked(groupId) ||
-      isTransferTargetNoOp(groupId)
-    ) {
-      siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
-      if (activeId) setOverDragId(activeId);
-      return;
-    }
-
-    siteDropIntentRef.current = { type: "group-end", groupId };
-    lastValidSiteTargetRef.current = null;
-    setOverDragId(`group-zone:${groupId}`);
-  }
-
-  function isGithubHomeDragBlocked(
-    groupId: string | undefined,
-    calculationBase = dragBaseSitesRef.current,
-  ) {
-    if (!groupId || !calculationBase) return false;
-    const targetGroup = state.groups.find((group) => group.id === groupId);
-    if (!targetGroup || getGroupWorkspace(targetGroup) !== "github") {
-      return false;
-    }
-    const activeId = activeDragIdRef.current;
-    if (!activeId) return false;
-    const draggedIds =
-      batchDragIdsRef.current.length > 0
-        ? batchDragIdsRef.current
-        : [activeId];
-    return draggedIds.some((id) => {
-      const site = calculationBase.find((candidate) => candidate.id === id);
-      return Boolean(site && isGithubHomeUrl(site.url));
-    });
-  }
-
-  function isTransferTargetNoOp(groupId: string) {
-    const calculationBase = dragBaseSitesRef.current;
-    const activeId = activeDragIdRef.current;
-    if (!calculationBase || !activeId) return true;
-    const draggedIds =
-      batchDragIdsRef.current.length > 0
-        ? batchDragIdsRef.current
-        : [activeId];
-    return draggedIds.every(
-      (id) => calculationBase.find((site) => site.id === id)?.groupId === groupId,
-    );
-  }
-
-  function previewGroupEndDrop(groupId: string) {
-    if (isGithubHomeDragBlocked(groupId)) {
-      siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
-      if (activeDragIdRef.current) setOverDragId(activeDragIdRef.current);
-      return;
-    }
-    if (!dragCanReorderRef.current) {
-      targetTransferGroup(groupId);
-      return;
-    }
-
-    const activeId = activeDragIdRef.current;
-    const calculationBase = dragBaseSitesRef.current;
-    if (!activeId || !calculationBase) return;
-
-    const currentIntent = siteDropIntentRef.current;
-    const alreadyTargetingEnd =
-      currentIntent?.type === "group-end" &&
-      currentIntent.groupId === groupId;
-    siteDropIntentRef.current = { type: "group-end", groupId };
-    lastValidSiteTargetRef.current = null;
-    if (!alreadyTargetingEnd) {
-      updateDragPreview(
-        moveSiteToGroupEnd(calculationBase, activeId, groupId),
-      );
-      setOverDragId(`group-zone:${groupId}`);
-    }
-  }
-
-  function handleDragOver(event: DragOverEvent) {
-    const activeId = String(event.active.id);
-    const overId = event.over ? String(event.over.id) : undefined;
-    if (!overId || dragDisabled) {
-      if (!dragCanReorderRef.current) {
-        siteDropIntentRef.current = null;
-        lastValidSiteTargetRef.current = null;
-        setOverDragId(activeId);
-      }
-      clearGroupHoverTimer();
-      return;
-    }
-
-    const current = dragSitesPreviewRef.current;
-    if (!current) return;
-    const calculationBase = dragBaseSitesRef.current ?? current;
-    const overSite = calculationBase.find((site) => site.id === overId);
-    const dropGroupId = readDropGroupId(overId);
-    const overGroupId = dropGroupId ?? overSite?.groupId;
-    if (isGithubHomeDragBlocked(overGroupId, calculationBase)) {
-      siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
-      setOverDragId(activeId);
-      clearGroupHoverTimer();
-      return;
-    }
-    let next = current;
-
-    if (!dragCanReorderRef.current) {
-      const targetGroupId =
-        dropGroupId ?? overSite?.groupId ?? pointerGroupZoneRef.current;
-      if (targetGroupId) targetTransferGroup(targetGroupId);
-      else targetTransferGroup(dragOriginGroupIdRef.current ?? "");
-
-      if (overId.startsWith("group-tab:") && dropGroupId) {
-        scheduleGroupTabSwitch(dropGroupId);
-      } else {
-        const overlappingGroupId = readOverlappingGroupTab();
-        if (overlappingGroupId) scheduleGroupTabSwitch(overlappingGroupId);
-        else clearGroupHoverTimer();
-      }
-      return;
-    }
-
-    if (overSite && activeId !== overId) {
-      siteDropIntentRef.current = {
-        type: "site",
-        siteId: overId,
-        groupId: overSite.groupId,
-      };
-      lastValidSiteTargetRef.current = {
-        siteId: overId,
-        groupId: overSite.groupId,
-      };
-      setOverDragId(overId);
-      if (activeGroupId === "all" && !isGroupedView) {
-        next = reorderSitesGlobally(
-          calculationBase,
-          activeId,
-          overId,
-          workspaceGroupIds,
-        );
-      } else {
-        next = reorderSites(calculationBase, activeId, overId);
-      }
-    } else if (overId === activeId && !pointerAtGroupEndRef.current) {
-      siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
-      setOverDragId(activeId);
-      next = calculationBase;
-    } else if (dropGroupId) {
-      const activeSite = calculationBase.find((site) => site.id === activeId);
-      const lastTarget = lastValidSiteTargetRef.current;
-      const isTransientSameGroupZone =
-        activeSite?.groupId === dropGroupId &&
-        lastTarget?.groupId === dropGroupId &&
-        !pointerAtGroupEndRef.current;
-
-      // Cards move out from under the pointer while making room. During that
-      // transition dnd-kit can briefly report the parent group as the target.
-      // Keep the last concrete card target unless the pointer is deliberately
-      // over the add-card/end area.
-      if (!isTransientSameGroupZone) {
-        previewGroupEndDrop(dropGroupId);
-        next = dragSitesPreviewRef.current ?? current;
-      }
-    }
-
-    if (next !== current) updateDragPreview(next);
-    if (overId.startsWith("group-tab:") && dropGroupId) {
-      scheduleGroupTabSwitch(dropGroupId);
-    } else {
-      const overlappingGroupId = readOverlappingGroupTab();
-      if (overlappingGroupId) scheduleGroupTabSwitch(overlappingGroupId);
-      else clearGroupHoverTimer();
-    }
-  }
-
-  function handleDragEnd(event: DragEndEvent) {
-    armSiteClickSuppression();
-    stopGroupOverlapTracking();
-    const { active } = event;
-    const dropIntent = siteDropIntentRef.current;
-    const calculationBase = dragBaseSitesRef.current;
-
-    if (
-      dropIntent &&
-      isGithubHomeDragBlocked(
-        dropIntent.groupId,
-        calculationBase ?? undefined,
-      )
-    ) {
-      clearDragState();
-      return;
-    }
-
-    if (!dragCanReorderRef.current) {
-      const targetGroupId = dropIntent?.groupId;
-      const draggedIds =
-        batchDragIdsRef.current.length > 0
-          ? batchDragIdsRef.current
-          : [String(active.id)];
-      const hasTransfer = Boolean(
-        calculationBase &&
-          targetGroupId &&
-          draggedIds.some(
-            (id) =>
-              calculationBase.find((site) => site.id === id)?.groupId !==
-              targetGroupId,
-          ),
-      );
-      if (calculationBase && targetGroupId && hasTransfer) {
-        commitSites(
-          moveSitesToGroupEnd(
-            calculationBase,
-            draggedIds,
-            targetGroupId,
-            draggedIds,
-          ),
-        );
-        if (!dragStartedFromAllRef.current) {
-          setActiveGroupId(targetGroupId);
-        }
-        if (multiSelectMode) {
-          cancelSelection();
-        }
-      }
-      clearDragState();
-      return;
-    }
-
-    if (dropIntent && calculationBase && !dragDisabled) {
-      const finalSites =
-        dropIntent.type === "site"
-          ? activeGroupId === "all" && !isGroupedView
-            ? reorderSitesGlobally(
-                calculationBase,
-                String(active.id),
-                dropIntent.siteId,
-                workspaceGroupIds,
-              )
-            : reorderSites(
-                calculationBase,
-                String(active.id),
-                dropIntent.siteId,
-              )
-          : moveSiteToGroupEnd(
-              calculationBase,
-              String(active.id),
-              dropIntent.groupId,
-            );
-      commitSites(finalSites);
-    }
-    clearDragState();
-  }
-
-  function clearDragState() {
-    stopGroupOverlapTracking();
-    clearGroupHoverTimer();
-    dragSitesPreviewRef.current = null;
-    dragBaseSitesRef.current = null;
-    pointerGroupZoneRef.current = null;
-    pointerAtGroupEndRef.current = false;
-    stableDropGeometryRef.current = null;
-    stableCollisionIdRef.current = null;
-    activeDragIdRef.current = null;
-    dragCanReorderRef.current = true;
-    siteDropIntentRef.current = null;
-    lastValidSiteTargetRef.current = null;
-    dragOriginGroupIdRef.current = null;
-    dragStartedFromAllRef.current = true;
-    switchedDragGroupIdRef.current = null;
-    setDragSitesPreview(null);
-    setPendingDragId(null);
-    setActiveDragId(null);
-    setOverDragId(null);
-    batchDragIdsRef.current = [];
-    setBatchDragIds([]);
-    stopTabsAutoScroll();
-  }
-
-  function handleDragCancel() {
-    armSiteClickSuppression();
-    clearDragState();
-  }
-
-  useEffect(() => clearGroupHoverTimer, []);
-
-  useEffect(
-    () => () => {
-      clearSiteClickSuppression();
-      if (armedDeleteTimerRef.current !== null) {
-        window.clearTimeout(armedDeleteTimerRef.current);
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    const releaseDndPointer = () => {
-      // MouseSensor/TouchSensor keep their own active state outside React.
-      // Releasing a synthetic pointer event lets dnd-kit finish its sensor
-      // cleanup after our refs have already been reset without committing a
-      // stale drop intent.
-      document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-      document.dispatchEvent(new Event("touchcancel", { bubbles: true }));
-    };
-    const cancelDragOnWindowLoss = () => {
-      if (groupSort.read()?.activeId) {
-        // dnd-kit may not receive the pointer-up once the browser window loses
-        // focus. Clear the preview and intent immediately instead of leaving
-        // the floating group card behind until the next in-page event.
-        finishGroupSort(false);
-        releaseDndPointer();
-        return;
-      }
-      if (activeDragIdRef.current) {
-        handleDragCancel();
-        releaseDndPointer();
-      }
-    };
-    const handlePointerMove = (event: PointerEvent | MouseEvent) => {
-      if (activeDragIdRef.current || groupSort.read()?.activeId) {
-        dragPointerXRef.current = event.clientX;
-      }
-      if (groupSort.read()?.activeId) {
-        updateGroupSortIntentFromPointer(event.clientX, event.clientY);
-      }
-      if (!dragSitesPreviewRef.current) return;
-      const element = document.elementFromPoint(event.clientX, event.clientY);
-      pointerGroupZoneRef.current =
-        element?.closest<HTMLElement>("[data-group-zone-id]")?.dataset
-          .groupZoneId ?? null;
-      const addSiteTarget = element?.closest<HTMLElement>(
-        "[data-add-site-group-id]",
-      );
-      pointerAtGroupEndRef.current = Boolean(addSiteTarget);
-      const addSiteGroupId = addSiteTarget?.dataset.addSiteGroupId;
-      if (addSiteGroupId) previewGroupEndDrop(addSiteGroupId);
-      const tab = element?.closest<HTMLElement>("[data-group-drop-id]");
-      const pointerGroupId = tab?.dataset.groupDropId;
-      if (pointerGroupId) scheduleGroupTabSwitch(pointerGroupId);
-    };
-    const handleTouchMove = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (touch && (activeDragIdRef.current || groupSort.read()?.activeId)) {
-        dragPointerXRef.current = touch.clientX;
-      }
-      if (touch && groupSort.read()?.activeId) {
-        updateGroupSortIntentFromPointer(touch.clientX, touch.clientY);
-      }
-    };
-    window.addEventListener("pointermove", handlePointerMove, true);
-    window.addEventListener("mousemove", handlePointerMove, true);
-    window.addEventListener("touchmove", handleTouchMove, {
-      capture: true,
-      passive: true,
-    });
-    window.addEventListener("blur", cancelDragOnWindowLoss);
-    document.addEventListener("visibilitychange", cancelDragOnWindowLoss);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove, true);
-      window.removeEventListener("mousemove", handlePointerMove, true);
-      window.removeEventListener("touchmove", handleTouchMove, true);
-      window.removeEventListener("blur", cancelDragOnWindowLoss);
-      document.removeEventListener("visibilitychange", cancelDragOnWindowLoss);
-      stopGroupOverlapTracking();
-      stopTabsAutoScroll();
-    };
-  }, []);
 
   function clearArmedDelete() {
     if (armedDeleteTimerRef.current !== null) {
@@ -1683,7 +571,7 @@ export function App() {
     selection.toggleMultiSelectMode();
   }
 
-  function toggleGroupedSiteSelection(groupSiteIds: string[]) {
+  function toggleGroupedSiteSelection(groupSiteIds: readonly string[]) {
     clearArmedDelete();
     selection.toggleGroupedSiteSelection(groupSiteIds);
   }
@@ -1744,54 +632,6 @@ export function App() {
       ordinaryGroupIds.indexOf(overId),
     );
     if (intent) reorderGroups(activeId, intent.beforeGroupId);
-  }
-
-  function beginGroupSort(
-    groupId: string,
-    axis: GroupSortAxis,
-    activatorEvent: Event,
-  ) {
-    clearArmedDelete();
-    setGroupDialogOpen(false);
-    setManagedGroupId(undefined);
-    selection.prepareGroupDrag(groupId, axis === "vertical");
-    const activeIds =
-      axis === "vertical" && selectedGroupIds.has(groupId)
-        ? groups
-            .filter(
-              (group) =>
-                !group.isProtected && selectedGroupIds.has(group.id),
-            )
-            .map((group) => group.id)
-        : [groupId];
-    groupSort.begin(groupId, axis, groups.filter((group) => !group.isProtected).map((group) => group.id), activeIds, activatorEvent);
-    if (axis === "horizontal") startTabsAutoScroll();
-  }
-
-  function finishGroupSort(commit = true) {
-    const hadGroupSelection = selectedGroupIds.size > 0;
-    const move = groupSort.finish(commit);
-    if (move) {
-      if (move.activeIds.length > 1) reorderGroupBlock(move.activeIds, move.beforeGroupId);
-      else reorderGroups(move.activeIds[0], move.beforeGroupId);
-      if (move.activeIds.length > 1 || hadGroupSelection) cancelSelection();
-    }
-    stopTabsAutoScroll();
-  }
-
-  function handleGroupTabDragStart(event: DragStartEvent) {
-    const groupId = readGroupSortId(String(event.active.id));
-    if (groupId) beginGroupSort(groupId, "horizontal", event.activatorEvent);
-  }
-
-  function handleGroupTabDragOver(event: DragOverEvent) {
-    updateKeyboardGroupSortIntent(
-      event.over ? String(event.over.id) : undefined,
-    );
-  }
-
-  function handleGroupTabDragEnd() {
-    finishGroupSort(true);
   }
 
   function handleCollectionDragStart(event: DragStartEvent) {
@@ -2497,59 +1337,7 @@ export function App() {
         wallpaperUrl ? "has-wallpaper" : ""
       }`}
       style={appStyle}
-      onPointerDownCapture={(event) => {
-        const target = event.target as Element;
-        const card = target.closest<HTMLElement>(".site-card");
-        const isCardAction = Boolean(target.closest(".card-actions"));
-        const link = card?.querySelector<HTMLAnchorElement>(
-          ".site-card-full-link",
-        );
-        if (!card || !link || isCardAction) {
-          sitePointerGestureRef.current = null;
-          return;
-        }
-        clearSiteClickSuppression();
-        sitePointerGestureRef.current = {
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          startY: event.clientY,
-          crossedDragThreshold: false,
-          link,
-        };
-      }}
-      onPointerMoveCapture={(event) => {
-        const gesture = sitePointerGestureRef.current;
-        if (!gesture || gesture.pointerId !== event.pointerId) return;
-        if (gesture.crossedDragThreshold) return;
-        const distance = Math.hypot(
-          event.clientX - gesture.startX,
-          event.clientY - gesture.startY,
-        );
-        if (distance > 50) {
-          gesture.crossedDragThreshold = true;
-          suppressSiteClickRef.current = true;
-          disableGestureSiteLink(gesture.link);
-        }
-      }}
-      onPointerUpCapture={(event) => {
-        const gesture = sitePointerGestureRef.current;
-        if (!gesture || gesture.pointerId !== event.pointerId) return;
-        if (gesture.crossedDragThreshold) armSiteClickSuppression();
-        sitePointerGestureRef.current = null;
-      }}
-      onPointerCancelCapture={(event) => {
-        const gesture = sitePointerGestureRef.current;
-        if (!gesture || gesture.pointerId !== event.pointerId) return;
-        if (gesture.crossedDragThreshold) armSiteClickSuppression();
-        sitePointerGestureRef.current = null;
-      }}
-      onClickCapture={(event) => {
-        if (!suppressSiteClickRef.current) return;
-        if (!(event.target as Element).closest(".site-card")) return;
-        event.preventDefault();
-        event.stopPropagation();
-        clearSiteClickSuppression();
-      }}
+      {...siteClickHandlers}
     >
       {wallpaperUrl && (
         <div className="wallpaper-layer" aria-hidden="true">
@@ -2801,6 +1589,8 @@ export function App() {
                   detectGroupSortCollisions(args, "horizontal")
                 }
                 autoScroll={false}
+                onDragPending={(event) => groupSort.trackPendingGroup(String(event.id))}
+                onDragAbort={() => groupSort.trackPendingGroup(null)}
                 onDragStart={handleGroupTabDragStart}
                 onDragOver={handleGroupTabDragOver}
                 onDragEnd={handleGroupTabDragEnd}
@@ -3075,167 +1865,30 @@ export function App() {
                     droppable: { strategy: MeasuringStrategy.Always },
                   }}
                   onDragPending={(event) => {
-                    if (!String(event.id).startsWith("group-sort-row:")) {
+                    if (String(event.id).startsWith("group-sort-row:")) {
+                      groupSort.trackPendingGroup(String(event.id));
+                    } else {
                       setPendingDragId(String(event.id));
                     }
                   }}
-                  onDragAbort={() => setPendingDragId(null)}
+                  onDragAbort={() => { groupSort.trackPendingGroup(null); setPendingDragId(null); }}
                   onDragStart={handleCollectionDragStart}
                   onDragOver={handleCollectionDragOver}
                   onDragEnd={handleCollectionDragEnd}
                   onDragCancel={handleCollectionDragCancel}
                 >
                   {isGroupedView ? (
-                  <SortableContext
-                      items={groupedSections.map(({ group }) =>
-                        groupSortRowId(group.id),
-                      )}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <div
-                        className={`grouped-site-sections ${
-                          activeGroupSortAxis === "vertical"
-                            ? "is-group-sort-active"
-                            : ""
-                        }`}
-                      >
-                      {groupedSections.map(({ group, sites }, groupIndex) => (
-                        <Fragment key={group.id}>
-                          <SortableGroupSection
-                            group={group}
-                            count={sites.length}
-                            disabled={groupSortDisabled}
-                            insertDisabled={Boolean(
-                              activeGroupSortId ||
-                                activeDragId ||
-                                isSearching ||
-                                groupSelectionMode,
-                            )}
-                            onInsert={(position) => {
-                              const beforeGroupId =
-                                position === "before"
-                                  ? group.id
-                                  : groupedSections[groupIndex + 1]?.group.id;
-                              openNewGroupDialog(beforeGroupId, {
-                                groupName: group.name,
-                                position,
-                              });
-                            }}
-                            onManage={() => {
-                              if (!selectionArmed) {
-                                openGroupManager(group.id);
-                              }
-                            }}
-                            groupSelected={selectedGroupIds.has(group.id)}
-                            selectionActive={selectionArmed}
-                            onToggleGroupSelected={(shiftKey) =>
-                              toggleGroupSelection(group.id, shiftKey)
-                            }
-                            onEnterGroupSelection={() =>
-                              enterGroupSelectionFromDoubleClick(group.id)
-                            }
-                            siteSelectionMode={multiSelectMode}
-                            allSitesSelected={
-                              sites.length > 0 &&
-                              sites.every((site) => selectedSiteIds.has(site.id))
-                            }
-                            onToggleSiteSelectionMode={() =>
-                              toggleGroupedSiteSelection(sites.map((site) => site.id))
-                            }
-                          >
-                          <SortableContext
-                            items={
-                              canReorderSites && !multiSelectMode
-                                ? sites.map((site) => site.id)
-                                : []
-                            }
-                            strategy={rectSortingStrategy}
-                          >
-                            <GroupDropGrid
-                              groupId={group.id}
-                              dragActive={
-                                Boolean(activeDragId) &&
-                                !dragDisabled
-                              }
-                              dragOver={
-                                overDragId === `group-zone:${group.id}`
-                              }
-                              className="grouped-site-track"
-                            >
-                              {sites.map((site) => (
-                                <Fragment key={site.id}>
-                                  {canReorderSites &&
-                                    !multiSelectMode &&
-                                    Boolean(activeDragId) &&
-                                    dragOriginGroupIdRef.current !== group.id &&
-                                    overDragId === site.id && (
-                                      <div
-                                        className="site-card site-card-drop-placeholder"
-                                        aria-hidden="true"
-                                      />
-                                    )}
-                                  {renderCollectionCard(site, group)}
-                                </Fragment>
-                              ))}
-                              {canReorderSites &&
-                                !multiSelectMode &&
-                                Boolean(activeDragId) &&
-                                dragOriginGroupIdRef.current !== group.id &&
-                                overDragId === `group-zone:${group.id}` && (
-                                  <div
-                                    className="site-card site-card-drop-placeholder"
-                                    aria-hidden="true"
-                                  />
-                                )}
-                              {!isSearching && (
-                                <AddSiteCard
-                                  group={group}
-                                  onClick={openAddDialog}
-                                  onDropSite={openAddDialog}
-                                />
-                              )}
-                            </GroupDropGrid>
-                          </SortableContext>
-                          </SortableGroupSection>
-                        </Fragment>
-                      ))}
-                      </div>
-                    </SortableContext>
+                    <GroupedCollection sections={groupedSections} selection={{ ...selection,
+                      toggleGroupSelection, toggleGroupedSiteSelection, enterGroupSelectionFromDoubleClick }}
+                      drag={gridDrag} sorting={activeGroupSortAxis === "vertical"} sortDisabled={groupSortDisabled}
+                      insertDisabled={Boolean(activeGroupSortId || activeDragId || isSearching || selectionArmed)}
+                      onInsert={openNewGroupDialog} onManage={openGroupManager} onAdd={openAddDialog}
+                      renderSite={renderCollectionCard} />
                   ) : (
-                    <SortableContext
-                      items={
-                        canReorderSites && !multiSelectMode
-                          ? visibleSites.map((site) => site.id)
-                          : []
-                      }
-                      strategy={rectSortingStrategy}
-                    >
-                      <GroupDropGrid
-                        groupId={addCardGroup.id}
-                        dragActive={
-                          Boolean(activeDragId) &&
-                          !dragDisabled &&
-                          canReorderSites &&
-                          activeGroupId !== "all"
-                        }
-                        dragOver={
-                          overDragId === `group-zone:${addCardGroup.id}`
-                        }
-                        className="site-grid"
-                      >
-                        {visibleSites.map((site) => {
-                          const group =
-                            searchGroups.find((item) => item.id === site.groupId) ??
-                            addCardGroup;
-                          return renderCollectionCard(site, group);
-                        })}
-                        <AddSiteCard
-                          group={addCardGroup}
-                          onClick={openAddDialog}
-                          onDropSite={openAddDialog}
-                        />
-                      </GroupDropGrid>
-                    </SortableContext>
+                    <CollectionSiteGrid group={addCardGroup} sites={visibleSites} grouped={false} drag={gridDrag}
+                      dropEnabled={Boolean(activeDragId) && !dragDisabled && canReorderSites && activeGroupId !== "all"}
+                      renderSite={site => renderCollectionCard(site, searchGroups.find(group => group.id === site.groupId) ?? addCardGroup)}
+                      onAdd={openAddDialog} />
                   )}
                   <DragOverlay
                     className="site-drag-overlay"

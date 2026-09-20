@@ -479,7 +479,6 @@ label:has(input:focus-visible) {
 .icon-button,
 .category-tab,
 .manage-groups-button,
-.grouped-site-manage,
 .group-drag-handle,
 .clear-search {
   border: 0;
@@ -495,8 +494,7 @@ label:has(input:focus-visible) {
 .button:active:not(:disabled),
 .icon-button:active:not(:disabled),
 .category-tab:active:not(:disabled),
-.manage-groups-button:active:not(:disabled),
-.grouped-site-manage:active:not(:disabled) {
+.manage-groups-button:active:not(:disabled) {
   transform: translateY(1px) scale(0.98);
 }
 
@@ -2205,44 +2203,13 @@ label:has(input:focus-visible) {
   font-size: calc(13px * var(--font-scale));
 }
 
-.site-grid {
+.site-grid,
+.grouped-site-track {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(auto-fill, minmax(var(--card-min-width), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--card-min-width), 100%), 1fr));
   gap: var(--grid-gap);
   justify-content: start;
-}
-
-.grouped-site-sections {
-  display: grid;
-  gap: 40px;
-  padding-top: 16px;
-  padding-inline-start: 20px;
-}
-
-.grouped-site-section {
-  position: relative;
-  min-width: 0;
-}
-
-.grouped-site-section.is-group-sorting {
-  /* Keep the source, dashed outline, and blue wash on one compact geometry.
-     The earlier radius-only adjustment was masked by the outer spread. */
-  border-radius: max(0px, calc(var(--radius-card) - 11px));
-  outline: 2px dashed color-mix(in srgb, var(--accent) 76%, var(--border));
-  outline-offset: 8px;
-  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
-  box-shadow: 0 0 0 8px
-    color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
-}
-
-.grouped-site-section.is-group-sorting > * {
-  opacity: 0.68;
-}
-
-.grouped-site-sections.is-group-sort-active .group-add-trigger {
-  opacity: 0.32;
-  pointer-events: none;
 }
 
 .group-sort-drag-preview {
@@ -2305,343 +2272,6 @@ label:has(input:focus-visible) {
 .group-sort-preview-grip {
   margin-left: auto;
   color: var(--text-faint);
-}
-
-.grouped-site-header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 12px;
-}
-
-.grouped-site-header-main {
-  position: relative;
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 9px;
-  cursor: default;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.grouped-site-header-main.is-sortable {
-  cursor: grab;
-  touch-action: none;
-}
-
-.grouped-site-header-main.is-sortable:active {
-  cursor: grabbing;
-}
-
-.grouped-site-icon {
-  display: grid;
-  width: calc(var(--group-icon-size) + 14px);
-  height: calc(var(--group-icon-size) + 14px);
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
-}
-
-.grouped-site-header-main h3 {
-  overflow: hidden;
-  max-width: min(30vw, 280px);
-  margin: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: calc(17px * var(--group-font-scale));
-  font-weight: 740;
-  letter-spacing: -0.025em;
-}
-
-.grouped-site-count {
-  color: var(--text-faint);
-  font-size: calc(12px * var(--group-font-scale));
-  font-variant-numeric: tabular-nums;
-}
-
-.grouped-site-sort-grip {
-  display: grid;
-  width: 24px;
-  height: 28px;
-  place-items: center;
-  margin-left: -3px;
-  color: var(--text-faint);
-  opacity: 0.55;
-}
-
-.grouped-site-header-main:hover .grouped-site-sort-grip,
-.grouped-site-header-main:focus-within .grouped-site-sort-grip {
-  color: var(--text-soft);
-  opacity: 1;
-}
-
-.group-add-control {
-  position: absolute;
-  z-index: 12;
-  top: 0;
-  left: -28px;
-  width: 28px;
-  height: 32px;
-  pointer-events: auto;
-}
-
-@media (max-width: 1439px) {
-  .group-add-control {
-    left: -24px;
-    width: 24px;
-  }
-
-  .group-add-control.is-group-selection {
-    left: -20px;
-    width: 20px;
-  }
-}
-
-.grouped-site-sections.is-group-sort-active .group-add-control {
-  pointer-events: none;
-}
-
-.group-add-trigger {
-  display: inline-flex;
-  width: 24px;
-  height: 24px;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 76%, transparent);
-  border-radius: 999px;
-  color: var(--text-faint);
-  background: var(--surface);
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--text) 10%, transparent),
-    0 4px 12px color-mix(in srgb, var(--text) 12%, transparent);
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-4px);
-  transition:
-    opacity 150ms ease,
-    color 150ms ease,
-    border-color 150ms ease,
-    background-color 150ms ease,
-    box-shadow 150ms ease,
-    transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  font: inherit;
-}
-
-.group-add-control:hover .group-add-trigger,
-.grouped-site-header-main:hover .group-add-trigger,
-.grouped-site-header-main:focus-within .group-add-trigger,
-.group-add-trigger:focus-visible,
-.group-add-trigger[aria-expanded="true"] {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(0);
-}
-
-.group-add-trigger:hover,
-.group-add-trigger:focus-visible,
-.group-add-trigger[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--accent) 16%, transparent),
-    0 5px 14px color-mix(in srgb, var(--accent) 20%, transparent);
-  outline: none;
-}
-
-.group-add-trigger:disabled {
-  cursor: default;
-  pointer-events: none;
-  opacity: 0.32;
-}
-
-.group-add-control.is-group-selection .group-selection-trigger {
-  opacity: 1;
-  pointer-events: auto;
-  transform: none;
-}
-
-.group-selection-trigger:disabled {
-  cursor: default;
-  pointer-events: none;
-  opacity: 0.46;
-}
-
-.group-selection-trigger {
-  width: 20px;
-  height: 20px;
-  color: transparent;
-  background: var(--surface);
-}
-
-.group-selection-trigger:hover,
-.group-selection-trigger:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
-  outline: none;
-}
-
-.group-selection-trigger.is-selected,
-.group-selection-trigger.is-selected:hover,
-.group-selection-trigger.is-selected:focus-visible {
-  border-color: var(--accent);
-  color: var(--surface);
-  background: var(--accent);
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--accent) 18%, transparent),
-    0 5px 14px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.group-add-trigger:active:not(:disabled) {
-  transform: scale(0.96);
-}
-
-.group-add-menu {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 7px);
-  left: 0;
-  display: grid;
-  width: max-content;
-  min-width: 184px;
-  gap: 3px;
-  padding: 6px;
-  border: 1px solid var(--border-strong);
-  border-radius: 12px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--surface) 97%, transparent);
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(18px);
-  pointer-events: auto;
-}
-
-.group-add-menu button {
-  min-height: 34px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 8px;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  font-size: 12px;
-}
-
-.group-add-menu button:hover,
-.group-add-menu button:focus-visible {
-  background: var(--accent-soft);
-  outline: none;
-}
-
-.grouped-site-manage {
-  position: relative;
-  display: grid;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  place-items: center;
-  margin-left: 1px;
-  border: 0;
-  border-radius: 9px;
-  color: var(--text-faint);
-  background: transparent;
-}
-
-.grouped-site-manage::before {
-  position: absolute;
-  inset: -4px;
-  content: "";
-}
-
-.grouped-site-manage:hover,
-.grouped-site-manage:focus-visible {
-  color: var(--accent-text);
-  background: var(--accent-soft);
-}
-
-.grouped-site-manage:disabled {
-  color: var(--text-faint);
-  cursor: default;
-  opacity: 0.38;
-  pointer-events: auto;
-}
-
-.grouped-site-multi-select {
-  display: inline-flex;
-  min-width: 72px;
-  min-height: 40px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-soft);
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  transition:
-    color 140ms ease,
-    border-color 140ms ease,
-    background-color 140ms ease,
-    transform 100ms ease-out;
-}
-
-.grouped-site-multi-select:hover,
-.grouped-site-multi-select:focus-visible,
-.grouped-site-multi-select.active {
-  color: var(--accent-text);
-  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
-  background: var(--accent-soft);
-  outline: none;
-}
-
-.grouped-site-multi-select:active:not(:disabled) {
-  transform: scale(0.96);
-}
-
-.grouped-site-multi-select:disabled {
-  cursor: default;
-  opacity: 0.42;
-}
-
-.grouped-site-section.is-group-selected {
-  border-radius: max(0px, calc(var(--radius-card) - 11px));
-  outline: 2px dashed color-mix(in srgb, var(--accent) 88%, transparent);
-  outline-offset: 8px;
-  background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
-  box-shadow: 0 0 0 8px
-    color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
-}
-
-.grouped-site-section.is-group-selected .grouped-site-header-main {
-  border-radius: 0;
-  outline: none;
-  background: transparent;
-}
-
-.grouped-site-track {
-  display: grid;
-  width: 100%;
-  max-width: 100%;
-  grid-template-columns: repeat(
-    auto-fill,
-    minmax(min(var(--card-min-width), 100%), 1fr)
-  );
-  gap: var(--grid-gap);
-  padding: 2px;
 }
 
 .grouped-site-track.is-group-drag-over,
@@ -5213,14 +4843,6 @@ label:has(input:focus-visible) {
   }
 }
 
-@media (hover: none), (pointer: coarse), (max-width: 899px) {
-  .group-add-trigger {
-    opacity: 1;
-    pointer-events: auto;
-    transform: none;
-  }
-
-}
 
 /* The settings sidebar changes the header's width without changing the viewport. */
 @container topbar (max-width: 700px) {

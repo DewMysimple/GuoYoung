@@ -5,28 +5,10 @@ import { CategoryIcon } from "./category-icon";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SiteGroup } from "../types";
 
+import { groupZoneDropId, groupSortTabId } from "../lib/collection-drag-ids";
+
 const GROUP_LONG_PRESS_DELAY = 450;
 const GROUP_LONG_PRESS_MOVE_TOLERANCE = 8;
-
-export const groupZoneDropId = (groupId: string) => `group-zone:${groupId}`;
-export const groupSortTabId = (groupId: string) => `group-sort-tab:${groupId}`;
-export const groupSortRowId = (groupId: string) => `group-sort-row:${groupId}`;
-
-export function readGroupSortId(id: string): string | undefined {
-  if (id.startsWith("group-sort-tab:")) {
-    return id.slice("group-sort-tab:".length);
-  }
-  if (id.startsWith("group-sort-row:")) {
-    return id.slice("group-sort-row:".length);
-  }
-  return undefined;
-}
-
-export function readDropGroupId(id: string): string | undefined {
-  if (id.startsWith("group-tab:")) return id.slice("group-tab:".length);
-  if (id.startsWith("group-zone:")) return id.slice("group-zone:".length);
-  return undefined;
-}
 
 interface GroupDropTabProps {
   group: SiteGroup;
@@ -103,6 +85,19 @@ export function GroupDropTab({
     },
     [],
   );
+
+  useEffect(() => {
+    const cancel = () => finishPointerGesture();
+    const hidden = () => { if (document.visibilityState === "hidden") cancel(); };
+    window.addEventListener("blur", cancel);
+    window.addEventListener("pagehide", cancel);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.removeEventListener("blur", cancel);
+      window.removeEventListener("pagehide", cancel);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, []);
 
   useEffect(() => {
     onSortIntentRef.current = onSortIntent;
