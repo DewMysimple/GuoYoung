@@ -1,3 +1,6 @@
+import { WorkspaceSearch } from "./components/workspace-search";
+import { TopbarResizeHandle } from "./components/topbar-resize-handle";
+import { patchAppearance } from "./lib/appearance-settings";
 import {
   Fragment,
   useEffect,
@@ -35,7 +38,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
-  ArrowBendDownLeft,
   ArrowsDownUp,
   CaretDown,
   Check,
@@ -46,7 +48,6 @@ import {
   GearSix,
   GithubLogo,
   House,
-  MagnifyingGlass,
   LinkSimple,
   Plus,
   Rows,
@@ -2683,59 +2684,9 @@ export function App() {
           />
         ) : (
           <>
-        <motion.section
-          className="workspace-intro"
-          initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <div className="search-panel">
-            <form
-              className="search-input"
-              role="search"
-              onSubmit={handleSearchSubmit}
-            >
-              <MagnifyingGlass size={21} aria-hidden="true" />
-              <input
-                id="site-search"
-                type="search"
-                aria-label="搜索网页或筛选收藏"
-                value={query}
-                onChange={(event) => setCollectionQuery(event.target.value)}
-                onFocus={() => {
-                  setHistoryOpen(true);
-                  setHistoryIndex(-1);
-                }}
-                onBlur={() =>
-                  window.setTimeout(() => setHistoryOpen(false), 120)
-                }
-                onKeyDown={handleSearchKeyDown}
-                placeholder="搜索网页或筛选收藏"
-                autoComplete="off"
-              />
-              <div className="search-trailing-actions">
-                {query && (
-                  <button
-                    type="button"
-                    className="clear-search"
-                    aria-label="清空搜索"
-                    onClick={() => setCollectionQuery("")}
-                  >
-                    <X size={17} />
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  className="search-submit"
-                  disabled={!query.trim()}
-                  aria-label="使用默认搜索引擎搜索"
-                  title="使用默认搜索引擎搜索"
-                >
-                  <ArrowBendDownLeft size={15} weight="bold" />
-                  <span>Enter</span>
-                </button>
-              </div>
-            </form>
+        <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏"
+          onSubmit={handleSearchSubmit} inputProps={{ id: "site-search", onFocus: () => { setHistoryOpen(true); setHistoryIndex(-1); },
+            onBlur: () => { window.setTimeout(() => setHistoryOpen(false), 120); }, onKeyDown: handleSearchKeyDown }}>
             {historyOpen && state.searchHistory.length > 0 && (
               <div className="search-history" role="listbox" aria-label="最近搜索">
                 <div className="search-history-header">
@@ -2782,8 +2733,7 @@ export function App() {
                 ))}
               </div>
             )}
-          </div>
-        </motion.section>
+        </WorkspaceSearch>
 
         {storageError && (
           <div className="recovery-banner" role="alert">
@@ -3405,7 +3355,16 @@ export function App() {
         onImportGroup={requestGroupImport}
       />
 
+      {!settingsOpen && <TopbarResizeHandle value={effectiveAppearance.topbarHeight}
+        onChange={(topbarHeight) => setSettingsPreview({ brand: state.brand, wallpaper: state.wallpaper,
+          appearance: patchAppearance(state.appearance, { topbarHeight }) })}
+        onCancel={() => setSettingsPreview(null)}
+        onCommit={(topbarHeight) => {
+          saveSettings(state.brand, patchAppearance(state.appearance, { topbarHeight }), state.wallpaper);
+          setSettingsPreview(null);
+        }} />}
       <SettingsPanel
+        wallpaperPreviewUrl={wallpaperUrl}
         open={settingsOpen}
         state={state}
         initialSection={settingsInitialSection}

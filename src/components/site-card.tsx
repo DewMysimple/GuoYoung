@@ -1,9 +1,8 @@
+import { CardSurface, CardContent, CardOpenAction, CardSelectionToggle } from "./card-primitives";
 import { useDraggable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  ArrowUpRight,
-  Check,
   DotsSixVertical,
   PencilSimple,
   Trash,
@@ -139,10 +138,10 @@ function SiteCardFrame({
       : "长按卡片后拖动，也可以聚焦此按钮并按空格键排序";
 
   return (
-    <article
+    <CardSurface
       ref={setNodeRef}
       style={style}
-      className={`site-card ${dragPending ? "is-drag-pending" : ""} ${
+      className={`${dragPending ? "is-drag-pending" : ""} ${
         isDragging ? "is-dragging" : ""
       } ${
         dropTarget && !isDragging ? "is-drop-target" : ""
@@ -175,58 +174,13 @@ function SiteCardFrame({
         onToggleSelected(site, event.shiftKey);
       }}
     >
-      <a
-        className="site-card-full-link"
-        href={selectionMode || linkInteractionDisabled ? undefined : site.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`${
-          linkInteractionDisabled && selectionEntryEnabled ? "选择" : "打开"
-        } ${site.name}`}
-        draggable={false}
-        aria-disabled={
-          linkInteractionDisabled && !selectionEntryEnabled ? true : undefined
-        }
-        onClick={(event) => {
-          if (selectionEntryEnabled && onToggleSelected) {
-            event.preventDefault();
-            event.stopPropagation();
-            onToggleSelected(site, event.shiftKey);
-            return;
-          }
-          if (linkInteractionDisabled) {
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-          }
-          if (selectionMode && !selectionEntryEnabled) {
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-          }
-          onVisit(site);
-        }}
-      />
-
-      <div className="site-card-topline">
-        {selectionMode && (
-          <button
-            type="button"
-            className="site-selection-toggle"
-            aria-label={`${selected ? "取消选择" : "选择"} ${site.name}`}
-            aria-pressed={selected}
-            onMouseDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleSelected?.(site, event.shiftKey);
-            }}
-          >
-            {selected && <Check size={14} weight="bold" />}
-          </button>
-        )}
-        <Favicon site={site} size="large" />
-        <div className="card-actions">
+      <CardOpenAction href={site.url} label={`${linkInteractionDisabled && selectionEntryEnabled ? "选择" : "打开"} ${site.name}`}
+        disabled={(linkInteractionDisabled && !selectionEntryEnabled) || (selectionMode && !selectionEntryEnabled)}
+        onSelect={selectionEntryEnabled && onToggleSelected ? (shiftKey) => onToggleSelected(site, shiftKey) : undefined}
+        onOpen={() => onVisit(site)} />
+        {selectionMode && <CardSelectionToggle selected={selected} label={`${selected ? "取消选择" : "选择"} ${site.name}`}
+          onToggle={(shiftKey) => onToggleSelected?.(site, shiftKey)} />}
+      <CardContent icon={<Favicon site={site} size="large" />} actions={<div className="card-actions">
           <button
             type="button"
             className="icon-button card-action"
@@ -272,18 +226,8 @@ function SiteCardFrame({
           >
             <DotsSixVertical size={19} weight="bold" />
           </button>
-        </div>
-      </div>
-
-      <div className="site-card-link">
-        <span className="site-name-row">
-          <span className="site-name" title={site.name}>
-            {site.name}
-          </span>
-          <ArrowUpRight className="open-arrow" size={18} weight="regular" />
-        </span>
-        <span className="site-domain">{getHostname(site.url)}</span>
-        {showClickCount && (
+        </div>} name={site.name} domain={getHostname(site.url)} external
+        detail={<>{showClickCount && (
           <span
             className="site-click-count"
             aria-label={`访问次数 ${site.clickCount}`}
@@ -291,10 +235,7 @@ function SiteCardFrame({
           >
             {site.clickCount}
           </span>
-        )}
-      </div>
-
-      <div className="site-category">
+        )}</>} footer={<div className="site-category">
         <span className="site-category-group">
           <CategoryIcon name={group.icon} size={15} />
           <span>{group.name}</span>
@@ -302,8 +243,9 @@ function SiteCardFrame({
         {workspaceLabel && (
           <span className="site-workspace-label">{workspaceLabel}</span>
         )}
-      </div>
-    </article>
+      </div>} />
+
+    </CardSurface>
   );
 }
 
@@ -323,8 +265,8 @@ export function SiteCardDragPreview({
   showClickCount = false,
 }: SiteCardDragPreviewProps) {
   return (
-    <article
-      className={`site-card site-card-drag-preview ${
+    <CardSurface
+      className={`site-card-drag-preview ${
         overGroupTab ? "is-over-group-tab" : ""
       } ${batchCount > 1 ? "is-batch-preview" : ""}`}
       aria-hidden="true"
@@ -336,34 +278,20 @@ export function SiteCardDragPreview({
           {batchCount}
         </span>
       )}
-      <div className="site-card-topline">
-        <Favicon site={site} size="large" />
-        <span className="drag-preview-grip">
+      <CardContent icon={<Favicon site={site} size="large" />} actions={<span className="drag-preview-grip">
           <DotsSixVertical size={20} weight="bold" />
-        </span>
-      </div>
-
-      <div className="site-card-link">
-        <span className="site-name-row">
-          <span className="site-name" title={site.name}>
-            {site.name}
-          </span>
-          <ArrowUpRight className="open-arrow" size={18} weight="regular" />
-        </span>
-        <span className="site-domain">{getHostname(site.url)}</span>
-        {showClickCount && (
+        </span>} name={site.name} domain={getHostname(site.url)} external
+        detail={<>{showClickCount && (
           <span className="site-click-count" aria-label={`访问次数 ${site.clickCount}`}>
             {site.clickCount}
           </span>
-        )}
-      </div>
-
-      <div className="site-category">
+        )}</>} footer={<div className="site-category">
         <span className="site-category-group">
           <CategoryIcon name={group.icon} size={15} />
           <span>{group.name}</span>
         </span>
-      </div>
-    </article>
+      </div>} />
+
+    </CardSurface>
   );
 }

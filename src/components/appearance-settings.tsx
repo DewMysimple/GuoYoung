@@ -2,20 +2,27 @@ import { useId, useState } from "react";
 import { CaretDown, Check } from "@phosphor-icons/react";
 import {
   applyLayoutPreset, applyTextSize, getLayoutPreset, getTextSize,
-  LAYOUT_DETAILS, LAYOUT_OPTIONS, patchAppearance, TEXT_SIZE_OPTIONS,
+  LAYOUT_DETAILS, LAYOUT_OPTIONS, patchAppearance, restoreLayout, TEXT_SIZE_OPTIONS,
 } from "../lib/appearance-settings";
 import type { AppearanceSettings as Appearance } from "../types";
 import { CustomColorPicker } from "./custom-color-picker";
 import "./appearance-settings.css";
+import { DEFAULT_APPEARANCE } from "../data/defaults";
+import { RangeControl } from "./range-control";
 
 const ACCENTS = ["#3367d6", "#6750a4", "#00897b", "#d97706", "#dc4f64", "#4f657d"];
 
 interface AppearanceSettingsProps {
   value: Appearance;
   onChange: (value: Appearance) => void;
+  previousPreset: Appearance;
+  onPresetChange: (value: Appearance) => void;
+  panelWidth: number;
+  panelMaxWidth: number;
+  onPanelWidthChange: (width: number) => void;
 }
 
-export function AppearanceSettingsEditor({ value, onChange }: AppearanceSettingsProps) {
+export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange, onChange, panelWidth, panelMaxWidth, onPanelWidthChange }: AppearanceSettingsProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsId = useId();
   const preset = getLayoutPreset(value);
@@ -33,7 +40,11 @@ export function AppearanceSettingsEditor({ value, onChange }: AppearanceSettings
           {LAYOUT_OPTIONS.map(({ value: option, label, description }) => (
             <button key={option} type="button" aria-label={label}
               aria-pressed={preset === option}
-              onClick={() => onChange(applyLayoutPreset(value, option))}>
+              onClick={() => {
+                const next = applyLayoutPreset(value, option);
+                onPresetChange(next);
+                onChange(next);
+              }}>
               <span className={`appearance-layout-preview is-${option}`} aria-hidden="true">
                 {Array.from({ length: option === "compact" ? 12 : 6 }, (_, index) => <i key={index} />)}
               </span>
@@ -45,25 +56,33 @@ export function AppearanceSettingsEditor({ value, onChange }: AppearanceSettings
         <button type="button" className="appearance-disclosure" aria-expanded={detailsOpen}
           aria-controls={detailsId} onClick={() => setDetailsOpen((open) => !open)}>
           <span>布局微调</span>
-          <small>宽度、间距与圆角</small>
+          <small>尺寸、间距与圆角</small>
           <CaretDown size={15} aria-hidden="true" />
         </button>
         {detailsOpen && (
           <div className="appearance-details" id={detailsId}>
             <p className="appearance-description">立即预览。窄屏会自动适配可用空间。</p>
-            {LAYOUT_DETAILS.map((field) => (
-              <label key={field.key} className="range-control">
-                <span>{field.label}<output>{value[field.key]}px</output></span>
-                <input type="range" aria-label={field.label} min={field.min} max={field.max}
-                  step={field.step} value={value[field.key]}
-                  onChange={(event) => onChange(patchAppearance(value, {
-                    [field.key]: Number(event.target.value),
-                  }))} />
-              </label>
+            {LAYOUT_DETAILS.map(({ key, ...field }) => (
+              <RangeControl key={key} {...field} value={value[key]}
+                onChange={(next) => onChange(patchAppearance(value, { [key]: next }))} />
             ))}
+            <div className="settings-inline-actions">
+              <button type="button" className="button secondary-button" onClick={() => onChange(restoreLayout(value, DEFAULT_APPEARANCE))}>恢复默认</button>
+              <button type="button" className="button secondary-button" onClick={() => onChange(restoreLayout(value, previousPreset))}>恢复上次预设</button>
+            </div>
+            <p className="appearance-description">上次预设为本次选择的布局；尚未选择时，恢复进入设置前的布局。</p>
           </div>
         )}
       </section>
+
+      <details className="appearance-card interface-dimensions">
+        <summary>界面尺寸 <span>顶栏与设置侧栏</span></summary>
+        <p className="appearance-description">桌面端可直接拖动边界，双击边界恢复默认尺寸。侧栏宽度会自动记住。</p>
+        <RangeControl label="顶栏高度" min={48} max={96} value={value.topbarHeight}
+          onChange={(topbarHeight) => onChange(patchAppearance(value, { topbarHeight }))} />
+        <RangeControl label="设置侧栏宽度" min={360} max={panelMaxWidth} value={panelWidth}
+          onChange={onPanelWidthChange} />
+      </details>
 
       <section className="appearance-card" aria-label="颜色与文字">
         <h3>主题色</h3>

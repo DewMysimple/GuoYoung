@@ -112,8 +112,9 @@ test("loads and deletes browser history through the extension adapter", async ({
   if (!homeSearchBox) throw new Error("Favorite search box is not visible");
   await page.getByRole("button", { name: "打开历史记录" }).click();
   await expect(page.locator("h1#history-title")).toHaveCount(1);
+  await expect(page.locator(".browser-history .workspace-intro")).toHaveCSS("opacity", "1");
   const historySearchBox = await page
-    .locator(".history-workspace-intro .search-input")
+    .locator(".browser-history .workspace-intro .search-input")
     .boundingBox();
   if (!historySearchBox) throw new Error("History search box is not visible");
   const historyRange = page.getByRole("button", { name: "历史记录时间范围" });
@@ -133,10 +134,7 @@ test("loads and deletes browser history through the extension adapter", async ({
   expect(historyCardBox.height).toBeCloseTo(homeCardBox.height, 0);
   expect(historyCardBox.width).toBeCloseTo(homeCardBox.width, 0);
   await expect(page.locator(".history-page-header")).toHaveCount(0);
-  await expect(page.locator(".history-site-card-summary").first()).toHaveCSS(
-    "padding-left",
-    "0px",
-  );
+  await expect(githubCard.locator(".site-card-link")).toHaveCSS("padding-left", "0px");
   await expect(page.locator(".history-day")).toHaveCount(0);
   await expect(page.locator(".history-url-card")).toHaveCount(0);
   await expect(page.locator(".history-selection-toggle")).toHaveCount(0);
@@ -174,6 +172,17 @@ test("loads and deletes browser history through the extension adapter", async ({
   await expect(githubCard).not.toHaveClass(/is-dragging/);
   await page.waitForTimeout(250);
 
+  // Leaving the window cancels both the overlay and the dnd-kit sensor session.
+  await page.mouse.move(historyCardBox.x + historyCardBox.width / 2, historyCardBox.y + historyCardBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(historyCardBox.x + historyCardBox.width / 2 + 55, historyCardBox.y + historyCardBox.height / 2);
+  await expect(page.getByTestId("history-card-drag-preview")).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(page.getByTestId("history-card-drag-preview")).toHaveCount(0);
+  await expect(githubCard).not.toHaveClass(/is-dragging/);
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+
   await page.getByRole("button", { name: "多选" }).click();
   const historySelectionToggle = githubCard.getByRole("button", {
     name: "选择 GitHub 的全部历史记录",
@@ -201,6 +210,11 @@ test("loads and deletes browser history through the extension adapter", async ({
   const popupPromise = context.waitForEvent("page");
   await githubCard.getByRole("button", { name: "查看 GitHub 历史记录" }).click();
   await expect(page.getByTestId("history-site-detail-github.com")).toBeVisible();
+  const titleBox = await page.locator(".history-detail-site-info strong").boundingBox();
+  const domainBox = await page.locator(".history-detail-site-info span").boundingBox();
+  if (!titleBox || !domainBox) throw new Error("History detail header is not visible");
+  expect(domainBox.y).toBeGreaterThanOrEqual(titleBox.y + titleBox.height);
+  expect(domainBox.x).toBeCloseTo(titleBox.x, 0);
   await expect(page.locator(".history-url-card")).toHaveCount(1);
   const detailCard = page.locator(".history-url-card").first();
   const detailDragStart = await detailCard.boundingBox();

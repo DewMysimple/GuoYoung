@@ -1252,7 +1252,7 @@ describe("App", () => {
     await user.click(within(screen.getByRole("group", { name: "文字大小" })).getByRole("button", { name: "较大" }));
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1.1");
     await user.click(screen.getByRole("button", { name: /布局微调/ }));
-    expect(screen.getAllByRole("slider")).toHaveLength(4);
+    expect(within(document.querySelector(".appearance-details") as HTMLElement).getAllByRole("slider")).toHaveLength(5);
     fireEvent.change(screen.getByRole("slider", { name: "卡片宽度" }), {
       target: { value: "210" },
     });
@@ -1297,6 +1297,7 @@ describe("App", () => {
       expect(shell.style.getPropertyValue("--wallpaper-zoom")).toBe("1.08");
     });
 
+    await user.click(screen.getByText("顶栏材质", { selector: "summary" }));
     fireEvent.change(screen.getByRole("slider", { name: /背景透明度/ }), {
       target: { value: "42" },
     });

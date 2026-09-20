@@ -235,7 +235,7 @@ describe("BrowserHistoryView", () => {
     expect(screen.queryByRole("button", { name: "选择 GitHub 的全部历史记录" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "查看 GitHub 历史记录" }));
     await user.click(screen.getByRole("button", { name: "多选" }));
-    const link = screen.getByRole("link", { name: "打开历史记录 Repository" });
+    const link = screen.getByRole("button", { name: "打开历史记录 Repository" });
     expect(fireEvent.click(link)).toBe(false);
     expect(screen.getByRole("button", { name: "取消选择 Repository" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "删除历史记录 Repository" })).toBeDisabled();

@@ -1,10 +1,15 @@
+import { useBrowserHistoryData } from "../hooks/use-browser-history-data";
+import { HistoryRangeControl } from "./history-range-control";
+import { HistoryDragPreview, HistoryUrlCard, HistorySiteCard } from "./history-cards";
+import { HistoryFavicon, formatHistoryTime, readHistoryDragData, type HistoryUrlItem } from "./history-card-content";
+import { CardSelectionToggle as HistorySelectionToggle } from "./card-primitives";
+import { WorkspaceSearch } from "./workspace-search";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
   MouseSensor,
   TouchSensor,
-  useDraggable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -12,24 +17,13 @@ import {
 } from "@dnd-kit/core";
 import {
   ArrowLeft,
-  CaretDown,
-  Check,
   CheckSquare,
   ClockCounterClockwise,
-  MagnifyingGlass,
-  Minus,
   Trash,
   X,
 } from "@phosphor-icons/react";
-import { Favicon } from "./favicon";
 import {
-  deleteBrowserHistoryUrl,
-  getHistoryAvailability,
   groupBrowserHistoryItems,
-  readHistoryAvailability,
-  searchBrowserHistory,
-  subscribeToBrowserHistoryChanges,
-  type BrowserHistoryAvailability,
   type BrowserHistoryPermissionResult,
   type HistorySiteGroup,
   type HistoryTimeRange,
@@ -52,495 +46,8 @@ interface BrowserHistoryViewProps {
   api?: ChromiumExtensionApi;
 }
 
-type HistoryUrlItem = BrowserHistoryItem & { url: string };
-
-interface HistoryDragData {
-  kind: "history-card";
-  item: HistoryUrlItem;
-}
-
-function readHistoryDragData(data: unknown): HistoryDragData | null {
-  if (!data || typeof data !== "object") return null;
-  const candidate = data as { kind?: unknown; item?: unknown };
-  if (candidate.kind !== "history-card" || !candidate.item) return null;
-  const item = candidate.item as Partial<HistoryUrlItem>;
-  return typeof item.url === "string" && item.url
-    ? { kind: "history-card", item: item as HistoryUrlItem }
-    : null;
-}
-
-const TIME_RANGE_OPTIONS: Array<{ value: HistoryTimeRange; label: string }> = [
-  { value: "all", label: "全部历史" },
-  { value: "today", label: "今天" },
-  { value: "yesterday", label: "昨天" },
-  { value: "7d", label: "近 7 天" },
-  { value: "30d", label: "近 30 天" },
-];
-
 const INITIAL_GROUP_LIMIT = 80;
 const GROUP_RENDER_INCREMENT = 80;
-
-function formatHistoryTitle(item: BrowserHistoryItem): string {
-  if (item.title?.trim()) return item.title.trim();
-  if (item.url) {
-    try {
-      return new URL(item.url).hostname.replace(/^www\./, "");
-    } catch {
-      return item.url;
-    }
-  }
-  return "未命名页面";
-}
-
-function formatHistoryTime(timestamp?: number): string {
-  if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) {
-    return "时间未知";
-  }
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(timestamp);
-}
-
-function formatCompactHistoryTime(timestamp?: number): string {
-  if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) return "时间未知";
-  return new Intl.DateTimeFormat("zh-CN", {
-    ...(new Date(timestamp).getFullYear() !== new Date().getFullYear()
-      ? { year: "numeric" as const }
-      : {}),
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(timestamp);
-}
-
-function HistoryFavicon({
-  item,
-  size = "normal",
-}: {
-  item: BrowserHistoryItem;
-  size?: "normal" | "large";
-}) {
-  const name = formatHistoryTitle(item);
-  if (!item.url) {
-    return <span className="history-favicon-fallback">?</span>;
-  }
-  return (
-    <Favicon
-      site={{
-        name,
-        url: item.url,
-        customIconUrl: undefined,
-        iconSource: "browser",
-      }}
-      size={size}
-    />
-  );
-}
-
-function HistoryDragPreview({ item }: { item: HistoryUrlItem }) {
-  const title = formatHistoryTitle(item);
-
-  return (
-    <article
-      className="site-card site-card-drag-preview history-drag-preview"
-      aria-hidden="true"
-      data-testid="history-card-drag-preview"
-    >
-      <div className="site-card-topline">
-        <HistoryFavicon item={item} size="large" />
-      </div>
-      <div className="site-card-link">
-        <span className="site-name-row">
-          <span className="site-name" title={title}>{title}</span>
-        </span>
-        <span className="site-domain" title={item.url}>{item.url}</span>
-      </div>
-      <div
-        className="site-category history-card-meta"
-        title={`最近访问 ${formatHistoryTime(item.lastVisitTime)} · 访问 ${item.visitCount || 1} 次`}
-      >
-        <ClockCounterClockwise size={15} aria-hidden="true" />
-        <time>{formatCompactHistoryTime(item.lastVisitTime)}</time>
-      </div>
-    </article>
-  );
-}
-
-function HistorySelectionToggle({
-  selected,
-  indeterminate = false,
-  label,
-  disabled,
-  onToggle,
-}: {
-  selected: boolean;
-  indeterminate?: boolean;
-  label: string;
-  disabled: boolean;
-  onToggle: (shiftKey?: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="history-selection-toggle"
-      aria-label={label}
-      aria-pressed={selected}
-      data-indeterminate={indeterminate || undefined}
-      disabled={disabled}
-      onMouseDown={(event) => event.stopPropagation()}
-      onTouchStart={(event) => event.stopPropagation()}
-      onClick={(event) => {
-        event.stopPropagation();
-        onToggle(event.shiftKey);
-      }}
-    >
-      {indeterminate ? <Minus size={14} weight="bold" /> : selected ? <Check size={14} weight="bold" /> : null}
-    </button>
-  );
-}
-
-function HistoryUrlCard({
-  item,
-  selectionMode,
-  selected,
-  busy,
-  onToggleSelected,
-  onDelete,
-}: {
-  item: BrowserHistoryItem & { url: string };
-  selectionMode: boolean;
-  selected: boolean;
-  busy: boolean;
-  onToggleSelected: (shiftKey?: boolean) => void;
-  onDelete: () => void;
-}) {
-  const title = formatHistoryTitle(item);
-  const dragDisabled = selectionMode || busy;
-  const drag = useDraggable({
-    id: `history-url:${item.id}`,
-    disabled: dragDisabled,
-    data: { kind: "history-card", item } satisfies HistoryDragData,
-  });
-  const style = {
-    zIndex: drag.isDragging ? 10 : undefined,
-  };
-
-  return (
-    <article
-      ref={drag.setNodeRef}
-      style={style}
-      className={`site-card history-url-card ${drag.isDragging ? "is-dragging" : ""} ${selectionMode ? "is-selection-mode" : ""} ${selected ? "is-selected" : ""}`}
-      data-history-dnd-id={item.id}
-      data-drag-disabled={dragDisabled || undefined}
-      onMouseDown={(event) => {
-        if (!dragDisabled) drag.listeners?.onMouseDown?.(event);
-      }}
-      onTouchStart={(event) => {
-        if (!dragDisabled) drag.listeners?.onTouchStart?.(event);
-      }}
-      onDragStart={(event) => event.preventDefault()}
-    >
-      {selectionMode && (
-        <HistorySelectionToggle
-          selected={selected}
-          label={`${selected ? "取消选择" : "选择"} ${title}`}
-          disabled={busy}
-          onToggle={onToggleSelected}
-        />
-      )}
-      <div className="site-card-topline">
-        <HistoryFavicon item={item} size="large" />
-        <div className="history-url-actions">
-          <button
-            type="button"
-            className="history-url-delete"
-            aria-label={`删除历史记录 ${title}`}
-            disabled={busy || selectionMode}
-            onMouseDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
-            onClick={onDelete}
-          >
-            <Trash size={17} />
-          </button>
-        </div>
-      </div>
-      <a
-        className="site-card-full-link history-url-link"
-        href={item.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`打开历史记录 ${title}`}
-        draggable={false}
-        title={`${title} · 最近访问 ${formatHistoryTime(item.lastVisitTime)} · 访问 ${item.visitCount || 1} 次`}
-        onClick={(event) => {
-          if (selectionMode || busy) event.preventDefault();
-          if (selectionMode && !busy) onToggleSelected(event.shiftKey);
-        }}
-      />
-      <div className="site-card-link">
-        <span className="site-name" title={title}>{title}</span>
-        <span className="site-domain" title={item.url}>{item.url}</span>
-      </div>
-      <div className="site-category history-card-meta" title={`最近访问 ${formatHistoryTime(item.lastVisitTime)} · 访问 ${item.visitCount || 1} 次`}>
-        <ClockCounterClockwise size={15} aria-hidden="true" />
-        <time
-          aria-label={`最近访问 ${formatHistoryTime(item.lastVisitTime)}`}
-          dateTime={
-            item.lastVisitTime
-              ? new Date(item.lastVisitTime).toISOString()
-              : undefined
-          }
-        >
-          {formatCompactHistoryTime(item.lastVisitTime)}
-        </time>
-        <span className="visually-hidden">访问 {item.visitCount && item.visitCount > 1 ? item.visitCount : 1} 次</span>
-      </div>
-    </article>
-  );
-}
-
-function HistorySiteCard({
-  group,
-  selectionMode,
-  selectedUrls,
-  busy,
-  onOpen,
-  onToggleGroupSelected,
-}: {
-  group: HistorySiteGroup;
-  selectionMode: boolean;
-  selectedUrls: Set<string>;
-  busy: boolean;
-  onOpen: () => void;
-  onToggleGroupSelected: (shiftKey?: boolean) => void;
-}) {
-  const groupUrls = group.items.flatMap((item) =>
-    item.url ? [item.url] : [],
-  );
-  const selectedCount = groupUrls.filter((url) => selectedUrls.has(url)).length;
-  const allSelected = groupUrls.length > 0 && selectedCount === groupUrls.length;
-
-  const representative = group.items[0];
-  const dragDisabled = selectionMode || busy || !representative?.url;
-  const drag = useDraggable({
-    id: `history-site:${group.key}`,
-    disabled: dragDisabled,
-    data: representative?.url
-      ? {
-          kind: "history-card",
-          item: representative as HistoryUrlItem,
-        } satisfies HistoryDragData
-      : undefined,
-  });
-  const style = {
-    zIndex: drag.isDragging ? 10 : undefined,
-  };
-
-  return (
-    <article
-      ref={drag.setNodeRef}
-      style={style}
-      className={`site-card history-site-card ${drag.isDragging ? "is-dragging" : ""} ${selectionMode ? "is-selection-mode" : ""} ${selectedCount > 0 ? "is-selected" : ""}`}
-      data-history-dnd-id={group.key}
-      data-drag-disabled={dragDisabled || undefined}
-      data-testid={`history-site-card-${group.key}`}
-      data-history-site-key={group.key}
-      onMouseDown={(event) => {
-        if (!dragDisabled) drag.listeners?.onMouseDown?.(event);
-      }}
-      onTouchStart={(event) => {
-        if (!dragDisabled) drag.listeners?.onTouchStart?.(event);
-      }}
-      onDragStart={(event) => event.preventDefault()}
-    >
-      <div className="history-site-card-summary">
-        {selectionMode && (
-          <HistorySelectionToggle
-            selected={allSelected}
-            indeterminate={selectedCount > 0 && !allSelected}
-            label={`${allSelected ? "取消选择" : "选择"} ${group.label} 的全部历史记录`}
-            disabled={busy}
-            onToggle={onToggleGroupSelected}
-          />
-        )}
-        <button
-          type="button"
-          className="site-card-full-link history-site-open"
-          aria-label={`查看 ${group.label} 历史记录`}
-          title={`${group.label} · ${group.items.length} 个页面 · 访问 ${group.visitCount} 次 · 最近访问 ${formatHistoryTime(group.lastVisitTime)}`}
-          aria-pressed={selectionMode ? allSelected : undefined}
-          disabled={busy}
-          onClick={
-            selectionMode
-              ? (event) => onToggleGroupSelected(event.shiftKey)
-              : onOpen
-          }
-        />
-          <div className="site-card-topline">
-            <span className="history-site-icon">
-              {representative ? (
-                <HistoryFavicon item={representative} size="large" />
-              ) : (
-                <span className="history-favicon-fallback">?</span>
-              )}
-            </span>
-            <span className="history-site-summary-actions">
-            <span className="history-site-url-count" title={`${group.items.length} 个页面 · 访问 ${group.visitCount} 次`}>
-                {group.items.length} 个页面
-              </span>
-            </span>
-          </div>
-          <div className="site-card-link">
-            <span className="site-name-row">
-              <span className="site-name" title={group.label}>{group.label}</span>
-            </span>
-            <span className="site-domain" title={group.hostname}>
-              {group.hostname}
-            </span>
-          </div>
-          <div className="site-category history-card-meta" title={`最近访问 ${formatHistoryTime(group.lastVisitTime)} · 访问 ${group.visitCount} 次`}>
-            <ClockCounterClockwise size={15} aria-hidden="true" />
-            <time aria-label={`最近访问 ${formatHistoryTime(group.lastVisitTime)}`}>
-              {formatCompactHistoryTime(group.lastVisitTime)}
-            </time>
-          </div>
-      </div>
-    </article>
-  );
-}
-
-function HistoryRangeControl({
-  value,
-  onChange,
-}: {
-  value: HistoryTimeRange;
-  onChange: (value: HistoryTimeRange) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const controlRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const selectedIndex = TIME_RANGE_OPTIONS.findIndex((option) => option.value === value);
-  const selectedOption = TIME_RANGE_OPTIONS[selectedIndex] ?? TIME_RANGE_OPTIONS[0];
-
-  useEffect(() => {
-    if (!open) return;
-    const handleOutsidePointer = (event: PointerEvent) => {
-      if (!controlRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("pointerdown", handleOutsidePointer);
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      window.removeEventListener("pointerdown", handleOutsidePointer);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [open]);
-
-  function selectOption(nextValue: HistoryTimeRange) {
-    onChange(nextValue);
-    setOpen(false);
-    window.setTimeout(() => triggerRef.current?.focus(), 0);
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    window.setTimeout(() => {
-      const option = TIME_RANGE_OPTIONS[selectedIndex] ?? TIME_RANGE_OPTIONS[0];
-      controlRef.current?.querySelector<HTMLButtonElement>(
-        `[data-history-range-option="${option.value}"]`,
-      )?.focus();
-    }, 0);
-  }, [open, selectedIndex]);
-
-  function handleTriggerKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      setOpen(true);
-    }
-  }
-
-  function handleOptionKeyDown(
-    event: React.KeyboardEvent<HTMLButtonElement>,
-    index: number,
-  ) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      setOpen(false);
-      return;
-    }
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const nextIndex = event.key === "ArrowDown"
-        ? (index + 1) % TIME_RANGE_OPTIONS.length
-        : (index - 1 + TIME_RANGE_OPTIONS.length) % TIME_RANGE_OPTIONS.length;
-      const nextValue = TIME_RANGE_OPTIONS[nextIndex].value;
-      onChange(nextValue);
-      return;
-    }
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      selectOption(TIME_RANGE_OPTIONS[index].value);
-    }
-  }
-
-  return (
-    <div className="history-range-control" ref={controlRef}>
-      <button
-        type="button"
-        className={`history-range-trigger ${open ? "is-open" : ""}`}
-        ref={triggerRef}
-        aria-label="历史记录时间范围"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls="history-range-options"
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={handleTriggerKeyDown}
-      >
-        <ClockCounterClockwise
-          className="history-range-icon"
-          size={18}
-          weight="regular"
-          aria-hidden="true"
-        />
-        <span className="history-range-label">时间范围</span>
-        <span className="history-range-value">{selectedOption.label}</span>
-        <CaretDown size={14} weight="bold" aria-hidden="true" />
-      </button>
-      {open && (
-        <div
-          id="history-range-options"
-          className="history-range-menu"
-          role="listbox"
-          aria-label="历史记录时间范围选项"
-        >
-          <span className="history-range-menu-label">时间范围</span>
-          {TIME_RANGE_OPTIONS.map((option, index) => (
-            <button
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={value === option.value}
-              data-history-range-option={option.value}
-              className={value === option.value ? "is-selected" : ""}
-              onClick={() => selectOption(option.value)}
-              onKeyDown={(event) => handleOptionKeyDown(event, index)}
-            >
-              <span>{option.label}</span>
-              {value === option.value && <Check size={15} weight="bold" aria-hidden="true" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function BrowserHistoryView({
   onBack,
@@ -549,19 +56,11 @@ export function BrowserHistoryView({
   permissionVersion = 0,
   api = getChromiumExtensionApi(),
 }: BrowserHistoryViewProps) {
-  const [availability, setAvailability] = useState<BrowserHistoryAvailability>(
-    () => getHistoryAvailability(api),
-  );
-  const [items, setItems] = useState<BrowserHistoryItem[]>([]);
   const [query, setQuery] = useState("");
   const [timeRange, setTimeRange] = useState<HistoryTimeRange>("7d");
-  const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [permissionLoading, setPermissionLoading] = useState(false);
-  const [permissionError, setPermissionError] = useState<string | null>(
-    externalPermissionError,
-  );
-  const [error, setError] = useState<string | null>(null);
+  const { availability, items, loading, busy, permissionLoading, permissionError, error, setError,
+    refreshPermission, refresh, deleteUrls: removeUrls } = useBrowserHistoryData({ api, query, timeRange, permissionVersion,
+      permissionError: externalPermissionError, onRequestPermission });
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(
     () => new Set(),
   );
@@ -569,8 +68,6 @@ export function BrowserHistoryView({
   const [activeSiteKey, setActiveSiteKey] = useState<string | null>(null);
   const [visibleGroupLimit, setVisibleGroupLimit] =
     useState(INITIAL_GROUP_LIMIT);
-  const [refreshVersion, setRefreshVersion] = useState(0);
-  const loadSequence = useRef(0);
   const overviewScrollY = useRef(0);
   const previousSiteKey = useRef(activeSiteKey);
   const selectionAnchorRef = useRef<string | null>(null);
@@ -578,6 +75,9 @@ export function BrowserHistoryView({
   const historyDragSuppressionTimer = useRef<number | null>(null);
   const [activeHistoryDrag, setActiveHistoryDrag] =
     useState<HistoryUrlItem | null>(null);
+  const activeHistoryDragRef = useRef(activeHistoryDrag);
+  activeHistoryDragRef.current = activeHistoryDrag;
+  const [dragSessionKey, setDragSessionKey] = useState(0);
   const historySensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 50 } }),
     useSensor(TouchSensor, { activationConstraint: { distance: 50 } }),
@@ -607,7 +107,22 @@ export function BrowserHistoryView({
   }
 
   useEffect(() => {
+    const cancel = () => {
+      if (!activeHistoryDragRef.current) return;
+      setActiveHistoryDrag(null);
+      setDragSessionKey((current) => current + 1);
+      armHistoryDragClickSuppression();
+    };
+    const visibility = () => { if (document.visibilityState === "hidden") cancel(); };
+    window.addEventListener("blur", cancel);
+    window.addEventListener("pagehide", cancel);
+    window.addEventListener("pointercancel", cancel);
+    document.addEventListener("visibilitychange", visibility);
     return () => {
+      window.removeEventListener("blur", cancel);
+      window.removeEventListener("pagehide", cancel);
+      window.removeEventListener("pointercancel", cancel);
+      document.removeEventListener("visibilitychange", visibility);
       if (historyDragSuppressionTimer.current !== null) {
         window.clearTimeout(historyDragSuppressionTimer.current);
       }
@@ -654,69 +169,6 @@ export function BrowserHistoryView({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectionMode, busy]);
-
-  useEffect(() => {
-    let active = true;
-    void readHistoryAvailability(api).then((next) => {
-      if (active) setAvailability(next);
-    });
-    return () => {
-      active = false;
-    };
-  }, [api, permissionVersion]);
-
-  useEffect(() => {
-    setPermissionError(externalPermissionError);
-  }, [externalPermissionError]);
-
-  useEffect(() => {
-    if (availability !== "granted") return;
-    const refresh = () => setRefreshVersion((current) => current + 1);
-    const removeMessageListener = subscribeToBrowserHistoryChanges(refresh, api);
-    const handleFocus = () => refresh();
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      removeMessageListener();
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [api, availability]);
-
-  useEffect(() => {
-    if (availability !== "granted") return;
-    let active = true;
-    const sequence = ++loadSequence.current;
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      setError(null);
-      void searchBrowserHistory(
-        { text: query, range: timeRange },
-        api,
-      ).then(
-        (nextItems) => {
-          if (!active || sequence !== loadSequence.current) return;
-          setItems(nextItems);
-          setLoading(false);
-        },
-        () => {
-          if (!active || sequence !== loadSequence.current) return;
-          setItems([]);
-          setLoading(false);
-          setError("无法读取浏览器历史记录，请稍后重试。");
-        },
-      );
-    }, 160);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [api, availability, query, refreshVersion, timeRange]);
 
   useEffect(() => {
     setVisibleGroupLimit(INITIAL_GROUP_LIMIT);
@@ -771,28 +223,6 @@ export function BrowserHistoryView({
   const allSelected =
     selectableItemsInView.length > 0 &&
     selectableItemsInView.every((item) => selectedUrls.has(item.url));
-
-  async function refreshPermission() {
-    if (permissionLoading) return;
-    setPermissionLoading(true);
-    setPermissionError(null);
-    try {
-      const result = await onRequestPermission();
-      const nextAvailability = await readHistoryAvailability(api);
-      setAvailability(nextAvailability);
-      if (nextAvailability === "granted") {
-        setPermissionError(null);
-      } else if (result && !result.granted) {
-        setPermissionError(
-          result.error ?? "浏览器未完成历史记录授权，请检查扩展权限后重试。",
-        );
-      }
-    } catch {
-      setPermissionError("浏览器未完成历史记录授权，请检查扩展权限后重试。");
-    } finally {
-      setPermissionLoading(false);
-    }
-  }
 
   function toggleSelected(url: string, shiftKey = false) {
     const orderedUrls = selectableItemsInView.map((item) => item.url);
@@ -871,27 +301,8 @@ export function BrowserHistoryView({
   }
 
   async function deleteUrls(urls: string[]) {
-    const uniqueUrls = [...new Set(urls)];
-    if (!uniqueUrls.length || busy) return;
-    setBusy(true);
-    setError(null);
-    const results = await Promise.allSettled(
-      uniqueUrls.map((url) => deleteBrowserHistoryUrl(url, api)),
-    );
-    const failed = results.filter((result) => result.status === "rejected").length;
-    const deleted = uniqueUrls.length - failed;
-    setSelectedUrls((current) => {
-      const next = new Set(current);
-      uniqueUrls.forEach((url, index) => {
-        if (results[index].status === "fulfilled") next.delete(url);
-      });
-      return next;
-    });
-    setBusy(false);
-    setRefreshVersion((current) => current + 1);
-    if (failed > 0) {
-      setError(`已删除 ${deleted} 条，${failed} 条删除失败，请稍后重试。`);
-    }
+    const deleted = await removeUrls(urls);
+    setSelectedUrls((current) => new Set([...current].filter((url) => !deleted.includes(url))));
   }
 
   if (availability === "unsupported") {
@@ -947,6 +358,7 @@ export function BrowserHistoryView({
 
   return (
     <DndContext
+      key={dragSessionKey}
       sensors={historySensors}
       autoScroll={false}
       onDragStart={handleHistoryDragStart}
@@ -963,38 +375,7 @@ export function BrowserHistoryView({
         }}
       >
       <h1 id="history-title" className="visually-hidden">历史记录</h1>
-      <div className="workspace-intro history-workspace-intro">
-        <div className="search-panel">
-          <form
-            className="search-input"
-            role="search"
-            onSubmit={(event) => event.preventDefault()}
-          >
-            <MagnifyingGlass size={21} aria-hidden="true" />
-            <span className="visually-hidden">搜索浏览历史</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索标题或网址"
-              autoComplete="off"
-              aria-label="搜索浏览历史"
-            />
-            <span className="search-trailing-actions">
-              {query && (
-                <button
-                  type="button"
-                  className="clear-search"
-                  aria-label="清空历史搜索"
-                  onClick={() => setQuery("")}
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </span>
-          </form>
-        </div>
-      </div>
+      <WorkspaceSearch value={query} onChange={setQuery} label="搜索浏览历史" placeholder="搜索标题或网址" clearLabel="清空历史搜索" />
 
       <div className="history-toolbar">
         {activeSiteGroup && (
@@ -1066,7 +447,7 @@ export function BrowserHistoryView({
       {error && (
         <div className="history-error" role="alert">
           <span>{error}</span>
-          <button type="button" className="view-control-button" disabled={loading || busy} onClick={() => setRefreshVersion((current) => current + 1)}>重新读取</button>
+          <button type="button" className="view-control-button" disabled={loading || busy} onClick={() => refresh()}>重新读取</button>
           <button type="button" className="clear-search" aria-label="关闭错误提示" onClick={() => setError(null)}>
             <X size={16} />
           </button>

@@ -310,7 +310,7 @@ test("simplifies appearance choices and preserves preview, save, reload and rese
   await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();
   await panel.getByRole("button", { name: /布局微调/ }).focus();
   await page.keyboard.press("Enter");
-  await expect(panel.getByRole("slider")).toHaveCount(4);
+  await expect(panel.getByRole("slider")).toHaveCount(5);
   await panel.getByRole("slider", { name: "卡片宽度" }).fill("210");
   await panel.getByRole("slider", { name: "卡片间距" }).fill("20");
   await expect(panel.getByText("已自定义", { exact: true })).toBeVisible();

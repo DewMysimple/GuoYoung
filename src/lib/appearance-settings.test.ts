@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_APPEARANCE } from "../data/defaults";
-import { applyLayoutPreset, applyTextSize, getLayoutPreset, getTextSize, patchAppearance } from "./appearance-settings";
+import { applyLayoutPreset, applyTextSize, getLayoutPreset, getTextSize, patchAppearance, restoreLayout } from "./appearance-settings";
 
 describe("appearance choices", () => {
   it("changes layout without replacing color, reading size or brand geometry", () => {
@@ -32,4 +32,12 @@ describe("appearance choices", () => {
     expect(getLayoutPreset(first)).toBe("spacious");
     expect(getTextSize(first)).toBe(110);
   });
+  it("restores the selected geometry without undoing later color or text changes", () => {
+    const selected = applyLayoutPreset(DEFAULT_APPEARANCE, "spacious");
+    const adjusted = patchAppearance(applyTextSize(selected, 110), { cardHeight: 212, accentColor: "#00897b" });
+    const restored = restoreLayout(adjusted, selected);
+    expect(restored).toMatchObject({ cardHeight: 168, cardWidth: 190, fontScale: 110, accentColor: "#00897b", layoutPreset: "spacious" });
+    expect(adjusted.cardHeight).toBe(212);
+  });
+
 });

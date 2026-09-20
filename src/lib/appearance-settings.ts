@@ -16,11 +16,18 @@ export const TEXT_SIZE_OPTIONS = [
 export const LAYOUT_DETAILS = [
   { key: "contentWidth", label: "页面宽度", min: 960, max: 1920, step: 10 },
   { key: "cardWidth", label: "卡片宽度", min: 132, max: 260, step: 1 },
+  { key: "cardHeight", label: "卡片高度", min: 112, max: 240, step: 1 },
   { key: "gap", label: "卡片间距", min: 4, max: 32, step: 1 },
   { key: "radius", label: "卡片圆角", min: 4, max: 28, step: 1 },
 ] as const;
 
 const layoutKeys = Object.keys(LAYOUT_PRESETS.standard) as (keyof LayoutPresetSettings)[];
+
+/** Restore geometry alone; keep the user's current colors, text and brand. */
+export function restoreLayout(appearance: AppearanceSettings, previous: AppearanceSettings): AppearanceSettings {
+  const patch = Object.fromEntries(layoutKeys.map((key) => [key, previous[key]]));
+  return patchAppearance(appearance, patch);
+}
 
 /** Infer the selection from actual geometry, including settings saved by older versions. */
 export function getLayoutPreset(appearance: AppearanceSettings): LayoutPreset {

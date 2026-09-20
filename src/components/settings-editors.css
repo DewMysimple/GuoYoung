@@ -1,0 +1,33 @@
+.settings-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-inline-actions .button { flex: 1; font-size: 11px; padding-inline: 8px; }
+.interface-dimensions summary, .wallpaper-material-details summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+.interface-dimensions summary span { margin-left: 8px; color: var(--text-faint); font-size: 10px; font-weight: 500; }
+.interface-dimensions .range-control + .range-control { margin-top: 14px; }
+.wallpaper-settings { gap: 14px; }
+.wallpaper-settings .appearance-card { display: grid; gap: 14px; }
+.wallpaper-settings .appearance-description { margin: -7px 0 0; }
+.wallpaper-thumbnail { position: relative; display: grid; height: 136px; place-content: center; gap: 8px; overflow: hidden; border-radius: 10px; color: var(--text-faint); background: var(--surface-raised); text-align: center; }
+.wallpaper-thumbnail > svg { margin: auto; }
+.wallpaper-thumbnail img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.wallpaper-thumbnail span { z-index: 1; align-self: end; padding: 5px 10px; border-radius: 8px; background: var(--surface); color: var(--text-soft); font-size: 11px; }
+.wallpaper-thumbnail:has(img) { align-content: end; justify-content: start; padding: 10px; }
+.wallpaper-source-actions, .wallpaper-position-actions { display: flex; gap: 8px; align-items: center; }
+.wallpaper-source-actions .button, .wallpaper-position-actions .button { flex: 1; min-width: 0; }
+.wallpaper-material-details { border-top: 1px solid var(--border); padding-top: 12px; }
+.wallpaper-material-details[open] { display: grid; gap: 14px; }
+.wallpaper-settings .segmented-control button { font-size: 11px; padding-inline: 4px; }
+.data-settings { gap: 14px; }
+.data-overview { display: flex; gap: 20px; padding: 16px; border-radius: 14px; background: var(--surface-raised); }
+.data-overview span { display: grid; gap: 3px; color: var(--text-faint); font-size: 11px; }
+.data-overview strong { color: var(--text); font-size: 22px; font-variant-numeric: tabular-nums; }
+.data-settings .settings-data-card { display: grid; gap: 14px; padding: 16px; border-radius: 16px; background: var(--surface); }
+.data-settings .settings-data-card > div:last-child { justify-content: stretch; }
+.data-settings .settings-data-card > .settings-inline-actions > button { flex: 1; }
+.data-settings .settings-data-card > button { justify-self: start; }
+.data-settings .danger-zone { border-color: color-mix(in srgb, var(--danger) 26%, var(--border)); }
+.data-settings .danger-zone button { color: var(--danger); }
+.data-settings .trash-settings-summary { align-items: center; }
+.data-settings .trash-settings-summary .button { flex: 0 0 auto; }
+.data-settings .trash-settings-content { min-width: 0; }
+.data-settings .trash-item { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+.data-settings .trash-item-actions { grid-column: 2; justify-self: end; }
