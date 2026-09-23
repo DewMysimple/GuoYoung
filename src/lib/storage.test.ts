@@ -295,7 +295,7 @@ describe("local storage", () => {
       ),
       deletedSites: [
         {
-          deletedAt: "2026-08-24T00:00:00.000Z",
+          deletedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
           originalGroupId: "search",
           originalGroupName: "搜索",
           site: {
