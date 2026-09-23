@@ -150,7 +150,7 @@
   border-radius: 50%;
   background: var(--surface);
 }
-.is-selected .group-selection-mark { border-color: var(--accent); color: var(--surface); background: var(--accent); }
+.is-selected .group-selection-mark { border-color: var(--accent); color: white; background: var(--accent); }
 
 .group-add-menu {
   position: absolute;
@@ -248,7 +248,7 @@
 
 .has-wallpaper .grouped-site-header-main .compact-icon-button {
   color: var(--text-soft);
-  border-color: color-mix(in srgb, white 40%, transparent);
+  border-color: var(--glass-border);
   background: color-mix(in srgb, var(--surface) 76%, transparent);
   backdrop-filter: blur(12px);
 }

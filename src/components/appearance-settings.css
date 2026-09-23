@@ -2,6 +2,15 @@
   gap: 14px;
 }
 
+.appearance-theme-options > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
 .appearance-card {
   min-width: 0;
   padding: 16px;

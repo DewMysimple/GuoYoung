@@ -608,7 +608,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":15');
+      expect(stored).toContain('"version":16');
     });
   });
 
@@ -881,7 +881,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(15);
+      expect(stored.version).toBe(16);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -1239,9 +1239,10 @@ describe("App", () => {
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
 
     await user.click(screen.getByRole("button", { name: "打开设置" }));
-    expect(screen.queryByRole("button", { name: "跟随系统" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "浅色" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "深色" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "跟随系统" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "浅色" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "深色" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
     await user.click(screen.getByRole("button", { name: "紧凑" }));
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("140px");
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
@@ -1258,6 +1259,7 @@ describe("App", () => {
     expect(shell.style.getPropertyValue("--card-font-scale")).toBe("1.1");
 
     await user.click(screen.getByRole("button", { name: "取消" }));
+    expect(document.documentElement.dataset.theme).toBe("light");
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("160px");
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
     expect(shell.style.getPropertyValue("--brand-font-scale")).toBe("1");

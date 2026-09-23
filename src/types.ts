@@ -143,7 +143,10 @@ export interface BrandSettings {
   logoDataUrl?: string;
 }
 
+export type ThemePreference = "system" | "light" | "dark";
+
 export interface AppearanceSettings {
+  theme: ThemePreference;
   accentColor: string;
   layoutPreset: LayoutPreset;
   fontScale: number;

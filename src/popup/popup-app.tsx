@@ -38,6 +38,8 @@ import {
 } from "../lib/site-state";
 import { inferSiteName, normalizeUrl } from "../lib/site-utils";
 import type { SiteCollectionState, SiteWorkspace } from "../types";
+import { useTheme } from "../hooks/use-theme";
+import { DEFAULT_APPEARANCE } from "../data/defaults";
 
 type PopupTab = "quick" | "bookmarks";
 
@@ -172,6 +174,8 @@ export function PopupApp() {
   const store = useMemo(() => createSiteHubStore(api), [api]);
   const [tab, setTab] = useState<PopupTab>("quick");
   const [state, setState] = useState<SiteCollectionState | null>(null);
+  useTheme(state?.appearance.theme ?? DEFAULT_APPEARANCE.theme,
+    state?.appearance.accentColor ?? DEFAULT_APPEARANCE.accentColor);
   const [activeBrowserTab, setActiveBrowserTab] = useState<BrowserTab | null>(null);
   const [quickWorkspace, setQuickWorkspace] = useState<SiteWorkspace>("main");
   const [quickName, setQuickName] = useState("");

@@ -196,7 +196,7 @@ export function App() {
     settingsPreview?.appearance ?? state.appearance;
   const effectiveWallpaper =
     settingsPreview?.wallpaper ?? state.wallpaper;
-  useTheme();
+  useTheme(effectiveAppearance.theme, effectiveAppearance.accentColor);
   const { imageUrl: wallpaperUrl, error: wallpaperError } =
     useWallpaper(effectiveWallpaper);
   const reduceMotion = useReducedMotion();
@@ -1240,10 +1240,6 @@ export function App() {
         : "全部网站"
       : (activeGroup?.name ?? "网站");
   const appStyle = {
-    "--accent": effectiveAppearance.accentColor,
-    "--accent-strong": `color-mix(in srgb, ${effectiveAppearance.accentColor} 84%, black)`,
-    "--accent-soft": `color-mix(in srgb, ${effectiveAppearance.accentColor} 14%, var(--surface))`,
-    "--accent-text": effectiveAppearance.accentColor,
     "--font-scale": String(effectiveAppearance.fontScale / 100),
     "--ui-icon-scale": String(effectiveAppearance.uiIconScale / 100),
     "--control-scale": String(effectiveAppearance.controlScale / 100),

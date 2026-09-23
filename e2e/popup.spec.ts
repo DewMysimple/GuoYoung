@@ -1,6 +1,12 @@
 import { expect, test, screenshotPath } from "./fixtures";
 
 test("saves a current page and imports browser bookmarks from the popup", async ({ page }, testInfo) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.appearance.theme = "dark";
+    localStorage.setItem("popup-test-collection", JSON.stringify(state));
+  });
   await page.addInitScript(() => {
     const collectionKey = "popup-test-collection";
     const api = {
@@ -23,6 +29,9 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.setViewportSize({ width: 440, height: 600 });
   await page.goto("/popup.html");
   await expect(page.getByText("维护示例", { exact: true })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator(".popup-shell")).toHaveCSS("background-color", "rgb(23, 26, 33)");
+  await expect(page.locator(".popup-field input")).toHaveCSS("color", "rgb(232, 236, 243)");
   await page.getByRole("button", { name: "添加到主页", exact: true }).click();
   await expect(page.getByText("当前网页已添加到主页。")).toBeVisible();
   await page.screenshot({ path: screenshotPath(`popup-quick-${testInfo.project.name}.png`), animations: "disabled" });
@@ -32,6 +41,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(page.getByText("新增 1 个，跳过 0 个，失败 0 个。")).toBeVisible();
   const urls = await page.evaluate(() => JSON.parse(localStorage.getItem("popup-test-collection")!).sites.map((site: { url: string }) => site.url));
   expect(urls).toEqual(expect.arrayContaining(["https://example.com/maintenance", "https://example.org/docs"]));
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("popup-test-collection")!).appearance.theme)).toBe("dark");
   const width = await page.evaluate(() => ({
     client: document.documentElement.clientWidth,
     scroll: document.documentElement.scrollWidth,

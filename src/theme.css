@@ -1,0 +1,59 @@
+/* Shared by the collection page, body portals and extension popup. */
+:root {
+  color-scheme: light;
+  --page: #f4f6f9;
+  --surface: #f9fafc;
+  --surface-raised: #eef1f5;
+  --surface-hover: #e8edf5;
+  --icon-surface: #eef1f5;
+  --text: #171c26;
+  --text-soft: #596273;
+  --text-faint: #778091;
+  --border: #dfe4ec;
+  --border-strong: #cbd2dd;
+  --accent-base: #3367d6;
+  --accent: var(--accent-base);
+  --accent-strong: color-mix(in srgb, var(--accent-base) 84%, black);
+  --accent-soft: color-mix(in srgb, var(--accent-base) 14%, var(--surface));
+  --accent-text: var(--accent-base);
+  --danger: #b33a46;
+  --danger-fill: #b33a46;
+  --danger-soft: #fae8ea;
+  --success: #17623c;
+  --success-soft: #e9f8ef;
+  --warning: #806020;
+  --warning-soft: #fff6de;
+  --shadow-soft: 0 14px 38px rgba(41, 56, 82, 0.09);
+  --shadow-dialog: 0 28px 80px rgba(31, 43, 65, 0.2);
+  --wallpaper-overlay-color: 244 246 249;
+  --wallpaper-text-shadow: 0 1px 3px rgb(255 255 255 / .85), 0 0 14px rgb(255 255 255 / .7);
+  --glass-border: color-mix(in srgb, white 45%, transparent);
+  --dialog-rim: color-mix(in srgb, white 38%, transparent);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #171a21;
+  --surface: #20242d;
+  --surface-raised: #292e39;
+  --surface-hover: #323947;
+  --text: #e8ecf3;
+  --text-soft: #bac3d2;
+  --text-faint: #99a5b8;
+  --border: #353d4b;
+  --border-strong: #4c586a;
+  --accent-text: color-mix(in srgb, var(--accent-base) 52%, #eef3ff);
+  --accent-soft: color-mix(in srgb, var(--accent-base) 22%, var(--surface));
+  --danger: #f08b96;
+  --danger-soft: #402831;
+  --success: #8bd5ae;
+  --success-soft: #20392e;
+  --warning: #e8c580;
+  --warning-soft: #3b3325;
+  --shadow-soft: 0 14px 38px rgb(0 0 0 / .22);
+  --shadow-dialog: 0 28px 80px rgb(0 0 0 / .4);
+  --wallpaper-overlay-color: 14 17 23;
+  --wallpaper-text-shadow: 0 1px 3px rgb(0 0 0 / .95), 0 0 14px rgb(0 0 0 / .85);
+  --glass-border: color-mix(in srgb, var(--border-strong) 70%, transparent);
+  --dialog-rim: color-mix(in srgb, var(--border-strong) 60%, transparent);
+}

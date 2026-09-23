@@ -15,7 +15,7 @@ function memoryStorage(initial?: string) {
 }
 
 describe("local storage", () => {
-  it.each([11, 12, 13, 14, 15])("normalizes incomplete version %s preferences without losing collections", (version) => {
+  it.each([11, 12, 13, 14, 15, 16])("normalizes incomplete version %s preferences without losing collections", (version) => {
     const defaults = createDefaultState();
     const raw = JSON.stringify({
       ...defaults,
@@ -41,7 +41,7 @@ describe("local storage", () => {
     expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
   });
 
-  it.each([11, 12, 13, 14, 15])("preserves deleted GitHub groups when loading version %s", (version) => {
+  it.each([11, 12, 13, 14, 15, 16])("preserves deleted GitHub groups when loading version %s", (version) => {
     const defaults = createDefaultState();
     const customized = {
       ...defaults, version,
@@ -99,7 +99,7 @@ describe("local storage", () => {
     expect(isSiteCollectionState(stored)).toBe(true);
   });
 
-  it("migrates the removed theme preference to the light-only state schema", () => {
+  it("migrates the removed theme preference through the retired root theme field", () => {
     const legacy = {
       ...createDefaultState(),
       version: 14,
@@ -108,7 +108,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state).not.toHaveProperty("themePreference");
     expect(isSiteCollectionState(result.state)).toBe(true);
   });
@@ -125,7 +125,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.appearance.cardWidth).toBe(160);
     expect(result.state.searchHistory).toEqual([]);
     expect(result.state.groups).toHaveLength(10);
@@ -146,7 +146,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.groups.find((group) => group.id === "other")).toMatchObject({
       id: "other",
       name: "其他",
@@ -166,7 +166,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(
       result.state.sites
         .slice()
@@ -193,7 +193,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.wallpaper).toMatchObject({
       positionX: 100,
       positionY: 100,
@@ -223,7 +223,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.displayMode).toBe("flat");
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "flat",
@@ -260,7 +260,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.brand.name).toBe("Mysimple");
     expect(result.state.appearance).toMatchObject({
       pagePadding: 20,
@@ -280,7 +280,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.deletedSites).toEqual([]);
     expect(result.state.trashRetentionDays).toBe(30);
   });
@@ -309,7 +309,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.sites.find((site) => site.id === "github")?.clickCount).toBe(7);
     expect(result.state.sites.find((site) => site.id === "google")?.clickCount).toBe(0);
     expect(result.state.deletedSites[0].site.clickCount).toBe(3);
@@ -329,14 +329,14 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "grouped",
       github: "flat",
     });
   });
 
-  it("migrates version 12 to 15 without overwriting independent display modes", () => {
+  it("migrates version 12 to 16 without overwriting independent display modes", () => {
     const defaults = createDefaultState();
     const { version: _version, ...legacy } = defaults;
     const result = loadState(
@@ -351,7 +351,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "flat",
       github: "grouped",
@@ -375,7 +375,7 @@ describe("local storage", () => {
       ),
     );
 
-    expect(result.state.version).toBe(15);
+    expect(result.state.version).toBe(16);
     expect(result.state.sortMode).toBe("manual");
     expect(result.state.sortModeByWorkspace).toEqual({
       main: "manual",

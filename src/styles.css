@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./theme.css";
 
 @theme {
   --font-sans: "Manrope Variable", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -10,23 +11,6 @@
   font-family: "Manrope Variable", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --page: #f4f6f9;
-  --surface: #f9fafc;
-  --surface-raised: #eef1f5;
-  --surface-hover: #e8edf5;
-  --text: #171c26;
-  --text-soft: #596273;
-  --text-faint: #778091;
-  --border: #dfe4ec;
-  --border-strong: #cbd2dd;
-  --accent: #3367d6;
-  --accent-strong: #2858c2;
-  --accent-soft: #e4ebfb;
-  --accent-text: #214b9f;
-  --danger: #b33a46;
-  --danger-soft: #fae8ea;
-  --shadow-soft: 0 14px 38px rgba(41, 56, 82, 0.09);
-  --shadow-dialog: 0 28px 80px rgba(31, 43, 65, 0.2);
   --radius-card: 16px;
   --radius-control: 12px;
   --font-scale: 1;
@@ -63,7 +47,6 @@
   --topbar-background: color-mix(in srgb, var(--page) 88%, transparent);
   --topbar-backdrop-blur: 18px;
   --settings-panel-width: 440px;
-  --wallpaper-overlay-color: 244 246 249;
   color: var(--text);
   background: var(--page);
 }
@@ -2538,6 +2521,13 @@ label:has(input:focus-visible) {
   opacity: 1;
 }
 
+/* Third-party transparent logos may be black; keep their original colors on
+   a small neutral tile rather than inverting the image in dark mode. */
+.favicon-frame:has(img.is-loaded),
+.favicon-frame.favicon-brand {
+  background: var(--icon-surface);
+}
+
 .favicon-brand {
   color: var(--text);
 }
@@ -2598,7 +2588,7 @@ label:has(input:focus-visible) {
 
 .danger-action.is-delete-armed {
   color: white;
-  background: var(--danger);
+  background: var(--danger-fill);
   opacity: 1;
 }
 
@@ -2899,7 +2889,7 @@ label:has(input:focus-visible) {
   overflow: hidden;
   box-shadow:
     0 28px 80px color-mix(in srgb, #18233a 22%, transparent),
-    0 0 0 1px color-mix(in srgb, white 38%, transparent);
+    0 0 0 1px var(--dialog-rim);
 }
 
 .confirm-content {
@@ -3109,8 +3099,8 @@ label:has(input:focus-visible) {
   padding: 11px 12px;
   border: 1px solid color-mix(in srgb, #d7a43f 52%, var(--border));
   border-radius: 11px;
-  color: color-mix(in srgb, #8a641e 84%, var(--text));
-  background: color-mix(in srgb, #fff2cc 62%, var(--surface));
+  color: var(--warning);
+  background: var(--warning-soft);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -3328,7 +3318,7 @@ label:has(input:focus-visible) {
   overflow: hidden;
   box-shadow:
     0 28px 80px color-mix(in srgb, #18233a 22%, transparent),
-    0 0 0 1px color-mix(in srgb, white 38%, transparent);
+    0 0 0 1px var(--dialog-rim);
 }
 
 .group-dialog-scroll {
@@ -3640,7 +3630,7 @@ label:has(input:focus-visible) {
   overflow: hidden;
   box-shadow:
     0 28px 80px color-mix(in srgb, #18233a 22%, transparent),
-    0 0 0 1px color-mix(in srgb, white 38%, transparent);
+    0 0 0 1px var(--dialog-rim);
 }
 
 .new-group-dialog-form {
@@ -4387,7 +4377,7 @@ label:has(input:focus-visible) {
 
 .trash-item-actions .is-delete-armed {
   color: white;
-  background: var(--danger);
+  background: var(--danger-fill);
 }
 
 .trash-bulk-actions {
@@ -4404,8 +4394,8 @@ label:has(input:focus-visible) {
 
 .group-editor-delete.is-delete-armed {
   color: white;
-  border-color: var(--danger);
-  background: var(--danger);
+  border-color: var(--danger-fill);
+  background: var(--danger-fill);
 }
 
 .danger-zone {
@@ -4998,7 +4988,7 @@ label:has(input:focus-visible) {
 .has-wallpaper .category-tab:not(.active):not(.add-group-tab):not(.is-drag-over):not(.is-group-sorting),
 .has-wallpaper .manage-groups-button {
   color: var(--text-soft);
-  border-color: color-mix(in srgb, white 45%, transparent);
+  border-color: var(--glass-border);
   background: color-mix(in srgb, var(--surface) 72%, transparent);
   backdrop-filter: blur(14px);
 }
@@ -5009,7 +4999,7 @@ label:has(input:focus-visible) {
 .has-wallpaper .grouped-site-header-main,
 .has-wallpaper .history-summary {
   color: var(--text);
-  text-shadow: 0 1px 3px rgb(255 255 255 / .85), 0 0 14px rgb(255 255 255 / .7);
+  text-shadow: var(--wallpaper-text-shadow);
 }
 .has-wallpaper .collection-heading p { color: var(--text-soft); }
 .has-wallpaper .collection-toolbar { border-bottom-color: transparent; }
@@ -5018,7 +5008,7 @@ label:has(input:focus-visible) {
 .has-wallpaper .manage-groups-button {
   min-height: calc(36px * var(--control-scale));
   padding: 0 10px;
-  border: 1px solid color-mix(in srgb, white 45%, transparent);
+  border: 1px solid var(--glass-border);
   border-radius: 10px;
 }
 .has-wallpaper .footer { text-shadow: none; }
@@ -5027,7 +5017,7 @@ label:has(input:focus-visible) {
   align-items: center;
   min-height: 28px;
   padding: 4px 10px;
-  border: 1px solid color-mix(in srgb, white 38%, transparent);
+  border: 1px solid var(--dialog-rim);
   border-radius: 8px;
   color: var(--text-soft);
   background: color-mix(in srgb, var(--surface) 76%, transparent);

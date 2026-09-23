@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { CaretDown, Check } from "@phosphor-icons/react";
+import { CaretDown, Check, Desktop, Sun, Moon } from "@phosphor-icons/react";
 import {
   applyLayoutPreset, applyTextSize, getLayoutPreset, getTextSize,
   LAYOUT_DETAILS, LAYOUT_OPTIONS, patchAppearance, restoreLayout, TEXT_SIZE_OPTIONS,
@@ -11,6 +11,11 @@ import { DEFAULT_APPEARANCE } from "../data/defaults";
 import { RangeControl } from "./range-control";
 
 const ACCENTS = ["#3367d6", "#6750a4", "#00897b", "#d97706", "#dc4f64", "#4f657d"];
+const THEMES = [
+  { value: "system", label: "跟随系统", icon: Desktop },
+  { value: "light", label: "浅色", icon: Sun },
+  { value: "dark", label: "深色", icon: Moon },
+] as const;
 
 interface AppearanceSettingsProps {
   value: Appearance;
@@ -30,6 +35,20 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
 
   return (
     <>
+      <section className="appearance-card" aria-label="主题">
+        <h3>主题</h3>
+        <p className="appearance-description">选择界面的明暗，或随系统自动切换。</p>
+        <div className="segmented-control appearance-theme-options" role="group" aria-label="主题模式">
+          {THEMES.map(({ value: theme, label, icon: Icon }) => (
+            <button key={theme} type="button" className={value.theme === theme ? "active" : ""}
+              aria-pressed={value.theme === theme}
+              onClick={() => onChange(patchAppearance(value, { theme }))}>
+              <Icon size={17} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
       <section className="appearance-card" aria-label="页面布局">
         <div className="appearance-heading">
           <h3>页面布局</h3>

@@ -155,6 +155,7 @@ export const DEFAULT_BRAND: BrandSettings = {
 };
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
+  theme: "system",
   accentColor: "#3367d6",
   layoutPreset: "standard",
   fontScale: 100,
@@ -301,7 +302,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 15,
+    version: 16,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

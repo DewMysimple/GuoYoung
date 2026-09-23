@@ -114,6 +114,8 @@ export function normalizeAppearance(value: unknown): AppearanceSettings {
       ? (value as Partial<AppearanceSettings>)
       : {};
   return {
+    theme: candidate.theme === "light" || candidate.theme === "dark" || candidate.theme === "system"
+      ? candidate.theme : DEFAULT_APPEARANCE.theme,
     accentColor: isHexColor(candidate.accentColor)
       ? candidate.accentColor
       : DEFAULT_APPEARANCE.accentColor,
@@ -577,7 +579,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 15 &&
+    state.version === 16 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -915,6 +917,23 @@ function upgradeToVersion15(
   };
 }
 
+function upgradeToVersion16(
+  legacy: Record<string, unknown> | SiteCollectionState,
+  sourceAppearance: unknown,
+): SiteCollectionState | undefined {
+  const base = legacy.version === 16 ? legacy : upgradeToVersion15(legacy);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  const appearance = normalizeAppearance(candidate.appearance);
+  // Existing installations were light-only. Preserve that appearance unless a
+  // valid preference already exists; fresh installations default to system.
+  const oldTheme = (sourceAppearance as Partial<AppearanceSettings> | undefined)?.theme;
+  if (legacy.version !== 16 && oldTheme !== "system" && oldTheme !== "light" && oldTheme !== "dark") {
+    appearance.theme = "light";
+  }
+  return { ...candidate, version: 16, appearance };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1029,7 +1048,8 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 15 ||
+        candidate.version === 16 ||
+          candidate.version === 15 ||
           candidate.version === 14 ||
           candidate.version === 13 ||
           candidate.version === 12 ||
@@ -1041,7 +1061,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion15(baseCandidate)
+        ? upgradeToVersion16(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.
