@@ -2,15 +2,6 @@
   gap: 14px;
 }
 
-.appearance-theme-options > button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  white-space: nowrap;
-}
-
 .appearance-card {
   min-width: 0;
   padding: 16px;
@@ -45,13 +36,13 @@
   font-size: 10px;
 }
 
-.appearance-presets {
+.appearance-option-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
-.appearance-presets > button {
+.appearance-option-grid > button {
   display: grid;
   min-width: 0;
   gap: 5px;
@@ -64,20 +55,77 @@
   text-align: center;
 }
 
-.appearance-presets > button[aria-pressed="true"] {
+.appearance-option-grid > button[aria-pressed="true"] {
   color: var(--accent-text);
   border-color: var(--accent);
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-.appearance-presets strong {
+.appearance-option-grid strong {
   font-size: 12px;
 }
 
-.appearance-presets small {
+.appearance-option-grid small {
   font-size: 10px;
   line-height: 1.5;
+}
+
+.appearance-theme-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.appearance-theme-label svg {
+  flex-shrink: 0;
+}
+
+/* These miniature samples retain their light/dark colors in either active theme. */
+.appearance-theme-preview {
+  --preview-page: #f4f6f9;
+  --preview-surface: #dfe4ec;
+  display: grid;
+  grid-template-rows: 6px 1fr;
+  gap: 5px;
+  height: 48px;
+  margin: 0 3px 5px;
+  padding: 5px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--preview-page);
+}
+
+.appearance-theme-preview.is-dark {
+  --preview-page: #171a21;
+  --preview-surface: #353d4b;
+}
+
+.appearance-theme-preview-toolbar,
+.appearance-theme-preview-tiles i {
+  border-radius: 2px;
+  background: var(--preview-surface);
+}
+
+.appearance-theme-preview-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.appearance-theme-preview.is-system {
+  background: linear-gradient(90deg, #f4f6f9 50%, #171a21 50%);
+}
+
+.appearance-theme-preview.is-system .appearance-theme-preview-toolbar {
+  background: linear-gradient(90deg, #dfe4ec 50%, #353d4b 50%);
+}
+
+.appearance-theme-preview.is-system .appearance-theme-preview-tiles i:nth-child(even) {
+  background: #353d4b;
 }
 
 .appearance-layout-preview {

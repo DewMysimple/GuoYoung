@@ -1,5 +1,7 @@
 .group-sort-drag-preview {
   display: grid;
+  /* An implicit auto track can grow beyond the fixed card width for long names. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
   color: var(--text);
   background: var(--surface);
@@ -15,12 +17,12 @@
 .group-sort-preview-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; }
 .group-sort-preview-count { color: var(--text-soft); font-size: 11px; }
 .group-sort-preview-grip { margin-left: auto; flex-shrink: 0; color: var(--text-faint); }
-.group-sort-preview-sites { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.group-sort-preview-sites { display: flex; min-width: 0; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .group-sort-preview-site { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; }
 .group-sort-preview-site .favicon-frame, .group-sort-preview-site .favicon-fallback { width: 22px; height: 22px; flex: 0 0 22px; border-radius: 6px; }
 .group-sort-preview-site .favicon-frame img, .group-sort-preview-site .favicon-frame svg { width: 18px; height: 18px; }
-.group-sort-preview-site > span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
-.group-sort-preview-more { color: var(--text-faint); font-size: 11px; }
+.group-sort-preview-site-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+.group-sort-preview-more { flex-shrink: 0; color: var(--text-faint); font-size: 11px; }
 .group-sort-preview-empty { margin-top: 12px; color: var(--text-faint); font-size: 12px; }
 .group-sort-drag-preview.is-horizontal { min-height: var(--group-tab-height); padding: 6px 12px; border-radius: 14px; }
 .group-sort-drag-preview.is-horizontal .group-sort-preview-copy { display: flex; align-items: center; gap: 8px; }

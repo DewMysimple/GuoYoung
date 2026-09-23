@@ -12,9 +12,9 @@ import { RangeControl } from "./range-control";
 
 const ACCENTS = ["#3367d6", "#6750a4", "#00897b", "#d97706", "#dc4f64", "#4f657d"];
 const THEMES = [
-  { value: "system", label: "跟随系统", icon: Desktop },
-  { value: "light", label: "浅色", icon: Sun },
-  { value: "dark", label: "深色", icon: Moon },
+  { value: "system", label: "跟随系统", description: "随系统自动切换", icon: Desktop },
+  { value: "light", label: "浅色", description: "明亮清晰", icon: Sun },
+  { value: "dark", label: "深色", description: "柔和暗色", icon: Moon },
 ] as const;
 
 interface AppearanceSettingsProps {
@@ -38,13 +38,19 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
       <section className="appearance-card" aria-label="主题">
         <h3>主题</h3>
         <p className="appearance-description">选择界面的明暗，或随系统自动切换。</p>
-        <div className="segmented-control appearance-theme-options" role="group" aria-label="主题模式">
-          {THEMES.map(({ value: theme, label, icon: Icon }) => (
-            <button key={theme} type="button" className={value.theme === theme ? "active" : ""}
+        <div className="appearance-option-grid appearance-theme-options" role="group" aria-label="主题模式">
+          {THEMES.map(({ value: theme, label, description, icon: Icon }) => (
+            <button key={theme} type="button" aria-label={label}
               aria-pressed={value.theme === theme}
               onClick={() => onChange(patchAppearance(value, { theme }))}>
-              <Icon size={17} aria-hidden="true" />
-              {label}
+              <span className={`appearance-theme-preview is-${theme}`} aria-hidden="true">
+                <span className="appearance-theme-preview-toolbar" />
+                <span className="appearance-theme-preview-tiles">
+                  {Array.from({ length: 4 }, (_, index) => <i key={index} />)}
+                </span>
+              </span>
+              <strong className="appearance-theme-label"><Icon size={14} aria-hidden="true" />{label}</strong>
+              <small>{description}</small>
             </button>
           ))}
         </div>
@@ -55,7 +61,7 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
           {preset === "custom" && <span className="appearance-status">已自定义</span>}
         </div>
         <p className="appearance-description">选择喜欢的疏密，卡片与间距一起调整。</p>
-        <div className="appearance-presets" role="group" aria-label="布局预设">
+        <div className="appearance-option-grid appearance-presets" role="group" aria-label="布局预设">
           {LAYOUT_OPTIONS.map(({ value: option, label, description }) => (
             <button key={option} type="button" aria-label={label}
               aria-pressed={preset === option}
