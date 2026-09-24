@@ -91,6 +91,7 @@ import { CollectionMouseSensor, CollectionTouchSensor, GROUP_SORT_ACTIVATION_DIS
 import { useCollectionSelection } from "./hooks/use-collection-selection";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
+import { dismissWallpaperStartup } from "./lib/wallpaper-startup";
 import {
   requestHistoryPermission,
   type BrowserHistoryPermissionResult,
@@ -199,8 +200,15 @@ export function App() {
   const effectiveWallpaper =
     settingsPreview?.wallpaper ?? state.wallpaper;
   useTheme(effectiveAppearance.theme, effectiveAppearance.accentColor);
-  const { imageUrl: wallpaperUrl, error: wallpaperError } =
+  const { imageUrl: wallpaperUrl, error: wallpaperError, pending: wallpaperPending } =
     useWallpaper(effectiveWallpaper);
+  const presented = useRef(false);
+  const waitingForWallpaper = !presented.current && wallpaperPending && !wallpaperUrl;
+  useLayoutEffect(() => {
+    if (isLoading || waitingForWallpaper) return;
+    presented.current = true;
+    if (!wallpaperUrl) dismissWallpaperStartup();
+  }, [isLoading, waitingForWallpaper, wallpaperUrl]);
   useLayoutEffect(() => {
     if (!wallpaperUrl) return;
     const root = document.documentElement;
@@ -1334,7 +1342,7 @@ export function App() {
     document.title = `${effectiveBrand.name} · 网站收藏`;
   }, [effectiveBrand.name]);
 
-  if (isLoading) {
+  if (isLoading || waitingForWallpaper) {
     return (
       <div className="app-shell app-loading min-h-[100dvh]" role="status">
         <span className="brand-mark loading-mark">
@@ -1359,7 +1367,7 @@ export function App() {
       {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} />}
       {wallpaperUrl && (
         <div className="wallpaper-layer" aria-hidden="true">
-          <img src={wallpaperUrl} alt="" />
+          <img src={wallpaperUrl} alt="" fetchPriority="high" onLoad={dismissWallpaperStartup} />
           <span />
         </div>
       )}

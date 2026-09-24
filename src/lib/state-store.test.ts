@@ -3,8 +3,21 @@ import { createDefaultState } from "../data/defaults";
 import type { ChromiumExtensionApi } from "./browser-runtime";
 import { createSiteHubStore } from "./state-store";
 import { STORAGE_KEY } from "./storage";
+import { WALLPAPER_STARTUP_KEY } from "./wallpaper-startup";
 
 describe("site hub store", () => {
+  it("does not update the startup preview when the authoritative save fails", async () => {
+    const state = createDefaultState();
+    const preview = "previous saved preview";
+    localStorage.setItem(WALLPAPER_STARTUP_KEY, preview);
+    const store = createSiteHubStore({ runtime: { id: "extension-id" }, storage: { local: {
+      get: vi.fn(), set: vi.fn().mockRejectedValue(new Error("write failed")),
+    } } }, localStorage);
+    await expect(store.save(state)).rejects.toThrow("write failed");
+    expect(localStorage.getItem(WALLPAPER_STARTUP_KEY)).toBe(preview);
+    localStorage.removeItem(WALLPAPER_STARTUP_KEY);
+  });
+
   it("loads and saves through chrome.storage.local in extension mode", async () => {
     const state = createDefaultState();
     const get = vi.fn().mockResolvedValue({

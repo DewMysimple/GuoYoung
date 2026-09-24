@@ -1,4 +1,5 @@
 import type { SiteCollectionState } from "../types";
+import { syncWallpaperStartup } from "./wallpaper-startup";
 import {
   getChromiumExtensionApi,
   isExtensionEnvironment,
@@ -37,14 +38,17 @@ export function createSiteHubStore(
       mode: "extension",
       async load() {
         const values = await extensionStorage.get(STORAGE_KEY);
-        return parseStoredState(
+        const loaded = parseStoredState(
           normalizeExtensionValue(values?.[STORAGE_KEY]),
         );
+        if (!loaded.recovered) void syncWallpaperStartup(loaded.state, webStorage);
+        return loaded;
       },
       async save(state) {
         await extensionStorage.set({
           [STORAGE_KEY]: JSON.stringify(state),
         });
+        void syncWallpaperStartup(state, webStorage);
       },
       subscribe(listener) {
         const changed = api.storage?.onChanged;
@@ -54,11 +58,9 @@ export function createSiteHubStore(
           areaName: string,
         ) => {
           if (areaName !== "local" || !(STORAGE_KEY in changes)) return;
-          listener(
-            parseStoredState(
-              normalizeExtensionValue(changes[STORAGE_KEY]?.newValue),
-            ),
-          );
+          const loaded = parseStoredState(normalizeExtensionValue(changes[STORAGE_KEY]?.newValue));
+          if (!loaded.recovered) void syncWallpaperStartup(loaded.state, webStorage);
+          listener(loaded);
         };
         changed.addListener(handleChange);
         return () => changed.removeListener(handleChange);
@@ -75,6 +77,7 @@ export function createSiteHubStore(
     },
     async save(state) {
       saveState(state, webStorage);
+      void syncWallpaperStartup(state, webStorage);
     },
   };
 }
