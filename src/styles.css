@@ -276,8 +276,8 @@ label:has(input:focus-visible) {
   height: var(--topbar-height);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   background: var(--topbar-background);
-  backdrop-filter: blur(var(--topbar-backdrop-blur)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--topbar-backdrop-blur)) saturate(140%);
+  --topbar-backdrop-filter: blur(var(--topbar-backdrop-blur)) saturate(140%);
+  backdrop-filter: var(--topbar-backdrop-filter);
 }
 
 .topbar-inner {
@@ -4988,44 +4988,3 @@ label:has(input:focus-visible) {
 
 .site-selection-toggle:disabled { cursor: default; opacity: .52; }
 .site-selection-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-/* Wallpaper keeps the normal page silhouette; only interactive controls get glass. */
-.has-wallpaper .category-tab:not(.active):not(.add-group-tab):not(.is-drag-over):not(.is-group-sorting),
-.has-wallpaper .manage-groups-button {
-  color: var(--text-soft);
-  border-color: var(--glass-border);
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
-  backdrop-filter: blur(14px);
-}
-.has-wallpaper .category-tab.active { background: color-mix(in srgb, var(--accent-soft) 92%, transparent); }
-.has-wallpaper .category-tab:hover:not(.is-group-sorting),
-.has-wallpaper .manage-groups-button:hover { background: var(--surface); }
-.has-wallpaper .collection-heading,
-.has-wallpaper .grouped-site-header-main,
-.has-wallpaper .history-summary {
-  color: var(--text);
-  text-shadow: var(--wallpaper-text-shadow);
-}
-.has-wallpaper .collection-heading p { color: var(--text-soft); }
-.has-wallpaper .collection-toolbar { border-bottom-color: transparent; }
-.has-wallpaper .footer::before { display: none; background: transparent; }
-
-.has-wallpaper .manage-groups-button {
-  min-height: calc(36px * var(--control-scale));
-  padding: 0 10px;
-  border: 1px solid var(--glass-border);
-  border-radius: 10px;
-}
-.has-wallpaper .footer { text-shadow: none; }
-.has-wallpaper .footer > span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 4px 10px;
-  border: 1px solid var(--dialog-rim);
-  border-radius: 8px;
-  color: var(--text-soft);
-  background: color-mix(in srgb, var(--surface) 76%, transparent);
-  backdrop-filter: blur(12px);
-  font-weight: 550;
-  line-height: 1.5;
-}
