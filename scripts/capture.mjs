@@ -63,9 +63,9 @@ try {
   await groupDialog.getByRole("button", { name: "返回收藏主页" }).click();
 
   await page.getByRole("button", { name: "打开设置" }).click();
-  await expect(page.getByRole("button", { name: "返回收藏主页" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "关闭设置" })).toBeVisible();
   await capture(page, "settings-panel");
-  await page.getByRole("button", { name: "返回收藏主页" }).click();
+  await page.getByRole("button", { name: "关闭设置" }).click();
 
   await page.getByRole("button", { name: "新建分组", exact: true }).click();
   const newGroupDialog = page.getByRole("dialog", { name: "新建分组", exact: true });

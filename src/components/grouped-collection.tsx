@@ -30,12 +30,12 @@ export function GroupedCollection({ sections, selection, drag, sorting, sortDisa
         {sections.map(({ group, sites }, index) => (
           <SortableGroupSection key={group.id} group={group} count={sites.length} disabled={sortDisabled}
             insertDisabled={insertDisabled}
+            actionsDisabled={sorting || Boolean(drag.activeId)}
             onInsert={position => onInsert(position === "before" ? group.id : sections[index + 1]?.group.id, { groupName: group.name, position })}
             onManage={() => onManage(group.id)}
-            groupSelected={selection.selectedGroupIds.has(group.id)} selectionActive={selection.selectionMode !== "none"}
+            groupSelected={selection.selectedGroupIds.has(group.id)} selectionMode={selection.selectionMode}
             onToggleGroupSelected={shiftKey => selection.toggleGroupSelection(group.id, shiftKey)}
             onEnterGroupSelection={() => selection.enterGroupSelectionFromDoubleClick(group.id)}
-            siteSelectionMode={selection.selectionMode === "sites"}
             allSitesSelected={sites.length > 0 && sites.every(site => selection.selectedSiteIds.has(site.id))}
             onToggleSiteSelectionMode={() => selection.toggleGroupedSiteSelection(sites.map(site => site.id))}>
             <CollectionSiteGrid group={group} sites={sites} grouped drag={drag}

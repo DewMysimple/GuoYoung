@@ -154,6 +154,7 @@ button, input, select { color: inherit; }
   flex: 1;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   border-block: 1px solid var(--border);
   background: var(--surface);
   scrollbar-width: thin;

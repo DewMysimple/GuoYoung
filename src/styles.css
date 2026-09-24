@@ -58,6 +58,7 @@
 html {
   min-width: 320px;
   overflow-x: clip;
+  scrollbar-gutter: stable both-edges;
   background: var(--page);
 }
 
@@ -3344,6 +3345,7 @@ label:has(input:focus-visible) {
   flex-direction: column;
   gap: 7px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 7px;
   border: 1px solid var(--border);
   border-radius: 15px;
@@ -3803,6 +3805,7 @@ label:has(input:focus-visible) {
 .settings-body {
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 2px 3px 20px;
 }
 
@@ -4330,6 +4333,7 @@ label:has(input:focus-visible) {
   display: grid !important;
   max-height: 310px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   gap: 7px !important;
   padding-right: 3px;
 }

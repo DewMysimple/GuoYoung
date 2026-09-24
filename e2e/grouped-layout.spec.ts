@@ -25,7 +25,8 @@ test("aligns group headers, actions and cards across layout sizes and long names
         icon: child(".grouped-site-icon"), add: child(".group-add-trigger"),
         manage: child(".grouped-site-manage"), select: child(".grouped-site-multi-select"),
         card: child(".site-card"), title: child("h3"), count: child(".grouped-site-count"),
-        overflow: document.documentElement.scrollWidth - innerWidth,
+        // The reserved scrollbar gutter can make content narrower than the viewport.
+        overflow: document.documentElement.scrollWidth > innerWidth,
       };
     });
     expect(Math.abs(boxes.heading.left - boxes.icon.left)).toBeLessThanOrEqual(1);
@@ -35,7 +36,7 @@ test("aligns group headers, actions and cards across layout sizes and long names
     expect(boxes.title.width).toBeGreaterThan(16);
     expect(boxes.title.right).toBeLessThanOrEqual(boxes.count.left);
     expect(boxes.add.right).toBeLessThanOrEqual(boxes.select.left);
-    expect(boxes.overflow).toBe(0);
+    expect(boxes.overflow).toBe(false);
     await page.screenshot({ path: screenshotPath(`grouped-alignment-${preset}-${testInfo.project.name}.png`), fullPage: true, animations: "disabled" });
     await first.getByRole("heading", { level: 3 }).dblclick();
     const selectionBox = await first.locator(".group-selection-trigger").boundingBox();
@@ -62,8 +63,28 @@ test("group insertion menu keeps keyboard focus and only one menu open", async (
   await develop.click();
   await expect(page.getByRole("menu", { name: "添加到 搜索 附近" })).toHaveCount(0);
   await expect(page.getByRole("menu", { name: "添加到 开发 附近" })).toBeVisible();
+  const menu = (await page.getByRole("menu", { name: "添加到 开发 附近" }).boundingBox())!;
+  expect(menu.x).toBeGreaterThanOrEqual(0);
+  expect(menu.x + menu.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("group-sort-vertical-drag-preview")).toHaveCount(0);
+});
+
+test("group action buttons cannot start a group drag or title selection", async ({ page }) => {
+  await page.getByRole("button", { name: "显示", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+  const section = page.locator('[data-group-sort-section-id="search"]');
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).groups);
+  for (const selector of [".group-add-trigger", ".grouped-site-manage", ".grouped-site-multi-select"]) {
+    const box = (await section.locator(selector).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 80, box.y + 65, { steps: 8 });
+    await expect(page.locator(".group-sort-drag-preview")).toHaveCount(0);
+    await page.mouse.up();
+    await expect(section).not.toHaveClass(/is-group-selected|is-group-sorting/);
+  }
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).groups)).toEqual(before);
 });
 
 test("cancels pending and active collection sensors on page loss and can drag again", async ({ page }) => {

@@ -39,7 +39,7 @@ test("fits topbar actions beside settings at intermediate window sizes", async (
       if (index) expect(button.x).toBeGreaterThanOrEqual(geometry.buttons[index - 1].right - 1);
     }
     await page.screenshot({ path: screenshotPath(`settings-header-${width}-${testInfo.project.name}.png`), animations: "disabled" });
-    await page.getByRole("button", { name: "返回收藏主页" }).click();
+    await page.getByRole("button", { name: "关闭设置" }).click();
   }
 });
 

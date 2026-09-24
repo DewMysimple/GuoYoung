@@ -1,6 +1,7 @@
 import {
   getChromiumExtensionApi,
   isExtensionEnvironment,
+  type BrowserHistoryApi,
 } from "./lib/browser-runtime";
 import {
   HISTORY_INVALIDATED_MESSAGE,
@@ -20,18 +21,25 @@ function notifyOpenViews() {
   }
 }
 
-let historyListenersRegistered = false;
+let registeredHistory: BrowserHistoryApi | undefined;
 
 function registerHistoryListeners() {
-  if (historyListenersRegistered || !api?.history) return;
+  if (registeredHistory || !api?.history) return;
   api.history.onVisited?.addListener(notifyOpenViews);
   api.history.onVisitRemoved?.addListener(notifyOpenViews);
-  historyListenersRegistered = true;
+  registeredHistory = api.history;
 }
 
 if (isExtensionEnvironment(api)) {
   registerHistoryListeners();
   api?.permissions?.onAdded?.addListener(({ permissions }) => {
     if (permissions?.includes(HISTORY_PERMISSION)) registerHistoryListeners();
+  });
+  api?.permissions?.onRemoved?.addListener(({ permissions }) => {
+    if (!permissions?.includes(HISTORY_PERMISSION)) return;
+    registeredHistory?.onVisited?.removeListener(notifyOpenViews);
+    registeredHistory?.onVisitRemoved?.removeListener(notifyOpenViews);
+    registeredHistory = undefined;
+    notifyOpenViews();
   });
 }

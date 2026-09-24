@@ -16,7 +16,6 @@ import {
 } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  ArrowLeft,
   ArrowCounterClockwise,
   ArrowsOutCardinal,
   Crosshair,
@@ -550,15 +549,6 @@ export function SettingsPanel({
               </Dialog.Description>
             </div>
             <div className="panel-header-actions">
-              <button
-                type="button"
-                className="panel-back-button"
-                aria-label="返回收藏主页"
-                onClick={closeWithoutSaving}
-              >
-                <ArrowLeft size={16} />
-                返回
-              </button>
               <button
                 type="button"
                 className="icon-button"

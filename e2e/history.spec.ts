@@ -1,5 +1,47 @@
 import { expect, test, screenshotPath } from "./fixtures";
 
+test("recovers after denied, granted and revoked history permissions without reopening the page", async ({ page }, info) => {
+  await page.addInitScript(() => {
+    let granted = false, requests = 0;
+    type PermissionListener = (value: { permissions: string[] }) => void;
+    const added = new Set<PermissionListener>(), removed = new Set<PermissionListener>();
+    const change = (next: boolean) => {
+      granted = next;
+      (next ? added : removed).forEach(fn => fn({ permissions: ["history"] }));
+    };
+    window.addEventListener("test-history-revoke", () => change(false));
+    window.addEventListener("test-history-grant", () => change(true));
+    Object.defineProperty(window, "chrome", { configurable: true, value: {
+      runtime: { id: "history-lifecycle-test" },
+      permissions: {
+        contains: async () => granted,
+        request: async () => { if (++requests > 1) change(true); return granted; },
+        onAdded: { addListener: (fn: PermissionListener) => added.add(fn), removeListener: (fn: PermissionListener) => added.delete(fn) },
+        onRemoved: { addListener: (fn: PermissionListener) => removed.add(fn), removeListener: (fn: PermissionListener) => removed.delete(fn) },
+      },
+      history: {
+        search: async () => {
+          if (!granted) throw new Error("Permission removed");
+          return [{ id: "example", title: "Permission lifecycle", url: "https://example.com/native-check", lastVisitTime: Date.now() }];
+        },
+      },
+    } });
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "打开历史记录" }).click();
+  const authorize = page.getByRole("button", { name: "允许读取历史记录" });
+  await expect(authorize).toBeVisible();
+  await authorize.click();
+  await expect(page.locator(".history-site-card")).toHaveCount(1);
+  await page.evaluate(() => window.dispatchEvent(new Event("test-history-revoke")));
+  await expect(authorize).toBeVisible();
+  await expect(page.locator(".history-site-card")).toHaveCount(0);
+  await page.screenshot({ path: screenshotPath(`history-permission-revoked-${info.project.name}.png`) });
+  await page.evaluate(() => window.dispatchEvent(new Event("test-history-grant")));
+  await expect(page.locator(".history-site-card")).toHaveCount(1);
+  await expect(authorize).toHaveCount(0);
+});
+
 test("opens the browser history entry and explains the web-only limitation", async ({
   page,
 }) => {

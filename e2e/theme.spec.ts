@@ -68,7 +68,7 @@ test("keeps v15 installations light and discards a theme-only draft on close", a
   await panel.getByRole("button", { name: "深色", exact: true }).click();
   await expect(page.getByTestId("site-card-github").getByTestId("favicon-selected-brand"))
     .toHaveCSS("background-color", "rgb(238, 241, 245)");
-  await panel.getByRole("button", { name: "返回收藏主页" }).click();
+  await panel.getByRole("button", { name: "关闭设置" }).click();
   await expect(panel).toHaveCount(0);
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });

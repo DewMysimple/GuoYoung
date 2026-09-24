@@ -116,6 +116,7 @@ export interface BrowserPermissionsApi {
     callback?: (granted: boolean) => void,
   ) => BrowserApiResult<boolean>;
   onAdded?: BrowserPermissionChangedEvent;
+  onRemoved?: BrowserPermissionChangedEvent;
 }
 
 export interface BrowserPermissionChangedEvent {

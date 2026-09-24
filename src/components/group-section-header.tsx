@@ -1,22 +1,23 @@
-import { CheckSquare, DotsSixVertical, DotsThree } from "@phosphor-icons/react";
+import { Check, CheckSquare, DotsSixVertical, DotsThree } from "@phosphor-icons/react";
 import type { HTMLAttributes } from "react";
 import type { SiteGroup } from "../types";
+import type { CollectionSelection } from "../lib/collection-selection";
 import { CategoryIcon } from "./category-icon";
 import { CompactIconButton } from "./compact-icon-button";
-import { GroupInsertControl, stopGroupSortPointer } from "./group-insert-control";
+import { GroupInsertControl } from "./group-insert-control";
 
 export interface GroupSectionHeaderProps {
   group: SiteGroup;
   count: number;
   canSort: boolean;
   insertDisabled: boolean;
+  actionsDisabled: boolean;
   onInsert: (position: "before" | "after") => void;
   onManage: () => void;
   groupSelected: boolean;
-  selectionActive: boolean;
+  selectionMode: CollectionSelection["mode"];
   onToggleGroupSelected: (shiftKey?: boolean) => void;
   onEnterGroupSelection: () => void;
-  siteSelectionMode: boolean;
   allSitesSelected: boolean;
   onToggleSiteSelectionMode: () => void;
   pointerListeners: Pick<HTMLAttributes<HTMLElement>, "onMouseDown" | "onTouchStart">;
@@ -27,17 +28,21 @@ export function GroupSectionHeader({
   count,
   canSort,
   insertDisabled,
+  actionsDisabled,
   onInsert,
   onManage,
   groupSelected,
-  selectionActive,
+  selectionMode,
   onToggleGroupSelected,
   onEnterGroupSelection,
-  siteSelectionMode,
   allSitesSelected,
   onToggleSiteSelectionMode,
   pointerListeners,
 }: GroupSectionHeaderProps) {
+  const selectionActive = selectionMode !== "none";
+  const selectionLabel = !selectionActive ? "多选"
+    : allSitesSelected && selectionMode === "sites" ? "取消全选" : "全选";
+
   return (
       <header className="grouped-site-header">
         <div
@@ -49,15 +54,12 @@ export function GroupSectionHeader({
           }
           onClick={(event) => {
             if (!selectionActive || group.isProtected) return;
-            if ((event.target as Element).closest("button")) return;
             event.preventDefault();
             event.stopPropagation();
             onToggleGroupSelected(event.shiftKey);
           }}
           onDoubleClick={(event) => {
-            if (selectionActive || (event.target as Element).closest("button")) {
-              return;
-            }
+            if (selectionActive || group.isProtected) return;
             event.preventDefault();
             event.stopPropagation();
             onEnterGroupSelection();
@@ -66,23 +68,29 @@ export function GroupSectionHeader({
         >
           <span className="grouped-site-icon">
             <CategoryIcon name={group.icon} size={17} />
+            {canSort && <span className="grouped-site-sort-grip" aria-hidden="true"><DotsSixVertical size={18} /></span>}
           </span>
           <h3 id={`group-row-${group.id}`} title={group.name}>{group.name}</h3>
           <span className="grouped-site-count" aria-label={`${count} 个网站`}>{count}</span>
-          {canSort && (
-            <span className="grouped-site-sort-grip" aria-hidden="true">
-              <DotsSixVertical size={16} />
-            </span>
+        </div>
+        {/* Actions are siblings of the drag surface: no nested pointer interception. */}
+        <div className="grouped-site-actions" data-selection-surface="group-actions">
+          {selectionActive ? (
+            <CompactIconButton className={`group-selection-trigger ${groupSelected ? "is-selected" : ""}`}
+              disabled={group.isProtected || actionsDisabled}
+              aria-label={`${groupSelected ? "取消选择" : "选择"} ${group.name} 分组`}
+              aria-pressed={groupSelected}
+              onClick={event => { event.stopPropagation(); onToggleGroupSelected(event.shiftKey); }}>
+              <span className="group-selection-mark">{groupSelected && <Check size={12} weight="bold" aria-hidden="true" />}</span>
+            </CompactIconButton>
+          ) : (
+            <GroupInsertControl group={group} disabled={insertDisabled} onInsert={onInsert} />
           )}
           <CompactIconButton
             className="grouped-site-manage"
-            disabled={selectionActive}
-            aria-disabled={selectionActive || undefined}
+            disabled={selectionActive || actionsDisabled}
             aria-label={`管理 ${group.name} 分组`}
             title={`管理 ${group.name} 分组`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onMouseDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
               onManage();
@@ -90,38 +98,23 @@ export function GroupSectionHeader({
           >
             <DotsThree size={18} aria-hidden="true" />
           </CompactIconButton>
-          <GroupInsertControl group={group} disabled={insertDisabled} selectionActive={selectionActive}
-            selected={groupSelected} onToggleSelected={onToggleGroupSelected} onInsert={onInsert} />
-        </div>
         <button
           type="button"
           className={`grouped-site-multi-select ${selectionActive ? "active" : ""}`}
           data-selection-surface="selection-switch"
           aria-pressed={selectionActive}
-          aria-label={
-            !selectionActive
-              ? `多选 ${group.name} 网站`
-              : allSitesSelected && siteSelectionMode
-                ? `取消全选 ${group.name} 网站`
-                : `全选 ${group.name} 网站`
-          }
-          onPointerDown={stopGroupSortPointer}
-          onMouseDown={stopGroupSortPointer}
-          onTouchStart={stopGroupSortPointer}
+          aria-label={`${selectionLabel} ${group.name} 网站`}
+          title={`${selectionLabel}网站`}
+          disabled={actionsDisabled}
           onClick={(event) => {
             event.stopPropagation();
             onToggleSiteSelectionMode();
           }}
         >
-          <CheckSquare size={15} />
-          <span>
-            {!selectionActive
-              ? "多选"
-              : allSitesSelected && siteSelectionMode
-                ? "取消全选"
-                : "全选"}
-          </span>
+          <CheckSquare size={16} aria-hidden="true" />
+          <span>{selectionLabel}</span>
         </button>
+        </div>
       </header>
   );
 }

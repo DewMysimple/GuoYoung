@@ -9,6 +9,8 @@ test("opens and expands the trash shortcut in settings", async ({
   });
   await page.getByRole("button", { name: "打开回收站" }).click();
   const dialog = page.getByRole("dialog", { name: "设置" });
+  await expect(dialog.getByRole("button", { name: "返回收藏主页" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "关闭设置" })).toBeVisible();
   await expect(dialog.getByRole("tab", { name: /数据/ })).toHaveAttribute(
     "aria-selected",
     "true",
@@ -66,8 +68,8 @@ test("dismisses clean settings outside and warns before discarding changes", asy
   test.skip(testInfo.project.name === "mobile", "The mobile settings panel fills the viewport");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("button", { name: "打开设置" }).click();
-  await expect(page.getByRole("button", { name: "返回收藏主页" })).toBeVisible();
-  await page.getByRole("button", { name: "返回收藏主页" }).click();
+  await expect(page.getByRole("button", { name: "关闭设置" })).toBeVisible();
+  await page.getByRole("button", { name: "关闭设置" }).click();
   await expect(page.getByRole("dialog", { name: "设置" })).toHaveCount(0);
   await page.getByRole("button", { name: "打开设置" }).click();
   const dismissLayer = page.getByTestId("settings-outside-dismiss-layer");

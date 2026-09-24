@@ -362,3 +362,23 @@ export function subscribeToBrowserHistoryChanges(
     history?.onVisitRemoved?.removeListener(handleVisitRemoved);
   };
 }
+
+/** Observe only history permission, keeping unrelated extension grants out of the view. */
+export function subscribeToHistoryPermissionChanges(
+  listener: (granted: boolean) => void,
+  api: ChromiumExtensionApi | undefined = getChromiumExtensionApi(),
+): () => void {
+  const permissions = api?.permissions;
+  const added = (value: { permissions?: string[] }) => {
+    if (value.permissions?.includes(HISTORY_PERMISSION)) listener(true);
+  };
+  const removed = (value: { permissions?: string[] }) => {
+    if (value.permissions?.includes(HISTORY_PERMISSION)) listener(false);
+  };
+  permissions?.onAdded?.addListener(added);
+  permissions?.onRemoved?.addListener(removed);
+  return () => {
+    permissions?.onAdded?.removeListener(added);
+    permissions?.onRemoved?.removeListener(removed);
+  };
+}
