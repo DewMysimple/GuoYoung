@@ -1,6 +1,6 @@
 .settings-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .settings-inline-actions .button { flex: 1; font-size: 11px; padding-inline: 8px; }
-.interface-dimensions summary, .wallpaper-material-details summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+.interface-dimensions summary { cursor: pointer; font-size: 12px; font-weight: 700; }
 .interface-dimensions summary span { margin-left: 8px; color: var(--text-faint); font-size: 10px; font-weight: 500; }
 .interface-dimensions .range-control + .range-control { margin-top: 14px; }
 .wallpaper-settings { gap: 14px; }
@@ -13,8 +13,6 @@
 .wallpaper-thumbnail:has(img) { align-content: end; justify-content: start; padding: 10px; }
 .wallpaper-source-actions, .wallpaper-position-actions { display: flex; gap: 8px; align-items: center; }
 .wallpaper-source-actions .button, .wallpaper-position-actions .button { flex: 1; min-width: 0; }
-.wallpaper-material-details { border-top: 1px solid var(--border); padding-top: 12px; }
-.wallpaper-material-details[open] { display: grid; gap: 14px; }
 .wallpaper-settings .segmented-control button { font-size: 11px; padding-inline: 4px; }
 .data-settings { gap: 14px; }
 .data-overview { display: flex; gap: 20px; padding: 16px; border-radius: 14px; background: var(--surface-raised); }

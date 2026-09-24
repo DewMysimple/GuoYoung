@@ -1,9 +1,11 @@
 import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
+import { GlassRefraction, supportsGlassRefraction } from "./components/glass-refraction";
 import { patchAppearance } from "./lib/appearance-settings";
 import {
   Fragment,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -199,6 +201,19 @@ export function App() {
   useTheme(effectiveAppearance.theme, effectiveAppearance.accentColor);
   const { imageUrl: wallpaperUrl, error: wallpaperError } =
     useWallpaper(effectiveWallpaper);
+  useLayoutEffect(() => {
+    if (!wallpaperUrl) return;
+    const root = document.documentElement;
+    // Viewport units can already exclude a persistent root scrollbar. Measure
+    // its real width instead so wallpaper reaches the edge and search stays centered.
+    const update = () => root.style.setProperty("--page-scrollbar-width", `${window.innerWidth - root.clientWidth}px`);
+    update();
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      root.style.removeProperty("--page-scrollbar-width");
+    };
+  }, [wallpaperUrl]);
   const reduceMotion = useReducedMotion();
   const [query, setQuery] = useState("");
   const [activeGroupId, setActiveGroupId] = useState<GroupFilter>("all");
@@ -1294,6 +1309,10 @@ export function App() {
     "--wallpaper-zoom": String(effectiveWallpaper.zoom / 100),
     "--wallpaper-blur": `${effectiveWallpaper.blur}px`,
     "--wallpaper-overlay": String(effectiveWallpaper.overlay / 100),
+    "--glass-opacity": `${100 - effectiveWallpaper.glassTransparency}%`,
+    "--glass-highlight": String(effectiveWallpaper.glassHighlight / 100),
+    "--glass-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%)`,
+    "--glass-card-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%) url(#wallpaper-glass-lens)`,
     "--topbar-background": `color-mix(in srgb, var(--page) ${effectiveWallpaper.topbarOpacity}%, transparent)`,
     "--topbar-backdrop-blur": effectiveWallpaper.topbarBlurEnabled
       ? `${effectiveWallpaper.topbarBlur}px`
@@ -1308,6 +1327,7 @@ export function App() {
   }, [
     effectiveAppearance,
     effectiveWallpaper,
+    wallpaperUrl,
   ]);
 
   useEffect(() => {
@@ -1331,11 +1351,12 @@ export function App() {
       className={`app-shell min-h-[100dvh] ${
         activeDragId || pendingDragId ? "is-site-dragging" : ""
       } ${settingsOpen ? "settings-open" : ""} ${
-        wallpaperUrl ? "has-wallpaper" : ""
+        wallpaperUrl ? `has-wallpaper topbar-${effectiveWallpaper.topbarStyle} ${effectiveWallpaper.glassRefraction && supportsGlassRefraction ? "glass-refraction" : ""}` : ""
       }`}
       style={appStyle}
       {...siteClickHandlers}
     >
+      {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} />}
       {wallpaperUrl && (
         <div className="wallpaper-layer" aria-hidden="true">
           <img src={wallpaperUrl} alt="" />

@@ -180,6 +180,13 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
   topbarBlurEnabled: true,
   topbarBlur: 16,
   topbarOpacity: 68,
+  topbarStyle: "clear",
+  glassTransparency: 78,
+  glassBlur: 12,
+  glassSaturation: 130,
+  glassHighlight: 45,
+  glassRefraction: false,
+  glassRefractionStrength: 24,
 };
 
 export const DEFAULT_GROUPS: SiteGroup[] = [
@@ -302,7 +309,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 16,
+    version: 17,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

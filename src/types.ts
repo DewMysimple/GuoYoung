@@ -197,6 +197,13 @@ export interface WallpaperSettings {
   topbarBlurEnabled: boolean;
   topbarBlur: number;
   topbarOpacity: number;
+  topbarStyle: "clear" | "glass";
+  glassTransparency: number;
+  glassBlur: number;
+  glassSaturation: number;
+  glassHighlight: number;
+  glassRefraction: boolean;
+  glassRefractionStrength: number;
 }
 
 export interface SearchHistoryEntry {

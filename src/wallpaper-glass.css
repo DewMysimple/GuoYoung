@@ -1,11 +1,32 @@
 /* One material system for every surface shown over a wallpaper.
    The blur value lives in a custom property so the production CSS optimizer
    keeps the standards property Chromium actually supports. */
-.has-wallpaper {
+/* Wallpaper reaches the left viewport edge. Keep one thin, persistent native
+   scrollbar on the right so short/long pages and modal locks keep their width. */
+html:has(.app-shell.has-wallpaper) {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 35%, transparent) transparent;
+}
+
+/* Balance the native scrollbar inside the wallpaper, rather than leaving a
+   blank root gutter. Search and content stay centered in the visible window. */
+.app-shell.has-wallpaper { padding-left: var(--page-scrollbar-width, 0px); }
+
+:root:has(.app-shell.has-wallpaper) {
+  --glass-fill: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent);
+  --glass-fill-low: var(--glass-fill);
+  --glass-fill-high: color-mix(in srgb, var(--glass-fill) 92%, var(--surface));
+  --glass-edge: rgb(255 255 255 / var(--glass-highlight));
+  --glass-edge-soft: rgb(255 255 255 / calc(var(--glass-highlight) * .65));
+  --glass-sheen: rgb(255 255 255 / calc(var(--glass-highlight) * .24));
+  --glass-flare: rgb(255 255 255 / calc(var(--glass-highlight) * .15));
+  --glass-reflection: rgb(255 255 255 / var(--glass-highlight));
+  --glass-shadow: 0 8px 24px rgb(24 43 70 / .12), inset 0 1px 0 var(--glass-edge), inset 0 -1px 0 var(--glass-edge-soft);
   --glass-surface-image:
     linear-gradient(142deg, var(--glass-sheen), transparent 46%),
-    radial-gradient(ellipse at 14% 0%, var(--glass-flare), transparent 58%),
-    linear-gradient(180deg, var(--glass-fill), var(--glass-fill-low));
+    radial-gradient(ellipse at 14% 0%, var(--glass-flare), transparent 58%);
 }
 
 .has-wallpaper .topbar {
@@ -20,13 +41,15 @@
   z-index: -1;
   inset: 0;
   border-bottom: 1px solid var(--glass-edge-soft);
-  background-color: var(--glass-fill-high);
-  background-image: var(--glass-surface-image);
-  box-shadow: 0 1px 0 rgb(255 255 255 / .2), 0 8px 24px rgb(22 40 66 / .08);
-  backdrop-filter: var(--glass-filter);
+  background: var(--topbar-background);
+  box-shadow: inset 0 -1px 0 var(--glass-edge-soft);
+  backdrop-filter: var(--topbar-backdrop-filter);
   content: "";
   pointer-events: none;
 }
+
+.has-wallpaper.topbar-clear .topbar::before { display: none; }
+.has-wallpaper.topbar-clear .brand { text-shadow: var(--wallpaper-text-shadow); }
 
 .has-wallpaper .topbar-history-button,
 .has-wallpaper .icon-button,
@@ -184,6 +207,10 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 .has-wallpaper .site-card .open-arrow,
 .has-wallpaper .add-site-card {
   color: color-mix(in srgb, var(--text) 78%, var(--text-soft));
+}
+
+:root[data-theme="dark"] .has-wallpaper .site-card {
+  text-shadow: 0 1px 2px rgb(0 0 0 / .65);
 }
 
 .has-wallpaper:not(.is-site-dragging)
@@ -407,6 +434,15 @@ body:has(.app-shell.has-wallpaper) .group-list-item.is-checked {
   background-image: linear-gradient(145deg, var(--glass-reflection), transparent 64%);
 }
 
+/* Chromium's backdrop URL filters are optional. Other engines retain the
+   standard blur, and reduced-transparency below always takes precedence. */
+@supports (backdrop-filter: url("#wallpaper-glass-lens")) {
+  .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
+  .has-wallpaper.glass-refraction .add-site-card {
+    backdrop-filter: var(--glass-card-filter);
+  }
+}
+
 @supports not (backdrop-filter: blur(1px)) {
   .has-wallpaper .topbar::before,
   .has-wallpaper .topbar-history-button,
@@ -438,6 +474,11 @@ body:has(.app-shell.has-wallpaper) .group-list-item.is-checked {
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
+  .has-wallpaper.glass-refraction .add-site-card {
+    backdrop-filter: none;
+  }
+
   .has-wallpaper .topbar::before {
     background-image: none;
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);

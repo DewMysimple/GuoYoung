@@ -608,7 +608,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":16');
+      expect(stored).toContain('"version":17');
     });
   });
 
@@ -881,7 +881,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(16);
+      expect(stored.version).toBe(17);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -1296,9 +1296,9 @@ describe("App", () => {
       expect(shell.style.getPropertyValue("--wallpaper-zoom")).toBe("1.08");
     });
 
-    await user.click(screen.getByText("顶栏材质", { selector: "summary" }));
-    fireEvent.change(screen.getByRole("slider", { name: /背景透明度/ }), {
-      target: { value: "42" },
+    await user.click(screen.getByRole("button", { name: "玻璃底板" }));
+    fireEvent.change(screen.getByRole("slider", { name: "顶栏透明度" }), {
+      target: { value: "58" },
     });
     expect(shell.style.getPropertyValue("--topbar-background")).toContain("42%");
 

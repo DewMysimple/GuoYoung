@@ -369,6 +369,13 @@ export function normalizeWallpaper(value: unknown): WallpaperSettings {
       100,
       DEFAULT_WALLPAPER.topbarOpacity,
     ),
+    topbarStyle: candidate.topbarStyle === "glass" ? "glass" : DEFAULT_WALLPAPER.topbarStyle,
+    glassTransparency: clamp(candidate.glassTransparency, 0, 100, DEFAULT_WALLPAPER.glassTransparency),
+    glassBlur: clamp(candidate.glassBlur, 0, 30, DEFAULT_WALLPAPER.glassBlur),
+    glassSaturation: clamp(candidate.glassSaturation, 100, 200, DEFAULT_WALLPAPER.glassSaturation),
+    glassHighlight: clamp(candidate.glassHighlight, 0, 100, DEFAULT_WALLPAPER.glassHighlight),
+    glassRefraction: typeof candidate.glassRefraction === "boolean" ? candidate.glassRefraction : DEFAULT_WALLPAPER.glassRefraction,
+    glassRefractionStrength: clamp(candidate.glassRefractionStrength, 0, 40, DEFAULT_WALLPAPER.glassRefractionStrength),
   };
 }
 
@@ -579,7 +586,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 16 &&
+    state.version === 17 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -934,6 +941,16 @@ function upgradeToVersion16(
   return { ...candidate, version: 16, appearance };
 }
 
+function upgradeToVersion17(
+  legacy: Record<string, unknown> | SiteCollectionState,
+  sourceAppearance: unknown,
+): SiteCollectionState | undefined {
+  const base = legacy.version === 17 ? legacy : upgradeToVersion16(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return { ...candidate, version: 17, wallpaper: normalizeWallpaper(candidate.wallpaper) };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1048,7 +1065,8 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 16 ||
+        candidate.version === 17 ||
+          candidate.version === 16 ||
           candidate.version === 15 ||
           candidate.version === 14 ||
           candidate.version === 13 ||
@@ -1061,7 +1079,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion16(baseCandidate, candidate.appearance)
+        ? upgradeToVersion17(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.

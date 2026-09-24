@@ -6,9 +6,9 @@ import { RangeControl } from "./range-control";
 import "./settings-editors.css";
 
 const ATMOSPHERES = [
-  { label: "清晰阅读", blur: 0, overlay: 22, topbarOpacity: 68, topbarBlur: 16 },
-  { label: "柔和背景", blur: 6, overlay: 38, topbarOpacity: 68, topbarBlur: 20 },
-  { label: "突出壁纸", blur: 0, overlay: 0, topbarOpacity: 68, topbarBlur: 16 },
+  { label: "清晰阅读", blur: 0, overlay: 22 },
+  { label: "柔和背景", blur: 6, overlay: 38 },
+  { label: "突出壁纸", blur: 0, overlay: 0 },
 ] as const;
 
 export function WallpaperSettingsEditor({ value, imageUrl, error, processing, editing, onChange, onChoose, onToggleEditing }: {
@@ -66,19 +66,50 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       <p className="appearance-description">保留壁纸的层次，通过柔化背景改善阅读。</p>
       <div className="segmented-control" role="group" aria-label="壁纸氛围">
         {ATMOSPHERES.map(({ label, ...patch }) => <button key={label} type="button" disabled={!enabled}
-          className={Object.entries(patch).every(([key, val]) => value[key as keyof WallpaperSettings] === val) && value.topbarBlurEnabled ? "active" : ""}
-          onClick={() => onChange({ ...patch, topbarBlurEnabled: true })}>{label}</button>)}
+          className={Object.entries(patch).every(([key, val]) => value[key as keyof WallpaperSettings] === val) ? "active" : ""}
+          onClick={() => onChange(patch)}>{label}</button>)}
       </div>
       <RangeControl label="模糊" min={0} max={20} value={value.blur} disabled={!enabled} onChange={(blur) => onChange({ blur })} />
       <RangeControl label="明暗遮罩" min={0} max={80} value={value.overlay} unit="%" disabled={!enabled} onChange={(overlay) => onChange({ overlay })} />
-      <details className="wallpaper-material-details">
-        <summary>顶栏材质</summary>
+    </section>
+
+    <section className="appearance-card" aria-label="玻璃外观">
+      <h3>玻璃外观</h3>
+      <p className="appearance-description">卡片与按钮一起预览。透明度越高，越能看见壁纸；磨砂越低，折射越清晰。</p>
+      {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
+      <RangeControl label="玻璃透明度" min={0} max={100} value={value.glassTransparency} unit="%" onChange={(glassTransparency) => onChange({ glassTransparency })} />
+      <RangeControl label="玻璃磨砂" min={0} max={30} value={value.glassBlur} onChange={(glassBlur) => onChange({ glassBlur })} />
+      <RangeControl label="色彩饱和度" min={100} max={200} value={value.glassSaturation} unit="%" onChange={(glassSaturation) => onChange({ glassSaturation })} />
+      <RangeControl label="边缘高光" min={0} max={100} value={value.glassHighlight} unit="%" onChange={(glassHighlight) => onChange({ glassHighlight })} />
+      <label className="toggle-row"><span><strong>玻璃折射</strong><small>轻微弯折卡片边缘后的壁纸，文字保持清晰</small></span>
+        <input type="checkbox" checked={value.glassRefraction} onChange={(event) => onChange({ glassRefraction: event.target.checked })} />
+      </label>
+      {value.glassRefraction && <>
+        <RangeControl label="折射强度" min={0} max={40} value={value.glassRefractionStrength} onChange={(glassRefractionStrength) => onChange({ glassRefractionStrength })} />
+        <p className="appearance-description">Chrome / Edge 支持折射；其他浏览器保留磨砂玻璃。关闭可减少绘制开销。</p>
+      </>}
+      <button type="button" className="button secondary-button" onClick={() => onChange({
+        glassTransparency: DEFAULT_WALLPAPER.glassTransparency, glassBlur: DEFAULT_WALLPAPER.glassBlur,
+        glassSaturation: DEFAULT_WALLPAPER.glassSaturation, glassHighlight: DEFAULT_WALLPAPER.glassHighlight,
+        glassRefraction: DEFAULT_WALLPAPER.glassRefraction, glassRefractionStrength: DEFAULT_WALLPAPER.glassRefractionStrength,
+      })}>恢复玻璃默认</button>
+    </section>
+
+    <section className="appearance-card" aria-label="顶栏外观">
+      <h3>顶栏外观</h3>
+      <p className="appearance-description">融入壁纸让背景连贯，玻璃底板为导航提供独立衬底。</p>
+      <div className="segmented-control" role="group" aria-label="顶栏样式">
+        {(["clear", "glass"] as const).map((topbarStyle) => <button type="button" key={topbarStyle}
+          aria-pressed={value.topbarStyle === topbarStyle} className={value.topbarStyle === topbarStyle ? "active" : ""}
+          onClick={() => onChange({ topbarStyle })}>{topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"}</button>)}
+      </div>
+      {value.topbarStyle === "glass" && <>
         <label className="toggle-row"><span><strong>模糊壁纸</strong><small>柔化顶栏下方的图片细节</small></span>
           <input type="checkbox" checked={value.topbarBlurEnabled} onChange={(event) => onChange({ topbarBlurEnabled: event.target.checked })} />
         </label>
         <RangeControl label="模糊强度" min={0} max={30} value={value.topbarBlur} disabled={!value.topbarBlurEnabled} onChange={(topbarBlur) => onChange({ topbarBlur })} />
-        <RangeControl label="背景透明度" min={0} max={100} value={value.topbarOpacity} unit="%" onChange={(topbarOpacity) => onChange({ topbarOpacity })} />
-      </details>
+        <RangeControl label="顶栏透明度" min={0} max={100} value={100 - value.topbarOpacity} unit="%" onChange={(transparency) => onChange({ topbarOpacity: 100 - transparency })} />
+      </>}
     </section>
   </div>;
 }

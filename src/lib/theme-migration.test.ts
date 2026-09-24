@@ -10,7 +10,7 @@ it("adds light to v15 without replacing collections or customized appearance", (
   const raw = JSON.stringify(legacy);
   const loaded = parseStoredState(raw);
   expect(loaded.recovered).toBe(false);
-  expect(loaded.state.version).toBe(16);
+  expect(loaded.state.version).toBe(17);
   expect(loaded.state.appearance).toEqual({ ...legacy.appearance, theme: "light" });
   expect(loaded.state.sites).toEqual(state.sites);
   expect(loaded.state.groups).toEqual(state.groups);

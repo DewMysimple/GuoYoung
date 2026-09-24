@@ -143,7 +143,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(16);
+  expect(saved.version).toBe(17);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
