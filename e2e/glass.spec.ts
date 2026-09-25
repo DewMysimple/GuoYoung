@@ -65,6 +65,86 @@ test("shares glass layers across group tools, menus and panels without nested ca
 
 const wallpaper = `<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000"><defs><linearGradient id="sky" x2="1" y2="1"><stop stop-color="#468aad"/><stop offset=".5" stop-color="#b6e4df"/><stop offset="1" stop-color="#456a9b"/></linearGradient><pattern id="ripples" width="150" height="90" patternUnits="userSpaceOnUse"><path d="M-30 35Q20 0 75 35T180 35M-30 65Q30 25 90 65T210 65" fill="none" stroke="#eaffff" stroke-opacity=".6" stroke-width="3"/></pattern></defs><path fill="url(#sky)" d="M0 0h1440v1000H0z"/><path fill="url(#ripples)" d="M0 0h1440v1000H0z"/></svg>`;
 
+test("uses shared glass for tab, group and site drags over wallpaper", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop glass drag regression");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.route("https://wallpaper.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://wallpaper.example/sea.svg", overlay: 0, glassTransparency: 88, glassBlur: 8, glassRefraction: true };
+    state.displayModeByWorkspace.main = "grouped";
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  await page.reload();
+  await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
+
+  const tab = page.locator('[data-group-sort-tab-id="search"]');
+  const tabBox = await tab.boundingBox();
+  if (!tabBox) throw new Error("Group tab is missing");
+  await page.mouse.move(tabBox.x + tabBox.width / 2, tabBox.y + tabBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(tabBox.x + tabBox.width / 2 + 9, tabBox.y + tabBox.height / 2);
+  const tabPreview = page.getByTestId("group-sort-horizontal-drag-preview");
+  await expect(tabPreview).toHaveClass(/category-tab/);
+  await expect(tabPreview).toHaveCSS("border-radius", await tab.evaluate(el => getComputedStyle(el).borderRadius));
+  await expect(tabPreview).toHaveCSS("backdrop-filter", /blur\(8px\)/);
+  expect((await tabPreview.boundingBox())?.height).toBeCloseTo(tabBox.height, 0);
+  await page.screenshot({ path: screenshotPath("glass-group-tab-drag.png") });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+
+  const heading = page.locator('.grouped-site-section[data-group-sort-section-id="search"] .grouped-site-header-main');
+  const headingBox = await heading.boundingBox();
+  if (!headingBox) throw new Error("Group heading is missing");
+  await page.mouse.move(headingBox.x + 90, headingBox.y + headingBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(headingBox.x + 90, headingBox.y + headingBox.height / 2 + 9);
+  const groupPreview = page.getByTestId("group-sort-vertical-drag-preview");
+  await expect(groupPreview).toHaveCSS("backdrop-filter", /blur\(8px\)/);
+  await expect(groupPreview).toHaveCSS("background-color", /\/ 0\.12\)/);
+  await page.screenshot({ path: screenshotPath("glass-group-section-drag.png") });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+
+  const source = page.getByTestId("site-card-google");
+  const target = page.getByTestId("site-card-bing");
+  const sourceBox = await source.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!sourceBox || !targetBox) throw new Error("Site drag cards are missing");
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 51, sourceBox.y + sourceBox.height / 2);
+  const sitePreview = page.getByTestId("site-card-drag-preview");
+  await expect(sitePreview).toHaveCSS("backdrop-filter", /blur\(8px\).*wallpaper-glass-lens/);
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
+  await expect(target).toHaveCSS("backdrop-filter", /blur\(8px\)/);
+  await expect(target).toHaveCSS("background-color", /\/ 0\.[0-9]+\)/);
+  await page.screenshot({ path: screenshotPath("glass-site-drag-hover.png") });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+  await expect(sitePreview).toHaveCSS("backdrop-filter", "none");
+  await expect(sitePreview).toHaveCSS("background-color", /\/ 0\.96\)/);
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
+  await cdp.detach();
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+
+  await page.getByRole("button", { name: "管理分组", exact: true }).click();
+  const handle = page.getByRole("dialog", { name: "管理分组" }).getByRole("button", { name: "拖动 搜索" });
+  const handleBox = await handle.boundingBox();
+  if (!handleBox) throw new Error("Group manager handle is missing");
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 + 16);
+  const managerPreview = page.locator(".group-list-item-drag-preview");
+  await expect(managerPreview).toHaveCSS("backdrop-filter", /blur\(8px\)/);
+  await expect(managerPreview).toHaveCSS("background-color", /\/ 0\.12\)/);
+  expect(await managerPreview.evaluate(el => el.closest(".app-shell"))).toBeNull();
+  await page.screenshot({ path: screenshotPath("glass-manager-portal-drag.png") });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+});
+
 test("previews glass, restores cancelled drafts and persists material controls", async ({ page }, info) => {
   await page.route("https://wallpaper.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
   await page.evaluate(() => {

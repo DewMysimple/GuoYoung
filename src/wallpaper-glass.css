@@ -354,6 +354,66 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
 
 .has-wallpaper .grouped-site-section.is-group-sorting > * { opacity: .78; }
 
+/* DragOverlay can live in the app or in a body portal. Both use the same
+   wallpaper material tokens as their stationary counterparts. */
+:root:has(.app-shell.has-wallpaper) .group-sort-tab-preview {
+  --glass-fill-low: var(--glass-fill-control);
+  --glass-shadow: var(--glass-control-shadow);
+  border-color: var(--glass-edge-soft);
+  background-color: var(--glass-fill-low);
+  background-image: var(--glass-surface-image);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+}
+
+:root:has(.app-shell.has-wallpaper) .group-sort-tab-preview.active {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--glass-edge));
+  background-color: color-mix(in srgb, var(--accent) 20%, var(--glass-fill-low));
+}
+
+:root:has(.app-shell.has-wallpaper) .group-sort-tab-preview > span,
+:root:has(.app-shell.has-wallpaper) .group-sort-preview-icon,
+:root:has(.app-shell.has-wallpaper) .drag-preview-grip {
+  border: 1px solid var(--glass-edge-soft);
+  background-color: var(--glass-fill-nested);
+  background-image: linear-gradient(145deg, var(--glass-sheen), transparent 70%);
+  box-shadow: inset 0 1px 0 var(--glass-reflection);
+}
+
+:root:has(.app-shell.has-wallpaper) .group-sort-drag-preview,
+:root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview,
+:root:has(.app-shell.has-wallpaper) .group-list-item-drag-preview {
+  border-color: var(--glass-edge);
+  background-color: var(--glass-fill-low);
+  background-image: var(--glass-surface-image);
+  box-shadow: var(--glass-elevated-shadow);
+  backdrop-filter: var(--glass-filter);
+}
+
+:root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview.is-batch-preview {
+  box-shadow:
+    7px 7px 0 -2px var(--glass-fill-control),
+    7px 7px 0 -1px var(--glass-edge-soft),
+    14px 14px 0 -4px var(--glass-fill-control),
+    14px 14px 0 -3px var(--glass-edge-soft),
+    var(--glass-elevated-shadow);
+}
+
+:root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview.is-over-group-tab {
+  box-shadow: var(--glass-shadow);
+}
+
+.has-wallpaper.is-site-dragging
+  .site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):hover,
+.has-wallpaper.is-site-dragging
+  .site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):focus-within {
+  border-color: var(--glass-edge);
+  background-color: var(--glass-fill-low);
+  background-image: var(--glass-surface-image);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+}
+
 /* Radix dialogs and settings are body portals, outside .app-shell. */
 body:has(.app-shell.has-wallpaper) .dialog-content,
 body:has(.app-shell.has-wallpaper) .confirm-content,
@@ -508,6 +568,9 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
 /* Chromium's backdrop URL filters are optional. Other engines retain the
    standard blur, and reduced-transparency below always takes precedence. */
 @supports (backdrop-filter: url("#wallpaper-glass-lens")) {
+  :root:has(.app-shell.has-wallpaper.glass-refraction) .site-card.site-card-drag-preview {
+    backdrop-filter: var(--glass-card-filter);
+  }
   .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
   .has-wallpaper.glass-refraction .add-site-card {
     backdrop-filter: var(--glass-card-filter);
@@ -523,6 +586,11 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
 }
 
 @supports not (backdrop-filter: blur(1px)) {
+  :root:has(.app-shell.has-wallpaper) :is(.group-sort-tab-preview, .group-sort-drag-preview, .site-card.site-card-drag-preview, .group-list-item-drag-preview) {
+    background-color: var(--surface);
+    background-image: none;
+    backdrop-filter: none;
+  }
   .has-wallpaper .github-home-entry::before,
   .has-wallpaper .github-home-entry-icon,
   .has-wallpaper .topbar::before,
@@ -555,6 +623,12 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  :root:has(.app-shell.has-wallpaper) :is(.group-sort-tab-preview, .group-sort-drag-preview, .site-card.site-card-drag-preview, .group-list-item-drag-preview),
+  :root:has(.app-shell.has-wallpaper.glass-refraction) .site-card.site-card-drag-preview {
+    background-color: color-mix(in srgb, var(--surface) 96%, transparent);
+    background-image: none;
+    backdrop-filter: none;
+  }
   .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
   .has-wallpaper.glass-refraction .add-site-card,
   .has-wallpaper.glass-refraction .search-input,

@@ -9,6 +9,7 @@ interface GroupSortDragPreviewProps {
   axis: GroupSortAxis;
   group: SiteGroup;
   count: number;
+  selected?: boolean;
   batchCount?: number;
   sites?: SiteItem[];
 }
@@ -17,9 +18,24 @@ export function GroupSortDragPreview({
   axis,
   group,
   count,
+  selected = false,
   batchCount = 1,
   sites = [],
 }: GroupSortDragPreviewProps) {
+  if (axis === "horizontal") {
+    return (
+      <div
+        className={`category-tab group-sort-tab-preview ${selected ? "active" : ""}`}
+        data-testid="group-sort-horizontal-drag-preview"
+        aria-hidden="true"
+      >
+        <CategoryIcon name={group.icon} size={16} />
+        {group.name}
+        <span>{count}</span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`group-sort-drag-preview is-${axis}`}
@@ -28,7 +44,7 @@ export function GroupSortDragPreview({
     >
       <div className="group-sort-preview-heading">
         <span className="group-sort-preview-icon">
-          <CategoryIcon name={group.icon} size={axis === "horizontal" ? 16 : 18} />
+          <CategoryIcon name={group.icon} size={18} />
         </span>
         <div className="group-sort-preview-copy">
           <strong>{batchCount > 1 ? `${group.name} 等` : group.name}</strong>

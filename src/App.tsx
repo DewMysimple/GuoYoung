@@ -1687,6 +1687,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                       axis="horizontal"
                       group={activeSortedGroup}
                       count={activeSortedGroupCount}
+                      selected={activeGroupId === activeSortedGroup.id}
                     />
                   ) : null}
                 </DragOverlay>

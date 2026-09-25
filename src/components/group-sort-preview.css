@@ -24,7 +24,4 @@
 .group-sort-preview-site-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
 .group-sort-preview-more { flex-shrink: 0; color: var(--text-faint); font-size: 11px; }
 .group-sort-preview-empty { margin-top: 12px; color: var(--text-faint); font-size: 12px; }
-.group-sort-drag-preview.is-horizontal { min-height: var(--group-tab-height); padding: 6px 12px; border-radius: 14px; }
-.group-sort-drag-preview.is-horizontal .group-sort-preview-copy { display: flex; align-items: center; gap: 8px; }
-.group-sort-drag-preview.is-horizontal strong { font-size: calc(12px * var(--group-font-scale)); }
-.group-sort-drag-preview.is-horizontal .group-sort-preview-icon { flex-basis: 24px; height: 24px; border-radius: 7px; }
+.group-sort-tab-preview { cursor: grabbing; pointer-events: none; }
