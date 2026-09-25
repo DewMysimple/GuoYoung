@@ -31,6 +31,8 @@ test("shares glass layers across group tools, menus and panels without nested ca
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   for (const [name, value] of [["按钮透明度", "90"], ["面板透明度", "72"], ["菜单透明度", "65"], ["阴影强度", "0"]]) {
     await panel.getByRole("slider", { name }).fill(value);
   }
@@ -40,6 +42,8 @@ test("shares glass layers across group tools, menus and panels without nested ca
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await expect(panel.getByRole("slider", { name: "阴影强度" })).toHaveValue("35");
   await panel.getByRole("slider", { name: "面板透明度" }).fill("72");
   await panel.getByRole("slider", { name: "菜单透明度" }).fill("65");
@@ -86,12 +90,15 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await panel.getByRole("slider", { name: "玻璃透明度" }).fill("94");
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("slider", { name: "折射强度" }).fill("32");
   await expect(card).toHaveCSS("backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
   await expect.poll(() => card.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(initial);
+  await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
   await panel.getByRole("button", { name: "玻璃底板", exact: true }).click();
   await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
   await panel.getByRole("checkbox", { name: /模糊壁纸/ }).uncheck();
@@ -105,6 +112,8 @@ test("previews glass, restores cancelled drafts and persists material controls",
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await panel.getByRole("slider", { name: "玻璃透明度" }).fill("88");
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
   await panel.getByRole("slider", { name: "色彩饱和度" }).fill("175");
@@ -125,6 +134,8 @@ test("previews glass, restores cancelled drafts and persists material controls",
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await panel.getByRole("button", { name: "恢复玻璃默认" }).click();
   await expect(panel.getByRole("slider", { name: "玻璃透明度" })).toHaveValue("78");
   await expect(panel.getByRole("checkbox", { name: /玻璃折射/ })).not.toBeChecked();
@@ -134,4 +145,97 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await expect(shell).toHaveClass(/has-wallpaper/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+});
+
+test("offers six reversible presets behind collapsed wallpaper parameters", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop settings acceptance");
+  await page.route("https://wallpaper.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://wallpaper.example/sea.svg", zoom: 110, overlay: 0 };
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  await page.reload();
+  await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
+  const original = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper);
+  await page.getByRole("button", { name: "打开设置" }).click();
+  const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  await panel.getByRole("tab", { name: /壁纸/ }).click();
+  await expect(panel.getByRole("slider")).toHaveCount(0);
+  await expect(panel.locator(".settings-disclosure[open]")).toHaveCount(0);
+  await page.screenshot({ path: screenshotPath("liquid-settings-collapsed.png") });
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  const presets = panel.getByRole("group", { name: "玻璃外观预设" });
+  await expect(presets.getByRole("button")).toHaveCount(6);
+  await expect(panel.getByRole("slider")).toHaveCount(0);
+  const names = ["液态清透", "水晶棱镜", "柔光薄雾", "细腻磨砂", "轻透无影", "经典玻璃"];
+  const seen = new Set();
+  for (const name of names) {
+    const option = presets.getByRole("button", { name: new RegExp(`^${name}`) });
+    await option.click();
+    await expect(option).toHaveAttribute("aria-pressed", "true");
+    seen.add(await page.locator(".app-shell").getAttribute("style"));
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toEqual(original);
+  }
+  expect(seen.size).toBe(6);
+  await presets.getByRole("button", { name: /^液态清透/ }).click();
+  await page.screenshot({ path: screenshotPath("liquid-settings-presets.png") });
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
+  await panel.getByRole("slider", { name: "阴影强度" }).fill("17");
+  await expect(presets.locator('[aria-pressed="true"]')).toHaveCount(0);
+  await expect(panel.locator("summary").filter({ hasText: /^玻璃外观/ })).toContainText("已自定义");
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
+  await expect(panel.getByRole("slider", { name: "阴影强度" })).toHaveValue("17");
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(page.locator(".app-shell")).not.toHaveClass(/glass-refraction/);
+  await page.getByRole("button", { name: "打开设置" }).click();
+  await panel.getByRole("tab", { name: /壁纸/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.getByRole("button", { name: /^液态清透/ }).click();
+  await panel.getByRole("button", { name: "保存设置" }).click();
+  await page.reload();
+  await expect(page.locator(".site-card").first()).toHaveCSS("backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toMatchObject({
+    source: original.source, url: original.url, zoom: 110, overlay: 0, topbarStyle: original.topbarStyle, glassHighlight: 78, glassRefraction: true,
+  });
+  await page.screenshot({ path: screenshotPath("liquid-preset-saved.png") });
+});
+
+test("keeps glass sampling and complete cards from the first frame when returning from history", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop workspace continuity");
+  await page.route("https://wallpaper.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://wallpaper.example/sea.svg", overlay: 0, glassRefraction: true, glassBlur: 2 };
+    const groupId = state.groups.find((group: { workspace: string }) => group.workspace === "github").id;
+    state.sites.push({ ...state.sites[0], id: "continuity-repo", groupId, name: "Continuity repository", url: "https://github.com/example/continuity" });
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
+  await expect(page.getByTestId("site-card-continuity-repo")).toBeVisible();
+  for (let round = 0; round < 3; round++) {
+    await page.getByRole("button", { name: "打开历史记录" }).click();
+    const frames = await page.evaluate(async () => {
+      const button = document.querySelector<HTMLButtonElement>('[aria-label="打开 GitHub 收藏"]')!;
+      button.click();
+      const frames: { missing: boolean; opaque: boolean; filter: string; searchTop: number }[] = [];
+      for (let i = 0; i < 24; i++) {
+        await new Promise(requestAnimationFrame);
+        const card = document.querySelector('[data-testid="site-card-continuity-repo"]');
+        const search = document.querySelector(".search-input");
+        let opaque = !!card && !!search;
+        for (const surface of [card, search]) for (let parent = surface?.parentElement; parent; parent = parent.parentElement) {
+          const style = getComputedStyle(parent);
+          if (Number(style.opacity) < 1 || style.filter !== "none" || style.willChange.includes("opacity")) opaque = false;
+        }
+        frames.push({ missing: !card, opaque, filter: card ? getComputedStyle(card).backdropFilter : "", searchTop: search?.getBoundingClientRect().top ?? -1 });
+      }
+      return frames;
+    });
+    expect(frames.every(frame => !frame.missing && frame.opaque && frame.filter.includes("wallpaper-glass-lens"))).toBe(true);
+    expect(Math.max(...frames.map(frame => frame.searchTop)) - Math.min(...frames.map(frame => frame.searchTop))).toBeLessThan(1);
+  }
+  await page.screenshot({ path: screenshotPath("liquid-github-after-history.png") });
 });

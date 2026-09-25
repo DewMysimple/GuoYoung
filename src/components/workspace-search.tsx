@@ -1,5 +1,4 @@
 import { ArrowBendDownLeft, MagnifyingGlass, X } from "@phosphor-icons/react";
-import { motion, useReducedMotion } from "framer-motion";
 import { useRef, type ComponentProps, type ReactNode } from "react";
 
 interface WorkspaceSearchProps {
@@ -13,13 +12,11 @@ interface WorkspaceSearchProps {
   children?: ReactNode;
 }
 
-/** The shell, animation and input behavior are identical across workspaces. */
+/** A stable shell across workspaces; the background filter must never sit below
+ * an entering opacity layer. Input and IME behavior stay shared. */
 export function WorkspaceSearch({ value, onChange, label, placeholder = label, clearLabel = "清空搜索", inputProps, onSubmit, children }: WorkspaceSearchProps) {
-  const reduceMotion = useReducedMotion();
   const composing = useRef(false);
-  return <motion.section className="workspace-intro"
-    initial={reduceMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
+  return <section className="workspace-intro">
     <div className="search-panel">
       <form className="search-input" role="search" onSubmit={event => { if (composing.current || !onSubmit) event.preventDefault(); else onSubmit(event); }}>
         <MagnifyingGlass size={21} aria-hidden="true" />
@@ -43,5 +40,5 @@ export function WorkspaceSearch({ value, onChange, label, placeholder = label, c
       </form>
       {children}
     </div>
-  </motion.section>;
+  </section>;
 }

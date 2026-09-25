@@ -48,11 +48,16 @@ async function verify(page, url, name, extension = false) {
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:wallpaper-startup:v1") || "null")?.key)).toBe("local:startup-local");
   await page.addInitScript(({ extension }) => {
     window.startupFrames = [];
+    window.startupDone = false;
     const started = performance.now();
+    let readyFrames = 0;
     function sample() {
       const shell = document.querySelector("[data-app-shell]");
-      window.startupFrames.push({ time: performance.now(), preview: !!document.querySelector("#wallpaper-startup img"), collection: !!shell, wallpaper: !!shell?.classList.contains("has-wallpaper") });
-      if (!shell && performance.now() - started < 8000) requestAnimationFrame(sample);
+      const search = document.querySelector(".workspace-intro");
+      window.startupFrames.push({ time: performance.now(), preview: !!document.querySelector("#wallpaper-startup img"), collection: !!shell, wallpaper: !!shell?.classList.contains("has-wallpaper"), loader: !!document.querySelector(".app-loading, .loading-mark"), cards: document.querySelectorAll(".site-card").length, searchOpacity: search ? getComputedStyle(search).opacity : null });
+      if (shell) readyFrames++;
+      if (readyFrames < 12 && performance.now() - started < 8000) requestAnimationFrame(sample);
+      else window.startupDone = true;
     }
     requestAnimationFrame(sample);
     if (extension) {
@@ -74,9 +79,12 @@ async function verify(page, url, name, extension = false) {
   } finally { release?.(); }
   await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
   await expect(page.locator("#wallpaper-startup")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.startupDone)).toBe(true);
   const frames = await page.evaluate(() => window.startupFrames);
   assert.ok(frames.some(frame => frame.preview));
   assert.ok(frames.every(frame => !frame.collection || frame.wallpaper), "No collection frame may precede wallpaper");
+  assert.ok(frames.every(frame => !frame.loader && (!frame.collection || frame.cards > 0)), "No animated loader or empty collection stage");
+  assert.ok(frames.every(frame => !frame.collection || frame.searchOpacity === "1"), "The search field must paint at its final opacity");
   await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
   await page.getByRole("button", { name: "管理 GitHub 官方主页" }).click();
   await expect.poll(() => page.locator(".github-home-entry").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toContain("wallpaper-glass-lens");
@@ -113,11 +121,29 @@ try {
 context = await chromium.launchPersistentContext(profile, options);
 try {
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    window.restartFrames = [];
+    let ready = 0;
+    const started = performance.now();
+    function sample() {
+      const shell = document.querySelector("[data-app-shell]");
+      window.restartFrames.push({ time: performance.now(), collection: !!shell, wallpaper: !!shell?.classList.contains("has-wallpaper"), loader: !!document.querySelector(".app-loading, .loading-mark") });
+      if (shell) ready++;
+      if (ready < 12 && performance.now() - started < 8000) requestAnimationFrame(sample);
+      else window.restartDone = true;
+    }
+    requestAnimationFrame(sample);
+  });
   await page.goto(url);
   await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:wallpaper-startup:v1")).key), "local:startup-local");
   assert.equal(await page.evaluate(() => chrome.runtime.getManifest().version), manifest.version);
   await page.screenshot({ path: join(output, "startup-production-extension-restarted.png") });
+  await expect.poll(() => page.evaluate(() => window.restartDone)).toBe(true);
+  const frames = await page.evaluate(() => window.restartFrames);
+  assert.ok(frames.some(frame => frame.collection));
+  assert.ok(frames.every(frame => !frame.loader && (!frame.collection || frame.wallpaper)));
+  results.push({ name: "native-browser-restart", frames });
 } finally { await context.close(); }
 assert.deepEqual(errors, []);
 await writeFile(join(output, "wallpaper-startup-metrics.json"), JSON.stringify({ results, errors }, null, 2));

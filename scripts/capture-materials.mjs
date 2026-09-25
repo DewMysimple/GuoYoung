@@ -42,6 +42,10 @@ async function seed(page, extension) {
     const originals = state.sites;
     state.sites = Array.from({ length: 48 }, (_, index) => ({ ...originals[index % originals.length],
       id: `material-${index}`, order: index, globalOrder: index, iconSource: "brand" }));
+    const githubGroup = state.groups.find(group => group.workspace === "github");
+    state.sites.push(...Array.from({ length: 18 }, (_, index) => ({ ...originals[0], id: `repository-${index}`,
+      name: `示例仓库 ${index + 1}`, url: `https://github.com/example/repository-${index}`, groupId: githubGroup.id,
+      order: index, globalOrder: 48 + index, iconSource: "brand" })));
     if (extension) await chrome.storage.local.set({ [key]: JSON.stringify(state) });
     else localStorage.setItem(key, JSON.stringify(state));
   }, extension);
@@ -82,6 +86,7 @@ async function inspect(page, url, mode, extension = false) {
       await page.getByRole("button", { name: "打开设置" }).click();
       const panel = page.getByRole("dialog", { name: "设置", exact: true });
       await panel.getByRole("tab", { name: /壁纸/ }).click();
+      await panel.locator("summary").filter({ hasText: /^阅读与氛围/ }).click();
       await panel.getByRole("slider", { name: "明暗遮罩" }).fill("70");
       await panel.getByRole("button", { name: "保存设置" }).click();
     }
@@ -98,12 +103,87 @@ async function inspect(page, url, mode, extension = false) {
     await capture(page, `materials-${mode}-${theme}-settings`);
     const panel = page.getByRole("dialog", { name: "设置", exact: true });
     await panel.getByRole("tab", { name: /壁纸/ }).click();
-    await panel.getByRole("region", { name: "玻璃外观", exact: true }).scrollIntoViewIfNeeded();
+    await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+    await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
+    await panel.getByRole("slider", { name: "玻璃透明度" }).scrollIntoViewIfNeeded();
     await capture(page, `materials-${mode}-${theme}-controls`);
     await panel.getByRole("button", { name: "取消", exact: true }).click();
     await page.locator(".footer").scrollIntoViewIfNeeded();
     await capture(page, `materials-${mode}-${theme}-footer`);
   }
+  await inspectPresets(page, mode);
+}
+
+async function inspectPresets(page, mode) {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.evaluate(() => scrollTo(0, 0));
+  const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  const names = ["液态清透", "水晶棱镜", "柔光薄雾", "细腻磨砂", "轻透无影", "经典玻璃"];
+  for (const [index, name] of names.entries()) {
+    await page.getByRole("button", { name: "打开设置" }).click();
+    await panel.getByRole("tab", { name: /壁纸/ }).click();
+    if (!index) {
+      await panel.locator("summary").filter({ hasText: /^阅读与氛围/ }).click();
+      await panel.getByRole("slider", { name: "明暗遮罩" }).fill("0");
+    }
+    await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+    await panel.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+    await panel.getByRole("button", { name: "保存设置" }).click();
+    await page.mouse.move(5, 5);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: join(output, `liquid-${mode}-preset-${index + 1}.png`) });
+  }
+  await page.getByRole("button", { name: "打开设置" }).click();
+  await panel.getByRole("tab", { name: /壁纸/ }).click();
+  await expect(panel.getByRole("slider")).toHaveCount(0);
+  await page.screenshot({ path: join(output, `liquid-${mode}-collapsed.png`) });
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.getByRole("button", { name: /^液态清透/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(output, `liquid-${mode}-presets.png`) });
+  await panel.getByRole("button", { name: "保存设置" }).click();
+  await page.waitForTimeout(300);
+  const card = page.locator(".site-card").nth(3);
+  const refracted = await card.screenshot({ path: join(output, `liquid-${mode}-refraction-on.png`) });
+  const unfiltered = await page.addStyleTag({ content: ".has-wallpaper.glass-refraction .site-card:not(.is-dragging) { backdrop-filter: var(--glass-filter) !important; }" });
+  const ordinary = await card.screenshot({ path: join(output, `liquid-${mode}-refraction-off.png`) });
+  await unfiltered.evaluate(el => el.remove());
+  const optical = await page.evaluate(async ({ on, off }) => {
+    async function pixels(value) {
+      const image = new Image(); image.src = `data:image/png;base64,${value}`; await image.decode();
+      const canvas = document.createElement("canvas"); canvas.width = image.width; canvas.height = image.height;
+      const context = canvas.getContext("2d"); context.drawImage(image, 0, 0);
+      return { data: context.getImageData(0, 0, image.width, image.height).data, width: image.width, height: image.height };
+    }
+    const a = await pixels(on), b = await pixels(off);
+    let rimChanged = 0, centerChanged = 0;
+    for (let y = 0; y < a.height; y++) for (let x = 0; x < a.width; x++) {
+      const i = (y * a.width + x) * 4;
+      const delta = Math.max(...[0, 1, 2].map(c => Math.abs(a.data[i + c] - b.data[i + c])));
+      if (delta <= 8) continue;
+      if (Math.min(x, y, a.width - 1 - x, a.height - 1 - y) < 20) rimChanged++;
+      else centerChanged++;
+    }
+    return { rimChanged, centerChanged };
+  }, { on: refracted.toString("base64"), off: ordinary.toString("base64") });
+  assert.ok(optical.rimChanged > 50, "The rim must refract actual wallpaper pixels");
+  assert.equal(optical.centerChanged, 0, "The lens center and text must stay stationary");
+  await page.getByRole("button", { name: "打开历史记录" }).click();
+  const cdp = await page.context().newCDPSession(page);
+  const frames = [];
+  cdp.on("Page.screencastFrame", event => {
+    if (frames.length < 16) frames.push(Buffer.from(event.data, "base64"));
+    void cdp.send("Page.screencastFrameAck", { sessionId: event.sessionId });
+  });
+  await cdp.send("Page.startScreencast", { format: "png", maxWidth: 1440, maxHeight: 1000, everyNthFrame: 1 });
+  await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
+  await page.waitForTimeout(600);
+  await cdp.send("Page.stopScreencast");
+  await cdp.detach();
+  for (const [index, frame] of frames.entries()) await writeFile(join(output, `liquid-${mode}-transition-${String(index).padStart(2, "0")}.png`), frame);
+  await page.screenshot({ path: join(output, `liquid-${mode}-github.png`) });
+  metrics.push({ mode, presets: names, optical, transitionFrames: frames.length, screenshots: 11 + frames.length });
 }
 
 const browser = await chromium.launch({ channel: "chrome", ignoreDefaultArgs: ["--hide-scrollbars"] });
@@ -128,4 +208,4 @@ try {
 } finally { await context.close(); }
 assert.deepEqual(errors, []);
 await writeFile(join(output, "materials-metrics.json"), JSON.stringify({ metrics, errors }, null, 2));
-console.log(JSON.stringify({ screenshots: metrics.length, errors }));
+console.log(JSON.stringify({ screenshots: metrics.reduce((count, metric) => count + (metric.screenshots ?? 1), 0), errors }));

@@ -6,6 +6,16 @@ import { STORAGE_KEY } from "./storage";
 import { WALLPAPER_STARTUP_KEY } from "./wallpaper-startup";
 
 describe("site hub store", () => {
+  it("consumes the early authoritative read once and reads fresh storage thereafter", async () => {
+    const state = createDefaultState();
+    const get = vi.fn().mockResolvedValue({ [STORAGE_KEY]: JSON.stringify({ ...state, sites: [] }) });
+    const store = createSiteHubStore({ runtime: { id: "extension" }, storage: { local: { get, set: vi.fn() } } }, localStorage,
+      Promise.resolve({ [STORAGE_KEY]: JSON.stringify(state) }));
+    expect((await store.load()).state.sites).toEqual(state.sites);
+    expect(get).not.toHaveBeenCalled();
+    expect((await store.load()).state.sites).toEqual([]);
+    expect(get).toHaveBeenCalledOnce();
+  });
   it("does not update the startup preview when the authoritative save fails", async () => {
     const state = createDefaultState();
     const preview = "previous saved preview";

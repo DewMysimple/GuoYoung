@@ -31,13 +31,16 @@ function normalizeExtensionValue(value: unknown): string | null {
 export function createSiteHubStore(
   api: ChromiumExtensionApi | undefined = getChromiumExtensionApi(),
   webStorage: Storage = localStorage,
+  startupRead?: Promise<Record<string, unknown>>,
 ): SiteHubStore {
   const extensionStorage = api?.storage?.local;
   if (isExtensionEnvironment(api) && extensionStorage) {
     return {
       mode: "extension",
       async load() {
-        const values = await extensionStorage.get(STORAGE_KEY);
+        const pending = startupRead;
+        startupRead = undefined;
+        const values = await (pending ?? extensionStorage.get(STORAGE_KEY));
         const loaded = parseStoredState(
           normalizeExtensionValue(values?.[STORAGE_KEY]),
         );

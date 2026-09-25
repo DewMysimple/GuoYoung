@@ -1,56 +1,71 @@
-import { useMemo } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createLensMap } from "../lib/glass-lens";
 
-// Parsing url() is not evidence of backdrop displacement support in WebKit or
-// Gecko. Keep their ordinary blur until those engines implement the pipeline.
+// CSS.supports(url()) also succeeds in engines without backdrop displacement.
 export const supportsGlassRefraction = typeof navigator !== "undefined"
   && /Chrom(?:e|ium)\//.test(navigator.userAgent);
 
-/** A static, shared rounded lens map: neutral center, curved rim. No animation,
- * per-card observers or transforms; only the backdrop passes through the filter. */
-function createLensMap() {
-  const width = 256;
-  const height = 192;
-  const radius = 24;
-  const bevel = 18;
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) return undefined;
-  const pixels = context.createImageData(width, height);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const dx = x + .5 - width / 2;
-      const dy = y + .5 - height / 2;
-      const qx = Math.abs(dx) - (width / 2 - radius);
-      const qy = Math.abs(dy) - (height / 2 - radius);
-      const ox = Math.max(qx, 0);
-      const oy = Math.max(qy, 0);
-      const length = Math.hypot(ox, oy);
-      const distance = length + Math.min(Math.max(qx, qy), 0) - radius;
-      const bend = distance > -bevel && distance < 0 ? Math.sin(-distance / bevel * Math.PI) : 0;
-      const nx = length ? ox / length : qx > qy ? 1 : 0;
-      const ny = length ? oy / length : qy >= qx ? 1 : 0;
-      const index = (y * width + x) * 4;
-      pixels.data[index] = 128 + Math.sign(dx) * nx * bend * 127;
-      pixels.data[index + 1] = 128 + Math.sign(dy) * ny * bend * 127;
-      pixels.data[index + 2] = 128;
-      pixels.data[index + 3] = 255;
-    }
-  }
-  context.putImageData(pixels, 0, 0);
-  return canvas.toDataURL();
-}
+const surfaces = [
+  { id: "wallpaper-glass-lens", selector: ".site-card:not(.is-dragging), .add-site-card" },
+  { id: "wallpaper-glass-lens-wide", selector: ".github-home-entry" },
+  { id: "wallpaper-glass-lens-search", selector: ".search-input" },
+] as const;
 
-export function GlassRefraction({ strength }: { strength: number }) {
-  const map = useMemo(createLensMap, []);
-  if (!map) return null;
-  return <svg width="0" height="0" aria-hidden="true" focusable="false" style={{ position: "absolute", pointerEvents: "none" }}>
-    <defs>
-      <filter id="wallpaper-glass-lens" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-        <feImage href={map} x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="lens" />
+/** Three shared maps measured from actual surfaces. One resize observer, no
+ * per-card animation loop, screenshot duplication or transform ownership. */
+export function GlassRefraction({ strength, cardRadius, searchRadius }: { strength: number; cardRadius: number; searchRadius: number }) {
+  const [maps, setMaps] = useState<Record<string, { href: string; width: number; height: number }>>({});
+  const svg = useRef<SVGSVGElement>(null);
+  useLayoutEffect(() => {
+    const root = svg.current?.closest(".app-shell");
+    const main = root?.querySelector("main");
+    if (!root || !main) return;
+    const geometry = new Map<string, string>();
+    const observed = new Map<string, Element>();
+    const measure = () => {
+      const updates: typeof maps = {};
+      for (const { id } of surfaces) {
+        const element = observed.get(id);
+        if (!element) continue;
+        // Offset dimensions exclude hover and drag transforms.
+        const width = (element as HTMLElement).offsetWidth, height = (element as HTMLElement).offsetHeight;
+        const radius = parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0;
+        const key = `${width}:${height}:${radius}`;
+        if (!width || !height || geometry.get(id) === key) continue;
+        geometry.set(id, key);
+        const map = createLensMap(width, height, radius);
+        if (map) updates[id] = { href: map, width, height };
+      }
+      if (Object.keys(updates).length) setMaps(current => ({ ...current, ...updates }));
+    };
+    const resize = new ResizeObserver(measure);
+    const attach = () => {
+      let changed = false;
+      for (const { id, selector } of surfaces) {
+        const element = main.querySelector(selector);
+        const previous = observed.get(id);
+        if (element === previous) continue;
+        changed = true;
+        if (previous) resize.unobserve(previous);
+        if (element) { observed.set(id, element); resize.observe(element); }
+        else observed.delete(id);
+      }
+      if (changed) measure();
+    };
+    attach();
+    const changes = new MutationObserver(attach);
+    changes.observe(main, { childList: true, subtree: true });
+    return () => { resize.disconnect(); changes.disconnect(); };
+  }, [cardRadius, searchRadius]);
+  return <svg ref={svg} width="0" height="0" aria-hidden="true" focusable="false" style={{ position: "absolute", pointerEvents: "none" }}>
+    <defs>{surfaces.map(({ id }) => <filter key={id} id={id} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+      {maps[id] && <>
+        {/* Numeric primitive dimensions are essential inside a zero-size SVG.
+            Percentage sizes resolve against that viewport and shift the whole
+            backdrop instead of refracting only its rim. */}
+        <feImage href={maps[id].href} x="0" y="0" width={maps[id].width} height={maps[id].height} preserveAspectRatio="none" result="lens" />
         <feDisplacementMap in="SourceGraphic" in2="lens" scale={strength} xChannelSelector="R" yChannelSelector="G" />
-      </filter>
-    </defs>
+      </>}
+    </filter>)}</defs>
   </svg>;
 }

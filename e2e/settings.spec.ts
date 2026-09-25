@@ -249,6 +249,7 @@ test("drags and zooms wallpaper with live preview before saving", async ({
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await page.locator(".settings-tabs [role='tab']").nth(1).click();
+  await page.locator("summary").filter({ hasText: /^位置与构图/ }).click();
   await page.locator(".wallpaper-position-actions button").first().click();
 
   const canvas = page.locator(".wallpaper-edit-canvas");

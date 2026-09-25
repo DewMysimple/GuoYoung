@@ -5,6 +5,27 @@
 .interface-dimensions .range-control + .range-control { margin-top: 14px; }
 .wallpaper-settings { gap: 14px; }
 .wallpaper-settings .appearance-card { display: grid; gap: 14px; }
+.wallpaper-settings .settings-disclosure { display: block; }
+.settings-disclosure > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: 13px; font-weight: 700; }
+.settings-disclosure > summary::-webkit-details-marker { display: none; }
+.settings-disclosure > summary small { margin-left: auto; color: var(--text-faint); font-size: 11px; font-weight: 500; }
+.settings-disclosure > summary svg { flex: 0 0 auto; transition: rotate 150ms ease; }
+.settings-disclosure[open] > summary svg { rotate: 180deg; }
+.settings-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 4px; }
+.settings-disclosure-content { display: grid; gap: 14px; padding-top: 20px; }
+.wallpaper-settings .glass-fine-tuning { padding: 14px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
+.glass-preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.glass-preset { display: grid; gap: 6px; padding: 8px; min-width: 0; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: color-mix(in srgb, var(--surface) 18%, transparent); text-align: left; cursor: pointer; }
+.glass-preset[aria-pressed="true"] { border-color: var(--accent); outline: 1px solid var(--accent); background: var(--accent-soft); }
+.glass-preset strong { font-size: 12px; }
+.glass-preset small { color: var(--text-soft); font-size: 10px; }
+.glass-preset-sample { display: grid; height: 56px; place-items: center; overflow: hidden; border-radius: 7px; background: repeating-linear-gradient(125deg, #a7d5e6 0 15px, #428cb5 15px 25px, #ded7ef 25px 40px); }
+.glass-preset-sample i { width: 72%; height: 34px; border: 1px solid rgb(255 255 255 / .85); border-radius: 12px; background: rgb(255 255 255 / .1); box-shadow: inset 2px 2px 3px #ffffffa6, inset -2px -2px 3px #ffffff66, 0 3px 7px #22334433; backdrop-filter: blur(1px) saturate(1.4); }
+.glass-preset[data-preset="crystal"] i { border-width: 2px; backdrop-filter: saturate(1.8); }
+.glass-preset[data-preset="soft"] i { backdrop-filter: blur(4px); background: #ffffff30; }
+.glass-preset[data-preset="frost"] i { backdrop-filter: blur(9px); background: #ffffff65; }
+.glass-preset[data-preset="light"] i { box-shadow: inset 0 1px 0 #ffffff66; border-color: #ffffff60; }
+.glass-preset[data-preset="classic"] i { backdrop-filter: blur(6px); background: #ffffff40; }
 .wallpaper-settings .appearance-description { margin: -7px 0 0; }
 .wallpaper-thumbnail { position: relative; display: grid; height: 136px; place-content: center; gap: 8px; overflow: hidden; border-radius: 10px; color: var(--text-faint); background: var(--surface-raised); text-align: center; }
 .wallpaper-thumbnail > svg { margin: auto; }

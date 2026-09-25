@@ -78,7 +78,8 @@ test("an uncached failed wallpaper releases startup into a usable collection", a
   });
   try {
     await page.reload({ waitUntil: "commit" });
-    await expect(page.locator(".app-loading")).toBeVisible();
+    await expect(page.getByRole("status", { name: "" }).filter({ hasText: "正在读取收藏" })).toBeAttached();
+    await expect(page.locator(".app-loading, .loading-mark")).toHaveCount(0);
     await expect(page.locator(".site-card")).toHaveCount(0);
   } finally { release(); }
   await expect(page.getByRole("button", { name: "打开设置" })).toBeVisible();

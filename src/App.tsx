@@ -51,7 +51,8 @@ import {
   Trash,
   X,
 } from "@phosphor-icons/react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
+import type { SiteHubStore } from "./lib/state-store";
 import { BrandMark } from "./components/brand-mark";
 import { BrowserHistoryView } from "./components/browser-history-view";
 import { ConfirmDialog } from "./components/confirm-dialog";
@@ -155,7 +156,7 @@ const SORT_OPTIONS: Array<{ value: SiteSortMode; label: string }> = [
   { value: "heat", label: "热量排列" },
 ];
 
-export function App() {
+export function App({ store }: { store?: SiteHubStore } = {}) {
   const {
     state,
     isLoading,
@@ -191,7 +192,7 @@ export function App() {
     clearSearchHistory,
     setDisplayMode,
     setSortMode: persistSortMode,
-  } = useSiteHub();
+  } = useSiteHub(store);
   const [settingsPreview, setSettingsPreview] =
     useState<SettingsDraft | null>(null);
   const effectiveBrand = settingsPreview?.brand ?? state.brand;
@@ -1325,13 +1326,15 @@ export function App() {
     "--glass-highlight": String(effectiveWallpaper.glassHighlight / 100),
     "--glass-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%)`,
     "--glass-card-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%) url(#wallpaper-glass-lens)`,
+    "--glass-wide-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%) url(#wallpaper-glass-lens-wide)`,
+    "--glass-search-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%) url(#wallpaper-glass-lens-search)`,
     "--topbar-background": `color-mix(in srgb, var(--page) ${effectiveWallpaper.topbarOpacity}%, transparent)`,
     "--topbar-backdrop-blur": effectiveWallpaper.topbarBlurEnabled
       ? `${effectiveWallpaper.topbarBlur}px`
       : "0px",
   } as CSSProperties;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     for (const [property, value] of Object.entries(appStyle)) {
       root.style.setProperty(property, String(value));
@@ -1347,14 +1350,7 @@ export function App() {
   }, [effectiveBrand.name]);
 
   if (isLoading || waitingForWallpaper) {
-    return (
-      <div className="app-shell app-loading min-h-[100dvh]" role="status">
-        <span className="brand-mark loading-mark">
-          <SquaresFour size={22} weight="fill" />
-        </span>
-        <span>正在加载收藏…</span>
-      </div>
-    );
+    return <span className="visually-hidden" role="status">正在读取收藏</span>;
   }
 
   return (
@@ -1368,7 +1364,7 @@ export function App() {
       style={appStyle}
       {...siteClickHandlers}
     >
-      {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} />}
+      {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} cardRadius={effectiveAppearance.radius} searchRadius={effectiveAppearance.searchRadius} />}
       {wallpaperUrl && (
         <div className="wallpaper-layer" aria-hidden="true">
           <img src={wallpaperUrl} alt="" fetchPriority="high" onLoad={dismissWallpaperStartup} />
@@ -1884,10 +1880,7 @@ export function App() {
             </div>
           </div>
 
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
+          <div className="collection-grid-content">
               {addCardGroup && (
                 <DndContext
                   sensors={sensors}
@@ -1955,7 +1948,7 @@ export function App() {
                   </DragOverlay>
                 </DndContext>
               )}
-          </motion.div>
+          </div>
         </section>
           </>
         )}

@@ -509,9 +509,16 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
    standard blur, and reduced-transparency below always takes precedence. */
 @supports (backdrop-filter: url("#wallpaper-glass-lens")) {
   .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
-  .has-wallpaper.glass-refraction .add-site-card,
-  .has-wallpaper.glass-refraction .github-home-entry::before {
+  .has-wallpaper.glass-refraction .add-site-card {
     backdrop-filter: var(--glass-card-filter);
+  }
+  .has-wallpaper.glass-refraction .github-home-entry::before { backdrop-filter: var(--glass-wide-filter); }
+  .has-wallpaper.glass-refraction .search-input { backdrop-filter: var(--glass-search-filter); }
+  :root:has(.app-shell.glass-refraction) {
+    --glass-rim: inset 1px 2px 2px rgb(255 255 255 / calc(var(--glass-highlight) * .8)),
+      inset -1px -2px 2px rgb(255 255 255 / calc(var(--glass-highlight) * .38)),
+      inset 0 0 8px rgb(255 255 255 / calc(var(--glass-highlight) * .15));
+    --glass-surface-image: linear-gradient(155deg, rgb(255 255 255 / calc(var(--glass-highlight) * .22)), transparent 24% 72%, rgb(255 255 255 / calc(var(--glass-highlight) * .12)));
   }
 }
 
@@ -550,6 +557,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
 @media (prefers-reduced-transparency: reduce) {
   .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
   .has-wallpaper.glass-refraction .add-site-card,
+  .has-wallpaper.glass-refraction .search-input,
   .has-wallpaper.glass-refraction .github-home-entry::before {
     backdrop-filter: none;
   }

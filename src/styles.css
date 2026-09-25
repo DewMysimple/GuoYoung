@@ -239,20 +239,6 @@ label:has(input:focus-visible) {
   background: rgb(var(--wallpaper-overlay-color) / var(--wallpaper-overlay));
 }
 
-.app-loading {
-  display: grid;
-  min-height: 100dvh;
-  place-items: center;
-  align-content: center;
-  gap: 12px;
-  color: var(--text-faint);
-  font-size: 13px;
-}
-
-.loading-mark {
-  animation: loading-pulse 1.2s ease-in-out infinite;
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -4441,18 +4427,7 @@ label:has(input:focus-visible) {
   }
 }
 
-@keyframes loading-pulse {
-  0%,
-  100% {
-    transform: scale(0.96);
-    opacity: 0.72;
-  }
 
-  50% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
 
 @media (max-width: 1050px) {
   .card-actions {

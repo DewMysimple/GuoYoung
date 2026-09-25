@@ -493,6 +493,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("网络图片地址"), {
       target: { value: "https://example.com/wallpaper.jpg" },
     });
+    await user.click(screen.getByText("位置与构图"));
     await user.click(screen.getByRole("button", { name: "在页面拖动调整" }));
     expect(screen.queryByTestId("settings-outside-dismiss-layer")).toBeNull();
     const canvas = screen.getByRole("application", {
@@ -1283,6 +1284,7 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("网络图片地址"), {
       target: { value: "https://example.com/wallpaper.jpg" },
     });
+    await user.click(screen.getByText("位置与构图"));
     await user.click(screen.getByRole("button", { name: "在页面拖动调整" }));
 
     const canvas = screen.getByRole("application", {
@@ -1296,6 +1298,7 @@ describe("App", () => {
       expect(shell.style.getPropertyValue("--wallpaper-zoom")).toBe("1.08");
     });
 
+    await user.click(screen.getByText("顶栏外观"));
     await user.click(screen.getByRole("button", { name: "玻璃底板" }));
     fireEvent.change(screen.getByRole("slider", { name: "顶栏透明度" }), {
       target: { value: "58" },

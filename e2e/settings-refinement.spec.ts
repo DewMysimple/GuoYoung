@@ -100,6 +100,7 @@ test("coordinates wallpaper surfaces and exposes the reorganized data tools", as
   await panel.getByRole("tab", { name: /壁纸/ }).click();
   await panel.getByLabel("网络图片地址").fill("https://example.test/waves.svg");
   await expect(panel.getByAltText("当前壁纸预览")).toBeVisible();
+  await panel.locator("summary").filter({ hasText: /^阅读与氛围/ }).click();
   await panel.getByRole("button", { name: "柔和背景", exact: true }).click();
   await expect(panel.getByRole("slider", { name: "模糊", exact: true })).toHaveValue("6");
   await panel.getByRole("button", { name: "保存设置" }).click();

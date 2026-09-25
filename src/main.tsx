@@ -4,9 +4,10 @@ import "@fontsource-variable/manrope";
 import "./styles.css";
 import "./wallpaper-glass.css";
 import { App } from "./App";
+import { prepareAppStore } from "./lib/app-startup";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+void prepareAppStore().then(store => {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode><App store={store} /></StrictMode>,
+  );
+});

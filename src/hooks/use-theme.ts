@@ -10,6 +10,7 @@ export function useTheme(preference: ThemePreference, accentColor: string) {
       const root = document.documentElement;
       root.dataset.theme = theme;
       root.style.colorScheme = theme;
+      root.style.removeProperty("background-color"); // Hand the early boot color back to theme.css.
       root.style.setProperty("--accent-base", accentColor);
       document.querySelector('meta[name="theme-color"]')
         ?.setAttribute("content", theme === "dark" ? "#171a21" : "#f4f6f9");

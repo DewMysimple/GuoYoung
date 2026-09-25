@@ -1,9 +1,35 @@
 /* Runs before the application module. This is a disposable saved preview,
    never collection state; all input is validated before touching the DOM. */
 (() => {
+  // Start the authoritative read while the module graph downloads/parses.
+  // The promise is consumed once by main.tsx; no second collection cache.
+  try {
+    if (globalThis.chrome?.runtime?.id && chrome.storage?.local) {
+      let latest;
+      const changed = (changes, area) => {
+        if (area === "local" && "site-hub:v1" in changes) latest = { "site-hub:v1": changes["site-hub:v1"].newValue };
+      };
+      chrome.storage.onChanged?.addListener(changed);
+      const pending = chrome.storage.local.get("site-hub:v1");
+      pending.catch(() => undefined);
+      window.__MYSIMPLE_STARTUP__ = {
+        read: async () => { const values = await pending; return latest ?? values; },
+        dispose: () => chrome.storage.onChanged?.removeListener(changed),
+      };
+    }
+  } catch { /* The store's normal read/recovery path remains available. */ }
+  try {
+    const theme = localStorage.getItem("site-hub:theme-startup:v1");
+    if (theme === "dark" || theme === "light" || theme === "system") {
+      const dark = theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      document.documentElement.style.backgroundColor = dark ? "#171a21" : "#f4f6f9";
+    }
+  } catch { /* Presentation preferences are optional. */ }
   try {
     const cached = JSON.parse(localStorage.getItem("site-hub:wallpaper-startup:v1") || "null");
-    if (!cached || typeof cached.preview !== "string" || cached.preview.length > 240000
+    if (!cached || typeof cached.preview !== "string" || cached.preview.length > 800000
       || !/^data:image\/(?:webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(cached.preview)) return;
     const wallpaper = cached.wallpaper;
     if (!wallpaper || !cached.key || cached.key !== (wallpaper.source === "local" ? `local:${wallpaper.localAssetId}`
@@ -17,7 +43,7 @@
         background: ${dark ? "#171a21" : "#f4f6f9"}; scrollbar-gutter: stable;
         overflow-y: scroll; scrollbar-width: thin; scrollbar-color: #8a9aaa transparent;
       }
-      html[data-wallpaper-startup] body, html[data-wallpaper-startup] .app-loading { background: transparent; }
+      html[data-wallpaper-startup] body { background: transparent; }
       #wallpaper-startup { position: fixed; z-index: 0; pointer-events: none; overflow: hidden; }
       #wallpaper-startup img, #wallpaper-startup span { position: absolute; inset: 0; width: 100%; height: 100%; }
       html[data-wallpaper-startup] #root { position: relative; z-index: 1; }`;

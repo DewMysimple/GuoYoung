@@ -23,7 +23,7 @@ describe("saved wallpaper startup preview", () => {
     });
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, "toDataURL")
-      .mockReturnValueOnce(`data:image/webp;base64,${"a".repeat(240_000)}`).mockReturnValue(preview);
+      .mockReturnValueOnce(`data:image/webp;base64,${"a".repeat(800_000)}`).mockReturnValue(preview);
     await syncWallpaperStartup(state, storage);
     expect(readWallpaperStartup(storage)?.preview).toBe(preview);
     const read = vi.spyOn(storage, "getItem");
@@ -35,7 +35,7 @@ describe("saved wallpaper startup preview", () => {
     const storage = memory();
     const state = createDefaultState();
     state.wallpaper = { ...state.wallpaper, source: "local", localAssetId: "saved" };
-    storage.setItem(WALLPAPER_STARTUP_KEY, JSON.stringify({ key: "local:saved", preview, wallpaper: state.wallpaper, theme: "light" }));
+    storage.setItem(WALLPAPER_STARTUP_KEY, JSON.stringify({ key: "local:saved", preview, quality: 2, wallpaper: state.wallpaper, theme: "light" }));
     state.wallpaper.overlay = 50;
     state.appearance.theme = "dark";
     await syncWallpaperStartup(state, storage);
@@ -64,7 +64,7 @@ describe("saved wallpaper startup preview", () => {
     expect(readWallpaperStartup(storage)).toBeUndefined();
     const state = createDefaultState();
     state.wallpaper = { ...state.wallpaper, source: "url", url: "https://example.test/wallpaper.png" };
-    storage.setItem(WALLPAPER_STARTUP_KEY, JSON.stringify({ key: `url:${state.wallpaper.url}`, preview, wallpaper: state.wallpaper, theme: "light" }));
+    storage.setItem(WALLPAPER_STARTUP_KEY, JSON.stringify({ key: `url:${state.wallpaper.url}`, preview, quality: 2, wallpaper: state.wallpaper, theme: "light" }));
     storage.setItem = () => { throw new DOMException("Quota", "QuotaExceededError"); };
     await expect(syncWallpaperStartup(state, storage)).resolves.toBeUndefined();
   });

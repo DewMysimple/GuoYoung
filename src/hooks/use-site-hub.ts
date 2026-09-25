@@ -110,9 +110,9 @@ interface SiteHubApi {
   setSortMode: (mode: SiteSortMode, workspace?: SiteWorkspace) => void;
 }
 
-export function useSiteHub(): SiteHubApi {
+export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
   const storeRef = useRef<SiteHubStore | null>(null);
-  if (!storeRef.current) storeRef.current = createSiteHubStore();
+  if (!storeRef.current) storeRef.current = preparedStore ?? createSiteHubStore();
   const store = storeRef.current;
   const initial = store.initial;
   const [state, setRenderedState] = useState(

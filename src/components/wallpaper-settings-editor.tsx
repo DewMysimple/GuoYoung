@@ -3,6 +3,8 @@ import { ArrowsOutCardinal, Crosshair, Image, Trash, UploadSimple } from "@phosp
 import { DEFAULT_WALLPAPER } from "../data/defaults";
 import type { WallpaperSettings } from "../types";
 import { RangeControl } from "./range-control";
+import { SettingsDisclosure } from "./settings-disclosure";
+import { GLASS_PRESETS, getGlassPreset, pickGlass } from "../lib/glass-presets";
 import "./settings-editors.css";
 
 const ATMOSPHERES = [
@@ -23,6 +25,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
 }) {
   const file = useRef<HTMLInputElement>(null);
   const enabled = value.source !== "none";
+  const preset = getGlassPreset(value);
   return <div className="settings-section wallpaper-settings">
     <section className="appearance-card wallpaper-source-card" aria-label="壁纸来源">
       <div className="wallpaper-thumbnail">
@@ -44,8 +47,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       {error && <p className="field-error" role="alert">{error}</p>}
     </section>
 
-    <section className="appearance-card" aria-label="壁纸构图">
-      <h3>位置与构图</h3>
+    <SettingsDisclosure title="位置与构图" summary="填充、位置与缩放">
       <p className="appearance-description">铺满页面或保留完整图片，再拖动选择合适的位置。</p>
       <div className="segmented-control" role="group" aria-label="填充方式">
         {(["cover", "contain"] as const).map((fit) => <button key={fit} type="button" className={value.fit === fit ? "active" : ""}
@@ -59,10 +61,9 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
           onClick={() => onChange({ positionX: 50, positionY: 50, zoom: 100 })}><Crosshair size={17} /></button>
       </div>
       <RangeControl label="缩放" min={50} max={300} value={value.zoom} unit="%" disabled={!enabled} onChange={(zoom) => onChange({ zoom })} />
-    </section>
+    </SettingsDisclosure>
 
-    <section className="appearance-card" aria-label="壁纸与界面协调">
-      <h3>阅读与氛围</h3>
+    <SettingsDisclosure title="阅读与氛围" summary="模糊与明暗遮罩">
       <p className="appearance-description">保留壁纸的层次，通过柔化背景改善阅读。深色主题搭配浅色壁纸时，可增加明暗遮罩，让文字更清楚。</p>
       <div className="segmented-control" role="group" aria-label="壁纸氛围">
         {ATMOSPHERES.map(({ label, ...patch }) => <button key={label} type="button" disabled={!enabled}
@@ -71,10 +72,18 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       </div>
       <RangeControl label="模糊" min={0} max={20} value={value.blur} disabled={!enabled} onChange={(blur) => onChange({ blur })} />
       <RangeControl label="明暗遮罩" min={0} max={80} value={value.overlay} unit="%" disabled={!enabled} onChange={(overlay) => onChange({ overlay })} />
-    </section>
+    </SettingsDisclosure>
 
-    <section className="appearance-card" aria-label="玻璃外观">
-      <h3>玻璃外观</h3>
+    <SettingsDisclosure title="玻璃外观" summary={preset?.label ?? "已自定义"}>
+      <div className="glass-preset-grid" role="group" aria-label="玻璃外观预设">
+        {GLASS_PRESETS.map(option => <button type="button" className="glass-preset" key={option.id}
+          data-preset={option.id} aria-pressed={preset?.id === option.id} onClick={() => onChange(option.values)}>
+          <span className="glass-preset-sample" aria-hidden="true"><i /></span>
+          <strong>{option.label}</strong><small>{option.description}</small>
+        </button>)}
+      </div>
+      <p className="appearance-description">选择即刻预览，保存后生效。只更换玻璃材质，保留壁纸、构图和顶栏设置。</p>
+      <SettingsDisclosure title="玻璃参数微调" summary="透明度、高光与折射" className="glass-fine-tuning">
       <p className="appearance-description">透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。</p>
       {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
       <RangeControl label="玻璃透明度" min={0} max={100} value={value.glassTransparency} unit="%" onChange={(glassTransparency) => onChange({ glassTransparency })} />
@@ -92,19 +101,11 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
         <RangeControl label="折射强度" min={0} max={40} value={value.glassRefractionStrength} onChange={(glassRefractionStrength) => onChange({ glassRefractionStrength })} />
         <p className="appearance-description">Chrome / Edge 支持折射；其他浏览器保留磨砂玻璃。关闭可减少绘制开销。</p>
       </>}
-      <button type="button" className="button secondary-button" onClick={() => onChange({
-        glassTransparency: DEFAULT_WALLPAPER.glassTransparency, glassBlur: DEFAULT_WALLPAPER.glassBlur,
-        glassControlTransparency: DEFAULT_WALLPAPER.glassControlTransparency,
-        glassPanelTransparency: DEFAULT_WALLPAPER.glassPanelTransparency,
-        glassPopoverTransparency: DEFAULT_WALLPAPER.glassPopoverTransparency,
-        glassShadow: DEFAULT_WALLPAPER.glassShadow,
-        glassSaturation: DEFAULT_WALLPAPER.glassSaturation, glassHighlight: DEFAULT_WALLPAPER.glassHighlight,
-        glassRefraction: DEFAULT_WALLPAPER.glassRefraction, glassRefractionStrength: DEFAULT_WALLPAPER.glassRefractionStrength,
-      })}>恢复玻璃默认</button>
-    </section>
+      <button type="button" className="button secondary-button" onClick={() => onChange(pickGlass(DEFAULT_WALLPAPER))}>恢复玻璃默认</button>
+      </SettingsDisclosure>
+    </SettingsDisclosure>
 
-    <section className="appearance-card" aria-label="顶栏外观">
-      <h3>顶栏外观</h3>
+    <SettingsDisclosure title="顶栏外观" summary={value.topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"}>
       <p className="appearance-description">融入壁纸让背景连贯，玻璃底板为导航提供独立衬底。</p>
       <div className="segmented-control" role="group" aria-label="顶栏样式">
         {(["clear", "glass"] as const).map((topbarStyle) => <button type="button" key={topbarStyle}
@@ -118,6 +119,6 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
         <RangeControl label="模糊强度" min={0} max={30} value={value.topbarBlur} disabled={!value.topbarBlurEnabled} onChange={(topbarBlur) => onChange({ topbarBlur })} />
         <RangeControl label="顶栏透明度" min={0} max={100} value={100 - value.topbarOpacity} unit="%" onChange={(transparency) => onChange({ topbarOpacity: 100 - transparency })} />
       </>}
-    </section>
+    </SettingsDisclosure>
   </div>;
 }
