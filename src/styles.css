@@ -1949,17 +1949,13 @@ label:has(input:focus-visible) {
 }
 
 .category-tab.is-group-sorting {
+  opacity: 0.36;
   border-color: color-mix(in srgb, var(--accent) 82%, var(--border));
   border-style: dashed;
   color: color-mix(in srgb, var(--text-faint) 72%, transparent);
   background: color-mix(in srgb, var(--accent-soft) 18%, var(--surface));
   box-shadow: none;
   cursor: grabbing;
-}
-
-.category-tab.is-group-sorting svg,
-.category-tab.is-group-sorting > span {
-  opacity: 0.52;
 }
 
 .category-tab.is-long-press-pending {

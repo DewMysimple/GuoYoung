@@ -18,6 +18,7 @@ html:has(.app-shell.has-wallpaper) {
   --glass-fill: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent);
   --glass-fill-low: var(--glass-fill);
   --glass-fill-high: color-mix(in srgb, var(--glass-fill) 92%, var(--surface));
+  --glass-fill-drop-target: color-mix(in srgb, var(--surface) 48%, var(--glass-fill-low));
   --glass-fill-control: color-mix(in srgb, var(--surface) var(--glass-control-opacity), transparent);
   --glass-fill-panel: color-mix(in srgb, var(--surface) var(--glass-panel-opacity), transparent);
   --glass-fill-popover: color-mix(in srgb, var(--surface) var(--glass-popover-opacity), transparent);
@@ -246,6 +247,10 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   box-shadow:
     var(--glass-shadow),
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.has-wallpaper.is-site-dragging .site-card.is-drop-target {
+  background-color: color-mix(in srgb, var(--accent) 18%, var(--glass-fill-drop-target));
 }
 
 .has-wallpaper .site-card.is-dragging {

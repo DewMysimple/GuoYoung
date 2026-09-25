@@ -85,6 +85,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.down();
   await page.mouse.move(tabBox.x + tabBox.width / 2 + 9, tabBox.y + tabBox.height / 2);
   const tabPreview = page.getByTestId("group-sort-horizontal-drag-preview");
+  await expect(tab).toHaveCSS("opacity", "0.36");
   await expect(tabPreview).toHaveClass(/category-tab/);
   await expect(tabPreview).toHaveCSS("border-radius", await tab.evaluate(el => getComputedStyle(el).borderRadius));
   await expect(tabPreview).toHaveCSS("backdrop-filter", /blur\(8px\)/);
@@ -119,6 +120,10 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
   await expect(target).toHaveCSS("backdrop-filter", /blur\(8px\)/);
   await expect(target).toHaveCSS("background-color", /\/ 0\.[0-9]+\)/);
+  await expect.poll(() => target.evaluate(el => {
+    const color = getComputedStyle(el).backgroundColor;
+    return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
+  })).toBeGreaterThan(0.55);
   await page.screenshot({ path: screenshotPath("glass-site-drag-hover.png") });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
