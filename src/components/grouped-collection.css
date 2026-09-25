@@ -259,19 +259,6 @@
   background: transparent;
 }
 
-.has-wallpaper .grouped-site-actions .compact-icon-button {
-  color: var(--text-soft);
-  border-color: var(--glass-border);
-  background: color-mix(in srgb, var(--surface) 76%, transparent);
-  backdrop-filter: blur(12px);
-}
-
-.has-wallpaper .grouped-site-actions .compact-icon-button:hover,
-.has-wallpaper .grouped-site-actions .compact-icon-button[aria-expanded="true"] {
-  color: var(--accent-text);
-  background: var(--accent-soft);
-}
-
 .has-wallpaper .grouped-site-count {
   color: var(--text-soft);
   font-weight: 600;

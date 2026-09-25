@@ -371,6 +371,10 @@ export function normalizeWallpaper(value: unknown): WallpaperSettings {
     ),
     topbarStyle: candidate.topbarStyle === "glass" ? "glass" : DEFAULT_WALLPAPER.topbarStyle,
     glassTransparency: clamp(candidate.glassTransparency, 0, 100, DEFAULT_WALLPAPER.glassTransparency),
+    glassControlTransparency: clamp(candidate.glassControlTransparency, 0, 100, DEFAULT_WALLPAPER.glassControlTransparency),
+    glassPanelTransparency: clamp(candidate.glassPanelTransparency, 0, 100, DEFAULT_WALLPAPER.glassPanelTransparency),
+    glassPopoverTransparency: clamp(candidate.glassPopoverTransparency, 0, 100, DEFAULT_WALLPAPER.glassPopoverTransparency),
+    glassShadow: clamp(candidate.glassShadow, 0, 100, DEFAULT_WALLPAPER.glassShadow),
     glassBlur: clamp(candidate.glassBlur, 0, 30, DEFAULT_WALLPAPER.glassBlur),
     glassSaturation: clamp(candidate.glassSaturation, 100, 200, DEFAULT_WALLPAPER.glassSaturation),
     glassHighlight: clamp(candidate.glassHighlight, 0, 100, DEFAULT_WALLPAPER.glassHighlight),
@@ -586,7 +590,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 17 &&
+    state.version === 18 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -951,6 +955,16 @@ function upgradeToVersion17(
   return { ...candidate, version: 17, wallpaper: normalizeWallpaper(candidate.wallpaper) };
 }
 
+function upgradeToVersion18(
+  legacy: Record<string, unknown> | SiteCollectionState,
+  sourceAppearance: unknown,
+): SiteCollectionState | undefined {
+  const base = legacy.version === 18 ? legacy : upgradeToVersion17(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return { ...candidate, version: 18, wallpaper: normalizeWallpaper(candidate.wallpaper) };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1065,7 +1079,8 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 17 ||
+        candidate.version === 18 ||
+          candidate.version === 17 ||
           candidate.version === 16 ||
           candidate.version === 15 ||
           candidate.version === 14 ||
@@ -1079,7 +1094,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion17(baseCandidate, candidate.appearance)
+        ? upgradeToVersion18(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.

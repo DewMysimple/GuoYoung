@@ -26,25 +26,8 @@
   --shadow-soft: 0 14px 38px rgba(41, 56, 82, 0.09);
   --shadow-dialog: 0 28px 80px rgba(31, 43, 65, 0.2);
   --wallpaper-overlay-color: 244 246 249;
-  --wallpaper-text-shadow: 0 1px 3px rgb(255 255 255 / .85), 0 0 14px rgb(255 255 255 / .7);
-  --glass-edge: rgb(255 255 255 / .82);
-  --glass-edge-soft: rgb(255 255 255 / .5);
-  --glass-fill: color-mix(in srgb, #f9fafc 34%, transparent);
-  --glass-fill-low: color-mix(in srgb, #f9fafc 26%, transparent);
-  --glass-fill-high: color-mix(in srgb, #f9fafc 45%, transparent);
-  --glass-fill-popover: color-mix(in srgb, #f9fafc 50%, transparent);
-  --glass-fill-panel: color-mix(in srgb, #f9fafc 58%, transparent);
-  --glass-fill-accent: color-mix(in srgb, var(--accent) 70%, transparent);
-  --glass-reflection: rgb(255 255 255 / .74);
-  --glass-sheen: rgb(255 255 255 / .24);
-  --glass-flare: rgb(255 255 255 / .2);
-  --glass-shadow:
-    0 18px 36px rgb(24 43 70 / .19),
-    0 4px 12px rgb(24 43 70 / .1),
-    inset 0 1px 0 rgb(255 255 255 / .88),
-    inset 0 0 0 1px rgb(255 255 255 / .18),
-    inset 0 -1px 0 rgb(60 80 108 / .1);
-  --glass-filter: blur(24px) saturate(160%);
+  --wallpaper-text-shadow: 0 1px 2px rgb(255 255 255 / .55);
+  --glass-shadow-color: 24 43 70;
   --dialog-rim: color-mix(in srgb, white 38%, transparent);
 }
 
@@ -70,24 +53,7 @@
   --shadow-soft: 0 14px 38px rgb(0 0 0 / .22);
   --shadow-dialog: 0 28px 80px rgb(0 0 0 / .4);
   --wallpaper-overlay-color: 14 17 23;
-  --wallpaper-text-shadow: 0 1px 3px rgb(0 0 0 / .95), 0 0 14px rgb(0 0 0 / .85);
-  --glass-edge: rgb(190 208 234 / .52);
-  --glass-edge-soft: rgb(190 208 234 / .32);
-  --glass-fill: color-mix(in srgb, #20242d 48%, transparent);
-  --glass-fill-low: color-mix(in srgb, #20242d 39%, transparent);
-  --glass-fill-high: color-mix(in srgb, #20242d 58%, transparent);
-  --glass-fill-popover: color-mix(in srgb, #20242d 64%, transparent);
-  --glass-fill-panel: color-mix(in srgb, #20242d 67%, transparent);
-  --glass-fill-accent: color-mix(in srgb, var(--accent) 64%, transparent);
-  --glass-reflection: rgb(230 240 255 / .34);
-  --glass-sheen: rgb(255 255 255 / .11);
-  --glass-flare: rgb(255 255 255 / .08);
-  --glass-shadow:
-    0 22px 42px rgb(0 0 0 / .4),
-    0 6px 14px rgb(0 0 0 / .24),
-    inset 0 1px 0 rgb(255 255 255 / .3),
-    inset 0 0 0 1px rgb(255 255 255 / .09),
-    inset 0 -1px 0 rgb(0 0 0 / .22);
-  --glass-filter: blur(26px) saturate(150%);
+  --wallpaper-text-shadow: 0 1px 2px rgb(0 0 0 / .65);
+  --glass-shadow-color: 0 0 0;
   --dialog-rim: color-mix(in srgb, var(--border-strong) 60%, transparent);
 }

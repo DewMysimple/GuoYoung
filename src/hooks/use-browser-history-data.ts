@@ -5,18 +5,22 @@ import { deleteBrowserHistoryUrl, getHistoryAvailability, readHistoryAvailabilit
 import type { BrowserHistoryItem, ChromiumExtensionApi } from "../lib/browser-runtime";
 
 /** Browser data lifecycle only. Selection, detail navigation and rendering stay in the view. */
-export function useBrowserHistoryData({ api, query, timeRange, permissionVersion, permissionError: externalError, onRequestPermission }: {
+export function useBrowserHistoryData({ api, query, timeRange, permissionVersion, permissionError: externalError, onRequestPermission, active: visible = true }: {
+  active?: boolean;
   api: ChromiumExtensionApi | undefined; query: string; timeRange: HistoryTimeRange; permissionVersion: number;
   permissionError: string | null;
   onRequestPermission: () => Promise<BrowserHistoryPermissionResult> | BrowserHistoryPermissionResult | void;
 }) {
   const [availability, setAvailability] = useState(() => getHistoryAvailability(api));
   const [items, setItems] = useState<BrowserHistoryItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hasRead, setHasRead] = useState(false);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [permissionLoading, setPermissionLoading] = useState(false);
   const [permissionError, setPermissionError] = useState(externalError);
   const [error, setError] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const generation = useRef(0);
   const permissionEpoch = useRef(0);
@@ -24,6 +28,7 @@ export function useBrowserHistoryData({ api, query, timeRange, permissionVersion
   const checkAvailability = useRef<() => Promise<BrowserHistoryAvailability>>(async () => "unsupported");
   const deleting = useRef(false);
   const requesting = useRef(false);
+  const previousQuery = useRef(query);
   const refresh = () => {
     void checkAvailability.current().then(next => {
       if (next === "granted") setRevision(value => value + 1);
@@ -41,11 +46,14 @@ export function useBrowserHistoryData({ api, query, timeRange, permissionVersion
       if (next !== availabilityRef.current) permissionEpoch.current++;
       availabilityRef.current = next;
       setAvailability(next);
+      setAvailabilityChecked(true);
       if (next === "granted") setPermissionError(null);
       else {
         setItems([]);
+        setHasRead(false);
         setLoading(false);
         setError(null);
+        setReadError(null);
         deleting.current = false;
         setBusy(false);
       }
@@ -83,23 +91,29 @@ export function useBrowserHistoryData({ api, query, timeRange, permissionVersion
   }, [api, availability]);
 
   useEffect(() => {
-    if (availability !== "granted") { setItems([]); setLoading(false); return; }
+    if (!visible || !availabilityChecked || availability !== "granted") return;
     let active = true;
     const epoch = permissionEpoch.current;
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      setError(null);
+    // Only typing needs debounce. Never report an empty result while a first
+    // read is pending; subsequent reads retain the last successful snapshot.
+    const delay = previousQuery.current === query ? 0 : 160;
+    previousQuery.current = query;
+    setLoading(true);
+    setReadError(null);
+    const read = () => {
       void searchBrowserHistory({ text: query, range: timeRange }, api).then((next) => {
-        if (active && epoch === permissionEpoch.current) { setItems(next); setLoading(false); }
+        if (active && epoch === permissionEpoch.current) { setItems(next); setHasRead(true); setLoading(false); }
       }, () => {
         if (active && epoch === permissionEpoch.current) {
-          setItems([]); setLoading(false); setError("无法读取浏览器历史记录，请稍后重试。");
+          setHasRead(true); setLoading(false); setReadError("无法读取浏览器历史记录，请稍后重试。");
           void checkAvailability.current();
         }
       });
-    }, 160);
+    };
+    const timer = delay ? window.setTimeout(read, delay) : undefined;
+    if (!delay) read();
     return () => { active = false; window.clearTimeout(timer); };
-  }, [api, availability, query, timeRange, revision]);
+  }, [api, availability, availabilityChecked, query, timeRange, revision, visible]);
 
   async function refreshPermission() {
     if (requesting.current) return;
@@ -138,6 +152,8 @@ export function useBrowserHistoryData({ api, query, timeRange, permissionVersion
     return deleted;
   }
 
-  return { availability, items, loading, busy, permissionLoading, permissionError, error, setError,
+  return { availability, items, loading: availability === "granted" && (loading || !hasRead),
+    busy, permissionLoading, permissionError, error: error ?? readError,
+    setError: (message: string | null) => { setError(message); setReadError(null); },
     refreshPermission, refresh, deleteUrls };
 }

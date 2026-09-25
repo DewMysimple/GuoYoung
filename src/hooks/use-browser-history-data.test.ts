@@ -34,6 +34,41 @@ it("ignores an older search response after the query changes", async () => {
   expect(result.current.items.map((item) => item.id)).toEqual(["new"]);
 });
 
+it("keeps the last snapshot through workspace switches and failed background reads", async () => {
+  const items = [{ id: "one", url: "https://one.test" }];
+  vi.mocked(searchBrowserHistory).mockResolvedValue(items);
+  const { result, rerender } = renderHook(({ active }) => useBrowserHistoryData({ ...options, query: "", active }),
+    { initialProps: { active: true } });
+  expect(result.current.loading).toBe(true);
+  await act(async () => {});
+  expect(result.current.items).toEqual(items);
+  rerender({ active: false });
+  const calls = vi.mocked(searchBrowserHistory).mock.calls.length;
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  expect(searchBrowserHistory).toHaveBeenCalledTimes(calls);
+  let reject!: (error: Error) => void;
+  vi.mocked(searchBrowserHistory).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  rerender({ active: true });
+  expect(result.current.items).toEqual(items);
+  expect(result.current.loading).toBe(true);
+  await act(async () => reject(new Error("read failed")));
+  expect(result.current.items).toEqual(items);
+  expect(result.current.error).toContain("无法读取");
+});
+
+it("clears the retained snapshot when permission is revoked in another workspace", async () => {
+  const events = permissionEvents();
+  vi.mocked(searchBrowserHistory).mockResolvedValue([{ id: "one", url: "https://one.test" }]);
+  const { result, rerender } = renderHook(({ active }) => useBrowserHistoryData({ ...options, api: events.api, query: "", active }),
+    { initialProps: { active: true } });
+  await act(async () => {});
+  expect(result.current.items).toHaveLength(1);
+  rerender({ active: false });
+  act(() => events.removed.emit());
+  expect(result.current.items).toEqual([]);
+  expect(result.current.availability).toBe("permission-needed");
+});
+
 function permissionEvents() {
   const event = () => {
     const listeners = new Set<Parameters<BrowserPermissionChangedEvent["addListener"]>[0]>();
@@ -92,6 +127,21 @@ it("rechecks permission on focus and on retry even if permission events were mis
   vi.mocked(readHistoryAvailability).mockResolvedValue("granted");
   await act(async () => result.current.refresh());
   expect(result.current.availability).toBe("granted");
+});
+
+it("treats a grant received while hidden as an unread list, not an empty result", async () => {
+  const events = permissionEvents();
+  vi.mocked(readHistoryAvailability).mockResolvedValue("permission-needed");
+  const { result, rerender } = renderHook(({ active }) => useBrowserHistoryData({ ...options, api: events.api, query: "", active }),
+    { initialProps: { active: false } });
+  await act(async () => {});
+  vi.mocked(readHistoryAvailability).mockResolvedValue("granted");
+  await act(async () => events.added.emit());
+  expect(result.current.loading).toBe(true);
+  expect(searchBrowserHistory).not.toHaveBeenCalled();
+  vi.mocked(searchBrowserHistory).mockReturnValue(new Promise(() => {}));
+  rerender({ active: true });
+  expect(result.current.loading).toBe(true);
 });
 
 it("allows a denied permission request to be retried and prevents duplicate pending requests", async () => {

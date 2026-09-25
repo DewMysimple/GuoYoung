@@ -36,6 +36,7 @@ import {
 import { getInclusiveSelectionRange } from "../lib/selection-range";
 
 interface BrowserHistoryViewProps {
+  active?: boolean;
   onBack: () => void;
   onRequestPermission: () =>
     | Promise<BrowserHistoryPermissionResult>
@@ -50,6 +51,7 @@ const INITIAL_GROUP_LIMIT = 80;
 const GROUP_RENDER_INCREMENT = 80;
 
 export function BrowserHistoryView({
+  active = true,
   onBack,
   onRequestPermission,
   permissionError: externalPermissionError = null,
@@ -58,9 +60,22 @@ export function BrowserHistoryView({
 }: BrowserHistoryViewProps) {
   const [query, setQuery] = useState("");
   const [timeRange, setTimeRange] = useState<HistoryTimeRange>("7d");
-  const { availability, items, loading, busy, permissionLoading, permissionError, error, setError,
-    refreshPermission, refresh, deleteUrls: removeUrls } = useBrowserHistoryData({ api, query, timeRange, permissionVersion,
+  const data = useBrowserHistoryData({ api, query, timeRange, permissionVersion, active,
       permissionError: externalPermissionError, onRequestPermission });
+  // Keep the data owner alive across workspace switches, while navigation,
+  // selection, sensors and DOM only exist for the visible history view.
+  return active ? <BrowserHistoryContent onBack={onBack} query={query} setQuery={setQuery}
+    timeRange={timeRange} setTimeRange={setTimeRange}
+    data={data} /> : null;
+}
+
+function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRange, data }: {
+  onBack: () => void; query: string; setQuery: (query: string) => void;
+  timeRange: HistoryTimeRange; setTimeRange: (range: HistoryTimeRange) => void;
+  data: ReturnType<typeof useBrowserHistoryData>;
+}) {
+  const { availability, items, loading, busy, permissionLoading, permissionError, error, setError,
+    refreshPermission, refresh, deleteUrls: removeUrls } = data;
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(
     () => new Set(),
   );

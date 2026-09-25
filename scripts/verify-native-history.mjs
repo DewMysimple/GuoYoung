@@ -66,6 +66,26 @@ try {
   await page.getByRole("searchbox", { name: "搜索浏览历史" }).fill("history-check.example.com");
   await expect(summary(page)).toHaveText("1 个网站 · 125 个网页");
   assert.equal(await page.evaluate(async () => (await chrome.history.search({ text: "history-check", startTime: 0, maxResults: 0 })).length), 125);
+  await page.evaluate(() => {
+    window.historyRefreshFrames = [];
+    window.sampleHistoryRefresh = true;
+    const sample = () => {
+      window.historyRefreshFrames.push({ empty: !!document.querySelector(".history-empty"),
+        loading: !!document.querySelector(".history-list-loading"), cards: document.querySelectorAll(".history-site-card").length });
+      if (window.sampleHistoryRefresh) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  for (let index = 0; index < 3; index++) {
+    await page.getByRole("button", { name: "打开收藏主页" }).click();
+    await page.getByRole("button", { name: "打开历史记录" }).click();
+    await expect(page.locator(".history-site-card")).toHaveCount(1);
+    await expect(summary(page)).toHaveText("1 个网站 · 125 个网页");
+  }
+  await page.screenshot({ path: join(output, "native-history-workspace-refresh.png") });
+  const frames = await page.evaluate(() => { window.sampleHistoryRefresh = false; return window.historyRefreshFrames; });
+  assert.ok(frames.length > 0);
+  assert.equal(frames.some(frame => frame.empty || frame.loading), false, "A returning history view must retain its cards");
   await page.getByRole("searchbox", { name: "搜索浏览历史" }).fill("history-check.example.com/12");
   await expect(summary(page)).toHaveText("1 个网站 · 1 个网页");
   await page.getByRole("button", { name: "清空历史搜索" }).click();
@@ -111,7 +131,8 @@ try {
   await expect(summary(restarted)).toHaveText("1 个网站 · 125 个网页");
   assert.deepEqual(errors, []);
   const report = { version: manifest.version, browserVersion, permission: "native deny / allow / remove / regrant / restart passed",
-    data: "125 URLs, search, URL deletion, two live views, reload and browser restart passed", errors };
+    data: "125 URLs, search, URL deletion, two live views, reload and browser restart passed",
+    refresh: { sampledFrames: frames.length, emptyOrLoadingFrames: 0, workspaceSwitches: 3 }, errors };
   await writeFile(join(output, "../native-history-result.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } finally { await context?.close(); }

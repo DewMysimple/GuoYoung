@@ -63,7 +63,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
 
     <section className="appearance-card" aria-label="壁纸与界面协调">
       <h3>阅读与氛围</h3>
-      <p className="appearance-description">保留壁纸的层次，通过柔化背景改善阅读。</p>
+      <p className="appearance-description">保留壁纸的层次，通过柔化背景改善阅读。深色主题搭配浅色壁纸时，可增加明暗遮罩，让文字更清楚。</p>
       <div className="segmented-control" role="group" aria-label="壁纸氛围">
         {ATMOSPHERES.map(({ label, ...patch }) => <button key={label} type="button" disabled={!enabled}
           className={Object.entries(patch).every(([key, val]) => value[key as keyof WallpaperSettings] === val) ? "active" : ""}
@@ -75,9 +75,13 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
 
     <section className="appearance-card" aria-label="玻璃外观">
       <h3>玻璃外观</h3>
-      <p className="appearance-description">卡片与按钮一起预览。透明度越高，越能看见壁纸；磨砂越低，折射越清晰。</p>
+      <p className="appearance-description">透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。</p>
       {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
       <RangeControl label="玻璃透明度" min={0} max={100} value={value.glassTransparency} unit="%" onChange={(glassTransparency) => onChange({ glassTransparency })} />
+      <RangeControl label="按钮透明度" min={0} max={100} value={value.glassControlTransparency} unit="%" onChange={(glassControlTransparency) => onChange({ glassControlTransparency })} />
+      <RangeControl label="面板透明度" min={0} max={100} value={value.glassPanelTransparency} unit="%" onChange={(glassPanelTransparency) => onChange({ glassPanelTransparency })} />
+      <RangeControl label="菜单透明度" min={0} max={100} value={value.glassPopoverTransparency} unit="%" onChange={(glassPopoverTransparency) => onChange({ glassPopoverTransparency })} />
+      <RangeControl label="阴影强度" min={0} max={100} value={value.glassShadow} unit="%" onChange={(glassShadow) => onChange({ glassShadow })} />
       <RangeControl label="玻璃磨砂" min={0} max={30} value={value.glassBlur} onChange={(glassBlur) => onChange({ glassBlur })} />
       <RangeControl label="色彩饱和度" min={100} max={200} value={value.glassSaturation} unit="%" onChange={(glassSaturation) => onChange({ glassSaturation })} />
       <RangeControl label="边缘高光" min={0} max={100} value={value.glassHighlight} unit="%" onChange={(glassHighlight) => onChange({ glassHighlight })} />
@@ -90,6 +94,10 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       </>}
       <button type="button" className="button secondary-button" onClick={() => onChange({
         glassTransparency: DEFAULT_WALLPAPER.glassTransparency, glassBlur: DEFAULT_WALLPAPER.glassBlur,
+        glassControlTransparency: DEFAULT_WALLPAPER.glassControlTransparency,
+        glassPanelTransparency: DEFAULT_WALLPAPER.glassPanelTransparency,
+        glassPopoverTransparency: DEFAULT_WALLPAPER.glassPopoverTransparency,
+        glassShadow: DEFAULT_WALLPAPER.glassShadow,
         glassSaturation: DEFAULT_WALLPAPER.glassSaturation, glassHighlight: DEFAULT_WALLPAPER.glassHighlight,
         glassRefraction: DEFAULT_WALLPAPER.glassRefraction, glassRefractionStrength: DEFAULT_WALLPAPER.glassRefractionStrength,
       })}>恢复玻璃默认</button>

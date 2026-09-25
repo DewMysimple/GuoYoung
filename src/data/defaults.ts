@@ -182,6 +182,10 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
   topbarOpacity: 68,
   topbarStyle: "clear",
   glassTransparency: 78,
+  glassControlTransparency: 82,
+  glassPanelTransparency: 60,
+  glassPopoverTransparency: 55,
+  glassShadow: 35,
   glassBlur: 12,
   glassSaturation: 130,
   glassHighlight: 45,
@@ -309,7 +313,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 17,
+    version: 18,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

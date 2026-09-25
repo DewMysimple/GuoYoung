@@ -199,6 +199,10 @@ export interface WallpaperSettings {
   topbarOpacity: number;
   topbarStyle: "clear" | "glass";
   glassTransparency: number;
+  glassControlTransparency: number;
+  glassPanelTransparency: number;
+  glassPopoverTransparency: number;
+  glassShadow: number;
   glassBlur: number;
   glassSaturation: number;
   glassHighlight: number;

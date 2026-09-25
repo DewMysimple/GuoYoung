@@ -1,5 +1,43 @@
 import { expect, test, screenshotPath } from "./fixtures";
 
+test("never flashes empty history during the first read or a workspace refresh", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop history lifecycle regression");
+  await page.addInitScript(() => {
+    let reads = 0;
+    Object.defineProperty(window, "chrome", { configurable: true, value: {
+      runtime: { id: "history-refresh-test" },
+      permissions: { contains: async () => true, request: async () => true },
+      history: { search: async () => {
+        reads++;
+        await new Promise<void>(resolve => window.addEventListener("finish-history-read", () => resolve(), { once: true }));
+        return [{ id: "example", title: "History snapshot", url: "https://example.com/history", lastVisitTime: Date.now(), visitCount: reads }];
+      } },
+    } });
+    (window as unknown as { historyEmptyFrames: number }).historyEmptyFrames = 0;
+    const sample = () => {
+      if (document.querySelector(".history-empty")) (window as unknown as { historyEmptyFrames: number }).historyEmptyFrames++;
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "打开历史记录" }).click();
+  await expect(page.getByLabel("正在加载历史记录", { exact: true })).toBeVisible();
+  await page.screenshot({ path: screenshotPath("history-first-read-loading.png"), animations: "disabled" });
+  await page.evaluate(() => window.dispatchEvent(new Event("finish-history-read")));
+  await expect(page.locator(".history-site-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "打开收藏主页" }).click();
+  await expect(page.locator(".browser-history")).toHaveCount(0);
+  await page.getByRole("button", { name: "打开历史记录" }).click();
+  await expect(page.locator(".history-site-card")).toHaveCount(1);
+  await expect(page.getByText("正在同步浏览器记录…", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("正在加载历史记录", { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: screenshotPath("history-retained-during-refresh.png"), animations: "disabled" });
+  await page.evaluate(() => window.dispatchEvent(new Event("finish-history-read")));
+  await expect(page.getByText("1 个网站 · 1 个网页", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { historyEmptyFrames: number }).historyEmptyFrames)).toBe(0);
+});
+
 test("recovers after denied, granted and revoked history permissions without reopening the page", async ({ page }, info) => {
   await page.addInitScript(() => {
     let granted = false, requests = 0;

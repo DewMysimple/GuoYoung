@@ -1318,6 +1318,10 @@ export function App() {
     "--wallpaper-blur": `${effectiveWallpaper.blur}px`,
     "--wallpaper-overlay": String(effectiveWallpaper.overlay / 100),
     "--glass-opacity": `${100 - effectiveWallpaper.glassTransparency}%`,
+    "--glass-control-opacity": `${100 - effectiveWallpaper.glassControlTransparency}%`,
+    "--glass-panel-opacity": `${100 - effectiveWallpaper.glassPanelTransparency}%`,
+    "--glass-popover-opacity": `${100 - effectiveWallpaper.glassPopoverTransparency}%`,
+    "--glass-shadow-strength": String(effectiveWallpaper.glassShadow / 100),
     "--glass-highlight": String(effectiveWallpaper.glassHighlight / 100),
     "--glass-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%)`,
     "--glass-card-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%) url(#wallpaper-glass-lens)`,
@@ -1489,14 +1493,14 @@ export function App() {
       </header>
 
       <main className="page-container main-content">
-        {browserHistoryOpen ? (
           <BrowserHistoryView
+            active={browserHistoryOpen}
             onBack={closeBrowserHistory}
             onRequestPermission={requestBrowserHistoryAccess}
             permissionError={historyPermissionError}
             permissionVersion={historyPermissionVersion}
           />
-        ) : (
+        {!browserHistoryOpen && (
           <>
         <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏" placeholder="搜索收藏，支持拼音、首字母缩写"
           onSubmit={handleSearchSubmit} inputProps={{ id: "site-search", onFocus: () => { setHistoryOpen(true); setHistoryIndex(-1); },
