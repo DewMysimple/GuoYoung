@@ -85,7 +85,7 @@ export function BookmarkTile({
         />
         <span className={`bookmark-kind ${isFolder ? "folder" : "site"}`}>
           {isFolder
-            ? <GroupIcon name={groupIcon} size={34} />
+            ? <GroupIcon name={groupIcon} size={16} />
             : <Favicon site={{ name: title, url: node.url!, customIconUrl: "", iconSource: "browser" }} size="large" />}
         </span>
         <strong className="bookmark-tile-name" title={title}>{title}</strong>

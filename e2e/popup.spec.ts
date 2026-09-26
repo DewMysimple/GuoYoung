@@ -49,7 +49,8 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.getByRole("button", { name: "浏览器书签" }).click();
   await expect(page.getByRole("heading", { name: "整理已有书签" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toHaveCount(0);
-  await expect(page.locator(".bookmark-kind.folder").first()).toHaveCSS("width", "64px");
+  await expect(page.locator(".bookmark-kind.folder").first()).toHaveCSS("width", "30px");
+  await expect(page.locator(".bookmark-kind.folder svg").first()).toHaveAttribute("width", "16");
   const bookmarkGroup = page.getByRole("button", { name: "默认分组" });
   await bookmarkGroup.click();
   const bookmarkGroupMenu = page.getByRole("listbox", { name: "默认分组" });
@@ -91,7 +92,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }).click();
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
-  await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame').first()).toHaveCSS("width", "64px");
+  await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame').first()).toHaveCSS("width", "30px");
   await expect(page.getByRole("button", { name: "返回上一级书签文件夹" })).toBeVisible();
   await page.screenshot({ path: screenshotPath(`popup-bookmarks-light-${testInfo.project.name}.png`), animations: "disabled" });
 });

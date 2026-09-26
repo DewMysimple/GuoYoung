@@ -54,16 +54,19 @@ try {
     return { width: bounds.width, height: bounds.height };
   });
   assert.ok(folderCardSize.width <= folderCardSize.height, "Bookmark folder cards should be square or taller than wide");
-  assert.equal(await page.locator(".bookmark-tile.is-folder .bookmark-kind").first().evaluate((icon) => icon.getBoundingClientRect().width), 64,
-    "Bookmark folder icon tiles should match the marked 64px target size");
+  const folderIcon = page.locator(".bookmark-tile.is-folder .bookmark-kind").first();
+  assert.equal(await folderIcon.evaluate((icon) => icon.getBoundingClientRect().width), 30,
+    "Bookmark folder icon tiles should be reduced by more than 50% from the previous 64px size");
+  assert.equal(await folderIcon.locator("svg").getAttribute("width"), "16",
+    "Bookmark folder glyphs should be reduced by more than 50% from the previous 34px size");
   await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
   const favicon = page.locator('[data-bookmark-kind="site"] .favicon-frame img').first();
   assert.match(await favicon.getAttribute("src"), /_favicon\/\?pageUrl=/,
     "Bookmark website cards should use Chromium's original favicon service");
-  assert.equal(await favicon.evaluate((image) => image.parentElement.getBoundingClientRect().width), 64,
-    "Bookmark website favicon should use the marked icon size");
+  assert.equal(await favicon.evaluate((image) => image.parentElement.getBoundingClientRect().width), 30,
+    "Bookmark website favicon tiles should be reduced by more than 50% from the previous 64px size");
   await expect(favicon).toHaveClass(/is-loaded/);
   await page.screenshot({ path: join(output, "popup-production-bookmarks-light.png"), animations: "disabled" });
 
@@ -101,7 +104,7 @@ try {
   await page.screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, importedGroupIcon: "stack", bookmarkFolderIconSize: 64, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
+  console.log(JSON.stringify({ version: manifest.version, importedGroupIcon: "stack", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
 } finally {
   await context.close();
 }

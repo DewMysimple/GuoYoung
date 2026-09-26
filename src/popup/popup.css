@@ -169,9 +169,9 @@ button { cursor: pointer; }
 .bookmark-check input:indeterminate { border-color: var(--accent); background: var(--accent-soft); }
 .bookmark-check input:indeterminate::after { content: ""; width: 8px; height: 2px; border-radius: 2px; background: var(--accent); }
 .bookmark-check input:disabled { cursor: default; opacity: .5; }
-.bookmark-kind { display: grid; flex: 0 0 64px; place-items: center; width: 64px; height: 64px; border: 1px solid var(--border); border-radius: 15px; color: var(--text-faint); background: var(--surface); }
+.bookmark-kind { display: grid; flex: 0 0 30px; place-items: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-faint); background: var(--surface); }
 .bookmark-kind.folder { color: var(--accent-text); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 16%, var(--border)); }
-.bookmark-tile .favicon-frame, .bookmark-tile .favicon-fallback { position: relative; display: grid; flex: 0 0 64px; place-items: center; width: 64px; height: 64px; overflow: hidden; border: 1px solid var(--border); border-radius: 14px; color: var(--accent-text); background: var(--surface-raised); }
+.bookmark-tile .favicon-frame, .bookmark-tile .favicon-fallback { position: relative; display: grid; flex: 0 0 30px; place-items: center; width: 30px; height: 30px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; color: var(--accent-text); background: var(--surface-raised); }
 .bookmark-tile .favicon-frame img { position: absolute; inset: 4%; display: block; width: 92%; height: 92%; object-fit: contain; opacity: 0; transition: opacity 160ms ease; transform: none; }
 .bookmark-tile .favicon-frame img.is-loaded { opacity: 1; }
 .bookmark-tile .favicon-frame:has(img.is-loaded), .bookmark-tile .favicon-brand { background: var(--icon-surface); }
