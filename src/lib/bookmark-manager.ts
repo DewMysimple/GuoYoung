@@ -10,6 +10,7 @@ import {
   findGroupByName,
   findSiteByUrl,
 } from "./site-state";
+import { getWorkspaceGroups } from "./github-workspace";
 
 export interface IndexedBookmarkNode {
   node: BrowserBookmarkTreeNode;
@@ -103,10 +104,10 @@ export function importSelectedBookmarks(
 
     let groupId = fallbackGroupId;
     if (entry.mappedGroupName) {
-      let group = findGroupByName(next.groups, entry.mappedGroupName);
+      let group = findGroupByName(getWorkspaceGroups(next.groups, "main"), entry.mappedGroupName);
       if (!group) {
         next = addGroupToState(next, entry.mappedGroupName, "folder");
-        group = findGroupByName(next.groups, entry.mappedGroupName);
+        group = findGroupByName(getWorkspaceGroups(next.groups, "main"), entry.mappedGroupName);
       }
       if (group) groupId = group.id;
     }
@@ -183,6 +184,9 @@ export function filterBookmarkTree(
   const normalized = query.trim().toLocaleLowerCase("zh-CN");
   if (!normalized) return nodes;
   return nodes.flatMap((node) => {
+    if (!node.url && node.title.toLocaleLowerCase("zh-CN").includes(normalized)) {
+      return [node];
+    }
     const children = filterBookmarkTree(node.children ?? [], query);
     const matches = [node.title, node.url ?? ""].some((value) =>
       value.toLocaleLowerCase("zh-CN").includes(normalized),

@@ -1289,6 +1289,10 @@ label:has(input:focus-visible) {
   transform: translateY(-3px);
 }
 
+.github-home-entry.is-menu-open {
+  z-index: 95;
+}
+
 .github-home-entry-full-link {
   position: absolute;
   z-index: 1;

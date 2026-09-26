@@ -1,4 +1,6 @@
 import {
+  ArrowClockwise,
+  ArrowSquareOut,
   BookmarkSimple,
   CaretDown,
   CaretRight,
@@ -6,6 +8,7 @@ import {
   Globe,
   MagnifyingGlass,
   Plus,
+  SquaresFour,
   Trash,
   Warning,
 } from "@phosphor-icons/react";
@@ -15,6 +18,7 @@ import {
   filterBookmarkTree,
   getDescendantIds,
   importSelectedBookmarks,
+  indexBookmarkTree,
   summarizeBookmarkDeletion,
   type BookmarkDeleteSummary,
 } from "../lib/bookmark-manager";
@@ -128,7 +132,7 @@ function BookmarkRow({
           <button
             type="button"
             className="tree-toggle"
-            aria-label={`${expanded ? "收起" : "展开"}${node.title}`}
+            aria-label={`${expanded ? "收起" : "展开"} ${node.title}`}
             onClick={() => onToggleExpanded(node.id)}
           >
             {expanded ? <CaretDown size={14} /> : <CaretRight size={14} />}
@@ -180,6 +184,7 @@ export function PopupApp() {
   const [quickWorkspace, setQuickWorkspace] = useState<SiteWorkspace>("main");
   const [quickName, setQuickName] = useState("");
   const [quickGroupId, setQuickGroupId] = useState("");
+  const [bookmarkGroupId, setBookmarkGroupId] = useState("");
   const [quickDuplicateId, setQuickDuplicateId] = useState<string>();
   const [bookmarkRoots, setBookmarkRoots] = useState<BrowserBookmarkTreeNode[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -202,17 +207,8 @@ export function PopupApp() {
     [quickWorkspace, state],
   );
   const popupPreferences = useMemo(() => readPopupPreferences(), []);
-  const defaultGroup = useMemo(() => {
-    if (quickWorkspace === "github") {
-      return (
-        groups.find((group) => group.id === popupPreferences.lastGithubGroupId) ??
-        groups.find((group) => group.id === getGithubOtherGroupId(state!)) ??
-        groups.find((group) => !group.isProtected) ??
-        groups[0]
-      );
-    }
-    return groups.find((group) => !group.isProtected) ?? groups[0];
-  }, [groups, popupPreferences.lastGithubGroupId, quickWorkspace, state]);
+  const mainGroups = useMemo(() => state ? getWorkspaceGroups(state.groups, "main") : [], [state]);
+  const defaultBookmarkGroup = mainGroups.find((group) => !group.isProtected) ?? mainGroups[0];
 
   async function reloadBookmarks() {
     if (!api?.bookmarks) return;
@@ -268,6 +264,10 @@ export function PopupApp() {
         detectedGroups.find((group) => !group.isProtected) ??
         detectedGroups[0];
       setQuickGroupId(initialGroup?.id ?? "");
+      const mainGroups = getWorkspaceGroups(loaded.state.groups, "main");
+      setBookmarkGroupId((current) => mainGroups.some((group) => group.id === current)
+        ? current
+        : (mainGroups.find((group) => !group.isProtected) ?? mainGroups[0])?.id ?? "");
       setActiveBrowserTab(current);
       setQuickName(
         current?.title?.trim() ||
@@ -311,6 +311,14 @@ export function PopupApp() {
     },
     [bookmarkQuery, visibleBookmarkRoots],
   );
+  const bookmarkIndex = useMemo(() => indexBookmarkTree(bookmarkRoots), [bookmarkRoots]);
+  const selectedBookmarkCount = [...selectedIds].filter((id) => Boolean(bookmarkIndex.get(id)?.node.url)).length;
+
+  function openCollection() {
+    const url = api?.runtime?.getURL?.("index.html") ?? "/index.html";
+    if (api?.tabs?.create) void api.tabs.create({ url });
+    else window.open(url, "_blank", "noopener");
+  }
 
   async function saveNextState(next: SiteCollectionState) {
     await store.save(next);
@@ -378,16 +386,21 @@ export function PopupApp() {
   }
 
   async function handleImportBookmarks() {
-    if (!state || !defaultGroup || selectedIds.size === 0) return;
+    if (!state || !defaultBookmarkGroup || selectedBookmarkCount === 0) return;
     setBusy(true);
     try {
       const loaded = await store.load();
       if (loaded.recovered) throw new Error("Invalid stored collection");
+      const freshMainGroups = getWorkspaceGroups(loaded.state.groups, "main");
+      const targetGroup = freshMainGroups.find((group) => group.id === bookmarkGroupId)
+        ?? freshMainGroups.find((group) => !group.isProtected)
+        ?? freshMainGroups[0];
+      if (!targetGroup) throw new Error("No homepage group available");
       const result = importSelectedBookmarks(
         loaded.state,
         bookmarkRoots,
         selectedIds,
-        quickGroupId || defaultGroup.id,
+        targetGroup.id,
       );
       await saveNextState(result.state);
       setNotice({
@@ -425,6 +438,16 @@ export function PopupApp() {
     } finally {
       setBusy(false);
       setDeleteSummary(null);
+    }
+  }
+
+  async function refreshBookmarks() {
+    try {
+      await reloadBookmarks();
+      setSelectedIds(new Set());
+      setNotice({ kind: "success", text: "浏览器书签已更新。" });
+    } catch {
+      setNotice({ kind: "error", text: "书签读取失败，请重试。" });
     }
   }
 

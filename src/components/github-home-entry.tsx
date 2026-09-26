@@ -39,13 +39,23 @@ export function GithubHomeEntry({
     const handlePointerDown = (event: PointerEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuRef.current?.querySelector<HTMLButtonElement>(".github-home-entry-menu-trigger")?.focus();
+      }
+    };
     window.addEventListener("pointerdown", handlePointerDown);
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [menuOpen]);
 
   return (
     <section
-      className={`github-home-entry ${site ? "has-site" : ""}`}
+      className={`github-home-entry ${site ? "has-site" : ""} ${menuOpen ? "is-menu-open" : ""}`}
       aria-label="GitHub 官方主页"
     >
       {site && (
