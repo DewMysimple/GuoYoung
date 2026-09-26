@@ -88,8 +88,10 @@ export function BookmarkTile({
             ? <GroupIcon name={groupIcon} size={16} />
             : <Favicon site={{ name: title, url: node.url!, customIconUrl: "", iconSource: "browser" }} size="large" />}
         </span>
-        <strong className="bookmark-tile-name" title={title}>{title}</strong>
-        {isFolder && <CaretRight className="bookmark-tile-caret" size={15} aria-hidden="true" />}
+        <div className="bookmark-tile-footer">
+          <strong className="bookmark-tile-name" title={title}>{title}</strong>
+          {isFolder && <CaretRight className="bookmark-tile-caret" size={15} aria-hidden="true" />}
+        </div>
       <BookmarkCheckbox
         checked={checked}
         indeterminate={indeterminate}

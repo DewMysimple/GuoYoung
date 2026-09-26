@@ -53,7 +53,13 @@ try {
     const bounds = card.getBoundingClientRect();
     return { width: bounds.width, height: bounds.height };
   });
-  assert.ok(folderCardSize.width <= folderCardSize.height, "Bookmark folder cards should be square or taller than wide");
+  assert.deepEqual(folderCardSize, { width: 96, height: 68 }, "Bookmark cards should fit their compact icon and title content");
+  const folderFooterCenters = await page.locator(".bookmark-tile.is-folder .bookmark-tile-footer").first().evaluate((footer) => {
+    const name = footer.querySelector(".bookmark-tile-name").getBoundingClientRect();
+    const caret = footer.querySelector(".bookmark-tile-caret").getBoundingClientRect();
+    return Math.abs((name.top + name.height / 2) - (caret.top + caret.height / 2));
+  });
+  assert.ok(folderFooterCenters < 1, "Bookmark folder name and caret should share a row");
   const folderIcon = page.locator(".bookmark-tile.is-folder .bookmark-kind").first();
   assert.equal(await folderIcon.evaluate((icon) => icon.getBoundingClientRect().width), 30,
     "Bookmark folder icon tiles should be reduced by more than 50% from the previous 64px size");
@@ -62,6 +68,11 @@ try {
   await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
+  assert.deepEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => {
+    const bounds = card.getBoundingClientRect();
+    return { width: bounds.width, height: bounds.height };
+  }), { width: 96, height: 68 },
+    "Website bookmark cards should fit their compact favicon and title content");
   const favicon = page.locator('[data-bookmark-kind="site"] .favicon-frame img').first();
   assert.match(await favicon.getAttribute("src"), /_favicon\/\?pageUrl=/,
     "Bookmark website cards should use Chromium's original favicon service");

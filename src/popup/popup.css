@@ -151,16 +151,17 @@ button { cursor: pointer; }
 .select-visible:disabled { cursor: default; opacity: .45; }
 
 .bookmark-tree { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--surface) 90%, var(--page)); scrollbar-gutter: stable; scrollbar-width: thin; }
-.bookmark-grid { display: grid; grid-template-columns: repeat(auto-fill, 108px); align-content: start; gap: 8px; margin: 0; padding: 9px; list-style: none; }
+.bookmark-grid { display: grid; grid-template-columns: repeat(auto-fill, 96px); align-content: start; gap: 8px; margin: 0; padding: 9px; list-style: none; }
 .bookmark-list-item { min-width: 0; margin: 0; padding: 0; }
-.bookmark-tile { position: relative; width: 100%; min-width: 0; height: 110px; min-height: 110px; padding: 8px; border-radius: 12px; cursor: pointer; transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
+.bookmark-tile { position: relative; display: flex; width: 100%; min-width: 0; height: auto; min-height: 68px; flex-direction: column; gap: 4px; padding: 8px; border-radius: 12px; cursor: pointer; transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
 .bookmark-tile.is-folder { border-color: color-mix(in srgb, var(--accent) 20%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface)); }
 .bookmark-tile:hover, .bookmark-tile:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: var(--surface-hover); box-shadow: 0 4px 12px color-mix(in srgb, var(--text) 8%, transparent); transform: translateY(-1px); }
 .bookmark-tile.is-selected, .bookmark-tile.is-partial { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface)); }
 .bookmark-tile-open { position: absolute; z-index: 1; inset: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
 .bookmark-tile-open:focus-visible { outline-offset: -3px; }
-.bookmark-tile-name { position: relative; z-index: 2; display: block; width: 100%; overflow: hidden; padding-right: 16px; color: var(--text); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
-.bookmark-tile-caret { position: absolute; z-index: 2; right: 8px; bottom: 8px; color: var(--text-faint); pointer-events: none; }
+.bookmark-tile-footer { position: relative; z-index: 2; display: flex; min-width: 0; align-items: center; gap: 5px; pointer-events: none; }
+.bookmark-tile-name { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--text); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.bookmark-tile-caret { flex: 0 0 auto; color: var(--text-faint); }
 .bookmark-check { position: absolute; z-index: 3; top: 4px; right: 4px; display: grid; place-items: center; width: 29px; height: 29px; border-radius: 8px; cursor: pointer; }
 .bookmark-check:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .bookmark-check input { display: grid; place-items: center; width: 17px; height: 17px; margin: 0; appearance: none; border: 1.5px solid var(--border-strong); border-radius: 50%; background: var(--surface); cursor: pointer; }
