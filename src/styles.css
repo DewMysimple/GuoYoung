@@ -1100,21 +1100,12 @@ label:has(input:focus-visible) {
   background: color-mix(in srgb, var(--danger-soft) 58%, var(--surface));
 }
 
-.history-list-loading {
-  gap: 10px;
-}
-
-.history-skeleton-card {
+.history-initial-loading {
+  display: grid;
   min-height: var(--card-min-height);
-  border-radius: var(--radius-card);
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--surface-raised) 72%, transparent),
-    color-mix(in srgb, var(--surface) 96%, transparent),
-    color-mix(in srgb, var(--surface-raised) 72%, transparent)
-  );
-  background-size: 220% 100%;
-  animation: history-skeleton 1.4s ease-in-out infinite;
+  place-items: center;
+  color: var(--text-soft);
+  font-size: 12px;
 }
 
 .history-state-panel {
@@ -1141,11 +1132,6 @@ label:has(input:focus-visible) {
   justify-content: center;
   gap: 9px;
   margin-top: 10px;
-}
-
-@keyframes history-skeleton {
-  from { background-position: 100% 0; }
-  to { background-position: -100% 0; }
 }
 
 .search-input {

@@ -1,5 +1,30 @@
 import { expect, test, screenshotPath } from "./fixtures";
 
+test("does not show a loading placeholder for a quick history read", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop history loading regression");
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "chrome", { configurable: true, value: {
+      runtime: { id: "history-quick-read-test" },
+      permissions: { contains: async () => true, request: async () => true },
+      history: { search: async () => {
+        await new Promise(resolve => window.setTimeout(resolve, 80));
+        return [{ id: "quick", title: "Quick history", url: "https://example.com/quick", lastVisitTime: Date.now() }];
+      } },
+    } });
+    (window as unknown as { historyLoadingNoticeSeen: boolean }).historyLoadingNoticeSeen = false;
+    new MutationObserver(() => {
+      if (document.querySelector(".history-initial-loading span")) {
+        (window as unknown as { historyLoadingNoticeSeen: boolean }).historyLoadingNoticeSeen = true;
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "打开历史记录" }).click();
+  await expect(page.locator(".history-site-card")).toHaveCount(1);
+  expect(await page.evaluate(() => (window as unknown as { historyLoadingNoticeSeen: boolean }).historyLoadingNoticeSeen)).toBe(false);
+  await expect(page.locator(".history-skeleton-card")).toHaveCount(0);
+});
+
 test("never flashes empty history during the first read or a workspace refresh", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop history lifecycle regression");
   await page.addInitScript(() => {
@@ -23,6 +48,8 @@ test("never flashes empty history during the first read or a workspace refresh",
   await page.reload();
   await page.getByRole("button", { name: "打开历史记录" }).click();
   await expect(page.getByLabel("正在加载历史记录", { exact: true })).toBeVisible();
+  await expect(page.locator(".history-skeleton-card")).toHaveCount(0);
+  await expect(page.getByText("正在读取浏览器历史记录…", { exact: true })).toBeVisible();
   await page.screenshot({ path: screenshotPath("history-first-read-loading.png"), animations: "disabled" });
   await page.evaluate(() => window.dispatchEvent(new Event("finish-history-read")));
   await expect(page.locator(".history-site-card")).toHaveCount(1);
@@ -30,7 +57,7 @@ test("never flashes empty history during the first read or a workspace refresh",
   await expect(page.locator(".browser-history")).toHaveCount(0);
   await page.getByRole("button", { name: "打开历史记录" }).click();
   await expect(page.locator(".history-site-card")).toHaveCount(1);
-  await expect(page.getByText("正在同步浏览器记录…", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 个网站 · 1 个网页", { exact: true })).toBeVisible();
   await expect(page.getByLabel("正在加载历史记录", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: screenshotPath("history-retained-during-refresh.png"), animations: "disabled" });
   await page.evaluate(() => window.dispatchEvent(new Event("finish-history-read")));

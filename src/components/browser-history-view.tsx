@@ -83,6 +83,7 @@ function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRang
   const [activeSiteKey, setActiveSiteKey] = useState<string | null>(null);
   const [visibleGroupLimit, setVisibleGroupLimit] =
     useState(INITIAL_GROUP_LIMIT);
+  const [showLoadingNotice, setShowLoadingNotice] = useState(false);
   const overviewScrollY = useRef(0);
   const previousSiteKey = useRef(activeSiteKey);
   const selectionAnchorRef = useRef<string | null>(null);
@@ -97,6 +98,15 @@ function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRang
     useSensor(MouseSensor, { activationConstraint: { distance: 50 } }),
     useSensor(TouchSensor, { activationConstraint: { distance: 50 } }),
   );
+
+  useEffect(() => {
+    if (!loading) {
+      setShowLoadingNotice(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowLoadingNotice(true), 250);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
 
   function armHistoryDragClickSuppression() {
     historyDragClickSuppressedRef.current = true;
@@ -403,8 +413,8 @@ function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRang
           </button>
         )}
         <p className="history-summary" role="status">
-          {loading
-            ? "正在同步浏览器记录…"
+          {items.length === 0 && loading
+            ? "浏览器历史"
             : activeSiteGroup
               ? `${activeSiteGroup.items.length} 个网页 · 访问 ${activeSiteGroup.visitCount} 次`
               : `${siteGroups.length} 个网站 · ${items.length} 个网页`}
@@ -470,10 +480,8 @@ function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRang
       )}
 
       {loading && items.length === 0 ? (
-        <div className="site-grid history-list-loading" aria-label="正在加载历史记录">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div className="history-skeleton-card" key={index} />
-          ))}
+        <div className="history-initial-loading" role="status" aria-label="正在加载历史记录" aria-busy="true">
+          {showLoadingNotice && <span>正在读取浏览器历史记录…</span>}
         </div>
       ) : items.length === 0 ? (
         <div className="history-empty" role="status">

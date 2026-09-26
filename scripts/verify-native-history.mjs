@@ -71,7 +71,7 @@ try {
     window.sampleHistoryRefresh = true;
     const sample = () => {
       window.historyRefreshFrames.push({ empty: !!document.querySelector(".history-empty"),
-        loading: !!document.querySelector(".history-list-loading"), cards: document.querySelectorAll(".history-site-card").length });
+        loading: !!document.querySelector(".history-initial-loading"), cards: document.querySelectorAll(".history-site-card").length });
       if (window.sampleHistoryRefresh) requestAnimationFrame(sample);
     };
     requestAnimationFrame(sample);
