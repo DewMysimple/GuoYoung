@@ -94,36 +94,7 @@ button { cursor: pointer; }
 .popup-eyebrow { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-text); font-size: 10px; font-weight: 780; letter-spacing: .07em; }
 .popup-section-heading h1 { margin: 6px 0 3px; color: var(--text); font-size: 21px; font-weight: 790; letter-spacing: -.035em; line-height: 1.35; }
 
-.current-site-card {
-  display: flex;
-  min-height: 75px;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  border-radius: 15px;
-  background: color-mix(in srgb, var(--surface) 94%, var(--accent-soft));
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 7%, transparent);
-}
-.current-site-icon {
-  display: grid;
-  flex: 0 0 46px;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--accent-text);
-  background: var(--surface-raised);
-}
-.current-site-icon img { width: 100%; height: 100%; object-fit: contain; }
-.current-site-icon:has(img) { background: var(--icon-surface); }
-.current-site-copy { display: grid; min-width: 0; flex: 1; gap: 3px; }
-.current-site-copy strong, .current-site-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.current-site-copy strong { font-size: 13px; font-weight: 750; }
-.current-site-copy small { color: var(--text-faint); font-size: 10px; }
-.current-site-badge { flex: 0 0 auto; padding: 4px 6px; border-radius: 6px; color: var(--accent-text); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
+.popup-status-chip { flex: 0 0 auto; padding: 4px 6px; border-radius: 6px; color: var(--accent-text); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
 
 .popup-form-card {
   display: grid;
@@ -137,7 +108,7 @@ button { cursor: pointer; }
 }
 .popup-field { display: grid; gap: 7px; }
 .popup-field > span { color: var(--text-soft); font-size: 11px; font-weight: 750; }
-.popup-field input, .popup-field select, .bookmark-search {
+.popup-field input, .bookmark-search {
   width: 100%;
   min-height: 40px;
   border: 1px solid var(--border-strong);
@@ -145,10 +116,14 @@ button { cursor: pointer; }
   outline: none;
   background: var(--surface);
 }
-.popup-field input, .popup-field select { padding: 0 12px; font-size: 12px; }
+.popup-field input { padding: 0 12px; font-size: 12px; }
 .popup-field input::placeholder { color: var(--text-faint); }
-.popup-field input:focus, .popup-field select:focus, .bookmark-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
-.popup-field input:disabled, .popup-field select:disabled { opacity: .55; }
+.popup-field input:focus, .bookmark-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
+.popup-field input:disabled { opacity: .55; }
+.popup-field-heading { display: flex; align-items: center; justify-content: space-between; }
+.popup-field .popup-select-trigger { width: 100%; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--surface); font-size: 12px; }
+.popup-field .popup-select-trigger:disabled { cursor: default; opacity: .55; }
+.popup-field .popup-select-popover { right: auto; left: 0; width: 100%; min-width: 100%; max-height: min(320px, calc(100vh - 40px)); }
 
 .duplicate-popup-notice { display: flex; gap: 8px; padding: 10px; border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border)); border-radius: 10px; color: var(--warning); background: var(--warning-soft); font-size: 11px; line-height: 1.5; }
 .duplicate-popup-notice svg { flex: 0 0 auto; margin-top: 1px; }
@@ -172,7 +147,7 @@ button { cursor: pointer; }
 .select-visible:disabled { cursor: default; opacity: .45; }
 
 .bookmark-tree { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--surface) 90%, var(--page)); scrollbar-gutter: stable; scrollbar-width: thin; }
-.bookmark-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-content: start; gap: 8px; margin: 0; padding: 9px; list-style: none; }
+.bookmark-grid { display: grid; grid-template-columns: repeat(auto-fill, 108px); align-content: start; gap: 8px; margin: 0; padding: 9px; list-style: none; }
 .bookmark-tile { position: relative; min-width: 0; height: 110px; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
 .bookmark-tile.is-folder { border-color: color-mix(in srgb, var(--accent) 20%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface)); }
 .bookmark-tile.is-child { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 28%, transparent); }
@@ -196,7 +171,7 @@ button { cursor: pointer; }
 .bookmark-footer-summary { display: flex; align-items: center; justify-content: space-between; color: var(--text-faint); font-size: 10px; }
 .bookmark-footer-summary strong { color: var(--text); font-size: 11px; }
 .bookmark-destination { grid-template-columns: 1fr 178px; align-items: center; gap: 8px; }
-.bookmark-destination select { min-height: 33px; }
+.bookmark-destination .popup-select-trigger { min-height: 33px; }
 .bookmark-footer-actions { display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
 .popup-primary.compact, .popup-danger { min-height: 37px; font-size: 11px; }
 .popup-danger { color: var(--danger); background: var(--danger-soft); }

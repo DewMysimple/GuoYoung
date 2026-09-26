@@ -2,10 +2,8 @@ import {
   ArrowClockwise,
   ArrowSquareOut,
   BookmarkSimple,
-  Globe,
   MagnifyingGlass,
   Plus,
-  SquaresFour,
   Trash,
   Warning,
 } from "@phosphor-icons/react";
@@ -20,7 +18,6 @@ import {
   type BookmarkDeleteSummary,
 } from "../lib/bookmark-manager";
 import {
-  getBrowserFaviconUrl,
   getChromiumExtensionApi,
   type BrowserBookmarkTreeNode,
   type BrowserTab,
@@ -42,6 +39,7 @@ import type { SiteCollectionState, SiteWorkspace } from "../types";
 import { useTheme } from "../hooks/use-theme";
 import { DEFAULT_APPEARANCE } from "../data/defaults";
 import { BookmarkTile, getBookmarkFolderIds, getBookmarkSiteIds } from "./bookmark-tree";
+import { SelectMenu } from "../components/select-menu";
 
 type PopupTab = "quick" | "bookmarks";
 
@@ -140,10 +138,10 @@ export function PopupApp() {
       const tabs = tabsResult.status === "fulfilled" ? tabsResult.value : [];
       const tree = bookmarksResult.status === "fulfilled" ? bookmarksResult.value : [];
       const failures = [
-        ...(tabsResult.status === "rejected" ? ["无法读取当前网页"] : []),
+        ...(tabsResult.status === "rejected" ? ["无法读取标签页"] : []),
         ...(bookmarksResult.status === "rejected" ? ["无法读取浏览器书签"] : []),
       ];
-      if (failures.length) setNotice({ kind: "error", text: `${failures.join("；")}。书签可在列表内刷新，当前网页请重新打开弹窗读取。` });
+      if (failures.length) setNotice({ kind: "error", text: `${failures.join("；")}。` });
       setState(loaded.state);
       const current = tabs[0] ?? null;
       const normalizedCurrentUrl = (() => {
@@ -281,7 +279,7 @@ export function PopupApp() {
             ? "当前 GitHub 页面已添加到 GitHub 收藏。"
             : isGithubHomeUrl(quickUrl ?? "")
               ? "GitHub 官方主页已添加，并会显示在 GitHub 顶部。"
-              : "当前网页已添加到主页。",
+              : "已添加到主页。",
       });
     } catch {
       setNotice({ kind: "error", text: "保存失败，请稍后重试。" });
@@ -378,7 +376,6 @@ export function PopupApp() {
 
   const selectedVisibleCount = [...visibleIds].filter((id) => selectedIds.has(id)).length;
   const allVisibleSelected = visibleIds.size > 0 && selectedVisibleCount === visibleIds.size;
-  const quickIcon = quickUrl ? getBrowserFaviconUrl(quickUrl, 64, api) : undefined;
 
   return (
     <main className="popup-shell">
@@ -405,47 +402,39 @@ export function PopupApp() {
 
       {tab === "quick" ? (
         <section className="popup-page quick-page">
-          <div className="popup-section-heading">
-            <span className="popup-eyebrow"><SquaresFour size={14} /> 当前网页</span>
-            <h1>保存到网站收藏</h1>
-          </div>
-          <div className="current-site-card">
-            <span className="current-site-icon">
-              {quickIcon ? <img src={quickIcon} alt="" /> : <Globe size={24} />}
-            </span>
-            <div className="current-site-copy">
-              <strong>{activeBrowserTab?.title || "当前页面不可收藏"}</strong>
-              <small>{quickUrl || "浏览器内部页面和扩展页面不能添加"}</small>
-            </div>
-            {duplicate && <span className="current-site-badge">已收藏</span>}
-          </div>
           <div className="popup-form-card">
             <label className="popup-field">
-              <span>网站名称</span>
+              <span className="popup-field-heading">
+                <span>网站名称</span>
+                {duplicate && <small className="popup-status-chip">已收藏</small>}
+              </span>
               <input
                 value={quickName}
+                aria-label="网站名称"
                 disabled={!quickUrl}
                 maxLength={120}
-                placeholder="输入便于查找的名称"
+                placeholder={quickUrl ? "输入网站名称" : "此页面不可收藏"}
                 onChange={(event) => {
                   setQuickName(event.target.value);
                   setQuickDuplicateId(undefined);
                 }}
               />
             </label>
-            <label className="popup-field">
+            <div className="popup-field">
               <span>{quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}</span>
-              <select
+              <SelectMenu
+                ariaLabel={quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}
                 value={quickGroupId}
                 disabled={!quickUrl}
-                onChange={(event) => {
-                  setQuickGroupId(event.target.value);
+                options={groups.map((group) => ({ value: group.id, label: group.name }))}
+                triggerClassName="popup-select-trigger"
+                menuClassName="popup-select-popover"
+                onChange={(groupId) => {
+                  setQuickGroupId(groupId);
                   setQuickDuplicateId(undefined);
                 }}
-              >
-                {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-              </select>
-            </label>
+              />
+            </div>
             {duplicate && quickDuplicateId && (
               <div className="duplicate-popup-notice">
                 <Warning size={18} />
@@ -543,12 +532,18 @@ export function PopupApp() {
               </div>
               <div className="bookmark-footer">
                 <div className="bookmark-footer-summary"><strong>已选择 {selectedIds.size} 项</strong></div>
-                <label className="bookmark-destination popup-field" title="没有文件夹的书签添加到此分组；文件夹书签按名称建组">
+                <div className="bookmark-destination popup-field">
                   <span>默认分组</span>
-                  <select value={bookmarkGroupId} onChange={(event) => setBookmarkGroupId(event.target.value)}>
-                    {mainGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-                  </select>
-                </label>
+                  <SelectMenu
+                    ariaLabel="默认分组"
+                    value={bookmarkGroupId}
+                    options={mainGroups.map((group) => ({ value: group.id, label: group.name }))}
+                    triggerClassName="popup-select-trigger"
+                    menuClassName="popup-select-popover"
+                    placement="top"
+                    onChange={setBookmarkGroupId}
+                  />
+                </div>
                 <div className="bookmark-footer-actions">
                   <button className="popup-danger" disabled={!selectedIds.size || busy} onClick={requestDeleteBookmarks}>
                     <Trash size={16} />删除

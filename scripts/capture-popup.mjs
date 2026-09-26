@@ -35,6 +35,23 @@ try {
   await expect(page.getByRole("button", { name: "浏览器书签" })).toBeVisible();
   await page.screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
+  await page.getByRole("button", { name: "默认分组" }).click();
+  const lightGroupMenu = page.getByRole("listbox", { name: "默认分组" });
+  await expect(lightGroupMenu).toBeVisible();
+  assert.equal(await lightGroupMenu.evaluate((menu) => {
+    const bounds = menu.getBoundingClientRect();
+    const popup = document.querySelector(".popup-shell");
+    if (!popup) return false;
+    const popupBounds = popup.getBoundingClientRect();
+    return bounds.top >= popupBounds.top && bounds.bottom <= popupBounds.bottom;
+  }), true, "The bookmark destination menu stays inside the popup");
+  await page.screenshot({ path: join(output, "popup-production-bookmark-select-light.png"), animations: "disabled" });
+  await page.keyboard.press("Escape");
+  const folderCardSize = await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => {
+    const bounds = card.getBoundingClientRect();
+    return { width: bounds.width, height: bounds.height };
+  });
+  assert.ok(folderCardSize.width <= folderCardSize.height, "Bookmark folder cards should be square or taller than wide");
   await page.getByRole("button", { name: "展开 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
   await page.screenshot({ path: join(output, "popup-production-bookmarks-light.png"), animations: "disabled" });
@@ -62,11 +79,15 @@ try {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.screenshot({ path: join(output, "popup-production-quick-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
+  await page.getByRole("button", { name: "默认分组" }).click();
+  await expect(page.getByRole("listbox", { name: "默认分组" })).toBeVisible();
+  await page.screenshot({ path: join(output, "popup-production-bookmark-select-dark.png"), animations: "disabled" });
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "展开 参考资料" }).click();
   await page.screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, importedGroupIcon: "stack", errors, screenshots: 4 }));
+  console.log(JSON.stringify({ version: manifest.version, importedGroupIcon: "stack", errors, screenshots: 6 }));
 } finally {
   await context.close();
 }

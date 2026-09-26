@@ -2038,111 +2038,8 @@ label:has(input:focus-visible) {
   gap: 8px;
 }
 
-.view-control {
-  position: relative;
-}
-
-.view-control-button {
-  display: inline-flex;
-  min-height: calc(36px * var(--control-scale));
-  align-items: center;
-  gap: 7px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-soft);
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  cursor: pointer;
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 680;
-  backdrop-filter: blur(12px);
-}
-
-.view-control-button:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-  background: var(--surface);
-}
-
-.view-control-button.active {
-  color: var(--accent-text);
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  background: var(--accent-soft);
-}
-
-.view-control-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.42;
-}
-
 .multi-select-button.active {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.view-control-button b {
-  min-width: 18px;
-  padding: 2px 5px;
-  border-radius: 999px;
-  color: white;
-  background: var(--accent);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
-.view-popover {
-  position: absolute;
-  z-index: 24;
-  top: calc(100% + 7px);
-  right: 0;
-  display: grid;
-  min-width: 190px;
-  gap: 3px;
-  padding: 7px;
-  border: 1px solid var(--border-strong);
-  border-radius: 13px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  box-shadow: var(--shadow-dialog);
-  backdrop-filter: blur(18px);
-  animation: color-picker-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.view-popover-label {
-  padding: 6px 8px;
-  color: var(--text-faint);
-  font-size: 11px;
-  font-weight: 720;
-}
-
-.sort-popover > button,
-.display-popover > button {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--text-soft);
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  text-align: left;
-}
-
-.sort-popover > button:hover,
-.sort-popover > button.active,
-.display-popover > button:hover,
-.display-popover > button.active {
-  color: var(--text);
-  background: var(--surface-raised);
-}
-
-.sort-popover > button.active,
-.display-popover > button.active {
-  color: var(--accent-text);
 }
 
 .collection-heading h2 {
@@ -2173,18 +2070,6 @@ label:has(input:focus-visible) {
   outline: 2px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
   outline-offset: 6px;
   background: color-mix(in srgb, var(--accent) 4%, transparent);
-}
-
-.display-popover {
-  width: 196px;
-}
-
-.display-popover button {
-  justify-content: flex-start;
-}
-
-.display-popover button span {
-  flex: 1;
 }
 
 .site-card {
@@ -4616,7 +4501,7 @@ label:has(input:focus-visible) {
     justify-content: center;
   }
 
-  .view-popover {
+  .collection-view-controls .view-control .view-popover {
     right: auto;
     left: 0;
   }

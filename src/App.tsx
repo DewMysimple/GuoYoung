@@ -37,7 +37,6 @@ import {
 import {
   ArrowsDownUp,
   CaretDown,
-  Check,
   CheckSquare,
   ClockCounterClockwise,
   FolderOpen,
@@ -65,6 +64,7 @@ import { NewGroupDialog } from "./components/new-group-dialog";
 import { GroupSortDragPreview } from "./components/group-sort-preview";
 import { GithubHomeEntry } from "./components/github-home-entry";
 import { GithubRepositoryImportDialog } from "./components/github-repository-import-dialog";
+import { SelectMenu } from "./components/select-menu";
 import {
   GithubRefreshDetailsDialog,
   type GithubRefreshReport,
@@ -282,13 +282,10 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const [githubBulkRefreshLoading, setGithubBulkRefreshLoading] = useState(false);
   const [githubRefreshReport, setGithubRefreshReport] =
     useState<GithubRefreshReport | null>(null);
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
   const groupImportInputRef = useRef<HTMLInputElement>(null);
   const groupImportTargetRef = useRef<string | null>(null);
-  const viewControlsRef = useRef<HTMLDivElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const collectionSearchOriginRef = useRef<CollectionSearchOrigin | null>(null);
   const armedDeleteTimerRef = useRef<number | null>(null);
@@ -493,10 +490,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
 
   useEffect(() => {
     function handleOutsidePointer(event: PointerEvent) {
-      if (!viewControlsRef.current?.contains(event.target as Node)) {
-        setSortMenuOpen(false);
-        setDisplayMenuOpen(false);
-      }
       if (!addMenuRef.current?.contains(event.target as Node)) {
         setAddMenuOpen(false);
       }
@@ -1754,112 +1747,46 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                   : `${visibleSites.length} 个收藏`}
                 </p>
             </div>
-            <div className="collection-view-controls" ref={viewControlsRef}>
-              <div className="view-control">
-                <button
-                  type="button"
-                  className={`view-control-button ${
-                    sortMode !== "manual" ? "active" : ""
-                  }`}
-                  aria-haspopup="menu"
-                  aria-expanded={!isSearching && sortMenuOpen}
-                  disabled={isSearching}
-                  title={isSearching ? "搜索结果按相关度排列，清空搜索后恢复原排列" : undefined}
-                  onClick={() => {
-                    setSortMenuOpen((current) => !current);
-                    setDisplayMenuOpen(false);
-                  }}
-                >
+            <div className="collection-view-controls">
+              <SelectMenu
+                value={sortMode}
+                options={SORT_OPTIONS}
+                onChange={(nextMode) => persistSortMode(nextMode, activeWorkspace)}
+                menuLabel="排列方式"
+                popoverRole="menu"
+                optionRole="menuitemradio"
+                className="view-control"
+                triggerClassName={`view-control-button ${sortMode !== "manual" ? "active" : ""}`}
+                menuClassName="view-popover sort-popover"
+                disabled={isSearching}
+                title={isSearching ? "搜索结果按相关度排列，清空搜索后恢复原排列" : undefined}
+                renderTrigger={(option) => <>
                   <ArrowsDownUp size={16} />
-                  <span>
-                    {isSearching ? "相关度" : (SORT_OPTIONS.find((option) => option.value === sortMode)
-                      ?.label ?? "排列")}
-                  </span>
-                  <CaretDown size={13} />
-                </button>
-                {sortMenuOpen && !isSearching && (
-                  <div className="view-popover sort-popover" role="menu">
-                    <span className="view-popover-label">排列方式</span>
-                    {SORT_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={sortMode === option.value}
-                        className={sortMode === option.value ? "active" : ""}
-                        onClick={() => {
-                          persistSortMode(option.value, activeWorkspace);
-                          setSortMenuOpen(false);
-                        }}
-                      >
-                        <span>{option.label}</span>
-                        {sortMode === option.value && (
-                          <Check size={15} weight="bold" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
+                  <span>{isSearching ? "相关度" : option?.label ?? "排列"}</span>
+                </>}
+              />
               {activeGroupId === "all" && !isSearching && (
-                <div className="view-control">
-                  <button
-                    type="button"
-                    className={`view-control-button ${
-                      state.displayModeByWorkspace[activeWorkspace] === "grouped" ? "active" : ""
-                    }`}
-                    aria-haspopup="menu"
-                    aria-expanded={displayMenuOpen}
-                    onClick={() => {
-                      setDisplayMenuOpen((current) => !current);
-                      setSortMenuOpen(false);
-                    }}
-                  >
-                    {state.displayModeByWorkspace[activeWorkspace] === "grouped" ? (
-                      <Rows size={16} />
-                    ) : (
-                      <SquaresFour size={16} />
-                    )}
+                <SelectMenu
+                  value={state.displayModeByWorkspace[activeWorkspace]}
+                  options={[
+                    { value: "flat" as const, label: "全部平铺", icon: <SquaresFour size={16} /> },
+                    { value: "grouped" as const, label: "按分组显示", icon: <Rows size={16} /> },
+                  ]}
+                  onChange={(nextMode) => {
+                    if (selectionArmed) cancelSelection();
+                    setDisplayMode(nextMode, activeWorkspace);
+                  }}
+                  menuLabel="显示方式"
+                  popoverRole="menu"
+                  optionRole="menuitemradio"
+                  className="view-control"
+                  triggerClassName={`view-control-button ${state.displayModeByWorkspace[activeWorkspace] === "grouped" ? "active" : ""}`}
+                  menuClassName="view-popover display-popover"
+                  renderTrigger={(option) => <>
+                    {option?.icon}
                     <span>显示</span>
-                    <CaretDown size={13} />
-                  </button>
-                  {displayMenuOpen && (
-                    <div
-                      className="view-popover display-popover"
-                      role="menu"
-                      aria-label="网站显示方式"
-                    >
-                      <span className="view-popover-label">显示方式</span>
-                      {([
-                        { value: "flat" as const, label: "全部平铺", icon: SquaresFour },
-                        { value: "grouped" as const, label: "按分组显示", icon: Rows },
-                      ]).map((option) => {
-                        const Icon = option.icon;
-                        return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={state.displayModeByWorkspace[activeWorkspace] === option.value}
-                          className={state.displayModeByWorkspace[activeWorkspace] === option.value ? "active" : ""}
-                           onClick={() => {
-                             if (selectionArmed) cancelSelection();
-                             setDisplayMode(option.value, activeWorkspace);
-                            setDisplayMenuOpen(false);
-                          }}
-                        >
-                          <Icon size={16} />
-                          <span>{option.label}</span>
-                          {state.displayModeByWorkspace[activeWorkspace] === option.value && (
-                            <Check size={15} weight="bold" />
-                          )}
-                        </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                  </>}
+                />
               )}
               {!isGroupedView && (
               <button

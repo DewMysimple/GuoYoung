@@ -82,7 +82,7 @@ describe("toolbar popup", () => {
     expect(await screen.findByText("保存失败，请稍后重试。")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "添加到主页" }));
     await waitFor(() => expect(set).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText("当前网页已添加到主页。")).toBeInTheDocument();
+    expect(await screen.findByText("已添加到主页。")).toBeInTheDocument();
   });
 
   it("shows a load failure instead of an endless loading screen", async () => {
@@ -105,7 +105,9 @@ describe("toolbar popup", () => {
     const { set } = installChromeMock();
     const user = userEvent.setup();
     render(<PopupApp />);
-    expect(await screen.findByText("OpenAI Developers")).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: /网站名称/ })).toHaveValue("OpenAI Developers");
+    expect(screen.queryByText("当前网页")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "保存到网站收藏" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "添加到主页" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
     const saved = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
@@ -162,10 +164,12 @@ describe("toolbar popup", () => {
     const user = userEvent.setup();
     render(<PopupApp />);
 
-    expect(await screen.findByText("DewMysimple/GuoYoung")).toBeInTheDocument();
-    const groupSelect = screen.getByLabelText("添加到 GitHub 分组");
-    expect(within(groupSelect).getByRole("option", { name: "其他" })).toBeInTheDocument();
-    expect(within(groupSelect).queryByRole("option", { name: "开发" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: /网站名称/ })).toHaveValue("DewMysimple/GuoYoung");
+    await user.click(screen.getByRole("button", { name: "添加到 GitHub 分组" }));
+    const groupMenu = screen.getByRole("listbox", { name: "添加到 GitHub 分组" });
+    expect(within(groupMenu).getByRole("option", { name: "其他" })).toBeInTheDocument();
+    expect(within(groupMenu).queryByRole("option", { name: "开发" })).not.toBeInTheDocument();
+    await user.click(within(groupMenu).getByRole("option", { name: "其他" }));
 
     await user.click(screen.getByRole("button", { name: "添加到 GitHub" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
@@ -183,7 +187,8 @@ describe("toolbar popup", () => {
     const user = userEvent.setup();
     render(<PopupApp />);
     await user.click(await screen.findByRole("button", { name: "浏览器书签" }));
-    await user.selectOptions(screen.getByLabelText("默认分组"), "develop");
+    await user.click(screen.getByRole("button", { name: "默认分组" }));
+    await user.click(screen.getByRole("option", { name: "开发" }));
     await user.click(screen.getByRole("checkbox", { name: "选择 普通网站" }));
     await user.click(screen.getByRole("button", { name: /添加到主页/ }));
     await waitFor(() => expect(set).toHaveBeenCalled());
