@@ -25,8 +25,12 @@ async function prepare(page, url, extension = false) {
     state.wallpaper = { ...state.wallpaper, source: "url", url: "https://glass-check.example/sea.svg", overlay: 0,
       glassTransparency: 86, glassBlur: 2, glassRefraction: false };
     const originals = state.sites;
+    const sourceGroupId = originals[0]?.groupId;
+    state.displayModeByWorkspace = { ...state.displayModeByWorkspace, main: "grouped" };
     state.sites = Array.from({ length: 48 }, (_, index) => ({ ...originals[index % originals.length],
-      id: `visual-${index}`, order: index, globalOrder: index, iconSource: "brand" }));
+      id: `visual-${index}`, groupId: sourceGroupId, order: index, globalOrder: index, iconSource: "brand" }));
+    state.sites[0] = { ...state.sites[0], id: "visual-bilibili", name: "哔哩哔哩", url: "https://www.bilibili.com" };
+    state.sites[1] = { ...state.sites[1], id: "visual-xiaohongshu", name: "小红书", url: "https://www.xiaohongshu.com" };
     if (extension) await chrome.storage.local.set({ [key]: JSON.stringify(state) });
     else localStorage.setItem(key, JSON.stringify(state));
   }, { extension });
@@ -76,6 +80,32 @@ try {
     await capture(page, `glass-production-${spec.name}-on`);
     const on = await card.screenshot({ animations: "disabled" });
     assert.ok(!off.equals(on), "Refraction must change the rendered card");
+    if (spec.name === "desktop") {
+      const cards = page.locator(".grouped-site-section").first().locator(".site-card[data-site-dnd-id]");
+      const target = cards.nth(0);
+      const source = cards.nth(1);
+      const sourceBox = await source.boundingBox();
+      const targetBox = await target.boundingBox();
+      assert.ok(sourceBox && targetBox, "Drag source and target cards must be visible");
+      await page.mouse.move(sourceBox.x + 8, sourceBox.y + sourceBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(sourceBox.x - 43, sourceBox.y + sourceBox.height / 2);
+      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
+      await expect(source).toHaveCSS("opacity", "0.26");
+      await expect(target).toHaveClass(/is-drop-target/);
+      await expect(target).toHaveCSS("opacity", "0.78");
+      await expect(target).toHaveCSS("backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
+      const targetFillAlpha = await target.evaluate(el => {
+        const color = getComputedStyle(el).backgroundColor;
+        return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
+      });
+      assert.ok(targetFillAlpha > 0.75, `Target glass fill alpha should exceed 0.75, got ${targetFillAlpha}`);
+      metrics.push({ name: "site-drag-feedback", targetOpacity: 0.78, sourceOpacity: 0.26,
+        targetFillAlpha, targetBackdrop: await target.evaluate(el => getComputedStyle(el).backdropFilter) });
+      await page.screenshot({ path: join(output, "glass-production-xiaohongshu-over-bilibili.png"), animations: "disabled" });
+      await page.keyboard.press("Escape");
+      await page.mouse.up();
+    }
     await page.emulateMedia({ colorScheme: "dark" });
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await expect(card).toHaveCSS("color", "rgb(232, 236, 243)");

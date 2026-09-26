@@ -115,9 +115,12 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 51, sourceBox.y + sourceBox.height / 2);
+  await expect(source).toHaveCSS("opacity", "0.26");
   const sitePreview = page.getByTestId("site-card-drag-preview");
   await expect(sitePreview).toHaveCSS("backdrop-filter", /blur\(8px\).*wallpaper-glass-lens/);
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
+  await expect(target).toHaveClass(/is-drop-target/);
+  await expect(target).toHaveCSS("opacity", "0.78");
   await expect(target).toHaveCSS("backdrop-filter", /blur\(8px\)/);
   await expect(target).toHaveCSS("background-color", /\/ 0\.[0-9]+\)/);
   await expect.poll(() => target.evaluate(el => {

@@ -2275,6 +2275,7 @@ label:has(input:focus-visible) {
   background: color-mix(in srgb, var(--accent-soft) 8%, var(--surface));
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--accent) 12%, transparent);
+  opacity: 0.78;
 }
 
 .site-card.site-card-drop-placeholder {
@@ -2299,6 +2300,10 @@ label:has(input:focus-visible) {
   box-shadow: none;
   cursor: grabbing;
   opacity: 0.16;
+}
+
+.site-card[data-site-dnd-id].is-dragging {
+  opacity: 0.26;
 }
 
 .site-card.is-dragging[data-drag-mode="transfer"] {
