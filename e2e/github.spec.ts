@@ -263,8 +263,18 @@ test("opens the GitHub home entry from its card surface", async ({ page, context
   await expect(menu).toBeVisible();
   await expect(menu).toHaveCSS("background-color", "rgb(249, 250, 252)");
   await expect(menu).toHaveCSS("backdrop-filter", "none");
+  const deleteItem = menu.getByRole("menuitem", { name: "删除官方入口" });
+  expect(await deleteItem.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)?.closest("[role='menuitem']") === element;
+  })).toBe(true);
   await page.screenshot({
     path: screenshotPath(`github-home-entry-menu-${testInfo.project.name}.png`),
     fullPage: true,
   });
+  await deleteItem.click();
+  await expect(menu.getByRole("menuitem", { name: "再次点击删除官方入口" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(menuButton).toBeFocused();
 });

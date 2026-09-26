@@ -42,7 +42,6 @@ export interface BrowserTabsApi {
     active?: boolean;
     currentWindow?: boolean;
   }) => Promise<BrowserTab[]>;
-  create?: (createProperties: { url: string }) => Promise<BrowserTab>;
 }
 
 export interface BrowserBookmarkTreeNode {

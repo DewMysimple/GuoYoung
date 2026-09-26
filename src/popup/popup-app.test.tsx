@@ -132,6 +132,26 @@ describe("toolbar popup", () => {
     await waitFor(() => expect(removeTree).toHaveBeenCalledWith("work"));
   });
 
+  it("deletes only matching sites when a filtered folder is selected", async () => {
+    const { remove, removeTree } = installChromeMock();
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "浏览器书签" }));
+    await user.type(screen.getByRole("textbox", { name: "搜索书签或网址" }), "Notion");
+    expect(screen.getByText("Notion")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "收起 工作" }));
+    expect(screen.queryByText("Notion")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "展开 工作" }));
+    expect(screen.getByText("Notion")).toBeVisible();
+    await user.click(screen.getByRole("checkbox", { name: "选择 工作" }));
+    await user.click(screen.getByRole("button", { name: "删除" }));
+    const confirm = screen.getByRole("alertdialog", { name: "删除浏览器原生书签？" });
+    expect(within(confirm).getByText(/1 个网站和 0 个文件夹/)).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "确认删除" }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith("notion"));
+    expect(removeTree).not.toHaveBeenCalled();
+  });
+
   it("detects a GitHub page and limits the destination to GitHub groups", async () => {
     const { set } = installChromeMock({
       tab: {
@@ -153,6 +173,22 @@ describe("toolbar popup", () => {
     expect(saved.sites.find((site: { url: string }) => site.url.includes("DewMysimple"))?.groupId).toBe(
       "github-other",
     );
+  });
+
+  it("imports loose browser bookmarks into the selected homepage group while viewing GitHub", async () => {
+    const { getTree, set } = installChromeMock({ tab: { title: "GitHub repo", url: "https://github.com/acme/repo" } });
+    getTree.mockResolvedValue([{ id: "root", title: "", children: [{ id: "bar", title: "收藏夹栏", children: [
+      { id: "loose", parentId: "bar", title: "普通网站", url: "https://example.org" },
+    ] }] }]);
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "浏览器书签" }));
+    await user.selectOptions(screen.getByLabelText("默认分组"), "develop");
+    await user.click(screen.getByRole("checkbox", { name: "选择 普通网站" }));
+    await user.click(screen.getByRole("button", { name: /添加到主页/ }));
+    await waitFor(() => expect(set).toHaveBeenCalled());
+    const saved = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
+    expect(saved.sites.find((site: { url: string }) => site.url === "https://example.org")?.groupId).toBe("develop");
   });
 
   it("treats the GitHub root as the shared homepage entry", async () => {

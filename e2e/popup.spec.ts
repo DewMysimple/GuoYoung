@@ -30,13 +30,16 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.goto("/popup.html");
   await expect(page.getByText("维护示例", { exact: true })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator(".popup-shell")).toHaveCSS("background-color", "rgb(23, 26, 33)");
+  await expect(page.locator(".popup-shell")).toHaveCSS("background-image", /linear-gradient/);
   await expect(page.locator(".popup-field input")).toHaveCSS("color", "rgb(232, 236, 243)");
   await page.getByRole("button", { name: "添加到主页", exact: true }).click();
   await expect(page.getByText("当前网页已添加到主页。")).toBeVisible();
   await page.screenshot({ path: screenshotPath(`popup-quick-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
-  await page.getByRole("checkbox", { name: "选择 参考资料" }).check();
+  const folderSelection = page.getByRole("checkbox", { name: "选择 参考资料" });
+  await folderSelection.check();
+  await expect(folderSelection).toHaveCSS("border-radius", "50%");
+  await page.screenshot({ path: screenshotPath(`popup-bookmarks-selected-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: /添加到主页/ }).click();
   await expect(page.getByText("新增 1 个，跳过 0 个，失败 0 个。")).toBeVisible();
   const urls = await page.evaluate(() => JSON.parse(localStorage.getItem("popup-test-collection")!).sites.map((site: { url: string }) => site.url));
@@ -48,4 +51,17 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   }));
   expect(width.scroll).toBeLessThanOrEqual(width.client);
   await page.screenshot({ path: screenshotPath(`popup-bookmarks-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("popup-test-collection")!);
+    state.appearance.theme = "light";
+    localStorage.setItem("popup-test-collection", JSON.stringify(state));
+  });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.getByRole("button", { name: "更新已收藏网站" })).toBeVisible();
+  await page.screenshot({ path: screenshotPath(`popup-quick-light-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.getByRole("button", { name: "浏览器书签" }).click();
+  await page.getByRole("button", { name: "展开 参考资料" }).click();
+  await expect(page.getByText("示例文档")).toBeVisible();
+  await page.screenshot({ path: screenshotPath(`popup-bookmarks-light-${testInfo.project.name}.png`), animations: "disabled" });
 });

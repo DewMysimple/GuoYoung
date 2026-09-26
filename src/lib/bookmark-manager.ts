@@ -106,7 +106,7 @@ export function importSelectedBookmarks(
     if (entry.mappedGroupName) {
       let group = findGroupByName(getWorkspaceGroups(next.groups, "main"), entry.mappedGroupName);
       if (!group) {
-        next = addGroupToState(next, entry.mappedGroupName, "folder");
+        next = addGroupToState(next, entry.mappedGroupName, "stack");
         group = findGroupByName(getWorkspaceGroups(next.groups, "main"), entry.mappedGroupName);
       }
       if (group) groupId = group.id;

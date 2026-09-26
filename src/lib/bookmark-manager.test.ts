@@ -3,6 +3,7 @@ import { createDefaultState } from "../data/defaults";
 import type { BrowserBookmarkTreeNode } from "./browser-runtime";
 import {
   deleteBookmarkSelection,
+  filterBookmarkTree,
   importSelectedBookmarks,
   summarizeBookmarkDeletion,
 } from "./bookmark-manager";
@@ -40,8 +41,24 @@ describe("bookmark manager", () => {
     expect(result).toMatchObject({ added: 2, skipped: 1, failed: 0 });
     const work = result.state.groups.find((group) => group.name === "工作");
     expect(work).toBeDefined();
+    expect(work?.icon).toBe("stack");
     expect(result.state.sites.find((site) => site.url === "https://notion.so")?.groupId).toBe(work?.id);
     expect(result.state.sites.find((site) => site.url === "https://openai.com")?.groupId).toBe("search");
+  });
+
+  it("keeps imported bookmark folders in the homepage workspace when GitHub has the same group name", () => {
+    const state = createDefaultState();
+    state.groups = state.groups.map((group) => group.id === "github-tools" ? { ...group, name: "工作" } : group);
+    const result = importSelectedBookmarks(state, roots, new Set(["notion"]), "search");
+    const homepageWork = result.state.groups.find((group) => group.name === "工作" && group.workspace === "main");
+    expect(homepageWork).toBeDefined();
+    expect(result.state.sites.find((site) => site.url === "https://notion.so")?.groupId).toBe(homepageWork?.id);
+    expect(homepageWork?.id).not.toBe("github-tools");
+  });
+
+  it("includes a matching folder's bookmarks in filtered results", () => {
+    const filtered = filterBookmarkTree(roots, "工作");
+    expect(filtered[0].children?.[0].children?.map((item) => item.id)).toEqual(["docs", "github-bookmark"]);
   });
 
   it("collapses selected descendants when deleting a folder tree", async () => {
