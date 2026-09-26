@@ -26,8 +26,13 @@ try {
     const tree = await chrome.bookmarks.getTree();
     const bar = tree[0].children[0];
     const folder = await chrome.bookmarks.create({ parentId: bar.id, title: "参考资料" });
-    const site = await chrome.bookmarks.create({ parentId: folder.id, title: "示例文档", url: "https://example.org/docs" });
-    return { folderId: folder.id, siteId: site.id };
+    const sites = await Promise.all([
+      chrome.bookmarks.create({ parentId: folder.id, title: "示例文档", url: "https://example.org/docs" }),
+      chrome.bookmarks.create({ parentId: folder.id, title: "开发者工具", url: "https://developer.mozilla.org/" }),
+      chrome.bookmarks.create({ parentId: folder.id, title: "设计资源", url: "https://www.figma.com/" }),
+      chrome.bookmarks.create({ parentId: folder.id, title: "阅读清单", url: "https://www.notion.so/" }),
+    ]);
+    return { folderId: folder.id, siteIds: sites.map((site) => site.id) };
   });
 
   const page = await context.newPage();
@@ -51,9 +56,13 @@ try {
   await page.keyboard.press("Escape");
   const folderCardSize = await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => {
     const bounds = card.getBoundingClientRect();
-    return { width: bounds.width, height: bounds.height };
+    return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
   });
-  assert.deepEqual(folderCardSize, { width: 96, height: 68 }, "Bookmark cards should fit their compact icon and title content");
+  assert.deepEqual(folderCardSize, { width: 96, height: 76 }, "Bookmark cards should use a compact, near-square tile shape");
+  assert.equal(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
+    "Folder bookmark tiles should have a visible card border");
+  assert.notEqual(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
+    "Folder bookmark tiles should have a card surface");
   const folderFooterCenters = await page.locator(".bookmark-tile.is-folder .bookmark-tile-footer").first().evaluate((footer) => {
     const name = footer.querySelector(".bookmark-tile-name").getBoundingClientRect();
     const caret = footer.querySelector(".bookmark-tile-caret").getBoundingClientRect();
@@ -70,9 +79,13 @@ try {
   await expect(page.getByText("示例文档")).toBeVisible();
   assert.deepEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => {
     const bounds = card.getBoundingClientRect();
-    return { width: bounds.width, height: bounds.height };
-  }), { width: 96, height: 68 },
-    "Website bookmark cards should fit their compact favicon and title content");
+    return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
+  }), { width: 96, height: 76 },
+    "Website bookmark cards should use the same compact, near-square tile shape");
+  assert.equal(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
+    "Website bookmark tiles should share the folder card frame");
+  assert.notEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
+    "Website bookmark tiles should have a card surface");
   const favicon = page.locator('[data-bookmark-kind="site"] .favicon-frame img').first();
   assert.match(await favicon.getAttribute("src"), /_favicon\/\?pageUrl=/,
     "Bookmark website cards should use Chromium's original favicon service");

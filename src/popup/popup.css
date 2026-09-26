@@ -150,12 +150,12 @@ button { cursor: pointer; }
 .select-visible { padding: 2px 0; border: 0; color: var(--accent-text); background: transparent; font-size: 10px; font-weight: 720; }
 .select-visible:disabled { cursor: default; opacity: .45; }
 
-.bookmark-tree { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--surface) 90%, var(--page)); scrollbar-gutter: stable; scrollbar-width: thin; }
+.bookmark-tree { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--surface-raised) 48%, var(--page)); scrollbar-gutter: stable; scrollbar-width: thin; }
 .bookmark-grid { display: grid; grid-template-columns: repeat(auto-fill, 96px); align-content: start; gap: 8px; margin: 0; padding: 9px; list-style: none; }
 .bookmark-list-item { min-width: 0; margin: 0; padding: 0; }
-.bookmark-tile { position: relative; display: flex; width: 100%; min-width: 0; height: auto; min-height: 68px; flex-direction: column; gap: 4px; padding: 8px; border-radius: 12px; cursor: pointer; transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
+.bookmark-tile { position: relative; display: flex; width: 100%; min-width: 0; height: 76px; min-height: 76px; flex-direction: column; justify-content: space-between; gap: 6px; padding: 7px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent); cursor: pointer; transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
 .bookmark-tile.is-folder { border-color: color-mix(in srgb, var(--accent) 20%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface)); }
-.bookmark-tile:hover, .bookmark-tile:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: var(--surface-hover); box-shadow: 0 4px 12px color-mix(in srgb, var(--text) 8%, transparent); transform: translateY(-1px); }
+.bookmark-tile:hover, .bookmark-tile:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 20%, var(--surface)); box-shadow: 0 4px 12px color-mix(in srgb, var(--text) 8%, transparent); transform: translateY(-1px); }
 .bookmark-tile.is-selected, .bookmark-tile.is-partial { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface)); }
 .bookmark-tile-open { position: absolute; z-index: 1; inset: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
 .bookmark-tile-open:focus-visible { outline-offset: -3px; }
