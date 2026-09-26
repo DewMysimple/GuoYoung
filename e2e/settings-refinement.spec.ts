@@ -43,7 +43,12 @@ test("resizes the topbar live with cancel, keyboard, save and reload", async ({ 
     expect(after).toEqual(before);
     expect((await bar.boundingBox())!.height).toBe(originalBar.height);
     await page.screenshot({ path: screenshotPath(`${imageName}-expanded.png`), animations: "disabled" });
+    // Programmatic focus after pointer input does not imply :focus-visible.
+    // Enter keyboard modality before checking the keyboard reveal contract.
+    await page.keyboard.press("Tab");
     await divider.focus();
+    await expect(divider).toBeFocused();
+    expect(await divider.evaluate(element => element.matches(":focus-visible"))).toBe(true);
     await page.mouse.move(0, 0);
     await expect(grip).toHaveCSS(dimension, `${expanded}px`);
     await divider.evaluate(element => (element as HTMLElement).blur());

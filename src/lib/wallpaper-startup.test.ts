@@ -12,6 +12,16 @@ function memory() {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("saved wallpaper startup preview", () => {
+  it("does not rewrite a matching saved preview on a new page", async () => {
+    const storage = memory();
+    const state = createDefaultState();
+    state.wallpaper = { ...state.wallpaper, source: "local", localAssetId: "saved" };
+    storage.setItem(WALLPAPER_STARTUP_KEY, JSON.stringify({ key: "local:saved", preview, quality: 2, wallpaper: state.wallpaper, theme: state.appearance.theme }));
+    const write = vi.spyOn(storage, "setItem");
+    await syncWallpaperStartup(state, storage);
+    expect(write.mock.calls.some(([key]) => key === WALLPAPER_STARTUP_KEY)).toBe(false);
+    expect(loadWallpaperBlob).not.toHaveBeenCalled();
+  });
   it("shrinks a detailed preview to fit the budget and avoids rereading it on collection-only saves", async () => {
     const storage = memory();
     const state = createDefaultState();

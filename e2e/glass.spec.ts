@@ -256,12 +256,15 @@ test("offers six reversible presets behind collapsed wallpaper parameters", asyn
   const presets = panel.getByRole("group", { name: "玻璃外观预设" });
   await expect(presets.getByRole("button")).toHaveCount(6);
   await expect(panel.getByRole("slider")).toHaveCount(0);
-  const names = ["液态清透", "水晶棱镜", "柔光薄雾", "细腻磨砂", "轻透无影", "经典玻璃"];
+  const names = [["液态清透", "8%"], ["水晶棱镜", "12%"], ["柔光薄雾", "18%"], ["细腻磨砂", "35%"], ["轻透无影", "4%"], ["经典玻璃", "22%"]];
   const seen = new Set();
-  for (const name of names) {
+  for (const [name, opacity] of names) {
     const option = presets.getByRole("button", { name: new RegExp(`^${name}`) });
     await option.click();
     await expect(option).toHaveAttribute("aria-pressed", "true");
+    // The selected draft button commits before the parent receives onPreview.
+    // Wait for the actual material, not just the editor's selection state.
+    await expect(page.locator(".app-shell")).toHaveCSS("--glass-opacity", opacity);
     seen.add(await page.locator(".app-shell").getAttribute("style"));
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toEqual(original);
   }

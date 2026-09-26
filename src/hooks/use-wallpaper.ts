@@ -39,6 +39,9 @@ export function useWallpaper(wallpaper: WallpaperSettings) {
           image!.onerror = () => reject(new Error("壁纸无法加载，请检查图片地址"));
           image!.src = candidate;
         });
+        // onload can precede decoding. Keep the saved preview until the full
+        // image can be painted, avoiding a blank frame during the handoff.
+        if (image.decode) await image.decode();
         if (active) setResolved({ key, imageUrl: candidate, error: "" });
       } catch (reason) {
         if (active) setResolved({ key, error: reason instanceof Error ? reason.message : "壁纸无法加载" });

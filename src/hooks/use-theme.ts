@@ -1,9 +1,9 @@
-import { useLayoutEffect } from "react";
+import { useInsertionEffect } from "react";
 import type { ThemePreference } from "../types";
 
 /** Only resolves the effective palette; the settings draft/store owns the preference. */
 export function useTheme(preference: ThemePreference, accentColor: string) {
-  useLayoutEffect(() => {
+  useInsertionEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
       const theme = preference === "system" ? (media.matches ? "dark" : "light") : preference;
