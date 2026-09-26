@@ -114,11 +114,34 @@ describe("toolbar popup", () => {
     expect(saved.sites.some((site: { url: string }) => site.url === "https://platform.openai.com/docs")).toBe(true);
   });
 
+  it("opens bookmark folders as separate card views and uses the browser favicon", async () => {
+    installChromeMock();
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: /浏览器书签/ }));
+
+    expect(screen.queryByText("整理已有书签")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "打开书签文件夹 工作" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }));
+    await user.click(screen.getByRole("button", { name: "打开书签文件夹 工作" }));
+
+    const bookmarkCard = screen.getByTestId("bookmark-card-notion");
+    expect(within(bookmarkCard).getByRole("button", { name: "选择 Notion" })).toBeInTheDocument();
+    const favicon = bookmarkCard.querySelector("img");
+    expect(favicon?.getAttribute("src")).toContain("/_favicon/?pageUrl=https%3A%2F%2Fnotion.so&size=64");
+    expect(bookmarkCard.querySelector(".favicon-frame")).toHaveClass("favicon-large");
+    expect(screen.getByRole("button", { name: "返回上一级书签文件夹" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "返回上一级书签文件夹" }));
+    expect(screen.getByRole("button", { name: "打开书签文件夹 工作" })).toBeInTheDocument();
+    expect(screen.queryByTestId("bookmark-card-notion")).not.toBeInTheDocument();
+  });
+
   it("imports a selected bookmark folder and deletes it only after confirmation", async () => {
     const { set, removeTree } = installChromeMock();
     const user = userEvent.setup();
     render(<PopupApp />);
     await user.click(await screen.findByRole("button", { name: /浏览器书签/ }));
+    await user.click(screen.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }));
     await user.click(screen.getByRole("checkbox", { name: "选择 工作" }));
     await user.click(screen.getByRole("button", { name: /添加到主页/ }));
     await waitFor(() => expect(set).toHaveBeenCalled());
@@ -134,18 +157,16 @@ describe("toolbar popup", () => {
     await waitFor(() => expect(removeTree).toHaveBeenCalledWith("work"));
   });
 
-  it("deletes only matching sites when a filtered folder is selected", async () => {
+  it("shows matching bookmarks as cards without expanding their parent folders", async () => {
     const { remove, removeTree } = installChromeMock();
     const user = userEvent.setup();
     render(<PopupApp />);
     await user.click(await screen.findByRole("button", { name: "浏览器书签" }));
     await user.type(screen.getByRole("textbox", { name: "搜索书签或网址" }), "Notion");
-    expect(screen.getByText("Notion")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "收起 工作" }));
-    expect(screen.queryByText("Notion")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "展开 工作" }));
-    expect(screen.getByText("Notion")).toBeVisible();
-    await user.click(screen.getByRole("checkbox", { name: "选择 工作" }));
+    expect(screen.getByTestId("bookmark-card-notion")).toBeVisible();
+    expect(screen.queryByTestId("bookmark-card-work")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /展开|收起/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "选择 Notion" }));
     await user.click(screen.getByRole("button", { name: "删除" }));
     const confirm = screen.getByRole("alertdialog", { name: "删除浏览器原生书签？" });
     expect(within(confirm).getByText(/1 个网站和 0 个文件夹/)).toBeInTheDocument();
@@ -187,6 +208,7 @@ describe("toolbar popup", () => {
     const user = userEvent.setup();
     render(<PopupApp />);
     await user.click(await screen.findByRole("button", { name: "浏览器书签" }));
+    await user.click(screen.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }));
     await user.click(screen.getByRole("button", { name: "默认分组" }));
     await user.click(screen.getByRole("option", { name: "开发" }));
     await user.click(screen.getByRole("checkbox", { name: "选择 普通网站" }));

@@ -26,7 +26,8 @@ try {
     const tree = await chrome.bookmarks.getTree();
     const bar = tree[0].children[0];
     const folder = await chrome.bookmarks.create({ parentId: bar.id, title: "参考资料" });
-    await chrome.bookmarks.create({ parentId: folder.id, title: "示例文档", url: "https://example.org/docs" });
+    const site = await chrome.bookmarks.create({ parentId: folder.id, title: "示例文档", url: "https://example.org/docs" });
+    return { folderId: folder.id, siteId: site.id };
   });
 
   const page = await context.newPage();
@@ -35,6 +36,7 @@ try {
   await expect(page.getByRole("button", { name: "浏览器书签" })).toBeVisible();
   await page.screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
+  await page.screenshot({ path: join(output, "popup-production-bookmarks-overview-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "默认分组" }).click();
   const lightGroupMenu = page.getByRole("listbox", { name: "默认分组" });
   await expect(lightGroupMenu).toBeVisible();
@@ -52,12 +54,21 @@ try {
     return { width: bounds.width, height: bounds.height };
   });
   assert.ok(folderCardSize.width <= folderCardSize.height, "Bookmark folder cards should be square or taller than wide");
-  await page.getByRole("button", { name: "展开 参考资料" }).click();
+  assert.equal(await page.locator(".bookmark-tile.is-folder .bookmark-kind").first().evaluate((icon) => icon.getBoundingClientRect().width), 64,
+    "Bookmark folder icon tiles should match the marked 64px target size");
+  await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
+  const favicon = page.locator('[data-bookmark-kind="site"] .favicon-frame img').first();
+  assert.match(await favicon.getAttribute("src"), /_favicon\/\?pageUrl=/,
+    "Bookmark website cards should use Chromium's original favicon service");
+  assert.equal(await favicon.evaluate((image) => image.parentElement.getBoundingClientRect().width), 64,
+    "Bookmark website favicon should use the marked icon size");
+  await expect(favicon).toHaveClass(/is-loaded/);
   await page.screenshot({ path: join(output, "popup-production-bookmarks-light.png"), animations: "disabled" });
 
   await page.getByRole("textbox", { name: "搜索书签或网址" }).fill("示例文档");
-  await page.getByRole("checkbox", { name: "选择 参考资料" }).check();
+  await page.getByRole("checkbox", { name: "选择 示例文档" }).check();
   await page.getByRole("button", { name: "删除" }).click();
   await expect(page.getByRole("alertdialog", { name: "删除浏览器原生书签？" }))
     .toContainText("1 个网站和 0 个文件夹");
@@ -83,11 +94,14 @@ try {
   await expect(page.getByRole("listbox", { name: "默认分组" })).toBeVisible();
   await page.screenshot({ path: join(output, "popup-production-bookmark-select-dark.png"), animations: "disabled" });
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "展开 参考资料" }).click();
+  await page.screenshot({ path: join(output, "popup-production-bookmarks-overview-dark.png"), animations: "disabled" });
+  await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
+  await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame img').first()).toHaveClass(/is-loaded/);
   await page.screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, importedGroupIcon: "stack", errors, screenshots: 6 }));
+  console.log(JSON.stringify({ version: manifest.version, importedGroupIcon: "stack", bookmarkFolderIconSize: 64, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
 } finally {
   await context.close();
 }

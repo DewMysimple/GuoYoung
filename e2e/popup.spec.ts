@@ -10,7 +10,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.addInitScript(() => {
     const collectionKey = "popup-test-collection";
     const api = {
-      runtime: { id: "popup-test" },
+      runtime: { id: "popup-test", getURL: (path: string) => `chrome-extension://popup-test${path}` },
       storage: { local: {
         get: async (key: string) => ({ [key]: localStorage.getItem(collectionKey) }),
         set: async (values: Record<string, string>) => localStorage.setItem(collectionKey, values["site-hub:v1"]),
@@ -47,6 +47,9 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(page.getByText("已添加到主页。")).toBeVisible();
   await page.screenshot({ path: screenshotPath(`popup-quick-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
+  await expect(page.getByRole("heading", { name: "整理已有书签" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toHaveCount(0);
+  await expect(page.locator(".bookmark-kind.folder").first()).toHaveCSS("width", "64px");
   const bookmarkGroup = page.getByRole("button", { name: "默认分组" });
   await bookmarkGroup.click();
   const bookmarkGroupMenu = page.getByRole("listbox", { name: "默认分组" });
@@ -59,6 +62,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(popupBounds!.y + popupBounds!.height);
   await page.screenshot({ path: screenshotPath(`popup-bookmark-select-${testInfo.project.name}.png`), animations: "disabled" });
   await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }).click();
   const folderSelection = page.getByRole("checkbox", { name: "选择 参考资料" });
   await folderSelection.check();
   await expect(folderSelection).toHaveCSS("border-radius", "50%");
@@ -84,7 +88,10 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(page.getByRole("button", { name: "更新已收藏网站" })).toBeVisible();
   await page.screenshot({ path: screenshotPath(`popup-quick-light-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
-  await page.getByRole("button", { name: "展开 参考资料" }).click();
+  await page.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }).click();
+  await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
+  await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame').first()).toHaveCSS("width", "64px");
+  await expect(page.getByRole("button", { name: "返回上一级书签文件夹" })).toBeVisible();
   await page.screenshot({ path: screenshotPath(`popup-bookmarks-light-${testInfo.project.name}.png`), animations: "disabled" });
 });

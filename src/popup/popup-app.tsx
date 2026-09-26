@@ -1,5 +1,6 @@
 import {
   ArrowClockwise,
+  ArrowLeft,
   ArrowSquareOut,
   BookmarkSimple,
   MagnifyingGlass,
@@ -38,7 +39,7 @@ import { inferSiteName, normalizeUrl } from "../lib/site-utils";
 import type { SiteCollectionState, SiteWorkspace } from "../types";
 import { useTheme } from "../hooks/use-theme";
 import { DEFAULT_APPEARANCE } from "../data/defaults";
-import { BookmarkTile, getBookmarkFolderIds, getBookmarkSiteIds } from "./bookmark-tree";
+import { BookmarkTile, getBookmarkSiteIds } from "./bookmark-tree";
 import { SelectMenu } from "../components/select-menu";
 
 type PopupTab = "quick" | "bookmarks";
@@ -89,7 +90,7 @@ export function PopupApp() {
   const [quickDuplicateId, setQuickDuplicateId] = useState<string>();
   const [bookmarkRoots, setBookmarkRoots] = useState<BrowserBookmarkTreeNode[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [bookmarkPath, setBookmarkPath] = useState<string[]>([]);
   const [bookmarkQuery, setBookmarkQuery] = useState("");
   const [deleteSummary, setDeleteSummary] = useState<BookmarkDeleteSummary | null>(null);
   const [busy, setBusy] = useState(false);
@@ -118,7 +119,7 @@ export function PopupApp() {
     const tree = await api.bookmarks.getTree();
     const roots = tree.flatMap((root) => root.children ?? [root]);
     setBookmarkRoots(roots);
-    setExpandedIds(new Set(roots.map((root) => root.id)));
+    setBookmarkPath([]);
   }
 
   useEffect(() => {
@@ -179,7 +180,7 @@ export function PopupApp() {
       );
       const roots = tree.flatMap((root) => root.children ?? [root]);
       setBookmarkRoots(roots);
-      setExpandedIds(new Set(roots.map((root) => root.id)));
+      setBookmarkPath([]);
     });
     return () => {
       active = false;
@@ -199,30 +200,37 @@ export function PopupApp() {
     () => filterBookmarkTree(bookmarkRoots, bookmarkQuery),
     [bookmarkQuery, bookmarkRoots],
   );
-  const visibleBookmarkTiles = useMemo(() => {
-    const flatten = (nodes: BrowserBookmarkTreeNode[], depth: number): Array<{ node: BrowserBookmarkTreeNode; depth: number }> =>
-      nodes.flatMap((node) => [
-        { node, depth },
-        ...(!node.url && expandedIds.has(node.id) ? flatten(node.children ?? [], depth + 1) : []),
-      ]);
-    return flatten(visibleBookmarkRoots, 0);
-  }, [expandedIds, visibleBookmarkRoots]);
-  const visibleIds = useMemo(
-    () => {
-      if (!bookmarkQuery.trim()) {
-        return new Set(visibleBookmarkRoots.flatMap(getDescendantIds));
-      }
-      const bookmarkIds: string[] = [];
-      const collect = (node: BrowserBookmarkTreeNode) => {
-        if (node.url) bookmarkIds.push(node.id);
-        node.children?.forEach(collect);
-      };
-      visibleBookmarkRoots.forEach(collect);
-      return new Set(bookmarkIds);
-    },
-    [bookmarkQuery, visibleBookmarkRoots],
-  );
   const bookmarkIndex = useMemo(() => indexBookmarkTree(bookmarkRoots), [bookmarkRoots]);
+  const bookmarkPathNodes = useMemo(
+    () => bookmarkPath.flatMap((id) => {
+      const node = bookmarkIndex.get(id)?.node;
+      return node && !node.url ? [node] : [];
+    }),
+    [bookmarkIndex, bookmarkPath],
+  );
+  const currentBookmarkFolder = bookmarkPathNodes.at(-1);
+  const currentBookmarkNodes = currentBookmarkFolder?.children ?? bookmarkRoots;
+  const visibleBookmarkTiles = useMemo(() => {
+    if (!bookmarkQuery.trim()) return currentBookmarkNodes;
+    const matching: BrowserBookmarkTreeNode[] = [];
+    const collectMatches = (nodes: BrowserBookmarkTreeNode[]) => {
+      for (const node of nodes) {
+        const isMatch = [node.title, node.url ?? ""].some((value) =>
+          value.toLocaleLowerCase("zh-CN").includes(bookmarkQuery.trim().toLocaleLowerCase("zh-CN")),
+        );
+        if (isMatch) matching.push(node);
+        else collectMatches(node.children ?? []);
+      }
+    };
+    collectMatches(visibleBookmarkRoots);
+    return matching;
+  }, [bookmarkQuery, currentBookmarkNodes, visibleBookmarkRoots]);
+  const visibleIds = useMemo(
+    () => new Set(visibleBookmarkTiles.flatMap((node) =>
+      bookmarkQuery.trim() ? getBookmarkSiteIds(node) : getDescendantIds(node),
+    )),
+    [bookmarkQuery, visibleBookmarkTiles],
+  );
   const selectedBookmarkCount = [...selectedIds].filter((id) => Boolean(bookmarkIndex.get(id)?.node.url)).length;
   async function saveNextState(next: SiteCollectionState) {
     await store.save(next);
@@ -296,6 +304,15 @@ export function PopupApp() {
       ids.forEach((id) => (shouldSelect ? next.add(id) : next.delete(id)));
       return next;
     });
+  }
+
+  function openBookmarkFolder(node: BrowserBookmarkTreeNode) {
+    const entry = bookmarkIndex.get(node.id);
+    setBookmarkPath([...(entry?.ancestorIds ?? []), node.id]);
+    if (bookmarkQuery.trim()) {
+      setBookmarkQuery("");
+      setSelectedIds(new Set());
+    }
   }
 
   async function handleImportBookmarks() {
@@ -464,7 +481,6 @@ export function PopupApp() {
         <section className="popup-page bookmarks-page">
           <div className="popup-section-heading bookmarks-heading">
             <span className="popup-eyebrow"><BookmarkSimple size={14} /> 浏览器书签</span>
-            <h1>整理已有书签</h1>
           </div>
           {!api?.bookmarks ? (
             <div className="popup-empty">扩展缺少书签权限，请重新加载扩展。</div>
@@ -478,11 +494,8 @@ export function PopupApp() {
                     onChange={(event) => {
                       const query = event.target.value;
                       setBookmarkQuery(query);
+                      setBookmarkPath([]);
                       setSelectedIds(new Set());
-                      if (query.trim()) {
-                        const folderIds = filterBookmarkTree(bookmarkRoots, query).flatMap(getBookmarkFolderIds);
-                        setExpandedIds((current) => new Set([...current, ...folderIds]));
-                      }
                     }}
                     placeholder="搜索书签或网址"
                     aria-label="搜索书签或网址"
@@ -493,7 +506,22 @@ export function PopupApp() {
                 </button>
               </div>
               <div className="bookmark-list-heading">
-                <span>{bookmarkQuery.trim() ? "搜索结果" : "书签列表"}</span>
+                <div className="bookmark-location">
+                  {bookmarkPathNodes.length > 0 && (
+                    <button
+                      type="button"
+                      className="bookmark-back"
+                      aria-label="返回上一级书签文件夹"
+                      title="返回上一级"
+                      onClick={() => setBookmarkPath((path) => path.slice(0, -1))}
+                    >
+                      <ArrowLeft size={15} />
+                    </button>
+                  )}
+                  <span title={currentBookmarkFolder?.title ?? "书签列表"}>
+                    {bookmarkQuery.trim() ? "搜索结果" : currentBookmarkFolder?.title || "书签列表"}
+                  </span>
+                </div>
                 <button
                   type="button"
                   className="select-visible"
@@ -507,28 +535,22 @@ export function PopupApp() {
                   {allVisibleSelected ? "取消全选" : "全选结果"}
                 </button>
               </div>
-              <div className="bookmark-tree" aria-label="浏览器书签列表">
+              <div className="bookmark-tree" aria-label={currentBookmarkFolder ? `${currentBookmarkFolder.title}中的书签` : "浏览器书签列表"}>
                 {visibleBookmarkTiles.length ? (
                   <ul className="bookmark-grid">
-                    {visibleBookmarkTiles.map(({ node, depth }) => (
+                    {visibleBookmarkTiles.map((node) => (
                       <BookmarkTile
                         key={node.id}
                         node={node}
                         selectedIds={selectedIds}
-                        expanded={expandedIds.has(node.id)}
                         searchActive={Boolean(bookmarkQuery.trim())}
                         folderIcons={folderIcons}
-                        depth={depth}
                         onToggleSelect={toggleBookmarkSelection}
-                        onToggleExpanded={(id) => setExpandedIds((current) => {
-                          const next = new Set(current);
-                          next.has(id) ? next.delete(id) : next.add(id);
-                          return next;
-                        })}
+                        onOpenFolder={openBookmarkFolder}
                       />
                     ))}
                   </ul>
-                ) : <div className="popup-empty">没有匹配的浏览器书签</div>}
+                ) : <div className="popup-empty">{bookmarkQuery.trim() ? "没有匹配的浏览器书签" : currentBookmarkFolder ? "此文件夹中没有书签" : "没有浏览器书签"}</div>}
               </div>
               <div className="bookmark-footer">
                 <div className="bookmark-footer-summary"><strong>已选择 {selectedIds.size} 项</strong></div>

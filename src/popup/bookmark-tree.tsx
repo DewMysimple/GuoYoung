@@ -1,6 +1,8 @@
-import { CaretDown, CaretRight, Globe } from "@phosphor-icons/react";
+import { CaretRight } from "@phosphor-icons/react";
 import { useEffect, useRef } from "react";
 import { CategoryIcon as GroupIcon } from "../components/category-icon";
+import { CardOpenAction, CardSurface } from "../components/card-primitives";
+import { Favicon } from "../components/favicon";
 import { getDescendantIds } from "../lib/bookmark-manager";
 import type { BrowserBookmarkTreeNode } from "../lib/browser-runtime";
 import type { CategoryIcon } from "../types";
@@ -9,12 +11,6 @@ export function getBookmarkSiteIds(node: BrowserBookmarkTreeNode): string[] {
   return node.url
     ? [node.id]
     : (node.children ?? []).flatMap(getBookmarkSiteIds);
-}
-
-export function getBookmarkFolderIds(node: BrowserBookmarkTreeNode): string[] {
-  return node.url
-    ? []
-    : [node.id, ...(node.children ?? []).flatMap(getBookmarkFolderIds)];
 }
 
 function BookmarkCheckbox({
@@ -51,23 +47,19 @@ function BookmarkCheckbox({
 interface BookmarkTileProps {
   node: BrowserBookmarkTreeNode;
   selectedIds: Set<string>;
-  expanded: boolean;
   searchActive: boolean;
   folderIcons: ReadonlyMap<string, CategoryIcon>;
   onToggleSelect: (node: BrowserBookmarkTreeNode) => void;
-  onToggleExpanded: (id: string) => void;
-  depth?: number;
+  onOpenFolder: (node: BrowserBookmarkTreeNode) => void;
 }
 
 export function BookmarkTile({
   node,
   selectedIds,
-  expanded,
   searchActive,
   folderIcons,
   onToggleSelect,
-  onToggleExpanded,
-  depth = 0,
+  onOpenFolder,
 }: BookmarkTileProps) {
   const selectableIds = searchActive ? getBookmarkSiteIds(node) : getDescendantIds(node);
   const selectedCount = selectableIds.filter((id) => selectedIds.has(id)).length;
@@ -75,29 +67,37 @@ export function BookmarkTile({
   const indeterminate = selectedCount > 0 && !checked;
   const isFolder = !node.url;
   const groupIcon = folderIcons.get(node.title.trim().toLocaleLowerCase("zh-CN"))
-    ?? (depth === 0 ? "bookmark" : "stack");
+    ?? "stack";
+  const title = node.title || (isFolder ? "未命名文件夹" : "未命名书签");
   return (
-    <li className={`bookmark-tile ${isFolder ? "is-folder" : "is-site"} ${depth > 0 ? "is-child" : ""} ${checked ? "is-selected" : ""} ${indeterminate ? "is-partial" : ""}`}>
-      <button
-        type="button"
-        className="bookmark-tile-main"
-        aria-label={isFolder ? `${expanded ? "收起" : "展开"} ${node.title}` : `切换选择 ${node.title || "未命名书签"}`}
-        title={node.url || node.title}
-        onClick={() => isFolder ? onToggleExpanded(node.id) : onToggleSelect(node)}
+    <li className="bookmark-list-item">
+      <CardSurface
+        className={`bookmark-tile ${isFolder ? "is-folder" : "is-site"} ${checked ? "is-selected" : ""} ${indeterminate ? "is-partial" : ""}`}
+        data-testid={`bookmark-card-${node.id}`}
+        data-bookmark-kind={isFolder ? "folder" : "site"}
       >
+        <CardOpenAction
+          className="bookmark-tile-open"
+          label={isFolder ? `打开书签文件夹 ${title}` : `选择 ${title}`}
+          title={node.url || title}
+          onOpen={isFolder ? () => onOpenFolder(node) : undefined}
+          onSelect={!isFolder ? () => onToggleSelect(node) : undefined}
+        />
         <span className={`bookmark-kind ${isFolder ? "folder" : "site"}`}>
-          {isFolder ? <GroupIcon name={groupIcon} size={18} /> : <Globe size={18} />}
+          {isFolder
+            ? <GroupIcon name={groupIcon} size={34} />
+            : <Favicon site={{ name: title, url: node.url!, customIconUrl: "", iconSource: "browser" }} size="large" />}
         </span>
-        <strong>{node.title || (isFolder ? "未命名文件夹" : "未命名书签")}</strong>
-        {isFolder && (expanded ? <CaretDown className="bookmark-tile-caret" size={13} /> : <CaretRight className="bookmark-tile-caret" size={13} />)}
-      </button>
+        <strong className="bookmark-tile-name" title={title}>{title}</strong>
+        {isFolder && <CaretRight className="bookmark-tile-caret" size={15} aria-hidden="true" />}
       <BookmarkCheckbox
         checked={checked}
         indeterminate={indeterminate}
         disabled={selectableIds.length === 0}
-        label={`选择 ${node.title || "未命名书签"}`}
+        label={`选择 ${title}`}
         onChange={() => onToggleSelect(node)}
       />
+      </CardSurface>
     </li>
   );
 }
