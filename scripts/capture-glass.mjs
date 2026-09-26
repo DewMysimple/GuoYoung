@@ -66,6 +66,8 @@ try {
     const card = page.locator(".site-card").first();
     const off = await card.screenshot({ animations: "disabled" });
     const panel = await settings(page);
+    await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+    await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
     await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
     await panel.getByRole("slider", { name: "折射强度" }).fill("32");
     await panel.getByRole("button", { name: "保存设置" }).click();
@@ -79,8 +81,9 @@ try {
     await expect(card).toHaveCSS("color", "rgb(232, 236, 243)");
     await capture(page, `glass-production-${spec.name}-dark`);
     await settings(page);
-    await panel.getByRole("region", { name: "玻璃外观", exact: true }).scrollIntoViewIfNeeded();
+    await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).scrollIntoViewIfNeeded();
     await capture(page, `glass-production-${spec.name}-settings`);
+    await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
     await panel.getByRole("button", { name: "玻璃底板", exact: true }).click();
     await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
     await panel.getByRole("button", { name: "保存设置" }).click();
@@ -104,6 +107,8 @@ try {
   const page = await context.newPage();
   await prepare(page, `chrome-extension://${new URL(worker.url()).host}/index.html`, true);
   const panel = await settings(page);
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();

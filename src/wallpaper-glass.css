@@ -18,7 +18,7 @@ html:has(.app-shell.has-wallpaper) {
   --glass-fill: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent);
   --glass-fill-low: var(--glass-fill);
   --glass-fill-high: color-mix(in srgb, var(--glass-fill) 92%, var(--surface));
-  --glass-fill-drop-target: color-mix(in srgb, var(--surface) 48%, var(--glass-fill-low));
+  --glass-fill-drop-target: color-mix(in srgb, var(--surface) 80%, var(--glass-fill-low));
   --glass-fill-control: color-mix(in srgb, var(--surface) var(--glass-control-opacity), transparent);
   --glass-fill-panel: color-mix(in srgb, var(--surface) var(--glass-panel-opacity), transparent);
   --glass-fill-popover: color-mix(in srgb, var(--surface) var(--glass-popover-opacity), transparent);

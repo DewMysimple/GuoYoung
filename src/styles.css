@@ -1949,7 +1949,7 @@ label:has(input:focus-visible) {
 }
 
 .category-tab.is-group-sorting {
-  opacity: 0.36;
+  opacity: 0.46;
   border-color: color-mix(in srgb, var(--accent) 82%, var(--border));
   border-style: dashed;
   color: color-mix(in srgb, var(--text-faint) 72%, transparent);
