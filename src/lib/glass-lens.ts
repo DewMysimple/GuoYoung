@@ -20,12 +20,21 @@ export function lensDisplacement(x: number, y: number, width: number, height: nu
   return [dx && nx ? -Math.sign(dx) * nx * bend : 0, dy && ny ? -Math.sign(dy) * ny * bend : 0] as const;
 }
 
+// Geometry repeats across workspace mounts and preset previews. Keep a bounded
+// cache of the small displacement images, never screenshots of the wallpaper.
+const lensMaps = new Map<string, string>();
+
 export function createLensMap(width: number, height: number, radius: number) {
+  const key = `${width}:${height}:${radius}`;
+  const cached = lensMaps.get(key);
+  if (cached) return cached;
   const resolution = Math.min(1, 640 / Math.max(width, height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(width * resolution));
   canvas.height = Math.max(1, Math.round(height * resolution));
-  const context = canvas.getContext("2d");
+  // These pixels are written and immediately read back for an SVG image. A
+  // software canvas avoids starting a GPU surface and synchronously reading it.
+  const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) return undefined;
   const pixels = context.createImageData(canvas.width, canvas.height);
   for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
@@ -37,5 +46,8 @@ export function createLensMap(width: number, height: number, radius: number) {
     pixels.data[index + 3] = 255;
   }
   context.putImageData(pixels, 0, 0);
-  return canvas.toDataURL();
+  const result = canvas.toDataURL();
+  if (lensMaps.size >= 24) lensMaps.delete(lensMaps.keys().next().value!);
+  lensMaps.set(key, result);
+  return result;
 }

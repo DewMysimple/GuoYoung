@@ -45,7 +45,10 @@ export async function syncWallpaperStartup(state: SiteCollectionState, storage: 
   try {
     storage.setItem(THEME_STARTUP_KEY, state.appearance.theme);
     if (!key) { storage.removeItem(WALLPAPER_STARTUP_KEY); return; }
-    if (existing?.key === key && existing.quality === 2) { write(existing.preview); return; }
+    if (existing?.key === key && existing.quality === 2) {
+      if (JSON.stringify([existing.wallpaper, existing.theme]) !== signature) write(existing.preview);
+      return;
+    }
     if (existing?.key !== key) storage.removeItem(WALLPAPER_STARTUP_KEY);
     let objectUrl: string | undefined;
     try {
@@ -64,9 +67,14 @@ export async function syncWallpaperStartup(state: SiteCollectionState, storage: 
         image.onerror = () => { clearTimeout(timeout); reject(new Error("Startup preview unavailable")); };
         image.src = source;
       });
+      // Preview encoding is optional maintenance; let the first app frame and
+      // pending input finish before reading/encoding a potentially large image.
+      if (typeof window.requestIdleCallback === "function") {
+        await new Promise<void>(resolve => window.requestIdleCallback(() => resolve(), { timeout: 2000 }));
+      }
       if (requests.get(storage) !== current) return;
       const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
+      const context = canvas.getContext("2d", { willReadFrequently: true });
       if (!context) return;
       // Fine-grained/noisy photos may exceed the budget at 1920px. Reduce only
       // the disposable preview; the user's original asset stays untouched.

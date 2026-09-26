@@ -251,7 +251,8 @@ export function Favicon({ site, size = "normal" }: FaviconProps) {
         width={size === "large" ? 48 : 32}
         height={size === "large" ? 48 : 32}
         draggable={false}
-        loading="eager"
+        loading="lazy"
+        decoding="async"
         referrerPolicy="no-referrer"
         onLoad={handleLoad}
         onError={handleError}

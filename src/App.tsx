@@ -6,6 +6,7 @@ import {
   Fragment,
   useEffect,
   useLayoutEffect,
+  useInsertionEffect,
   useMemo,
   useRef,
   useState,
@@ -1334,8 +1335,11 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       : "0px",
   } as CSSProperties;
 
-  useLayoutEffect(() => {
+  useInsertionEffect(() => {
     const root = document.documentElement;
+    // Publish shared CSS tokens before child layout effects measure cards and
+    // lenses. Late tokens made border-color fall back to currentColor, then
+    // animated that invalid first style into the saved glass material.
     for (const [property, value] of Object.entries(appStyle)) {
       root.style.setProperty(property, String(value));
     }

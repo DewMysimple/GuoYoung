@@ -9,6 +9,23 @@ vi.mock("../lib/wallpaper-store", () => ({ loadWallpaperBlob: vi.fn() }));
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("wallpaper lifetime", () => {
+  it("keeps the preview until the original has decoded", async () => {
+    const wallpaper = { ...DEFAULT_WALLPAPER, source: "url" as const, url: "https://example.test/image.png" };
+    const preview = "data:image/png;base64,YQ==";
+    localStorage.setItem(WALLPAPER_STARTUP_KEY, JSON.stringify({ key: `url:${wallpaper.url}`, wallpaper, preview, theme: "light" }));
+    let finishDecode!: () => void;
+    const decoded = new Promise<void>(resolve => { finishDecode = resolve; });
+    vi.stubGlobal("Image", class {
+      onload?: () => void;
+      decode = () => decoded;
+      set src(value: string) { if (value) queueMicrotask(() => this.onload?.()); }
+    });
+    const { result } = renderHook(() => useWallpaper(wallpaper));
+    await act(async () => {});
+    expect(result.current.imageUrl).toBe(preview);
+    await act(async () => finishDecode());
+    expect(result.current).toMatchObject({ imageUrl: wallpaper.url, pending: false, error: "" });
+  });
   it("shows a saved preview during a slow local read and keeps it on failure", async () => {
     const wallpaper = { ...DEFAULT_WALLPAPER, source: "local" as const, localAssetId: "saved" };
     const preview = "data:image/png;base64,YQ==";

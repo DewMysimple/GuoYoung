@@ -53,7 +53,14 @@ export function GlassRefraction({ strength, cardRadius, searchRadius }: { streng
       if (changed) measure();
     };
     attach();
-    const changes = new MutationObserver(attach);
+    const surfaceSelector = surfaces.map(surface => surface.selector).join(", ");
+    const changes = new MutationObserver(records => {
+      // Favicon loads change descendants, not surface geometry. Avoid scanning
+      // the entire workspace for every arriving icon.
+      if ([...observed.values()].some(element => !element.isConnected)
+        || records.some(record => [...record.addedNodes].some(node => node instanceof Element
+          && (node.matches(surfaceSelector) || node.querySelector(surfaceSelector))))) attach();
+    });
     changes.observe(main, { childList: true, subtree: true });
     return () => { resize.disconnect(); changes.disconnect(); };
   }, [cardRadius, searchRadius]);

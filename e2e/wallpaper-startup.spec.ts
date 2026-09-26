@@ -30,6 +30,21 @@ test("paints saved local wallpaper before the app and covers GitHub entry surfac
   await page.reload();
   await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:wallpaper-startup:v1") || "null")?.key)).toBe("local:startup-local");
+  // Sample from document creation; waiting for a locator's final CSS missed the
+  // transient currentColor outline and transparent fill on the first frames.
+  await page.addInitScript(() => {
+    const samples: string[][] = [];
+    (window as unknown as { startupMaterialFrames: string[][] }).startupMaterialFrames = samples;
+    const sample = () => {
+      const elements = [".site-card", ".search-input", ".category-tab:not(.active)"].map(selector => document.querySelector(selector));
+      if (elements.every(Boolean)) samples.push(elements.flatMap(element => {
+        const style = getComputedStyle(element!);
+        return [style.borderTopColor, style.backgroundColor];
+      }));
+      if (samples.length < 20) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/src/main.tsx", async route => { await gate; await route.continue(); });
@@ -42,6 +57,10 @@ test("paints saved local wallpaper before the app and covers GitHub entry surfac
   } finally { release(); }
   await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
   await expect(page.locator("#wallpaper-startup")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { startupMaterialFrames: string[][] }).startupMaterialFrames.length)).toBe(20);
+  const materialFrames = await page.evaluate(() => (window as unknown as { startupMaterialFrames: string[][] }).startupMaterialFrames);
+  expect([...new Set(materialFrames.map(frame => JSON.stringify(frame)))], "Saved material is stable from the first visible frame").toEqual([JSON.stringify(materialFrames.at(-1))]);
+  expect(materialFrames[0][0]).toBe("rgba(255, 255, 255, 0.45)");
   await page.getByRole("button", { name: "打开 GitHub 收藏", exact: true }).click();
   const entry = page.locator(".github-home-entry");
   await expect(entry).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
