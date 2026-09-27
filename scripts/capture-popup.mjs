@@ -85,9 +85,17 @@ try {
   });
   assert.deepEqual(bookmarksPopupSize, quickPopupSize, "The popup frame should not resize when changing tabs");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-overview-light.png"), animations: "disabled" });
+  await page.addStyleTag({ content: ".popup-field .popup-select-popover { max-height: 190px !important; }" });
   await page.getByRole("button", { name: "默认分组" }).click();
   const lightGroupMenu = page.getByRole("listbox", { name: "默认分组" });
   await expect(lightGroupMenu).toBeVisible();
+  assert.equal(await lightGroupMenu.evaluate((menu) => menu.scrollHeight > menu.clientHeight), true,
+    "The popup capture should exercise the destination menu scrollbar");
+  assert.equal(await lightGroupMenu.evaluate((menu) => {
+    const style = getComputedStyle(menu);
+    const thumb = getComputedStyle(menu, "::-webkit-scrollbar-thumb");
+    return style.borderRadius === "13px" && style.scrollbarWidth === "thin" && thumb.borderRadius === "999px";
+  }), true, "The destination menu and scrollbar should keep the popup's rounded style");
   assert.equal(await lightGroupMenu.evaluate((menu) => {
     const bounds = menu.getBoundingClientRect();
     const popup = document.querySelector(".popup-shell");
@@ -101,7 +109,10 @@ try {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
   });
-  assert.deepEqual(folderCardSize, { width: 87, height: 76 }, "Bookmark cards should form a compact four-column grid");
+  assert.equal(await page.locator(".bookmark-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length), 2,
+    "Bookmark cards should form a two-column grid like the quick-add choices");
+  assert.equal(folderCardSize.height, 52, "Bookmark cards should use the compact horizontal row height");
+  assert.ok(folderCardSize.width >= 170 && folderCardSize.width <= 190, "Two-column bookmark cards should use the available row width");
   assert.equal(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Folder bookmark tiles should have a visible card border");
   assert.notEqual(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -120,15 +131,16 @@ try {
   await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
-  assert.deepEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => {
+  const siteCardSize = await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
-  }), { width: 87, height: 76 },
-    "Website bookmark cards should use the same four-column tile size");
+  });
+  assert.equal(siteCardSize.height, 52, "Website bookmark cards should use the compact horizontal row height");
+  assert.ok(siteCardSize.width >= 170 && siteCardSize.width <= 190, "Website bookmark cards should use two columns");
   const firstRowY = await page.locator('[data-bookmark-kind="site"]').evaluateAll((cards) =>
-    cards.slice(0, 4).map((card) => Math.round(card.getBoundingClientRect().top)),
+    cards.slice(0, 2).map((card) => Math.round(card.getBoundingClientRect().top)),
   );
-  assert.equal(new Set(firstRowY).size, 1, "The first four bookmark cards should share one row");
+  assert.equal(new Set(firstRowY).size, 1, "Each pair of bookmark cards should share a row");
   assert.equal(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Website bookmark tiles should share the folder card frame");
   assert.notEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -171,8 +183,17 @@ try {
     "All group choices should fit in the expanded dark-theme group area");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
+  await page.addStyleTag({ content: ".popup-field .popup-select-popover { max-height: 190px !important; }" });
   await page.getByRole("button", { name: "默认分组" }).click();
-  await expect(page.getByRole("listbox", { name: "默认分组" })).toBeVisible();
+  const darkGroupMenu = page.getByRole("listbox", { name: "默认分组" });
+  await expect(darkGroupMenu).toBeVisible();
+  assert.equal(await darkGroupMenu.evaluate((menu) => menu.scrollHeight > menu.clientHeight), true,
+    "The dark-theme popup capture should exercise the destination menu scrollbar");
+  assert.equal(await darkGroupMenu.evaluate((menu) => {
+    const style = getComputedStyle(menu);
+    const thumb = getComputedStyle(menu, "::-webkit-scrollbar-thumb");
+    return style.borderRadius === "13px" && style.scrollbarWidth === "thin" && thumb.borderRadius === "999px";
+  }), true, "The dark-theme destination menu and scrollbar should keep the popup's rounded style");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-select-dark.png"), animations: "disabled" });
   await page.keyboard.press("Escape");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-overview-dark.png"), animations: "disabled" });
@@ -182,7 +203,7 @@ try {
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
+  console.log(JSON.stringify({ version: manifest.version, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 2, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
 } finally {
   await context.close();
 }

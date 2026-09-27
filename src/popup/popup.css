@@ -142,7 +142,16 @@ button { cursor: pointer; }
 .popup-field-heading { display: flex; align-items: center; justify-content: space-between; }
 .popup-field .popup-select-trigger { width: 100%; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--surface); font-size: 12px; }
 .popup-field .popup-select-trigger:disabled { cursor: default; opacity: .55; }
-.popup-field .popup-select-popover { right: auto; left: 0; width: 100%; min-width: 100%; max-height: min(320px, calc(100vh - 40px)); }
+.popup-field .popup-select-popover {
+  right: auto;
+  left: 0;
+  width: 100%;
+  min-width: 100%;
+  max-height: min(320px, calc(100vh - 40px));
+  scrollbar-color: color-mix(in srgb, var(--text-soft) 38%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
 
 .duplicate-popup-notice { display: flex; gap: 8px; padding: 10px; border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border)); border-radius: 10px; color: var(--warning); background: var(--warning-soft); font-size: 11px; line-height: 1.5; }
 .duplicate-popup-notice svg { flex: 0 0 auto; margin-top: 1px; }
@@ -168,19 +177,22 @@ button { cursor: pointer; }
 .select-visible { padding: 2px 0; border: 0; color: var(--accent-text); background: transparent; font-size: 10px; font-weight: 720; }
 .select-visible:disabled { cursor: default; opacity: .45; }
 
-.bookmark-tree { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--surface-raised) 48%, var(--page)); scrollbar-gutter: stable; scrollbar-width: thin; }
-.bookmark-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content: start; gap: 8px; margin: 0; padding: 9px; list-style: none; }
+.bookmark-tree { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--surface-raised) 48%, var(--page)); scrollbar-color: color-mix(in srgb, var(--text-soft) 38%, transparent) transparent; scrollbar-gutter: stable; scrollbar-width: thin; }
+.bookmark-tree::-webkit-scrollbar, .popup-field .popup-select-popover::-webkit-scrollbar { width: 8px; height: 8px; }
+.bookmark-tree::-webkit-scrollbar-track, .popup-field .popup-select-popover::-webkit-scrollbar-track { margin-block: 7px; border-radius: 999px; background: transparent; }
+.bookmark-tree::-webkit-scrollbar-thumb, .popup-field .popup-select-popover::-webkit-scrollbar-thumb { min-height: 28px; border: 2px solid transparent; border-radius: 999px; background: color-mix(in srgb, var(--text-soft) 38%, transparent); background-clip: padding-box; }
+.bookmark-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 8px; margin: 0; padding: 9px; list-style: none; }
 .bookmark-list-item { min-width: 0; margin: 0; padding: 0; }
-.bookmark-tile { position: relative; display: flex; width: 100%; min-width: 0; height: 76px; min-height: 76px; flex-direction: column; justify-content: space-between; gap: 6px; padding: 7px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent); cursor: pointer; transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
+.bookmark-tile { position: relative; display: flex; width: 100%; min-width: 0; height: 52px; min-height: 52px; align-items: center; justify-content: flex-start; gap: 9px; padding: 7px 38px 7px 8px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent); cursor: pointer; transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
 .bookmark-tile.is-folder { border-color: color-mix(in srgb, var(--accent) 20%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface)); }
 .bookmark-tile:hover, .bookmark-tile:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 20%, var(--surface)); box-shadow: 0 4px 12px color-mix(in srgb, var(--text) 8%, transparent); transform: translateY(-1px); }
 .bookmark-tile.is-selected, .bookmark-tile.is-partial { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface)); }
 .bookmark-tile-open { position: absolute; z-index: 1; inset: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
 .bookmark-tile-open:focus-visible { outline-offset: -3px; }
-.bookmark-tile-footer { position: relative; z-index: 2; display: flex; min-width: 0; align-items: center; gap: 5px; pointer-events: none; }
+.bookmark-tile-footer { position: relative; z-index: 2; display: flex; flex: 1 1 auto; min-width: 0; align-items: center; gap: 5px; pointer-events: none; }
 .bookmark-tile-name { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--text); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .bookmark-tile-caret { flex: 0 0 auto; color: var(--text-faint); }
-.bookmark-check { position: absolute; z-index: 3; top: 4px; right: 4px; display: grid; place-items: center; width: 29px; height: 29px; border-radius: 8px; cursor: pointer; }
+.bookmark-check { position: absolute; z-index: 3; top: 50%; right: 4px; display: grid; place-items: center; width: 29px; height: 29px; border-radius: 8px; cursor: pointer; transform: translateY(-50%); }
 .bookmark-check:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .bookmark-check input { display: grid; place-items: center; width: 17px; height: 17px; margin: 0; appearance: none; border: 1.5px solid var(--border-strong); border-radius: 50%; background: var(--surface); cursor: pointer; }
 .bookmark-check input:checked { border-color: var(--accent); background: var(--accent); }
