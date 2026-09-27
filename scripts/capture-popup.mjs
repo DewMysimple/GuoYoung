@@ -26,12 +26,16 @@ try {
     const tree = await chrome.bookmarks.getTree();
     const bar = tree[0].children[0];
     const folder = await chrome.bookmarks.create({ parentId: bar.id, title: "参考资料" });
+    const ideas = await chrome.bookmarks.create({ parentId: bar.id, title: "工作灵感" });
+    const tools = await chrome.bookmarks.create({ parentId: bar.id, title: "开发工具" });
     const sites = await Promise.all([
       chrome.bookmarks.create({ parentId: folder.id, title: "示例文档", url: "https://example.org/docs" }),
       chrome.bookmarks.create({ parentId: folder.id, title: "开发者工具", url: "https://developer.mozilla.org/" }),
       chrome.bookmarks.create({ parentId: folder.id, title: "设计资源", url: "https://www.figma.com/" }),
       chrome.bookmarks.create({ parentId: folder.id, title: "阅读清单", url: "https://www.notion.so/" }),
     ]);
+    await chrome.bookmarks.create({ parentId: ideas.id, title: "灵感示例", url: "https://example.net/ideas" });
+    await chrome.bookmarks.create({ parentId: tools.id, title: "工具示例", url: "https://example.net/tools" });
     return { folderId: folder.id, siteIds: sites.map((site) => site.id) };
   });
 
@@ -118,14 +122,21 @@ try {
   }), true, "The bookmark destination menu stays inside the popup");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-select-light.png"), animations: "disabled" });
   await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toBeVisible();
   const folderCardSize = await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
   });
-  assert.equal(await page.locator(".bookmark-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length), 2,
-    "Bookmark cards should form a two-column grid like the quick-add choices");
-  assert.equal(folderCardSize.height, 52, "Bookmark cards should use the compact horizontal row height");
-  assert.ok(folderCardSize.width >= 170 && folderCardSize.width <= 190, "Two-column bookmark cards should use the available row width");
+  assert.equal(await page.locator(".bookmark-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length), 3,
+    "Bookmark cards should form a three-column grid");
+  assert.equal(folderCardSize.height, 76, "Three-column bookmark cards should use the compact vertical card height");
+  assert.ok(folderCardSize.width >= 118 && folderCardSize.width <= 128, "Three-column bookmark cards should use the available row width");
+  const folderRowTops = await page.locator(".bookmark-tile.is-folder").evaluateAll((cards) =>
+    cards.slice(0, 3).map((card) => card.getBoundingClientRect().top),
+  );
+  assert.equal(folderRowTops.length, 3, "The bookmark-bar fixture should show three folders");
+  assert.ok(Math.max(...folderRowTops) - Math.min(...folderRowTops) < 1, "Three bookmark folders should occupy the same row");
   assert.equal(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Folder bookmark tiles should have a visible card border");
   assert.notEqual(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -141,19 +152,19 @@ try {
     "Bookmark folder icon tiles should be reduced by more than 50% from the previous 64px size");
   assert.equal(await folderIcon.locator("svg").getAttribute("width"), "16",
     "Bookmark folder glyphs should be reduced by more than 50% from the previous 34px size");
-  await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-folders-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
   const siteCardSize = await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
   });
-  assert.equal(siteCardSize.height, 52, "Website bookmark cards should use the compact horizontal row height");
-  assert.ok(siteCardSize.width >= 170 && siteCardSize.width <= 190, "Website bookmark cards should use two columns");
+  assert.equal(siteCardSize.height, 76, "Website bookmark cards should use the compact vertical card height");
+  assert.ok(siteCardSize.width >= 118 && siteCardSize.width <= 128, "Website bookmark cards should use three columns");
   const firstRowY = await page.locator('[data-bookmark-kind="site"]').evaluateAll((cards) =>
-    cards.slice(0, 2).map((card) => Math.round(card.getBoundingClientRect().top)),
+    cards.slice(0, 3).map((card) => card.getBoundingClientRect().top),
   );
-  assert.equal(new Set(firstRowY).size, 1, "Each pair of bookmark cards should share a row");
+  assert.ok(Math.max(...firstRowY) - Math.min(...firstRowY) < 1, "Each group of three bookmark cards should share a row");
   assert.equal(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Website bookmark tiles should share the folder card frame");
   assert.notEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -211,12 +222,14 @@ try {
   await page.keyboard.press("Escape");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-overview-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toBeVisible();
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-folders-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame img').first()).toHaveClass(/is-loaded/);
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 2, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
+  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 3, folderCardWidth: folderCardSize.width, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 10 }));
 } finally {
   await context.close();
 }
