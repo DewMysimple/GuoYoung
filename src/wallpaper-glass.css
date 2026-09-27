@@ -438,6 +438,8 @@ body:has(.app-shell.has-wallpaper) .group-editor-summary,
 body:has(.app-shell.has-wallpaper) .settings-tabs,
 body:has(.app-shell.has-wallpaper) .settings-tabs button.active,
 body:has(.app-shell.has-wallpaper) .appearance-option-grid > button,
+body:has(.app-shell.has-wallpaper) .settings-choice,
+body:has(.app-shell.has-wallpaper) .compact-toggle-row,
 body:has(.app-shell.has-wallpaper) .brand-source-block {
   border-color: var(--glass-edge-soft);
   background-color: var(--glass-fill-nested);
@@ -495,6 +497,7 @@ body:has(.app-shell.has-wallpaper) .settings-tabs {
 
 body:has(.app-shell.has-wallpaper) .settings-tabs button.active,
 body:has(.app-shell.has-wallpaper) .appearance-option-grid > button[aria-pressed="true"],
+body:has(.app-shell.has-wallpaper) .settings-choice[aria-pressed="true"],
 body:has(.app-shell.has-wallpaper) .dialog-content .group-icon-choice.selected,
 body:has(.app-shell.has-wallpaper) .group-list-item.selected,
 body:has(.app-shell.has-wallpaper) .group-list-item.is-checked {
@@ -505,6 +508,13 @@ body:has(.app-shell.has-wallpaper) .group-list-item.is-checked {
 
 /* Nested surfaces share the parent's blur and add only a light tint. Opaque
    layout wrappers used to hide the wallpaper regardless of material settings. */
+body:has(.app-shell.has-wallpaper) :is(.settings-disclosure.settings-subsection, .glass-fine-tuning) {
+  border-color: var(--glass-edge-soft);
+  background: transparent;
+  box-shadow: none;
+}
+body:has(.app-shell.has-wallpaper) .typography-font-label { border-color: var(--glass-edge-soft); }
+
 body:has(.app-shell.has-wallpaper) :is(.group-manager-list, .group-manager-editor,
   .segmented-control, .data-overview,
   .icon-source-grid, .icon-source-choice, .category-choice, .protected-note,

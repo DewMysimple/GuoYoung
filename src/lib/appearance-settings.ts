@@ -8,7 +8,7 @@ export const LAYOUT_OPTIONS = [
 ] as const;
 
 export const TEXT_SIZE_OPTIONS = [
-  { value: 95, label: "较小" },
+  { value: 85, label: "较小" },
   { value: 100, label: "标准" },
   { value: 110, label: "较大" },
 ] as const;

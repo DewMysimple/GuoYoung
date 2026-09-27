@@ -10,9 +10,12 @@ test("previews font choices and color effects, cancels, then persists them acros
   await expect(panel.getByRole("group", { name: "文字大小" })).toHaveCount(0);
   await panel.getByRole("tab", { name: "字体调节" }).click();
   await panel.getByRole("button", { name: "宋体 / 衬线" }).click();
+  await panel.locator("summary").filter({ hasText: "字号微调" }).click();
   await panel.getByRole("slider", { name: "整体字号", exact: true }).fill("115");
+  await panel.locator("summary").filter({ hasText: "文字颜色" }).click();
   await panel.getByRole("group", { name: "文字配色", exact: true }).getByRole("button", { name: "自定义", exact: true }).click();
   await panel.getByRole("button", { name: "白色文字" }).click();
+  await panel.locator("summary").filter({ hasText: "文字增强" }).click();
   await panel.getByRole("button", { name: "描边", exact: true }).click();
   await expect(name).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(name).toHaveCSS("font-family", /SimSun/);
@@ -27,13 +30,16 @@ test("previews font choices and color effects, cancels, then persists them acros
   await panel.getByRole("tab", { name: "字体调节" }).click();
   await panel.getByRole("button", { name: "本机字体", exact: true }).click();
   await panel.getByRole("textbox", { name: "本机字体名称" }).fill("Consolas");
+  await panel.locator("summary").filter({ hasText: "文字颜色" }).click();
   await panel.getByRole("group", { name: "文字配色", exact: true }).getByRole("button", { name: "自定义", exact: true }).click();
   await panel.getByRole("button", { name: "自定义主要文字颜色" }).click();
   const picker = panel.getByRole("dialog", { name: "选择自定义颜色" });
   await picker.getByRole("textbox", { name: "十六进制颜色" }).fill("4b277c");
   await picker.getByRole("textbox", { name: "十六进制颜色" }).press("Enter");
   await panel.getByRole("button", { name: "自定义主要文字颜色" }).click();
+  await panel.locator("summary").filter({ hasText: "文字增强" }).click();
   await panel.getByRole("button", { name: "柔光", exact: true }).click();
+  await panel.locator("summary").filter({ hasText: "效果微调" }).click();
   await panel.getByRole("slider", { name: "效果强度" }).fill("75");
   await expect(name).toHaveCSS("color", "rgb(75, 39, 124)");
   await expect(name).not.toHaveCSS("text-shadow", "none");
@@ -57,6 +63,46 @@ test("previews font choices and color effects, cancels, then persists them acros
   await expect(name).toHaveCSS("text-shadow", "none");
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await expect(name).toHaveCSS("color", "rgb(75, 39, 124)");
+});
+
+test("offers six fonts, collapsed controls and persists the full 70–130 percent size range", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "Desktop settings scope");
+  for (const size of [70, 130]) {
+    await page.getByRole("button", { name: "打开设置" }).click();
+    const panel = page.getByRole("dialog", { name: "设置", exact: true });
+    await panel.getByRole("tab", { name: "字体调节" }).click();
+    await expect(panel.getByRole("slider")).toHaveCount(0);
+    await expect(panel.getByRole("group", { name: "文字配色", exact: true })).toHaveCount(0);
+    await expect(panel.getByRole("group", { name: "文字效果", exact: true })).toHaveCount(0);
+    const fontButtons = panel.getByRole("group", { name: "字体选择" }).getByRole("button");
+    await expect(fontButtons).toHaveCount(6);
+    const positions = await fontButtons.evaluateAll(buttons => buttons.map(button => ({
+      x: button.getBoundingClientRect().x, y: button.getBoundingClientRect().y,
+    })));
+    expect(new Set(positions.map(item => item.x)).size).toBe(3);
+    expect(new Set(positions.map(item => item.y)).size).toBe(2);
+    await panel.getByRole("button", { name: "霞鹜文楷", exact: true }).click();
+    const loaded = await page.evaluate(async () => {
+      const faces = await document.fonts.load('16px "LXGW WenKai"', "中文收藏");
+      return faces.length > 0 && faces.every(face => face.status === "loaded");
+    });
+    expect(loaded).toBe(true);
+    await panel.getByRole("button", { name: "较小" }).click();
+    await panel.locator("summary").filter({ hasText: "字号微调" }).click();
+    const slider = panel.getByRole("slider", { name: "整体字号", exact: true });
+    await expect(slider).toHaveValue("85");
+    await expect(slider).toHaveAttribute("min", "70");
+    await expect(slider).toHaveAttribute("max", "130");
+    await slider.fill(String(size));
+    await panel.locator("summary").filter({ hasText: "字号微调" }).click();
+    await panel.locator("summary").filter({ hasText: "字号微调" }).click();
+    await expect(slider).toHaveValue(String(size));
+    await panel.getByRole("button", { name: "保存设置" }).click();
+    await page.reload();
+    await expect(page.locator(".site-card .site-name").first()).toHaveCSS("font-family", /LXGW WenKai/);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance);
+    expect(saved).toMatchObject({ fontFamily: "wenkai", fontScale: size });
+  }
 });
 
 test("switches native display-text selection without blocking input selection or editing", async ({ page }, testInfo) => {

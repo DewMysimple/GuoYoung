@@ -21,20 +21,26 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
   const patch = (next: Partial<AppearanceSettings>) => onChange(patchAppearance(value, next));
   const textSize = getTextSize(value);
   const hasEffect = !["auto", "none"].includes(value.textEffect);
+  const font = FONT_OPTIONS.find(option => option.value === value.fontFamily)!;
+  const effect = TEXT_EFFECTS.find(option => option.value === value.textEffect)!;
   return <div className="settings-section typography-settings">
     <section className="typography-preview" aria-label="字体效果预览" data-text-effect={value.textEffect}
-      style={{ ...typographyVariables(value), fontFamily: getFontFamily(value), fontSize: `${14 * value.fontScale / 100}px`,
-        ...(wallpaperUrl ? { backgroundImage: `url(${JSON.stringify(wallpaperUrl)})`, backgroundSize: "cover", backgroundPosition: "center" } : {}) } as CSSProperties}>
+      style={{ ...typographyVariables(value), fontFamily: getFontFamily(value), fontSize: `${14 * value.fontScale / 100}px` } as CSSProperties}>
+      <div className="typography-preview-background" aria-hidden="true"
+        style={wallpaperUrl ? { backgroundImage: `url(${JSON.stringify(wallpaperUrl)})` } : undefined} />
       <strong>让每一份收藏，清晰可读。</strong>
       <span>Mysimple · 网站收藏  Aa 012345</span>
     </section>
 
     <section className="appearance-card typography-family" aria-label="字体">
-      <h3>字体</h3>
-      <div className="typography-fonts" role="group" aria-label="字体选择">
+      <div className="appearance-heading"><h3>字体</h3><span className="appearance-status">{font.label}</span></div>
+      <div className="appearance-option-grid typography-fonts" role="group" aria-label="字体选择">
         {FONT_OPTIONS.map(option => <button type="button" key={option.value}
-          aria-pressed={value.fontFamily === option.value} style={{ fontFamily: option.family }}
-          onClick={() => patch({ fontFamily: option.value })}>{option.label}</button>)}
+          aria-label={option.label} aria-pressed={value.fontFamily === option.value}
+          onClick={() => patch({ fontFamily: option.value })}>
+          <span className="typography-font-sample" aria-hidden="true" style={{ fontFamily: option.value === "custom" ? getFontFamily({ ...value, fontFamily: "custom" }) : option.family }}>收藏 Aa</span>
+          <span className="typography-font-label">{option.label}</span>
+        </button>)}
       </div>
       {value.fontFamily === "custom" && <label className="field-label typography-local-font">
         本机字体名称
@@ -42,23 +48,28 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
           onChange={event => patch({ customFontFamily: event.target.value })} />
         <small>使用电脑已安装的字体；找不到时使用默认字体。</small>
       </label>}
-    </section>
-
-    <section className="appearance-card" aria-label="字号调节">
-      <div className="appearance-heading"><h3>文字大小</h3>
+      <div className="typography-size" aria-label="字号调节">
+      <div className="appearance-heading"><h3>字体大小</h3>
         {textSize === undefined && <span className="appearance-status">保留自定义字号</span>}
       </div>
       <div className="segmented-control" role="group" aria-label="文字大小">
         {TEXT_SIZE_OPTIONS.map(({ value: size, label }) => <button key={size} type="button"
           className={textSize === size ? "active" : ""} aria-pressed={textSize === size}
-          onClick={() => onChange(applyTextSize(value, size))}>{label}</button>)}
+          onClick={() => onChange(applyTextSize(value, size))}>{label}<small>{size}%</small></button>)}
       </div>
-      <RangeControl label="整体字号" min={85} max={120} unit="%" value={value.fontScale}
+      </div>
+      <SettingsDisclosure title="字号微调" summary={`${value.fontScale}%`} className="settings-subsection">
+      <RangeControl label="整体字号" min={70} max={130} unit="%" value={value.fontScale}
         onChange={fontScale => patch({ fontScale })} />
+      <SettingsDisclosure title="分区字号" summary="在整体字号上微调" className="settings-subsection">
+        <RangeControl label="网站卡片字号" min={80} max={140} unit="%" value={value.cardFontScale} onChange={cardFontScale => patch({ cardFontScale })} />
+        <RangeControl label="分组字号" min={80} max={140} unit="%" value={value.groupFontScale} onChange={groupFontScale => patch({ groupFontScale })} />
+        <RangeControl label="品牌名称字号" min={70} max={180} unit="%" value={value.brandFontScale} onChange={brandFontScale => patch({ brandFontScale })} />
+      </SettingsDisclosure>
+      </SettingsDisclosure>
     </section>
 
-    <section className="appearance-card" aria-label="文字颜色">
-      <h3>文字颜色</h3>
+    <SettingsDisclosure title="文字颜色" summary={value.textColorMode === "theme" ? "跟随主题" : "自定义"}>
       <div className="segmented-control" role="group" aria-label="文字配色">
         {[{ value: "theme", label: "跟随主题" }, { value: "custom", label: "自定义" }].map(option =>
           <button key={option.value} type="button" className={value.textColorMode === option.value ? "active" : ""}
@@ -67,7 +78,7 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
       </div>
       {value.textColorMode === "custom" && <>
         <div className="typography-color-presets" role="group" aria-label="文字配色预设">
-          {COLORS.map(color => <button type="button" key={color.label} aria-label={`${color.label}文字`}
+          {COLORS.map(color => <button type="button" className="settings-choice" key={color.label} aria-label={`${color.label}文字`}
             aria-pressed={value.textColor === color.main && value.textSecondaryColor === color.secondary}
             onClick={() => patch({ textColor: color.main, textSecondaryColor: color.secondary })}>
             <i style={{ background: color.main }} />{color.label}
@@ -81,38 +92,31 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
           <CustomColorPicker label="自定义次要文字颜色" value={value.textSecondaryColor} onChange={textSecondaryColor => patch({ textSecondaryColor })} />
         </div>
       </>}
-      <p className="typography-note">用于页面内容；设置和菜单保持主题配色，方便随时调回。</p>
-    </section>
+      <p className="typography-note">调整页面文字；设置与菜单沿用主题配色。</p>
+    </SettingsDisclosure>
 
-    <section className="appearance-card" aria-label="文字增强">
-      <h3>文字增强</h3>
+    <SettingsDisclosure title="文字增强" summary={effect.label}>
       <div className="typography-effects" role="group" aria-label="文字效果">
-        {TEXT_EFFECTS.map(option => <button type="button" key={option.value}
+        {TEXT_EFFECTS.map(option => <button type="button" className="settings-choice" key={option.value}
           aria-pressed={value.textEffect === option.value}
           onClick={() => patch({ textEffect: option.value,
             ...(option.value === "glow" ? { textEffectColor: "#ffffff" } : option.value === "shadow" || option.value === "outline" ? { textEffectColor: "#000000" } : {}) })}>{option.label}</button>)}
       </div>
-      {hasEffect && <>
+      {hasEffect && <SettingsDisclosure title="效果微调" summary={`${value.textEffectStrength}%`} className="settings-subsection">
         <RangeControl label="效果强度" min={0} max={100} unit="%" value={value.textEffectStrength}
           onChange={textEffectStrength => patch({ textEffectStrength })} />
         <div className="typography-color-row"><span>效果颜色</span><code>{value.textEffectColor.toUpperCase()}</code>
           <CustomColorPicker label="自定义文字效果颜色" value={value.textEffectColor} onChange={textEffectColor => patch({ textEffectColor })} />
         </div>
-      </>}
-      <p className="typography-note">浅字配深色阴影，深字配浅色柔光。复杂壁纸可试描边，或调高壁纸遮罩。</p>
-    </section>
-
-    <SettingsDisclosure title="分区字号" summary="在整体字号上微调">
-      <RangeControl label="网站卡片字号" min={80} max={140} unit="%" value={value.cardFontScale} onChange={cardFontScale => patch({ cardFontScale })} />
-      <RangeControl label="分组字号" min={80} max={140} unit="%" value={value.groupFontScale} onChange={groupFontScale => patch({ groupFontScale })} />
-      <RangeControl label="品牌名称字号" min={70} max={180} unit="%" value={value.brandFontScale} onChange={brandFontScale => patch({ brandFontScale })} />
+      </SettingsDisclosure>}
+      <p className="typography-note">轻量增强字缘；复杂壁纸可配合明暗遮罩。</p>
     </SettingsDisclosure>
+
     <section className="appearance-card" aria-label="文字选择">
-      <label className="toggle-row compact-toggle-row"><span><strong>允许选择展示文字</strong></span>
+      <label className="toggle-row"><span><strong>允许选择展示文字</strong><small>标题、说明可选中复制</small></span>
         <input type="checkbox" checked={value.allowTextSelection}
           onChange={event => patch({ allowTextSelection: event.target.checked })} />
       </label>
-      <p className="typography-note">标题、说明等文字可选中复制；输入框始终可编辑，拖拽卡片保持原有操作。</p>
     </section>
     <button type="button" className="text-action appearance-reset" onClick={() => onChange(resetTypography(value))}>
       <ArrowCounterClockwise size={16} />恢复默认字体

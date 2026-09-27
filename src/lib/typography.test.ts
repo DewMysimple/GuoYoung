@@ -49,6 +49,19 @@ it("contains a custom font to one local family and provides a fallback", () => {
   expect(getFontFamily(normalizeAppearance({ fontFamily: "custom", customFontFamily: "" }))).toBe(getFontFamily(DEFAULT_TYPOGRAPHY));
 });
 
+it("preserves WenKai, extended overall sizes and existing local scales through storage and backups", () => {
+  for (const fontScale of [70, 85, 130]) {
+    const state = createDefaultState();
+    state.appearance = { ...state.appearance, fontFamily: "wenkai", fontScale,
+      cardFontScale: 140, groupFontScale: 132, brandFontScale: 170, textEffectStrength: 60 };
+    const restored = parseStoredState(JSON.stringify(state));
+    expect(restored.state.appearance).toEqual(state.appearance);
+    expect(parseImportFile(serializeExport(state)).appearance).toEqual(state.appearance);
+  }
+  expect(normalizeAppearance({ fontScale: 60 }).fontScale).toBe(70);
+  expect(normalizeAppearance({ fontScale: 200 }).fontScale).toBe(130);
+});
+
 it("disables all explicit text effects at zero strength and resets only typography", () => {
   for (const textEffect of ["shadow", "outline", "glow"] as const) {
     expect(getTextShadow({ ...DEFAULT_TYPOGRAPHY, textEffect, textEffectStrength: 0 })).toBe("none");
