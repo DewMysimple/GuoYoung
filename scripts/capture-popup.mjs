@@ -83,7 +83,8 @@ try {
   assert.ok(quickLayout.topGap <= 1, "The quick-add card should begin at the top of the available page area");
   assert.ok(quickLayout.bottomGap >= 15 && quickLayout.bottomGap <= 17,
     "The quick-add card should use the available height and leave only page padding below it");
-  assert.ok(quickLayout.groupHeight > 190, "The group picker should expand beyond its previous fixed height");
+  assert.ok(quickLayout.groupHeight > 330, "The group picker should use the remaining popup height");
+  assert.equal(await page.locator(".popup-group-options").evaluate((options) => getComputedStyle(options).alignContent), "start");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
   const bookmarksHeaderCenterOffset = await page.locator(".popup-header").evaluate((header) => {
@@ -122,10 +123,10 @@ try {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
   });
-  assert.equal(await page.locator(".bookmark-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length), 2,
-    "Bookmark cards should form a two-column grid like the quick-add choices");
-  assert.equal(folderCardSize.height, 52, "Bookmark cards should use the compact horizontal row height");
-  assert.ok(folderCardSize.width >= 170 && folderCardSize.width <= 190, "Two-column bookmark cards should use the available row width");
+  assert.equal(await page.locator(".bookmark-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length), 4,
+    "Bookmark cards should form a four-column grid");
+  assert.equal(folderCardSize.height, 76, "Bookmark cards should use the compact tile height");
+  assert.ok(folderCardSize.width >= 85 && folderCardSize.width <= 95, "Four-column bookmark cards should use the available row width");
   assert.equal(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Folder bookmark tiles should have a visible card border");
   assert.notEqual(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -148,12 +149,13 @@ try {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
   });
-  assert.equal(siteCardSize.height, 52, "Website bookmark cards should use the compact horizontal row height");
-  assert.ok(siteCardSize.width >= 170 && siteCardSize.width <= 190, "Website bookmark cards should use two columns");
+  assert.equal(siteCardSize.height, 76, "Website bookmark cards should use the compact tile height");
+  assert.ok(siteCardSize.width >= 85 && siteCardSize.width <= 95, "Website bookmark cards should use four columns");
   const firstRowY = await page.locator('[data-bookmark-kind="site"]').evaluateAll((cards) =>
-    cards.slice(0, 2).map((card) => Math.round(card.getBoundingClientRect().top)),
+    cards.slice(0, 4).map((card) => Math.round(card.getBoundingClientRect().top)),
   );
-  assert.equal(new Set(firstRowY).size, 1, "Each pair of bookmark cards should share a row");
+  assert.equal(firstRowY.length, 4);
+  assert.equal(new Set(firstRowY).size, 1, "Four bookmark cards should share a row");
   assert.equal(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Website bookmark tiles should share the folder card frame");
   assert.notEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -178,6 +180,43 @@ try {
   const imported = saved.sites.find((site) => site.url === "https://example.org/docs");
   assert.ok(imported, "The selected bookmark should be imported");
   assert.equal(saved.groups.find((group) => group.id === imported.groupId)?.icon, "stack");
+
+  const originalGroups = await page.evaluate(async () => {
+    const key = "site-hub:v1";
+    const state = JSON.parse((await chrome.storage.local.get(key))[key]);
+    const groups = state.groups;
+    const mainGroups = groups.filter((group) => group.workspace !== "github");
+    const template = mainGroups.find((group) => !group.isProtected);
+    state.groups = [...groups, ...Array.from({ length: 24 - mainGroups.length }, (_, index) => ({
+      ...template, id: `capture-group-${index}`, name: `分组 ${index + 1}`, order: groups.length + index,
+    }))];
+    await chrome.storage.local.set({ [key]: JSON.stringify(state) });
+    return groups;
+  });
+  await page.reload();
+  await expect(page.locator(".popup-group-option")).toHaveCount(24);
+  const manyGroupLayout = await page.locator(".popup-group-options").evaluate((options) => ({
+    height: options.clientHeight,
+    scrollHeight: options.scrollHeight,
+    firstTop: options.firstElementChild.getBoundingClientRect().top - options.getBoundingClientRect().top,
+    fullyVisible: Array.from(options.children).filter((item) => item.getBoundingClientRect().bottom <= options.getBoundingClientRect().bottom).length,
+  }));
+  assert.ok(manyGroupLayout.scrollHeight > manyGroupLayout.height, "Overflow should remain inside the group list");
+  assert.ok(manyGroupLayout.firstTop <= 3, "Group choices should begin at the top without distributed blank space");
+  assert.ok(manyGroupLayout.fullyVisible >= 14, "At least seven rows should fit before scrolling");
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-many-groups.png"), animations: "disabled" });
+  await page.locator(".popup-group-option").last().click();
+  await expect(page.locator(".popup-group-option").last()).toHaveAttribute("aria-checked", "true");
+  const saveBounds = await page.locator(".quick-page .popup-primary").boundingBox();
+  assert.ok(saveBounds.y + saveBounds.height <= 584, "The primary action should remain visible while scrolling groups");
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-groups-scrolled.png"), animations: "disabled" });
+  await page.evaluate(async (groups) => {
+    const key = "site-hub:v1";
+    const state = JSON.parse((await chrome.storage.local.get(key))[key]);
+    state.groups = groups;
+    await chrome.storage.local.set({ [key]: JSON.stringify(state) });
+  }, originalGroups);
+  await page.reload();
 
   await page.evaluate(async () => {
     const key = "site-hub:v1";
@@ -216,7 +255,7 @@ try {
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 2, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
+  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, manyGroupLayout, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 10 }));
 } finally {
   await context.close();
 }

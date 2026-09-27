@@ -72,7 +72,9 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   expect(quickLayout.topGap).toBeLessThanOrEqual(1);
   expect(quickLayout.bottomGap).toBeGreaterThanOrEqual(15);
   expect(quickLayout.bottomGap).toBeLessThanOrEqual(17);
-  expect(quickLayout.groupHeight).toBeGreaterThan(190);
+  expect(quickLayout.groupHeight).toBeGreaterThan(330);
+  await expect(groupOptions).toHaveCSS("align-content", "start");
+  await expect(groupOptions.getByRole("radio").first()).toHaveCSS("height", "40px");
   const secondGroup = groupOptions.getByRole("radio").nth(1);
   await secondGroup.click();
   await expect(secondGroup).toHaveAttribute("aria-checked", "true");
@@ -92,14 +94,14 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   const gridColumnCount = await page.locator(".bookmark-grid").evaluate((grid) =>
     getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length,
   );
-  expect(gridColumnCount).toBe(2);
+  expect(gridColumnCount).toBe(4);
   await expect(page.locator(".bookmarks-heading")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "整理已有书签" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toHaveCount(0);
   const folderCardWidth = await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => card.getBoundingClientRect().width);
-  expect(folderCardWidth).toBeGreaterThanOrEqual(170);
-  expect(folderCardWidth).toBeLessThanOrEqual(190);
-  await expect(page.locator(".bookmark-tile.is-folder").first()).toHaveCSS("height", "52px");
+  expect(folderCardWidth).toBeGreaterThanOrEqual(85);
+  expect(folderCardWidth).toBeLessThanOrEqual(95);
+  await expect(page.locator(".bookmark-tile.is-folder").first()).toHaveCSS("height", "76px");
   await expect(page.locator(".bookmark-tile.is-folder").first()).toHaveCSS("border-top-style", "solid");
   await expect(page.locator(".bookmark-tile.is-folder").first()).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(page.locator(".bookmark-kind.folder").first()).toHaveCSS("width", "30px");
@@ -148,9 +150,9 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
   const siteCardWidth = await page.locator(".bookmark-tile.is-site").first().evaluate((card) => card.getBoundingClientRect().width);
-  expect(siteCardWidth).toBeGreaterThanOrEqual(170);
-  expect(siteCardWidth).toBeLessThanOrEqual(190);
-  await expect(page.locator(".bookmark-tile.is-site").first()).toHaveCSS("height", "52px");
+  expect(siteCardWidth).toBeGreaterThanOrEqual(85);
+  expect(siteCardWidth).toBeLessThanOrEqual(95);
+  await expect(page.locator(".bookmark-tile.is-site").first()).toHaveCSS("height", "76px");
   await expect(page.locator(".bookmark-tile.is-site").first()).toHaveCSS("border-top-style", "solid");
   await expect(page.locator(".bookmark-tile.is-site").first()).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame').first()).toHaveCSS("width", "30px");
