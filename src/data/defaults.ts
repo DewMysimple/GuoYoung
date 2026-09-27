@@ -1,3 +1,4 @@
+import { DEFAULT_TYPOGRAPHY } from "../lib/typography";
 import type {
   AppearanceSettings,
   BrandSettings,
@@ -155,6 +156,8 @@ export const DEFAULT_BRAND: BrandSettings = {
 };
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
+  ...DEFAULT_TYPOGRAPHY,
+  allowTextSelection: true,
   theme: "system",
   accentColor: "#3367d6",
   layoutPreset: "standard",
@@ -313,7 +316,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 18,
+    version: 19,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

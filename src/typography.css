@@ -1,0 +1,26 @@
+/* Reading preferences belong to page content. Portal editors and menus retain
+   theme contrast so any custom color can always be edited or reset. */
+.app-shell, .site-card-drag-preview, .group-sort-drag-preview, .group-sort-tab-preview {
+  --text: var(--reading-text);
+  --text-soft: var(--reading-text-secondary);
+  --text-faint: var(--reading-text-faint);
+  color: var(--text);
+  font-family: var(--reading-font);
+}
+.app-shell :is([role="menu"], [role="listbox"], [role="dialog"], .search-suggestions) {
+  --text: var(--theme-text);
+  --text-soft: var(--theme-text-soft);
+  --text-faint: var(--theme-text-faint);
+  color: var(--text);
+  text-shadow: none;
+}
+:root[data-text-effect]:not([data-text-effect="auto"]) :is(.app-shell, .site-card-drag-preview, .group-sort-drag-preview) :is(
+  .brand-name, .topbar-history-button, .collection-heading h2, .collection-heading p, .category-tab,
+  .grouped-site-header-main h3, .grouped-site-count,
+  .site-name, .site-domain, .site-category, .site-click-count,
+  .search-input input, .footer,
+  .github-home-entry-copy, .history-summary, .history-detail-site-info,
+  .history-detail-meta, .history-site-url-count,
+  .group-sort-preview-copy, .group-sort-preview-site-name, .group-sort-preview-more, .group-sort-preview-empty
+) { text-shadow: var(--reading-shadow); }
+:root[data-text-effect]:not([data-text-effect="auto"]) .group-sort-tab-preview { text-shadow: var(--reading-shadow); }

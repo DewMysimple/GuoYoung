@@ -11,6 +11,8 @@ test("keeps settings card edges fixed when expanded content needs a scrollbar", 
   const card = panel.getByRole("region", { name: "主题", exact: true });
   const body = panel.locator(".settings-body");
   await expect(panel).toHaveCSS("width", "580px");
+  // Measure scrollbar geometry after the drawer's 32px entrance has finished.
+  await expect(panel).toHaveCSS("transform", "none");
   await expect.poll(() => body.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(false);
   await card.hover();
   const before = (await card.boundingBox())!;

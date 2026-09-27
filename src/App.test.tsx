@@ -609,7 +609,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":18');
+      expect(stored).toContain('"version":19');
     });
   });
 
@@ -882,7 +882,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(18);
+      expect(stored.version).toBe(19);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -1248,8 +1248,10 @@ describe("App", () => {
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("140px");
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
 
+    await user.click(screen.getByRole("tab", { name: "字体调节" }));
     await user.click(within(screen.getByRole("group", { name: "文字大小" })).getByRole("button", { name: "较大" }));
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1.1");
+    await user.click(screen.getByRole("tab", { name: "外观" }));
     await user.click(screen.getByRole("button", { name: /布局微调/ }));
     expect(within(document.querySelector(".appearance-details") as HTMLElement).getAllByRole("slider")).toHaveLength(5);
     fireEvent.change(screen.getByRole("slider", { name: "卡片宽度" }), {

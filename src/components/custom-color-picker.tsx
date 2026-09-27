@@ -9,6 +9,7 @@ import {
 import { Check, EyedropperSample } from "@phosphor-icons/react";
 
 interface CustomColorPickerProps {
+  label?: string;
   value: string;
   selected?: boolean;
   onChange: (value: string) => void;
@@ -75,6 +76,7 @@ function hsvToHex({ h, s, v }: HsvColor) {
 }
 
 export function CustomColorPicker({
+  label = "自定义强调色",
   value,
   selected = false,
   onChange,
@@ -157,7 +159,7 @@ export function CustomColorPicker({
           selected ? "is-selected" : ""
         }`}
         style={{ backgroundColor: value }}
-        aria-label="自定义强调色"
+        aria-label={label}
         aria-expanded={open}
         aria-pressed={selected}
         onClick={() => setOpen((current) => !current)}

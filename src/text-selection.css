@@ -1,0 +1,10 @@
+:root[data-text-selection="disabled"] body,
+:root[data-text-selection="disabled"] body * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Disabling display-text selection must never obstruct editing or copying a URL. */
+:root[data-text-selection="disabled"] body :is(input, textarea, [contenteditable="true"], [contenteditable="true"] *) {
+  -webkit-user-select: text;
+  user-select: text;
+}

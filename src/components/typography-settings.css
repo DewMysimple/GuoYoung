@@ -1,0 +1,50 @@
+.typography-settings { gap: 14px; }
+.typography-preview {
+  display: grid;
+  gap: 10px;
+  padding: 22px 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(115deg, var(--surface), var(--surface-hover));
+  overflow-wrap: anywhere;
+  color: var(--reading-text);
+  text-shadow: var(--reading-shadow);
+}
+.typography-preview strong { font-size: 1.15em; }
+.typography-preview span { color: var(--reading-text-secondary); font-size: .85em; }
+.typography-fonts, .typography-effects, .typography-color-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+:is(.typography-fonts, .typography-effects, .typography-color-presets) button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 12px;
+  cursor: pointer;
+}
+:is(.typography-fonts, .typography-effects, .typography-color-presets) button[aria-pressed="true"] {
+  color: var(--accent-text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.typography-fonts button { flex: 1 1 30%; }
+.typography-color-presets i { width: 13px; height: 13px; border: 1px solid var(--border-strong); border-radius: 50%; }
+.typography-settings .segmented-control { margin-top: 12px; }
+.typography-local-font { display: grid; gap: 8px; margin-top: 12px; }
+.typography-local-font input { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.typography-local-font small, .typography-note { font-size: 11px; color: var(--text-soft); line-height: 1.7; }
+.typography-note { margin: 12px 0 0; }
+.typography-color-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; margin-top: 12px; font-size: 12px; }
+.typography-color-row code { font-size: 11px; color: var(--text-soft); }
+.typography-color-row .custom-color-picker { display: contents; }
+.typography-color-row .color-picker-popover { position: static; grid-column: 1 / -1; width: 100%; margin: 0; box-shadow: none; scroll-margin-block: 12px; }

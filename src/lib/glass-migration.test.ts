@@ -9,7 +9,7 @@ describe("wallpaper glass migration", () => {
       positionY: 71, zoom: 140, blur: 4, overlay: 18, topbarOpacity: 35, topbarBlur: 7, topbarBlurEnabled: false };
     const loaded = parseStoredState(JSON.stringify({ ...state, version: 16, wallpaper }));
     expect(loaded.recovered).toBe(false);
-    expect(loaded.state.version).toBe(18);
+    expect(loaded.state.version).toBe(19);
     expect(loaded.state.wallpaper).toEqual({ ...DEFAULT_WALLPAPER, ...wallpaper });
     expect(loaded.state.sites).toEqual(state.sites);
     expect(loaded.state.groups).toEqual(state.groups);

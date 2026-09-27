@@ -1,4 +1,5 @@
 import { DataSettingsEditor } from "./data-settings-editor";
+import { TypographySettingsEditor } from "./typography-settings";
 import { WallpaperSettingsEditor } from "./wallpaper-settings-editor";
 import { useSettingsPanelWidth, DEFAULT_PANEL_WIDTH, MIN_PANEL_WIDTH } from "../hooks/use-settings-panel-width";
 import { ResizeHandle } from "./resize-handle";
@@ -22,6 +23,7 @@ import {
   Image as ImageIcon,
   PaintBrush,
   SlidersHorizontal,
+  TextAa,
   X,
 } from "@phosphor-icons/react";
 import {
@@ -75,7 +77,7 @@ interface SettingsPanelProps {
   wallpaperPreviewUrl?: string;
 }
 
-export type SettingsSection = "appearance" | "wallpaper" | "data";
+export type SettingsSection = "appearance" | "typography" | "wallpaper" | "data";
 
 function cloneDraft(state: SiteCollectionState): SettingsDraft {
   return {
@@ -570,6 +572,10 @@ export function SettingsPanel({
             >
               <PaintBrush size={17} />外观
             </button>
+            <button type="button" role="tab" aria-selected={section === "typography"}
+              className={section === "typography" ? "active" : ""} onClick={() => setSection("typography")}>
+              <TextAa size={17} />字体调节
+            </button>
             <button
               type="button"
               role="tab"
@@ -606,6 +612,9 @@ export function SettingsPanel({
                 </button>
               </div>
             )}
+
+            {section === "typography" && <TypographySettingsEditor value={draft.appearance} wallpaperUrl={wallpaperPreviewUrl}
+              onChange={(appearance) => setDraft((current) => ({ ...current, appearance }))} />}
 
             {section === "wallpaper" && <WallpaperSettingsEditor value={previewWallpaper}
               imageUrl={wallpaperPreviewUrl} error={wallpaperError || wallpaperImport.error || wallpaperLoadError}

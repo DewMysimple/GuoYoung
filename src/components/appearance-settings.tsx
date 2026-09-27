@@ -1,8 +1,8 @@
 import { useId, useState } from "react";
 import { CaretDown, Check, Desktop, Sun, Moon } from "@phosphor-icons/react";
 import {
-  applyLayoutPreset, applyTextSize, getLayoutPreset, getTextSize,
-  LAYOUT_DETAILS, LAYOUT_OPTIONS, patchAppearance, restoreLayout, TEXT_SIZE_OPTIONS,
+  applyLayoutPreset, getLayoutPreset,
+  LAYOUT_DETAILS, LAYOUT_OPTIONS, patchAppearance, restoreLayout,
 } from "../lib/appearance-settings";
 import type { AppearanceSettings as Appearance } from "../types";
 import { CustomColorPicker } from "./custom-color-picker";
@@ -31,7 +31,6 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsId = useId();
   const preset = getLayoutPreset(value);
-  const textSize = getTextSize(value);
 
   return (
     <>
@@ -109,7 +108,7 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
           onChange={onPanelWidthChange} />
       </details>
 
-      <section className="appearance-card" aria-label="颜色与文字">
+      <section className="appearance-card" aria-label="主题色">
         <h3>主题色</h3>
         <div className="accent-grid appearance-accents">
           {ACCENTS.map((color) => (
@@ -122,18 +121,6 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
           ))}
           <CustomColorPicker value={value.accentColor} selected={!ACCENTS.includes(value.accentColor)}
             onChange={(accentColor) => onChange(patchAppearance(value, { accentColor }))} />
-        </div>
-        <div className="appearance-heading appearance-reading-heading">
-          <h3>文字大小</h3>
-          {textSize === undefined && <span className="appearance-status">保留自定义字号</span>}
-        </div>
-        <div className="segmented-control" role="group" aria-label="文字大小">
-          {TEXT_SIZE_OPTIONS.map(({ value: size, label }) => (
-            <button key={size} type="button" className={textSize === size ? "active" : ""}
-              aria-pressed={textSize === size} onClick={() => onChange(applyTextSize(value, size))}>
-              {label}
-            </button>
-          ))}
         </div>
       </section>
     </>

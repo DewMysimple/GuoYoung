@@ -2,6 +2,8 @@ import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
 import { GlassRefraction, supportsGlassRefraction } from "./components/glass-refraction";
 import { patchAppearance } from "./lib/appearance-settings";
+import { typographyVariables } from "./lib/typography";
+import { useTextSelection } from "./hooks/use-text-selection";
 import {
   Fragment,
   useEffect,
@@ -1257,7 +1259,9 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         ? "全部 GitHub"
         : "全部网站"
       : (activeGroup?.name ?? "网站");
+  useTextSelection(effectiveAppearance.allowTextSelection);
   const appStyle = {
+    ...typographyVariables(effectiveAppearance),
     "--font-scale": String(effectiveAppearance.fontScale / 100),
     "--ui-icon-scale": String(effectiveAppearance.uiIconScale / 100),
     "--control-scale": String(effectiveAppearance.controlScale / 100),
@@ -1336,6 +1340,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     for (const [property, value] of Object.entries(appStyle)) {
       root.style.setProperty(property, String(value));
     }
+    root.dataset.textEffect = effectiveAppearance.textEffect;
+    return () => { delete root.dataset.textEffect; };
   }, [
     effectiveAppearance,
     effectiveWallpaper,
@@ -1353,6 +1359,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   return (
     <div
       data-app-shell
+      data-text-effect={effectiveAppearance.textEffect}
       className={`app-shell min-h-[100dvh] ${
         activeDragId || pendingDragId ? "is-site-dragging" : ""
       } ${settingsOpen ? "settings-open" : ""} ${

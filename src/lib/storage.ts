@@ -8,6 +8,7 @@ import {
   OTHER_GROUP_ID,
 } from "../data/defaults";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
+import { normalizeTypography } from "./typography";
 import type {
   AppearanceSettings,
   BrandLogoSource,
@@ -114,6 +115,8 @@ export function normalizeAppearance(value: unknown): AppearanceSettings {
       ? (value as Partial<AppearanceSettings>)
       : {};
   return {
+    ...normalizeTypography(candidate),
+    allowTextSelection: typeof candidate.allowTextSelection === "boolean" ? candidate.allowTextSelection : true,
     theme: candidate.theme === "light" || candidate.theme === "dark" || candidate.theme === "system"
       ? candidate.theme : DEFAULT_APPEARANCE.theme,
     accentColor: isHexColor(candidate.accentColor)
@@ -590,7 +593,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 18 &&
+    state.version === 19 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -965,6 +968,16 @@ function upgradeToVersion18(
   return { ...candidate, version: 18, wallpaper: normalizeWallpaper(candidate.wallpaper) };
 }
 
+function upgradeToVersion19(
+  legacy: Record<string, unknown> | SiteCollectionState,
+  sourceAppearance: unknown,
+): SiteCollectionState | undefined {
+  const base = legacy.version === 19 ? legacy : upgradeToVersion18(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return { ...candidate, version: 19, appearance: normalizeAppearance(candidate.appearance) };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1079,7 +1092,8 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 18 ||
+        candidate.version === 19 ||
+          candidate.version === 18 ||
           candidate.version === 17 ||
           candidate.version === 16 ||
           candidate.version === 15 ||
@@ -1094,7 +1108,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion18(baseCandidate, candidate.appearance)
+        ? upgradeToVersion19(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.

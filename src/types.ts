@@ -145,7 +145,19 @@ export interface BrandSettings {
 
 export type ThemePreference = "system" | "light" | "dark";
 
-export interface AppearanceSettings {
+export interface TypographySettings {
+  fontFamily: "default" | "system" | "serif" | "mono" | "custom";
+  customFontFamily: string;
+  textColorMode: "theme" | "custom";
+  textColor: string;
+  textSecondaryColor: string;
+  textEffect: "auto" | "none" | "shadow" | "outline" | "glow";
+  textEffectColor: string;
+  textEffectStrength: number;
+}
+
+export interface AppearanceSettings extends TypographySettings {
+  allowTextSelection: boolean;
   theme: ThemePreference;
   accentColor: string;
   layoutPreset: LayoutPreset;

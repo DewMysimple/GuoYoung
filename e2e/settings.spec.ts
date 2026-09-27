@@ -143,7 +143,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(18);
+  expect(saved.version).toBe(19);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -163,7 +163,9 @@ test("preserves legacy custom geometry while narrow screens keep safe sizes", as
   await page.reload();
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置" });
+  await panel.getByRole("tab", { name: "字体调节" }).click();
   await expect(panel.getByText("保留自定义字号")).toBeVisible();
+  await panel.getByRole("tab", { name: "外观", exact: true }).click();
   await expect(panel.getByRole("slider")).toHaveCount(0);
 
   const shellValues = await page.locator(".app-shell").evaluate((element) => ({
@@ -248,7 +250,7 @@ test("drags and zooms wallpaper with live preview before saving", async ({
   await page.reload();
 
   await page.getByRole("button", { name: "打开设置" }).click();
-  await page.locator(".settings-tabs [role='tab']").nth(1).click();
+  await page.getByRole("tab", { name: "壁纸", exact: true }).click();
   await page.locator("summary").filter({ hasText: /^位置与构图/ }).click();
   await page.locator(".wallpaper-position-actions button").first().click();
 
@@ -307,9 +309,13 @@ test("simplifies appearance choices and preserves preview, save, reload and rese
   await expect(panel.getByRole("button", { name: "名称与图标" })).toHaveAttribute("aria-expanded", "false");
   await page.screenshot({ path: screenshotPath(`appearance-overview-${testInfo.project.name}.png`), animations: "disabled" });
 
+  await panel.getByRole("tab", { name: "字体调节" }).click();
   await reading.getByRole("button", { name: "较大" }).click();
+  await panel.getByRole("tab", { name: "外观", exact: true }).click();
   await presets.getByRole("button", { name: "紧凑" }).click();
+  await panel.getByRole("tab", { name: "字体调节" }).click();
   await expect(reading.getByRole("button", { name: "较大" })).toHaveAttribute("aria-pressed", "true");
+  await panel.getByRole("tab", { name: "外观", exact: true }).click();
   await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();
   await panel.getByRole("button", { name: /布局微调/ }).focus();
   await page.keyboard.press("Enter");
