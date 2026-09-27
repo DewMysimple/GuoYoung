@@ -171,13 +171,18 @@ button { cursor: pointer; }
 .bookmark-search { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 10px; background: var(--surface); }
 .bookmark-search svg { flex: 0 0 auto; color: var(--text-soft); }
 .bookmark-search input { width: 100%; border: 0; outline: 0; background: transparent; font-size: 11px; }
+.bookmark-search input:focus-visible { outline: none; outline-width: 0; outline-offset: 0; box-shadow: none; }
 .bookmark-search input::placeholder { color: var(--text-faint); }
 .bookmark-refresh { width: 38px; height: 38px; }
-.bookmark-list-heading { display: flex; min-height: 25px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px 6px; color: var(--text-soft); font-size: 10px; font-weight: 760; }
+.bookmark-list-heading { display: grid; min-height: 28px; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 0 2px 6px; color: var(--text-soft); font-size: 10px; font-weight: 760; }
 .bookmark-location { display: flex; min-width: 0; align-items: center; gap: 5px; }
 .bookmark-location > span { overflow: hidden; color: var(--text-soft); text-overflow: ellipsis; white-space: nowrap; }
 .bookmark-back { display: grid; flex: 0 0 24px; place-items: center; width: 24px; height: 23px; padding: 0; border: 0; border-radius: 7px; color: var(--accent-text); background: transparent; }
 .bookmark-back:hover { background: var(--accent-soft); }
+.bookmark-selection-count { display: inline-flex; min-height: 22px; align-items: center; gap: 3px; padding: 0 8px; border-radius: 7px; color: var(--text-soft); background: color-mix(in srgb, var(--surface-raised) 72%, transparent); font-size: 10px; font-weight: 640; white-space: nowrap; }
+.bookmark-selection-count strong { color: var(--text); font-size: 10px; font-weight: 760; }
+.bookmark-selection-count.has-selection { color: var(--accent-text); background: var(--accent-soft); }
+.bookmark-selection-count.has-selection strong { color: var(--accent-text); }
 .select-visible { padding: 2px 0; border: 0; color: var(--accent-text); background: transparent; font-size: 10px; font-weight: 720; }
 .select-visible:disabled { cursor: default; opacity: .45; }
 
@@ -213,12 +218,12 @@ button { cursor: pointer; }
 .bookmark-tile .favicon-brand svg { display: block; width: 78%; height: 78%; }
 .bookmark-tile .favicon-letter { color: var(--accent-text); font-weight: 760; }
 
-.bookmark-footer { display: grid; gap: 8px; padding: 10px 1px 0; }
-.bookmark-footer-summary { display: flex; align-items: center; justify-content: space-between; color: var(--text-faint); font-size: 10px; }
-.bookmark-footer-summary strong { color: var(--text); font-size: 11px; }
-.bookmark-destination { grid-template-columns: 96px 1fr; align-items: center; gap: 8px; }
-.bookmark-destination .popup-select-trigger { min-height: 33px; }
-.bookmark-footer-actions { display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
+.bookmark-footer { display: grid; gap: 8px; padding: 9px 1px 0; border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent); }
+.bookmark-destination { min-height: 40px; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 8px; padding: 3px 5px 3px 10px; border: 1px solid var(--border); border-radius: 11px; background: color-mix(in srgb, var(--surface) 76%, transparent); }
+.bookmark-destination > span { color: var(--text-soft); font-size: 10px; font-weight: 720; white-space: nowrap; }
+.bookmark-destination .popup-select-trigger { width: 100%; min-width: 0; min-height: 32px; padding-inline: 9px; border-color: transparent; border-radius: 8px; background: transparent; }
+.bookmark-destination .popup-select-trigger:hover:not(:disabled), .bookmark-destination .popup-select-trigger.is-open { border-color: var(--border); background: var(--surface); }
+.bookmark-footer-actions { display: grid; grid-template-columns: minmax(96px, .34fr) minmax(0, 1fr); gap: 8px; }
 .popup-primary.compact, .popup-danger { min-height: 37px; font-size: 11px; }
 .popup-danger { color: var(--danger); background: var(--danger-soft); }
 .popup-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 18%, var(--danger-soft)); }

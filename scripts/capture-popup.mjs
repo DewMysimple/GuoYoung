@@ -26,12 +26,16 @@ try {
     const tree = await chrome.bookmarks.getTree();
     const bar = tree[0].children[0];
     const folder = await chrome.bookmarks.create({ parentId: bar.id, title: "参考资料" });
+    const ideas = await chrome.bookmarks.create({ parentId: bar.id, title: "工作灵感" });
+    const tools = await chrome.bookmarks.create({ parentId: bar.id, title: "开发工具" });
     const sites = await Promise.all([
       chrome.bookmarks.create({ parentId: folder.id, title: "示例文档", url: "https://example.org/docs" }),
       chrome.bookmarks.create({ parentId: folder.id, title: "开发者工具", url: "https://developer.mozilla.org/" }),
       chrome.bookmarks.create({ parentId: folder.id, title: "设计资源", url: "https://www.figma.com/" }),
       chrome.bookmarks.create({ parentId: folder.id, title: "阅读清单", url: "https://www.notion.so/" }),
     ]);
+    await chrome.bookmarks.create({ parentId: ideas.id, title: "灵感示例", url: "https://example.net/ideas" });
+    await chrome.bookmarks.create({ parentId: tools.id, title: "工具示例", url: "https://example.net/tools" });
     return { folderId: folder.id, siteIds: sites.map((site) => site.id) };
   });
 
@@ -99,6 +103,43 @@ try {
   });
   assert.deepEqual(bookmarksPopupSize, quickPopupSize, "The popup frame should not resize when changing tabs");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-overview-light.png"), animations: "disabled" });
+  await page.getByRole("textbox", { name: "搜索书签或网址" }).click();
+  const searchFocusStyle = await page.getByRole("textbox", { name: "搜索书签或网址" }).evaluate((input) => {
+    const parent = input.closest(".bookmark-search");
+    return {
+      outline: getComputedStyle(input).outlineStyle,
+      outlineWidth: getComputedStyle(input).outlineWidth,
+      parentBorderColor: getComputedStyle(parent).borderColor,
+      parentBoxShadow: getComputedStyle(parent).boxShadow,
+      parentBounds: parent.getBoundingClientRect().toJSON(),
+      inputBounds: input.getBoundingClientRect().toJSON(),
+    };
+  });
+  assert.equal(searchFocusStyle.outline, "none", "The search input should not draw a second inner focus outline");
+  assert.equal(searchFocusStyle.outlineWidth, "0px", "The search input should rely on its single shared container focus ring");
+  assert.notEqual(searchFocusStyle.parentBoxShadow, "none", "The search container should retain its single focus indicator");
+  assert.ok(searchFocusStyle.inputBounds.left >= searchFocusStyle.parentBounds.left && searchFocusStyle.inputBounds.right <= searchFocusStyle.parentBounds.right,
+    "The search input should remain inside the shared focus surface");
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-search-focus-light.png"), animations: "disabled" });
+  await page.getByRole("button", { name: "刷新书签" }).focus();
+  const destinationLayout = await page.locator(".bookmark-destination").evaluate((destination) => {
+    const bounds = destination.getBoundingClientRect();
+    const label = destination.querySelector(":scope > span").getBoundingClientRect();
+    const trigger = destination.querySelector(".popup-select-trigger").getBoundingClientRect();
+    return {
+      width: bounds.width,
+      borderStyle: getComputedStyle(destination).borderTopStyle,
+      background: getComputedStyle(destination).backgroundColor,
+      labelRight: label.right,
+      triggerLeft: trigger.left,
+      triggerRight: trigger.right,
+      containerRight: bounds.right,
+    };
+  });
+  assert.equal(destinationLayout.borderStyle, "solid", "The destination label and group selector should read as one control row");
+  assert.notEqual(destinationLayout.background, "rgba(0, 0, 0, 0)", "The destination row should use the popup surface palette");
+  assert.ok(destinationLayout.triggerLeft >= destinationLayout.labelRight && destinationLayout.triggerRight <= destinationLayout.containerRight,
+    "The destination selector should expand within the available row width");
   await page.addStyleTag({ content: ".popup-field .popup-select-popover { max-height: 190px !important; }" });
   await page.getByRole("button", { name: "默认分组" }).click();
   const lightGroupMenu = page.getByRole("listbox", { name: "默认分组" });
@@ -119,6 +160,8 @@ try {
   }), true, "The bookmark destination menu stays inside the popup");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-select-light.png"), animations: "disabled" });
   await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toBeVisible();
   const folderCardSize = await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
@@ -127,6 +170,11 @@ try {
     "Bookmark cards should form a four-column grid");
   assert.equal(folderCardSize.height, 76, "Bookmark cards should use the compact tile height");
   assert.ok(folderCardSize.width >= 85 && folderCardSize.width <= 95, "Four-column bookmark cards should use the available row width");
+  const folderRowTops = await page.locator(".bookmark-tile.is-folder").evaluateAll((cards) =>
+    cards.slice(0, 3).map((card) => card.getBoundingClientRect().top),
+  );
+  assert.equal(folderRowTops.length, 3, "The bookmark-bar fixture should show three folders");
+  assert.ok(Math.max(...folderRowTops) - Math.min(...folderRowTops) < 1, "Three bookmark folders should occupy the same row");
   assert.equal(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Folder bookmark tiles should have a visible card border");
   assert.notEqual(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -142,7 +190,7 @@ try {
     "Bookmark folder icon tiles should be reduced by more than 50% from the previous 64px size");
   assert.equal(await folderIcon.locator("svg").getAttribute("width"), "16",
     "Bookmark folder glyphs should be reduced by more than 50% from the previous 34px size");
-  await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-folders-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.getByText("示例文档")).toBeVisible();
   const siteCardSize = await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => {
@@ -167,6 +215,17 @@ try {
     "Bookmark website favicon tiles should be reduced by more than 50% from the previous 64px size");
   await expect(favicon).toHaveClass(/is-loaded/);
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-light.png"), animations: "disabled" });
+  await page.getByRole("checkbox", { name: "选择 示例文档" }).check();
+  const lightSelectionLayout = await page.locator(".bookmark-selection-count").evaluate((count) => {
+    const counterBounds = count.getBoundingClientRect();
+    const treeBounds = document.querySelector(".bookmark-tree").getBoundingClientRect();
+    return { text: count.textContent.trim().replace(/\s+/g, " "), counterBottom: counterBounds.bottom, treeTop: treeBounds.top };
+  });
+  assert.match(lightSelectionLayout.text, /已选择 1 项/, "The selection count should update when a bookmark is selected");
+  assert.ok(lightSelectionLayout.counterBottom <= lightSelectionLayout.treeTop,
+    "The selection count should stay in the row above the bookmark list");
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-selection-light.png"), animations: "disabled" });
+  await page.getByRole("checkbox", { name: "选择 示例文档" }).uncheck();
 
   await page.getByRole("textbox", { name: "搜索书签或网址" }).fill("示例文档");
   await page.getByRole("checkbox", { name: "选择 示例文档" }).check();
@@ -236,6 +295,14 @@ try {
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
   await page.addStyleTag({ content: ".popup-field .popup-select-popover { max-height: 190px !important; }" });
+  await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toBeVisible();
+  await page.getByRole("checkbox", { name: "选择 参考资料" }).check();
+  const darkSelectionText = await page.locator(".bookmark-selection-count").textContent();
+  assert.match(darkSelectionText ?? "", /已选择 5 项/, "Selecting the folder and its four sites should update the dark-theme count");
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-selection-dark.png"), animations: "disabled" });
+  await page.getByRole("checkbox", { name: "选择 参考资料" }).uncheck();
+  await page.getByRole("button", { name: "返回上一级书签文件夹" }).click();
   await page.getByRole("button", { name: "默认分组" }).click();
   const darkGroupMenu = page.getByRole("listbox", { name: "默认分组" });
   await expect(darkGroupMenu).toBeVisible();
@@ -250,12 +317,14 @@ try {
   await page.keyboard.press("Escape");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-overview-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
+  await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toBeVisible();
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-folders-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame img').first()).toHaveClass(/is-loaded/);
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, manyGroupLayout, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 10 }));
+  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, manyGroupLayout, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, folderCardWidth: folderCardSize.width, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", searchFocusOutline: searchFocusStyle.outline, destinationWidth: Math.round(destinationLayout.width), selectedCountAboveList: true, errors, screenshots: 15 }));
 } finally {
   await context.close();
 }
