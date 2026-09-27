@@ -395,11 +395,11 @@ export function PopupApp() {
   const allVisibleSelected = visibleIds.size > 0 && selectedVisibleCount === visibleIds.size;
 
   return (
-    <main className="popup-shell">
+    <main className={`popup-shell is-${tab}`}>
       <header className="popup-header">
         <div className="popup-brand">
           <img src="/favicon.svg" alt="" />
-          <div><strong>{state.brand.name}</strong><span>网站收藏</span></div>
+          <strong>{state.brand.name}</strong>
         </div>
         <a className="popup-open-home" href={api?.runtime?.getURL?.("index.html") ?? "/index.html"} target="_blank" rel="noopener noreferrer" aria-label="打开收藏主页" title="打开收藏主页">
           <ArrowSquareOut size={19} weight="bold" />
@@ -471,17 +471,12 @@ export function PopupApp() {
                   ? "更新已收藏网站"
                   : quickWorkspace === "github"
                     ? "添加到 GitHub"
-                    : isGithubHomeUrl(quickUrl ?? "")
-                      ? "添加到主页并同步顶部入口"
-                      : "添加到主页"}
+                    : "添加到主页"}
             </button>
           </div>
         </section>
       ) : (
         <section className="popup-page bookmarks-page">
-          <div className="popup-section-heading bookmarks-heading">
-            <span className="popup-eyebrow"><BookmarkSimple size={14} /> 浏览器书签</span>
-          </div>
           {!api?.bookmarks ? (
             <div className="popup-empty">扩展缺少书签权限，请重新加载扩展。</div>
           ) : (

@@ -25,9 +25,10 @@ test("saves a current page and imports browser bookmarks from the popup", async 
     };
     Object.defineProperty(window, "chrome", { configurable: true, value: api });
   });
-  // Chrome sizes this extension popup from its fixed 440 × 600 CSS shell.
+  // The quick-add shell is compact; the bookmark manager keeps the full browser popup height.
   await page.setViewportSize({ width: 440, height: 600 });
   await page.goto("/popup.html");
+  await expect(page.locator(".popup-shell.is-quick")).toHaveCSS("height", "400px");
   await expect(page.getByRole("textbox", { name: "网站名称" })).toHaveValue("维护示例");
   await expect(page.getByText("当前网页", { exact: true })).toHaveCount(0);
   await expect(page.getByText("保存到网站收藏", { exact: true })).toHaveCount(0);
@@ -40,13 +41,15 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(groupMenu).toBeVisible();
   await expect(groupMenu).toHaveCSS("border-radius", "13px");
   await expect(groupMenu).toHaveCSS("backdrop-filter", /blur/);
-  await page.screenshot({ path: screenshotPath(`popup-quick-select-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-select-${testInfo.project.name}.png`), animations: "disabled" });
   await page.keyboard.press("Escape");
   await expect(groupMenu).toHaveCount(0);
   await page.getByRole("button", { name: "添加到主页", exact: true }).click();
   await expect(page.getByText("已添加到主页。")).toBeVisible();
-  await page.screenshot({ path: screenshotPath(`popup-quick-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
+  await expect(page.locator(".popup-shell.is-bookmarks")).toHaveCSS("height", "600px");
+  await expect(page.locator(".bookmarks-heading")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "整理已有书签" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "打开书签文件夹 参考资料" })).toHaveCount(0);
   await expect(page.locator(".bookmark-tile.is-folder").first()).toHaveCSS("width", "96px");
@@ -65,13 +68,13 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   expect(menuBounds).not.toBeNull();
   expect(popupBounds).not.toBeNull();
   expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(popupBounds!.y + popupBounds!.height);
-  await page.screenshot({ path: screenshotPath(`popup-bookmark-select-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-bookmark-select-${testInfo.project.name}.png`), animations: "disabled" });
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }).click();
   const folderSelection = page.getByRole("checkbox", { name: "选择 参考资料" });
   await folderSelection.check();
   await expect(folderSelection).toHaveCSS("border-radius", "50%");
-  await page.screenshot({ path: screenshotPath(`popup-bookmarks-selected-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-bookmarks-selected-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: /添加到主页/ }).click();
   await expect(page.getByText("新增 1 个，跳过 0 个，失败 0 个。")).toBeVisible();
   const urls = await page.evaluate(() => JSON.parse(localStorage.getItem("popup-test-collection")!).sites.map((site: { url: string }) => site.url));
@@ -82,7 +85,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
     scroll: document.documentElement.scrollWidth,
   }));
   expect(width.scroll).toBeLessThanOrEqual(width.client);
-  await page.screenshot({ path: screenshotPath(`popup-bookmarks-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-bookmarks-${testInfo.project.name}.png`), animations: "disabled" });
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("popup-test-collection")!);
     state.appearance.theme = "light";
@@ -91,7 +94,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.getByRole("button", { name: "更新已收藏网站" })).toBeVisible();
-  await page.screenshot({ path: screenshotPath(`popup-quick-light-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-light-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
   await page.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }).click();
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
@@ -102,5 +105,5 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(page.locator(".bookmark-tile.is-site").first()).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame').first()).toHaveCSS("width", "30px");
   await expect(page.getByRole("button", { name: "返回上一级书签文件夹" })).toBeVisible();
-  await page.screenshot({ path: screenshotPath(`popup-bookmarks-light-${testInfo.project.name}.png`), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-bookmarks-light-${testInfo.project.name}.png`), animations: "disabled" });
 });

@@ -226,8 +226,8 @@ describe("toolbar popup", () => {
     const user = userEvent.setup();
     render(<PopupApp />);
 
-    expect(await screen.findByRole("button", { name: "添加到主页并同步顶部入口" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "添加到主页并同步顶部入口" }));
+    expect(await screen.findByRole("button", { name: "添加到主页" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "添加到主页" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
     const saved = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
     expect(saved.sites.find((site: { url: string }) => site.url === "https://github.com")?.groupId).toBe(

@@ -8,7 +8,7 @@
 }
 
 * { box-sizing: border-box; }
-body { width: 440px; min-width: 440px; height: 600px; margin: 0; overflow: hidden; }
+body { width: 440px; min-width: 440px; margin: 0; overflow: hidden; background: var(--page); }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 
@@ -24,17 +24,15 @@ button { cursor: pointer; }
 
 .popup-header {
   display: flex;
-  min-height: 67px;
+  min-height: 64px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 20px;
+  padding: 11px 20px;
 }
-.popup-brand { display: flex; min-width: 0; align-items: center; gap: 11px; }
-.popup-brand img { width: 39px; height: 39px; border-radius: 12px; box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 20%, transparent); }
-.popup-brand div { display: grid; min-width: 0; gap: 1px; }
-.popup-brand strong { overflow: hidden; font-size: 15px; font-weight: 780; text-overflow: ellipsis; white-space: nowrap; }
-.popup-brand span { color: var(--text-faint); font-size: 10px; letter-spacing: .01em; }
+.popup-brand { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.popup-brand img { width: 37px; height: 37px; border-radius: 11px; box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 20%, transparent); }
+.popup-brand strong { min-width: 0; overflow: hidden; font-size: 15px; font-weight: 780; text-overflow: ellipsis; white-space: nowrap; }
 .popup-open-home, .bookmark-refresh {
   display: grid;
   flex: 0 0 auto;
@@ -55,11 +53,11 @@ button { cursor: pointer; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 5px;
-  margin: 0 20px 14px;
+  margin: 0 20px 12px;
   padding: 4px;
   border: 1px solid var(--border);
-  border-radius: 13px;
-  background: var(--surface-raised);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-soft) 22%, var(--surface-raised));
 }
 .popup-tabs button {
   display: flex;
@@ -76,7 +74,7 @@ button { cursor: pointer; }
   transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease;
 }
 .popup-tabs button:hover { color: var(--accent-text); }
-.popup-tabs button.active { color: var(--accent-text); background: var(--surface); box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 9%, transparent); }
+.popup-tabs button.active { color: var(--accent-text); background: var(--surface); box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 8%, transparent); }
 
 .popup-notice {
   margin: 0 20px 10px;
@@ -90,21 +88,19 @@ button { cursor: pointer; }
 .popup-notice.error { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 20%, transparent); background: var(--danger-soft); }
 
 .popup-page { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: 0 20px 16px; }
-.popup-section-heading { margin-bottom: 16px; }
-.popup-eyebrow { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-text); font-size: 10px; font-weight: 780; letter-spacing: .07em; }
-.popup-section-heading h1 { margin: 6px 0 3px; color: var(--text); font-size: 21px; font-weight: 790; letter-spacing: -.035em; line-height: 1.35; }
-
+.popup-shell.is-quick { height: auto; min-height: 400px; }
+.popup-shell.is-bookmarks { height: 600px; }
 .popup-status-chip { flex: 0 0 auto; padding: 4px 6px; border-radius: 6px; color: var(--accent-text); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
 
 .popup-form-card {
   display: grid;
-  gap: 14px;
-  margin-top: 16px;
+  gap: 13px;
+  margin-top: 12px;
   padding: 17px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 17px;
   background: var(--surface);
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 6%, transparent);
 }
 .popup-field { display: grid; gap: 7px; }
 .popup-field > span { color: var(--text-soft); font-size: 11px; font-weight: 750; }
@@ -135,8 +131,7 @@ button { cursor: pointer; }
 .popup-form-card .popup-primary { width: 100%; margin-top: 2px; }
 
 .bookmarks-page { padding-inline: 20px; }
-.bookmarks-heading { margin-bottom: 8px; }
-.bookmark-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.bookmark-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
 .bookmark-search { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 10px; background: var(--surface); }
 .bookmark-search svg { flex: 0 0 auto; color: var(--text-soft); }
 .bookmark-search input { width: 100%; border: 0; outline: 0; background: transparent; font-size: 11px; }
@@ -179,10 +174,10 @@ button { cursor: pointer; }
 .bookmark-tile .favicon-brand svg { display: block; width: 78%; height: 78%; }
 .bookmark-tile .favicon-letter { color: var(--accent-text); font-weight: 760; }
 
-.bookmark-footer { display: grid; gap: 9px; padding: 12px 1px 0; }
+.bookmark-footer { display: grid; gap: 8px; padding: 10px 1px 0; }
 .bookmark-footer-summary { display: flex; align-items: center; justify-content: space-between; color: var(--text-faint); font-size: 10px; }
 .bookmark-footer-summary strong { color: var(--text); font-size: 11px; }
-.bookmark-destination { grid-template-columns: 1fr 178px; align-items: center; gap: 8px; }
+.bookmark-destination { grid-template-columns: 96px 1fr; align-items: center; gap: 8px; }
 .bookmark-destination .popup-select-trigger { min-height: 33px; }
 .bookmark-footer-actions { display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
 .popup-primary.compact, .popup-danger { min-height: 37px; font-size: 11px; }

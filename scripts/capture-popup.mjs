@@ -39,9 +39,9 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`${origin}/popup.html`);
   await expect(page.getByRole("button", { name: "浏览器书签" })).toBeVisible();
-  await page.screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
-  await page.screenshot({ path: join(output, "popup-production-bookmarks-overview-light.png"), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-overview-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "默认分组" }).click();
   const lightGroupMenu = page.getByRole("listbox", { name: "默认分组" });
   await expect(lightGroupMenu).toBeVisible();
@@ -52,7 +52,7 @@ try {
     const popupBounds = popup.getBoundingClientRect();
     return bounds.top >= popupBounds.top && bounds.bottom <= popupBounds.bottom;
   }), true, "The bookmark destination menu stays inside the popup");
-  await page.screenshot({ path: join(output, "popup-production-bookmark-select-light.png"), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-select-light.png"), animations: "disabled" });
   await page.keyboard.press("Escape");
   const folderCardSize = await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => {
     const bounds = card.getBoundingClientRect();
@@ -92,7 +92,7 @@ try {
   assert.equal(await favicon.evaluate((image) => image.parentElement.getBoundingClientRect().width), 30,
     "Bookmark website favicon tiles should be reduced by more than 50% from the previous 64px size");
   await expect(favicon).toHaveClass(/is-loaded/);
-  await page.screenshot({ path: join(output, "popup-production-bookmarks-light.png"), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-light.png"), animations: "disabled" });
 
   await page.getByRole("textbox", { name: "搜索书签或网址" }).fill("示例文档");
   await page.getByRole("checkbox", { name: "选择 示例文档" }).check();
@@ -115,17 +115,17 @@ try {
   });
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.screenshot({ path: join(output, "popup-production-quick-dark.png"), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
   await page.getByRole("button", { name: "默认分组" }).click();
   await expect(page.getByRole("listbox", { name: "默认分组" })).toBeVisible();
-  await page.screenshot({ path: join(output, "popup-production-bookmark-select-dark.png"), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-select-dark.png"), animations: "disabled" });
   await page.keyboard.press("Escape");
-  await page.screenshot({ path: join(output, "popup-production-bookmarks-overview-dark.png"), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-overview-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: /打开书签文件夹/ }).first().click();
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame img').first()).toHaveClass(/is-loaded/);
-  await page.screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
+  await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ version: manifest.version, importedGroupIcon: "stack", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
