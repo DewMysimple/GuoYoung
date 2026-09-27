@@ -53,6 +53,13 @@ try {
   });
   await page.goto(`${origin}/popup.html`);
   await expect(page.getByRole("button", { name: "浏览器书签" })).toBeVisible();
+  assert.equal(await page.locator(".popup-brand").count(), 0, "The popup header should not show a brand name or logo");
+  const quickHeaderCenterOffset = await page.locator(".popup-header").evaluate((header) => {
+    const tabs = header.querySelector(".popup-tabs").getBoundingClientRect();
+    const home = header.querySelector(".popup-open-home").getBoundingClientRect();
+    return Math.abs((tabs.top + tabs.height / 2) - (home.top + home.height / 2));
+  });
+  assert.ok(quickHeaderCenterOffset <= 1, "Quick add, bookmarks, and homepage controls should share one header row");
   await expect(page.getByRole("textbox", { name: "网站名称" })).toHaveValue("目标网站示例");
   await expect(page.locator(".popup-target-icon img")).toHaveAttribute("src", /^data:image\/svg\+xml/);
   await expect(page.getByRole("radiogroup", { name: "添加到分组" })).toBeVisible();
@@ -79,6 +86,12 @@ try {
   assert.ok(quickLayout.groupHeight > 190, "The group picker should expand beyond its previous fixed height");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
+  const bookmarksHeaderCenterOffset = await page.locator(".popup-header").evaluate((header) => {
+    const tabs = header.querySelector(".popup-tabs").getBoundingClientRect();
+    const home = header.querySelector(".popup-open-home").getBoundingClientRect();
+    return Math.abs((tabs.top + tabs.height / 2) - (home.top + home.height / 2));
+  });
+  assert.ok(bookmarksHeaderCenterOffset <= 1, "The one-row header should remain aligned on the bookmark tab");
   const bookmarksPopupSize = await page.locator(".popup-shell").evaluate((popup) => {
     const bounds = popup.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
@@ -203,7 +216,7 @@ try {
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 2, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
+  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 2, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
 } finally {
   await context.close();
 }

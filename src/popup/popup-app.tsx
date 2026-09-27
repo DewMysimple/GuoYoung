@@ -410,23 +410,18 @@ export function PopupApp() {
   return (
     <main className={`popup-shell is-${tab}`}>
       <header className="popup-header">
-        <div className="popup-brand">
-          <img src="/favicon.svg" alt="" />
-          <strong>{state.brand.name}</strong>
-        </div>
+        <nav className="popup-tabs" aria-label="工具栏功能">
+          <button type="button" className={tab === "quick" ? "active" : ""} aria-current={tab === "quick" ? "page" : undefined} onClick={() => setTab("quick")}>
+            <Plus size={17} weight="bold" />快速添加
+          </button>
+          <button type="button" className={tab === "bookmarks" ? "active" : ""} aria-current={tab === "bookmarks" ? "page" : undefined} onClick={() => setTab("bookmarks")}>
+            <BookmarkSimple size={17} />浏览器书签
+          </button>
+        </nav>
         <a className="popup-open-home" href={api?.runtime?.getURL?.("index.html") ?? "/index.html"} target="_blank" rel="noopener noreferrer" aria-label="打开收藏主页" title="打开收藏主页">
           <ArrowSquareOut size={19} weight="bold" />
         </a>
       </header>
-
-      <nav className="popup-tabs" aria-label="工具栏功能">
-        <button type="button" className={tab === "quick" ? "active" : ""} aria-current={tab === "quick" ? "page" : undefined} onClick={() => setTab("quick")}>
-          <Plus size={17} weight="bold" />快速添加
-        </button>
-        <button type="button" className={tab === "bookmarks" ? "active" : ""} aria-current={tab === "bookmarks" ? "page" : undefined} onClick={() => setTab("bookmarks")}>
-          <BookmarkSimple size={17} />浏览器书签
-        </button>
-      </nav>
 
       {notice && <div className={`popup-notice ${notice.kind}`} role="status">{notice.text}</div>}
 

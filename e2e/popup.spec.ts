@@ -35,6 +35,20 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.goto("/popup.html");
   await expect(page.locator(".popup-shell.is-quick")).toHaveCSS("width", "440px");
   await expect(page.locator(".popup-shell.is-quick")).toHaveCSS("height", "600px");
+  await expect(page.locator(".popup-brand")).toHaveCount(0);
+  await expect(page.locator(".popup-header img")).toHaveCount(0);
+  const quickHeaderLayout = await page.locator(".popup-header").evaluate((header) => {
+    const tabs = header.querySelector(".popup-tabs")!.getBoundingClientRect();
+    const home = header.querySelector(".popup-open-home")!.getBoundingClientRect();
+    return {
+      tabsRight: tabs.right,
+      homeLeft: home.left,
+      centerOffset: Math.abs((tabs.top + tabs.height / 2) - (home.top + home.height / 2)),
+    };
+  });
+  expect(quickHeaderLayout.homeLeft - quickHeaderLayout.tabsRight).toBeGreaterThanOrEqual(7);
+  expect(quickHeaderLayout.homeLeft - quickHeaderLayout.tabsRight).toBeLessThanOrEqual(9);
+  expect(quickHeaderLayout.centerOffset).toBeLessThanOrEqual(1);
   await expect(page.getByRole("textbox", { name: "网站名称" })).toHaveValue("维护示例");
   await expect(page.locator(".popup-site-identity")).toBeVisible();
   await expect(page.locator(".popup-target-icon img")).toHaveAttribute("src", /^data:image\/svg\+xml/);
@@ -69,6 +83,12 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.getByRole("button", { name: "浏览器书签" }).click();
   await expect(page.locator(".popup-shell.is-bookmarks")).toHaveCSS("width", "440px");
   await expect(page.locator(".popup-shell.is-bookmarks")).toHaveCSS("height", "600px");
+  const bookmarksHeaderLayout = await page.locator(".popup-header").evaluate((header) => {
+    const tabs = header.querySelector(".popup-tabs")!.getBoundingClientRect();
+    const home = header.querySelector(".popup-open-home")!.getBoundingClientRect();
+    return Math.abs((tabs.top + tabs.height / 2) - (home.top + home.height / 2));
+  });
+  expect(bookmarksHeaderLayout).toBeLessThanOrEqual(1);
   const gridColumnCount = await page.locator(".bookmark-grid").evaluate((grid) =>
     getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length,
   );

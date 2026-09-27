@@ -24,15 +24,12 @@ button { cursor: pointer; }
 
 .popup-header {
   display: flex;
+  flex: 0 0 auto;
   min-height: 64px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 11px 20px;
+  gap: 8px;
+  padding: 10px 20px;
 }
-.popup-brand { display: flex; min-width: 0; align-items: center; gap: 10px; }
-.popup-brand img { width: 37px; height: 37px; border-radius: 11px; box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 20%, transparent); }
-.popup-brand strong { min-width: 0; overflow: hidden; font-size: 15px; font-weight: 780; text-overflow: ellipsis; white-space: nowrap; }
 .popup-open-home, .bookmark-refresh {
   display: grid;
   flex: 0 0 auto;
@@ -51,9 +48,11 @@ button { cursor: pointer; }
 
 .popup-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  flex: 1 1 auto;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
-  margin: 0 20px 12px;
+  margin: 0;
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -61,16 +60,19 @@ button { cursor: pointer; }
 }
 .popup-tabs button {
   display: flex;
-  min-height: 39px;
+  min-width: 0;
+  min-height: 38px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 0 6px;
   border: 0;
   border-radius: 9px;
   color: var(--text-soft);
   background: transparent;
   font-size: 12px;
   font-weight: 670;
+  white-space: nowrap;
   transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease;
 }
 .popup-tabs button:hover { color: var(--accent-text); }
