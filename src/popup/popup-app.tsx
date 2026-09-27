@@ -4,6 +4,7 @@ import {
   ArrowSquareOut,
   BookmarkSimple,
   Check,
+  FolderSimple,
   MagnifyingGlass,
   Plus,
   Trash,
@@ -581,14 +582,20 @@ export function PopupApp() {
               </div>
               <div className="bookmark-footer">
                 <div className="bookmark-destination popup-field">
-                  <span>默认分组</span>
                   <SelectMenu
                     ariaLabel="默认分组"
                     value={bookmarkGroupId}
                     options={mainGroups.map((group) => ({ value: group.id, label: group.name }))}
-                    triggerClassName="popup-select-trigger"
+                    className="view-control"
+                    triggerClassName="view-control-button popup-select-trigger"
                     menuClassName="popup-select-popover"
                     placement="top"
+                    renderTrigger={(option) => (
+                      <>
+                        <FolderSimple size={16} />
+                        <span className="bookmark-destination-label">{option?.label ?? "默认分组"}</span>
+                      </>
+                    )}
                     onChange={setBookmarkGroupId}
                   />
                 </div>

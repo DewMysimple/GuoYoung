@@ -124,22 +124,39 @@ try {
   await page.getByRole("button", { name: "刷新书签" }).focus();
   const destinationLayout = await page.locator(".bookmark-destination").evaluate((destination) => {
     const bounds = destination.getBoundingClientRect();
-    const label = destination.querySelector(":scope > span").getBoundingClientRect();
     const trigger = destination.querySelector(".popup-select-trigger").getBoundingClientRect();
+    const footer = destination.closest(".bookmark-footer");
+    const triggerElement = destination.querySelector(".popup-select-trigger");
+    const label = destination.querySelector(".bookmark-destination-label");
+    const treeBounds = document.querySelector(".bookmark-tree").getBoundingClientRect();
     return {
       width: bounds.width,
-      borderStyle: getComputedStyle(destination).borderTopStyle,
-      background: getComputedStyle(destination).backgroundColor,
-      labelRight: label.right,
+      wrapperBorderStyle: getComputedStyle(destination).borderTopStyle,
+      wrapperBackground: getComputedStyle(destination).backgroundColor,
+      footerBorderStyle: getComputedStyle(footer).borderTopStyle,
+      footerBorderWidth: getComputedStyle(footer).borderTopWidth,
+      triggerBorderStyle: getComputedStyle(triggerElement).borderTopStyle,
+      triggerBackground: getComputedStyle(triggerElement).backgroundColor,
+      labelText: label.textContent.trim(),
+      hasExternalLabel: Boolean(destination.querySelector(":scope > span")),
+      treeFooterGap: trigger.top - treeBounds.bottom,
       triggerLeft: trigger.left,
       triggerRight: trigger.right,
       containerRight: bounds.right,
     };
   });
-  assert.equal(destinationLayout.borderStyle, "solid", "The destination label and group selector should read as one control row");
-  assert.notEqual(destinationLayout.background, "rgba(0, 0, 0, 0)", "The destination row should use the popup surface palette");
-  assert.ok(destinationLayout.triggerLeft >= destinationLayout.labelRight && destinationLayout.triggerRight <= destinationLayout.containerRight,
-    "The destination selector should expand within the available row width");
+  assert.equal(destinationLayout.wrapperBorderStyle, "none", "The destination should not draw an outer frame around its selector");
+  assert.equal(destinationLayout.wrapperBackground, "rgba(0, 0, 0, 0)", "The destination wrapper should remain visually transparent");
+  assert.equal(destinationLayout.footerBorderStyle, "none", "The bookmark footer should not draw a horizontal separator");
+  assert.equal(destinationLayout.footerBorderWidth, "0px", "The unwanted footer line should be removed entirely");
+  assert.equal(destinationLayout.triggerBorderStyle, "solid", "The destination should use one bordered select control");
+  assert.notEqual(destinationLayout.triggerBackground, "rgba(0, 0, 0, 0)", "The select control should use the popup surface palette");
+  assert.ok(destinationLayout.labelText.length > 0 && !destinationLayout.hasExternalLabel,
+    "The selected group name should appear inside the one select control");
+  assert.ok(destinationLayout.triggerLeft >= (await page.locator(".bookmark-destination").evaluate((element) => element.getBoundingClientRect().left)) && destinationLayout.triggerRight <= destinationLayout.containerRight,
+    "The destination select control should fit the available footer width");
+  assert.ok(destinationLayout.treeFooterGap >= 7,
+    "The bookmark list border and destination control should be separated by clear whitespace");
   await page.addStyleTag({ content: ".popup-field .popup-select-popover { max-height: 190px !important; }" });
   await page.getByRole("button", { name: "默认分组" }).click();
   const lightGroupMenu = page.getByRole("listbox", { name: "默认分组" });
@@ -324,7 +341,7 @@ try {
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, manyGroupLayout, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, folderCardWidth: folderCardSize.width, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", searchFocusOutline: searchFocusStyle.outline, destinationWidth: Math.round(destinationLayout.width), selectedCountAboveList: true, errors, screenshots: 15 }));
+  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, manyGroupLayout, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, folderCardWidth: folderCardSize.width, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", searchFocusOutline: searchFocusStyle.outline, destinationWidth: Math.round(destinationLayout.width), treeFooterGap: destinationLayout.treeFooterGap, oneDestinationControl: true, footerSeparator: "none", selectedCountAboveList: true, errors, screenshots: 15 }));
 } finally {
   await context.close();
 }
