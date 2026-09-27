@@ -544,6 +544,9 @@ export function PopupApp() {
                     {bookmarkQuery.trim() ? "搜索结果" : currentBookmarkFolder?.title || "书签列表"}
                   </span>
                 </div>
+                <span className={`bookmark-selection-count ${selectedIds.size ? "has-selection" : ""}`} aria-live="polite">
+                  已选择 <strong>{selectedIds.size}</strong> 项
+                </span>
                 <button
                   type="button"
                   className="select-visible"
@@ -575,7 +578,6 @@ export function PopupApp() {
                 ) : <div className="popup-empty">{bookmarkQuery.trim() ? "没有匹配的浏览器书签" : currentBookmarkFolder ? "此文件夹中没有书签" : "没有浏览器书签"}</div>}
               </div>
               <div className="bookmark-footer">
-                <div className="bookmark-footer-summary"><strong>已选择 {selectedIds.size} 项</strong></div>
                 <div className="bookmark-destination popup-field">
                   <span>默认分组</span>
                   <SelectMenu
