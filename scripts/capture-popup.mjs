@@ -37,8 +37,26 @@ try {
 
   const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    const tabsApi = window.chrome?.tabs;
+    if (!tabsApi) return;
+    const sampleIcon = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%234f7fe8'/%3E%3Cpath%20d='M22%2015v34M24%2032l20-17M24%2032l20%2017'%20stroke='white'%20stroke-width='6'%20stroke-linecap='round'/%3E%3C/svg%3E";
+    Object.defineProperty(tabsApi, "query", {
+      configurable: true,
+      value: async () => [{
+        id: 42,
+        title: "目标网站示例",
+        url: "https://example.org/docs",
+        favIconUrl: sampleIcon,
+      }],
+    });
+  });
   await page.goto(`${origin}/popup.html`);
   await expect(page.getByRole("button", { name: "浏览器书签" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "网站名称" })).toHaveValue("目标网站示例");
+  await expect(page.locator(".popup-target-icon img")).toHaveAttribute("src", /^data:image\/svg\+xml/);
+  await expect(page.getByRole("radiogroup", { name: "添加到分组" })).toBeVisible();
+  await expect(page.locator(".popup-group-option").first()).toBeEnabled();
   const quickPopupSize = await page.locator(".popup-shell").evaluate((popup) => {
     const bounds = popup.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
@@ -142,7 +160,7 @@ try {
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, importedGroupIcon: "stack", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
+  console.log(JSON.stringify({ version: manifest.version, quickTargetIdentity: true, inlineGroups: true, bookmarkGridColumns: 4, bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
 } finally {
   await context.close();
 }

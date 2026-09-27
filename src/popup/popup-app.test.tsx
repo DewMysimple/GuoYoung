@@ -6,7 +6,7 @@ import { STORAGE_KEY } from "../lib/storage";
 import { PopupApp } from "./popup-app";
 
 function installChromeMock(options: {
-  tab?: { id?: number; title: string; url: string };
+  tab?: { id?: number; title: string; url: string; favIconUrl?: string };
   withoutGithubHome?: boolean;
 } = {}) {
   const baseState = createDefaultState();
@@ -54,6 +54,7 @@ function installChromeMock(options: {
         id: options.tab?.id ?? 7,
         title: options.tab?.title ?? "OpenAI Developers",
         url: options.tab?.url ?? "https://platform.openai.com/docs",
+        favIconUrl: options.tab?.favIconUrl,
       }]),
     },
     bookmarks: {
@@ -102,16 +103,31 @@ describe("toolbar popup", () => {
     await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
   });
   it("reads the active tab and adds it to the shared homepage state", async () => {
-    const { set } = installChromeMock();
+    const { set } = installChromeMock({
+      tab: {
+        title: "OpenAI Developers",
+        url: "https://platform.openai.com/docs",
+        favIconUrl: "https://platform.openai.com/favicon.ico",
+      },
+    });
     const user = userEvent.setup();
     render(<PopupApp />);
     expect(await screen.findByRole("textbox", { name: /网站名称/ })).toHaveValue("OpenAI Developers");
+    expect(screen.getByTestId("popup-target-icon").querySelector("img"))
+      .toHaveAttribute("src", "https://platform.openai.com/favicon.ico");
+    const groupOptions = screen.getByRole("radiogroup", { name: "添加到分组" });
+    const searchGroup = within(groupOptions).getByRole("radio", { name: "搜索" });
+    const developmentGroup = within(groupOptions).getByRole("radio", { name: "开发" });
+    expect(searchGroup).toHaveAttribute("aria-checked", "true");
+    await user.click(developmentGroup);
+    expect(developmentGroup).toHaveAttribute("aria-checked", "true");
+    expect(searchGroup).toHaveAttribute("aria-checked", "false");
     expect(screen.queryByText("当前网页")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "保存到网站收藏" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "添加到主页" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
     const saved = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
-    expect(saved.sites.some((site: { url: string }) => site.url === "https://platform.openai.com/docs")).toBe(true);
+    expect(saved.sites.find((site: { url: string }) => site.url === "https://platform.openai.com/docs")?.groupId).toBe("develop");
   });
 
   it("opens bookmark folders as separate card views and uses the browser favicon", async () => {
@@ -186,11 +202,10 @@ describe("toolbar popup", () => {
     render(<PopupApp />);
 
     expect(await screen.findByRole("textbox", { name: /网站名称/ })).toHaveValue("DewMysimple/GuoYoung");
-    await user.click(screen.getByRole("button", { name: "添加到 GitHub 分组" }));
-    const groupMenu = screen.getByRole("listbox", { name: "添加到 GitHub 分组" });
-    expect(within(groupMenu).getByRole("option", { name: "其他" })).toBeInTheDocument();
-    expect(within(groupMenu).queryByRole("option", { name: "开发" })).not.toBeInTheDocument();
-    await user.click(within(groupMenu).getByRole("option", { name: "其他" }));
+    const groupOptions = screen.getByRole("radiogroup", { name: "添加到 GitHub 分组" });
+    expect(within(groupOptions).getByRole("radio", { name: "其他" })).toBeInTheDocument();
+    expect(within(groupOptions).queryByRole("radio", { name: "开发" })).not.toBeInTheDocument();
+    await user.click(within(groupOptions).getByRole("radio", { name: "其他" }));
 
     await user.click(screen.getByRole("button", { name: "添加到 GitHub" }));
     await waitFor(() => expect(set).toHaveBeenCalled());

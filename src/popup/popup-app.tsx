@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowSquareOut,
   BookmarkSimple,
+  Check,
   MagnifyingGlass,
   Plus,
   Trash,
@@ -41,6 +42,8 @@ import { useTheme } from "../hooks/use-theme";
 import { DEFAULT_APPEARANCE } from "../data/defaults";
 import { BookmarkTile, getBookmarkSiteIds } from "./bookmark-tree";
 import { SelectMenu } from "../components/select-menu";
+import { CategoryIcon as GroupIcon } from "../components/category-icon";
+import { Favicon } from "../components/favicon";
 
 type PopupTab = "quick" | "bookmarks";
 
@@ -194,6 +197,16 @@ export function PopupApp() {
       return undefined;
     }
   }, [activeBrowserTab]);
+  const quickSitePreview = useMemo(() => {
+    if (!quickUrl) return undefined;
+    const tabIconUrl = activeBrowserTab?.favIconUrl?.trim();
+    return {
+      name: quickName.trim() || activeBrowserTab?.title?.trim() || inferSiteName(quickUrl) || quickUrl,
+      url: quickUrl,
+      customIconUrl: tabIconUrl ?? "",
+      iconSource: tabIconUrl ? "custom" as const : "browser" as const,
+    };
+  }, [activeBrowserTab, quickName, quickUrl]);
   const duplicate =
     state && quickUrl ? findSiteByUrl(state.sites, quickUrl) : undefined;
   const visibleBookmarkRoots = useMemo(
@@ -420,11 +433,13 @@ export function PopupApp() {
       {tab === "quick" ? (
         <section className="popup-page quick-page">
           <div className="popup-form-card">
-            <label className="popup-field">
-              <span className="popup-field-heading">
-                <span>网站名称</span>
-                {duplicate && <small className="popup-status-chip">已收藏</small>}
-              </span>
+            <div className="popup-site-identity" data-testid="popup-site-identity">
+              {quickSitePreview && (
+                <span className="popup-target-icon" data-testid="popup-target-icon">
+                  <Favicon site={quickSitePreview} size="large" />
+                </span>
+              )}
+              <label className="popup-site-name">
               <input
                 value={quickName}
                 aria-label="网站名称"
@@ -436,21 +451,38 @@ export function PopupApp() {
                   setQuickDuplicateId(undefined);
                 }}
               />
-            </label>
-            <div className="popup-field">
-              <span>{quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}</span>
-              <SelectMenu
-                ariaLabel={quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}
-                value={quickGroupId}
-                disabled={!quickUrl}
-                options={groups.map((group) => ({ value: group.id, label: group.name }))}
-                triggerClassName="popup-select-trigger"
-                menuClassName="popup-select-popover"
-                onChange={(groupId) => {
-                  setQuickGroupId(groupId);
-                  setQuickDuplicateId(undefined);
-                }}
-              />
+              </label>
+              {duplicate && <small className="popup-status-chip">已收藏</small>}
+            </div>
+            <div className="popup-group-picker">
+              <span className="popup-group-label">{quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}</span>
+              <div
+                className="popup-group-options"
+                role="radiogroup"
+                aria-label={quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}
+              >
+                {groups.map((group) => {
+                  const selected = quickGroupId === group.id;
+                  return (
+                    <button
+                      key={group.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={`popup-group-option ${selected ? "is-selected" : ""}`}
+                      disabled={!quickUrl || busy}
+                      onClick={() => {
+                        setQuickGroupId(group.id);
+                        setQuickDuplicateId(undefined);
+                      }}
+                    >
+                      <span className="popup-group-option-icon"><GroupIcon name={group.icon} size={16} /></span>
+                      <span className="popup-group-option-name">{group.name}</span>
+                      {selected && <Check className="popup-group-option-check" size={15} weight="bold" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             {duplicate && quickDuplicateId && (
               <div className="duplicate-popup-notice">

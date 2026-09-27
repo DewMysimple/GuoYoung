@@ -15,7 +15,12 @@ test("saves a current page and imports browser bookmarks from the popup", async 
         get: async (key: string) => ({ [key]: localStorage.getItem(collectionKey) }),
         set: async (values: Record<string, string>) => localStorage.setItem(collectionKey, values["site-hub:v1"]),
       } },
-      tabs: { query: async () => [{ id: 1, title: "维护示例", url: "https://example.com/maintenance" }] },
+      tabs: { query: async () => [{
+        id: 1,
+        title: "维护示例",
+        url: "https://example.com/maintenance",
+        favIconUrl: "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%234f7fe8'/%3E%3Cpath%20d='M22%2015v34M24%2032l20-17M24%2032l20%2017'%20stroke='white'%20stroke-width='6'%20stroke-linecap='round'/%3E%3C/svg%3E",
+      }] },
       bookmarks: {
         getTree: async () => [{ id: "root", title: "", children: [{ id: "bar", title: "收藏夹栏", children: [
           { id: "reference", title: "参考资料", children: [{ id: "example", title: "示例文档", url: "https://example.org/docs" }] },
@@ -31,20 +36,19 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(page.locator(".popup-shell.is-quick")).toHaveCSS("width", "440px");
   await expect(page.locator(".popup-shell.is-quick")).toHaveCSS("height", "600px");
   await expect(page.getByRole("textbox", { name: "网站名称" })).toHaveValue("维护示例");
+  await expect(page.locator(".popup-site-identity")).toBeVisible();
+  await expect(page.locator(".popup-target-icon img")).toHaveAttribute("src", /^data:image\/svg\+xml/);
   await expect(page.getByText("当前网页", { exact: true })).toHaveCount(0);
   await expect(page.getByText("保存到网站收藏", { exact: true })).toHaveCount(0);
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".popup-shell")).toHaveCSS("background-image", /linear-gradient/);
-  await expect(page.locator(".popup-field input")).toHaveCSS("color", "rgb(232, 236, 243)");
-  const groupSelect = page.getByRole("button", { name: "添加到分组" });
-  await groupSelect.click();
-  const groupMenu = page.getByRole("listbox", { name: "添加到分组" });
-  await expect(groupMenu).toBeVisible();
-  await expect(groupMenu).toHaveCSS("border-radius", "13px");
-  await expect(groupMenu).toHaveCSS("backdrop-filter", /blur/);
-  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-select-${testInfo.project.name}.png`), animations: "disabled" });
-  await page.keyboard.press("Escape");
-  await expect(groupMenu).toHaveCount(0);
+  await expect(page.locator(".popup-site-name input")).toHaveCSS("color", "rgb(232, 236, 243)");
+  const groupOptions = page.getByRole("radiogroup", { name: "添加到分组" });
+  await expect(groupOptions).toBeVisible();
+  const secondGroup = groupOptions.getByRole("radio").nth(1);
+  await secondGroup.click();
+  await expect(secondGroup).toHaveAttribute("aria-checked", "true");
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-groups-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: "添加到主页", exact: true }).click();
   await expect(page.getByText("已添加到主页。")).toBeVisible();
   await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-${testInfo.project.name}.png`), animations: "disabled" });
