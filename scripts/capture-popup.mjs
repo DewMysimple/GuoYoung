@@ -62,6 +62,21 @@ try {
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
   });
   assert.deepEqual(quickPopupSize, { width: 440, height: 600 }, "The quick-add tab should use the shared popup size");
+  const quickLayout = await page.locator(".quick-page").evaluate((quickPage) => {
+    const pageBounds = quickPage.getBoundingClientRect();
+    const cardBounds = quickPage.querySelector(".popup-form-card").getBoundingClientRect();
+    const groupOptions = quickPage.querySelector(".popup-group-options");
+    return {
+      topGap: cardBounds.top - pageBounds.top,
+      bottomGap: pageBounds.bottom - cardBounds.bottom,
+      groupHeight: groupOptions.getBoundingClientRect().height,
+      groupScrollHeight: groupOptions.scrollHeight,
+    };
+  });
+  assert.ok(quickLayout.topGap <= 1, "The quick-add card should begin at the top of the available page area");
+  assert.ok(quickLayout.bottomGap >= 15 && quickLayout.bottomGap <= 17,
+    "The quick-add card should use the available height and leave only page padding below it");
+  assert.ok(quickLayout.groupHeight > 190, "The group picker should expand beyond its previous fixed height");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
   const bookmarksPopupSize = await page.locator(".popup-shell").evaluate((popup) => {
@@ -147,6 +162,13 @@ try {
   });
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const darkGroupLayout = await page.locator(".popup-group-options").evaluate((options) => ({
+    height: options.clientHeight,
+    scrollHeight: options.scrollHeight,
+    count: options.querySelectorAll(".popup-group-option").length,
+  }));
+  assert.ok(darkGroupLayout.count > 0 && darkGroupLayout.scrollHeight <= darkGroupLayout.height,
+    "All group choices should fit in the expanded dark-theme group area");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
   await page.getByRole("button", { name: "默认分组" }).click();
@@ -160,7 +182,7 @@ try {
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, quickTargetIdentity: true, inlineGroups: true, bookmarkGridColumns: 4, bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
+  console.log(JSON.stringify({ version: manifest.version, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", errors, screenshots: 8 }));
 } finally {
   await context.close();
 }

@@ -45,6 +45,20 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(page.locator(".popup-site-name input")).toHaveCSS("color", "rgb(232, 236, 243)");
   const groupOptions = page.getByRole("radiogroup", { name: "添加到分组" });
   await expect(groupOptions).toBeVisible();
+  const quickLayout = await page.locator(".quick-page").evaluate((quickPage) => {
+    const pageBounds = quickPage.getBoundingClientRect();
+    const cardBounds = quickPage.querySelector(".popup-form-card")!.getBoundingClientRect();
+    const options = quickPage.querySelector(".popup-group-options")!;
+    return {
+      topGap: cardBounds.top - pageBounds.top,
+      bottomGap: pageBounds.bottom - cardBounds.bottom,
+      groupHeight: options.getBoundingClientRect().height,
+    };
+  });
+  expect(quickLayout.topGap).toBeLessThanOrEqual(1);
+  expect(quickLayout.bottomGap).toBeGreaterThanOrEqual(15);
+  expect(quickLayout.bottomGap).toBeLessThanOrEqual(17);
+  expect(quickLayout.groupHeight).toBeGreaterThan(190);
   const secondGroup = groupOptions.getByRole("radio").nth(1);
   await secondGroup.click();
   await expect(secondGroup).toHaveAttribute("aria-checked", "true");
