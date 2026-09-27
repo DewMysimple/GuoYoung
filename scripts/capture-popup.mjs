@@ -39,8 +39,18 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`${origin}/popup.html`);
   await expect(page.getByRole("button", { name: "浏览器书签" })).toBeVisible();
+  const quickPopupSize = await page.locator(".popup-shell").evaluate((popup) => {
+    const bounds = popup.getBoundingClientRect();
+    return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
+  });
+  assert.deepEqual(quickPopupSize, { width: 440, height: 600 }, "The quick-add tab should use the shared popup size");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
+  const bookmarksPopupSize = await page.locator(".popup-shell").evaluate((popup) => {
+    const bounds = popup.getBoundingClientRect();
+    return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
+  });
+  assert.deepEqual(bookmarksPopupSize, quickPopupSize, "The popup frame should not resize when changing tabs");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-overview-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "默认分组" }).click();
   const lightGroupMenu = page.getByRole("listbox", { name: "默认分组" });
@@ -58,7 +68,7 @@ try {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
   });
-  assert.deepEqual(folderCardSize, { width: 96, height: 76 }, "Bookmark cards should use a compact, near-square tile shape");
+  assert.deepEqual(folderCardSize, { width: 87, height: 76 }, "Bookmark cards should form a compact four-column grid");
   assert.equal(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Folder bookmark tiles should have a visible card border");
   assert.notEqual(await page.locator(".bookmark-tile.is-folder").first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -80,8 +90,12 @@ try {
   assert.deepEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => {
     const bounds = card.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
-  }), { width: 96, height: 76 },
-    "Website bookmark cards should use the same compact, near-square tile shape");
+  }), { width: 87, height: 76 },
+    "Website bookmark cards should use the same four-column tile size");
+  const firstRowY = await page.locator('[data-bookmark-kind="site"]').evaluateAll((cards) =>
+    cards.slice(0, 4).map((card) => Math.round(card.getBoundingClientRect().top)),
+  );
+  assert.equal(new Set(firstRowY).size, 1, "The first four bookmark cards should share one row");
   assert.equal(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Website bookmark tiles should share the folder card frame");
   assert.notEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
