@@ -125,7 +125,7 @@ export function normalizeAppearance(value: unknown): AppearanceSettings {
     layoutPreset: layoutPresets.includes(candidate.layoutPreset as LayoutPreset)
       ? (candidate.layoutPreset as LayoutPreset)
       : DEFAULT_APPEARANCE.layoutPreset,
-    fontScale: clamp(candidate.fontScale, 85, 120, DEFAULT_APPEARANCE.fontScale),
+    fontScale: clamp(candidate.fontScale, 70, 130, DEFAULT_APPEARANCE.fontScale),
     brandFontScale: clamp(
       candidate.brandFontScale,
       70,

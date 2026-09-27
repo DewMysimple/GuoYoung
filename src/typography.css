@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "LXGW WenKai";
+  src: url("/fonts/LXGWWenKai-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 /* Reading preferences belong to page content. Portal editors and menus retain
    theme contrast so any custom color can always be edited or reset. */
 .app-shell, .site-card-drag-preview, .group-sort-drag-preview, .group-sort-tab-preview {

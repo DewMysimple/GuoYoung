@@ -1249,7 +1249,7 @@ describe("App", () => {
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
 
     await user.click(screen.getByRole("tab", { name: "字体调节" }));
-    await user.click(within(screen.getByRole("group", { name: "文字大小" })).getByRole("button", { name: "较大" }));
+    await user.click(within(screen.getByRole("group", { name: "文字大小" })).getByRole("button", { name: "较大 110%" }));
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1.1");
     await user.click(screen.getByRole("tab", { name: "外观" }));
     await user.click(screen.getByRole("button", { name: /布局微调/ }));

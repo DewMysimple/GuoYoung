@@ -146,7 +146,7 @@ export interface BrandSettings {
 export type ThemePreference = "system" | "light" | "dark";
 
 export interface TypographySettings {
-  fontFamily: "default" | "system" | "serif" | "mono" | "custom";
+  fontFamily: "default" | "system" | "serif" | "wenkai" | "mono" | "custom";
   customFontFamily: string;
   textColorMode: "theme" | "custom";
   textColor: string;
