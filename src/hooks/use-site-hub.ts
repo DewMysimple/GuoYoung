@@ -1,3 +1,4 @@
+import { applyDataImport, type ImportRequest } from "../lib/data-workspace";
 import { useCallback, useEffect, useRef, useState, type SetStateAction } from "react";
 import { createDefaultState } from "../data/defaults";
 import {
@@ -83,6 +84,7 @@ interface SiteHubApi {
   reorderGroupBlock: (activeIds: string[], beforeGroupId: string | null) => void;
   deleteGroup: (id: string) => void;
   deleteGroups: (ids: string[]) => void;
+  importData: (request: ImportRequest) => ReturnType<typeof applyDataImport>;
   importGroup: (
     targetGroupId: string,
     payload: GroupExportPayload,
@@ -406,6 +408,13 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
     deleteGroups([id]);
   }, [deleteGroups]);
 
+  const importData = useCallback((request: ImportRequest) => {
+    const result = applyDataImport(stateRef.current, request);
+    setState(result.state);
+    setRecovered(false);
+    return result;
+  }, []);
+
   const importGroup = useCallback<SiteHubApi["importGroup"]>(
     (targetGroupId, payload) => {
       const result = mergeGroupImportIntoState(
@@ -570,6 +579,7 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
     reorderGroupBlock: reorderGroupsBlock,
     deleteGroup,
     deleteGroups,
+    importData,
     importGroup,
     importGithubRepositories,
     importGithubRepositoryBatch,

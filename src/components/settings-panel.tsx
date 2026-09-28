@@ -138,6 +138,7 @@ export function SettingsPanel({
   const isProcessing = wallpaperImport.pending;
   const { width: panelWidth, maxWidth: panelMaxWidth, changeWidth, rememberWidth } = useSettingsPanelWidth(open);
   const [wallpaperEditing, setWallpaperEditing] = useState(false);
+  const pendingDataAction = useRef<(() => void) | null>(null);
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
   const [wallpaperGesturePreview, setWallpaperGesturePreview] = useState<{
     positionX: number;
@@ -403,6 +404,16 @@ export function SettingsPanel({
     });
   }
 
+  function openDataWorkspace(action: () => void) {
+    if (hasUnsavedChanges) {
+      pendingDataAction.current = action;
+      setDiscardPromptOpen(true);
+    } else {
+      closeWithoutSaving();
+      action();
+    }
+  }
+
   function closeWithoutSaving() {
     logoImport.cancel();
     wallpaperImport.cancel();
@@ -623,7 +634,7 @@ export function SettingsPanel({
               onToggleEditing={() => { commitWallpaperGesture(); setWallpaperEditing((current) => !current); }} />}
 
             {section === "data" && <DataSettingsEditor state={state} initialTrashOpen={initialTrashOpen}
-              onExport={onExport} onImport={onImport} onResetBookmarks={onResetBookmarks} onClearHistory={onClearHistory} onRestoreSite={onRestoreSite} onRestoreAllSites={onRestoreAllSites} onPermanentDeleteSite={onPermanentDeleteSite} onEmptyTrash={onEmptyTrash} onTrashRetentionChange={onTrashRetentionChange} /> }
+              onExport={() => openDataWorkspace(onExport)} onImport={() => openDataWorkspace(onImport)} onResetBookmarks={onResetBookmarks} onClearHistory={onClearHistory} onRestoreSite={onRestoreSite} onRestoreAllSites={onRestoreAllSites} onPermanentDeleteSite={onPermanentDeleteSite} onEmptyTrash={onEmptyTrash} onTrashRetentionChange={onTrashRetentionChange} /> }
           </div>
 
           <div className="settings-footer">
@@ -652,8 +663,13 @@ export function SettingsPanel({
         confirmLabel="放弃更改"
         cancelLabel="继续编辑"
         destructive
-        onOpenChange={setDiscardPromptOpen}
-        onConfirm={closeWithoutSaving}
+        onOpenChange={(open) => { setDiscardPromptOpen(open); if (!open) pendingDataAction.current = null; }}
+        onConfirm={() => {
+          const action = pendingDataAction.current;
+          pendingDataAction.current = null;
+          closeWithoutSaving();
+          action?.();
+        }}
       />
     </>
   );

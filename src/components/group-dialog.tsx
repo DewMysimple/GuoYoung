@@ -1,3 +1,4 @@
+import { DataTransferActions } from "./data-transfer-actions";
 import { CardSelectionToggle } from "./card-primitives";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useGroupManagerSelection } from "../hooks/use-group-manager-selection";
@@ -25,11 +26,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  DownloadSimple,
   DotsSixVertical,
   LockSimple,
   Trash,
-  UploadSimple,
 } from "@phosphor-icons/react";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
 import type { CategoryIcon, SiteGroup, SiteItem } from "../types";
@@ -176,6 +175,7 @@ export function GroupDialog({
   const selectedSiteCount = sites.filter(site => selection.selectedIds.includes(site.groupId)).length;
   const [selectedId, setSelectedId] = useState("");
   const [drafts, setDrafts] = useState<Record<string, GroupDraft>>({});
+  const [pendingTransfer, setPendingTransfer] = useState<"import" | "export" | null>(null);
   const [error, setError] = useState("");
   const [armedDeleteGroupId, setArmedDeleteGroupId] = useState<string | null>(
     null,
@@ -469,6 +469,16 @@ export function GroupDialog({
     onReorder(String(event.active.id), String(event.over.id));
   }
 
+  function requestTransfer(mode: "import" | "export") {
+    if (!selected) return;
+    const dirty = orderedGroups.some(group => {
+      const draft = drafts[group.id];
+      return draft && (draft.name !== group.name || draft.icon !== group.icon);
+    });
+    if (dirty) setPendingTransfer(mode);
+    else (mode === "import" ? onImportGroup : onExportGroup)(selected.id);
+  }
+
   function saveAndClose() {
     const names = orderedGroups.map((group) =>
       (drafts[group.id]?.name ?? group.name)
@@ -610,24 +620,7 @@ export function GroupDialog({
                       </span>
                     </div>
                     <div className="group-editor-summary-actions">
-                      <button
-                        type="button"
-                        className="button secondary-button"
-                        onClick={() => onImportGroup(selected.id)}
-                        aria-label="导入资源"
-                      >
-                        <UploadSimple size={16} />
-                        <span className="group-action-label">导入</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="button secondary-button"
-                        onClick={() => onExportGroup(selected.id)}
-                        aria-label="导出资源"
-                      >
-                        <DownloadSimple size={16} />
-                        <span className="group-action-label">导出</span>
-                      </button>
+                      <DataTransferActions group onImport={() => requestTransfer("import")} onExport={() => requestTransfer("export")} />
                       {!selected.isProtected && (
                         <button
                           type="button"
@@ -725,6 +718,10 @@ export function GroupDialog({
               保存分组
             </button>
           </div>
+          <ConfirmDialog open={Boolean(pendingTransfer)} title="放弃未保存的分组修改？"
+            description="进入数据页面会使用已保存的分组名称与图标。你也可以取消，先保存分组。"
+            confirmLabel="放弃并继续" cancelLabel="继续编辑" onOpenChange={(open) => { if (!open) setPendingTransfer(null); }}
+            onConfirm={() => { if (selected && pendingTransfer) (pendingTransfer === "import" ? onImportGroup : onExportGroup)(selected.id); setPendingTransfer(null); }} />
           <ConfirmDialog open={deleteRequested && selection.selectedIds.length > 0} onOpenChange={setDeleteRequested}
             title={`删除 ${selection.selectedIds.length} 个分组？`}
             description={`所选分组将删除，其中 ${selectedSiteCount} 个网站移入回收站，可在回收站恢复网站。受保护分组不受影响。`}

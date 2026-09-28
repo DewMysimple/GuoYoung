@@ -1326,6 +1326,37 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("preserves unsaved settings until the user chooses to leave for data", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "打开设置" }));
+    await user.click(screen.getByRole("tab", { name: "字体调节" }));
+    await user.click(screen.getByRole("button", { name: /^较小/ }));
+    await user.click(screen.getByRole("tab", { name: /数据/ }));
+    await user.click(within(screen.getByRole("dialog", { name: "设置" })).getByRole("button", { name: "导入" }));
+    expect(screen.getByRole("alertdialog", { name: "放弃未保存的设置？" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(screen.queryByRole("region", { name: "数据页面" })).not.toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog", { name: "设置" })).getByRole("button", { name: "导入" }));
+    await user.click(screen.getByRole("button", { name: "放弃更改" }));
+    expect(screen.getByRole("region", { name: "数据页面" })).toBeInTheDocument();
+  });
+
+  it("protects group name drafts when opening the shared transfer workspace", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "管理分组" }));
+    const dialog = screen.getByRole("dialog", { name: "管理分组" });
+    await user.type(within(dialog).getByLabelText("分组名称"), "草稿");
+    await user.click(within(dialog).getByRole("button", { name: "导出资源" }));
+    expect(screen.getByRole("alertdialog", { name: "放弃未保存的分组修改？" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(within(dialog).getByLabelText("分组名称")).toHaveValue("搜索草稿");
+    await user.click(within(dialog).getByRole("button", { name: "导出资源" }));
+    await user.click(screen.getByRole("button", { name: "放弃并继续" }));
+    expect(screen.getByRole("region", { name: "数据页面" })).toBeInTheDocument();
+  });
+
   it("validates an import and replaces data only after confirmation", async () => {
     const imported = createDefaultState();
     imported.sites = imported.sites.filter((site) => site.id === "google");
@@ -1346,27 +1377,30 @@ describe("App", () => {
         { name: "导入" },
       ),
     );
-    const importInput = screen.getByLabelText("选择要导入的收藏文件");
+    const importInput = screen.getByLabelText("选择要导入的数据文件");
     Object.defineProperty(importInput, "files", {
       configurable: true,
       value: [file],
     });
     fireEvent.change(importInput);
 
+    await screen.findByText("favorites.json");
+    await user.click(screen.getByRole("button", { name: "导入方式" }));
+    await user.click(screen.getByRole("option", { name: "替换全局数据" }));
+    await user.click(screen.getByRole("button", { name: "预览并导入" }));
     const confirm = await screen.findByRole("alertdialog", {
       name: "导入并替换收藏？",
     });
     expect(within(confirm).getByText(/1 个网站/)).toBeInTheDocument();
-    expect(screen.getByTestId("site-card-github")).toBeInTheDocument();
+    expect(localStorage.getItem(STORAGE_KEY)).toContain("github");
 
     await user.click(
       within(confirm).getByRole("button", { name: "确认导入" }),
     );
-    expect(
-      screen.queryByRole("link", { name: "打开 GitHub" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText(/已导入 1 个网站/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "返回收藏" }));
+    expect(screen.queryByRole("link", { name: "打开 GitHub" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开 Google" })).toBeInTheDocument();
-    expect(screen.getByText("收藏数据已成功导入。")).toBeInTheDocument();
   });
 
   it("shows an error without changing data for an invalid import", async () => {
@@ -1376,9 +1410,11 @@ describe("App", () => {
     Object.defineProperty(file, "text", {
       value: () => Promise.resolve("{broken"),
     });
+    const user = userEvent.setup();
     render(<App />);
+    await user.click(screen.getByRole("button", { name: "打开数据" }));
 
-    const importInput = screen.getByLabelText("选择要导入的收藏文件");
+    const importInput = screen.getByLabelText("选择要导入的数据文件");
     Object.defineProperty(importInput, "files", {
       configurable: true,
       value: [file],
@@ -1388,6 +1424,7 @@ describe("App", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "文件不是有效的 JSON 格式",
     );
+    await user.click(screen.getByRole("button", { name: "返回收藏" }));
     expect(screen.getByRole("link", { name: "打开 GitHub" })).toBeInTheDocument();
   });
 
@@ -1582,17 +1619,19 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "管理分组" }));
     const dialog = screen.getByRole("dialog", { name: "管理分组" });
     await user.click(within(dialog).getByRole("button", { name: "导入资源" }));
-    const importInput = screen.getByLabelText("选择要导入的分组资源包");
+    const importInput = screen.getByLabelText("选择要导入的数据文件");
     Object.defineProperty(importInput, "files", {
       configurable: true,
       value: [file],
     });
     fireEvent.change(importInput);
 
+    await screen.findByText("design.json");
+    await user.click(screen.getByRole("button", { name: "预览并导入" }));
     const confirm = await screen.findByRole("alertdialog", {
       name: "导入分组资源？",
     });
-    expect(within(confirm).getByText(/新增 1 个，重复跳过 1 个/)).toBeInTheDocument();
+    expect(within(confirm).getByText(/新增 1 个网站，跳过 1 个/)).toBeInTheDocument();
     await user.click(within(confirm).getByRole("button", { name: "确认导入" }));
 
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
@@ -1602,7 +1641,7 @@ describe("App", () => {
     expect(stored.sites.filter((site: { url: string }) =>
       site.url.toLocaleLowerCase() === "https://www.google.com",
     )).toHaveLength(1);
-    expect(screen.getByRole("dialog", { name: "管理分组" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "数据页面" })).toBeInTheDocument();
   });
 
   it("keeps Other protected in group management", async () => {

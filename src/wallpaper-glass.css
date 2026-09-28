@@ -420,6 +420,9 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
 }
 
 /* Radix dialogs and settings are body portals, outside .app-shell. */
+.has-wallpaper .data-card,
+.has-wallpaper .data-mode-switch,
+.has-wallpaper .data-notice,
 body:has(.app-shell.has-wallpaper) .dialog-content,
 body:has(.app-shell.has-wallpaper) .confirm-content,
 body:has(.app-shell.has-wallpaper) .settings-panel {
@@ -430,6 +433,9 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   backdrop-filter: var(--glass-filter);
 }
 
+.has-wallpaper .data-workspace .data-file-drop,
+.has-wallpaper .data-workspace .data-group-choice,
+.has-wallpaper .data-workspace .data-scope-options > button,
 body:has(.app-shell.has-wallpaper) .appearance-card,
 body:has(.app-shell.has-wallpaper) .settings-data-card,
 body:has(.app-shell.has-wallpaper) .site-preview,
@@ -447,6 +453,8 @@ body:has(.app-shell.has-wallpaper) .brand-source-block {
   box-shadow: inset 0 1px 0 var(--glass-reflection);
 }
 
+.has-wallpaper .data-workspace .data-field > input,
+.has-wallpaper .data-workspace .data-field .select-menu-trigger,
 body:has(.app-shell.has-wallpaper) .settings-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
 body:has(.app-shell.has-wallpaper) .settings-panel textarea,
 body:has(.app-shell.has-wallpaper) .settings-panel select,

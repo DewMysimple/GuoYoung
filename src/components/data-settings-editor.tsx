@@ -1,5 +1,6 @@
+import { DataTransferActions } from "./data-transfer-actions";
 import { useEffect, useRef, useState } from "react";
-import { ArrowCounterClockwise, CaretDown, CaretUp, DownloadSimple, Trash, UploadSimple } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, CaretDown, CaretUp, Trash } from "@phosphor-icons/react";
 import type { SiteCollectionState, TrashRetentionDays } from "../types";
 import { Favicon } from "./favicon";
 import { getHostname } from "../lib/site-utils";
@@ -111,23 +112,10 @@ export function DataSettingsEditor({ state, initialTrashOpen, onExport, onImport
                 <div className="settings-data-card">
                   <div>
                     <strong>导入与导出</strong>
-                    <p>保存收藏、分组与外观的 JSON 备份。回收站、搜索历史和本地壁纸文件不包含在内。</p>
+                    <p>在独立数据页面选择全局或指定分组，预览后导入，也可新建分组。</p>
                   </div>
                   <div className="settings-inline-actions">
-                    <button
-                      type="button"
-                      className="button secondary-button"
-                      onClick={onImport}
-                    >
-                      <UploadSimple size={17} />导入
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary-button"
-                      onClick={onExport}
-                    >
-                      <DownloadSimple size={17} />导出
-                    </button>
+                    <DataTransferActions onImport={onImport} onExport={onExport} />
                   </div>
                 </div>
                 <div className="settings-data-card">

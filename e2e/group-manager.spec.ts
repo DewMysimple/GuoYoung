@@ -359,12 +359,13 @@ test("imports a group resource package into the selected manager group", async (
     ],
   };
   await page
-    .locator('input[aria-label="选择要导入的分组资源包"]')
+    .locator('input[aria-label="选择要导入的数据文件"]')
     .setInputFiles({
       name: "shared-design.json",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(payload)),
     });
+  await page.getByRole("button", { name: "预览并导入" }).click();
   const confirm = page.getByRole("alertdialog", { name: "导入分组资源？" });
   await expect(confirm).toContainText("新增 1 个");
   await confirm.getByRole("button", { name: "确认导入" }).click();
@@ -377,7 +378,7 @@ test("imports a group resource package into the selected manager group", async (
       );
     }),
   ).toBe(true);
-  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("region", { name: "数据页面" })).toBeVisible();
 });
 
 test("deletes a group directly after two clicks and keeps its links in trash", async ({

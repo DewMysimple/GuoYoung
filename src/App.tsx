@@ -1,3 +1,4 @@
+import { DataWorkspace, type DataWorkspaceContext } from "./components/data-workspace";
 import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
 import { GlassRefraction, supportsGlassRefraction } from "./components/glass-refraction";
@@ -12,7 +13,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
   type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
@@ -37,6 +37,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import {
+  Database,
   ArrowsDownUp,
   CaretDown,
   CheckSquare,
@@ -106,13 +107,6 @@ import {
   groupSortIntentFromTargetIndex,
 } from "./lib/group-sort";
 import {
-  downloadExport,
-  downloadGroupExport,
-  parseGroupImportFile,
-  parseImportFile,
-  type GroupExportPayload,
-} from "./lib/data-transfer";
-import {
   filterSites,
   sortSitesByHeat,
 } from "./lib/site-utils";
@@ -122,14 +116,12 @@ import type {
 } from "./lib/site-state";
 import type {
   CategoryIcon as GroupIconName,
-  SiteCollectionState,
   SiteFormValues,
   SiteGroup,
   SiteItem,
   SiteSortMode,
   SiteWorkspace,
 } from "./types";
-import { mergeGroupImportIntoState } from "./lib/site-state";
 import {
   fetchGithubOwnerRepositories,
   formatGithubRepositoryError,
@@ -141,7 +133,6 @@ import {
   getWorkspaceGroups,
   isGithubHomeUrl,
   isGithubUrl,
-  routeGithubSitesInState,
 } from "./lib/github-workspace";
 
 type GroupFilter = "all" | string;
@@ -183,12 +174,11 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     reorderGroupBlock,
     deleteGroup,
     deleteGroups,
-    importGroup,
+    importData,
     importGithubRepositories,
     importGithubRepositoryBatch,
     migrateGithubSites,
     reset,
-    replaceState,
     saveSettings,
     recordSearch,
     deleteSearchHistory,
@@ -243,6 +233,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }>();
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [managedGroupId, setManagedGroupId] = useState<string>();
+  const [dataContext, setDataContext] = useState<DataWorkspaceContext | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] =
     useState<SettingsSection>("appearance");
@@ -251,14 +242,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const [editingSite, setEditingSite] = useState<SiteItem | null>(null);
   const [armedDeleteSiteId, setArmedDeleteSiteId] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
-  const [pendingImport, setPendingImport] =
-    useState<SiteCollectionState | null>(null);
-  const [pendingGroupImport, setPendingGroupImport] = useState<{
-    targetGroupId: string;
-    payload: GroupExportPayload;
-    added: number;
-    skipped: number;
-  } | null>(null);
   const [transferNotice, setTransferNotice] = useState<{
     kind: "success" | "error";
     message: string;
@@ -285,9 +268,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const [githubRefreshReport, setGithubRefreshReport] =
     useState<GithubRefreshReport | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
-  const groupImportInputRef = useRef<HTMLInputElement>(null);
-  const groupImportTargetRef = useRef<string | null>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const collectionSearchOriginRef = useRef<CollectionSearchOrigin | null>(null);
   const armedDeleteTimerRef = useRef<number | null>(null);
@@ -296,6 +276,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
 
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.siteHubLayer === "data") {
+        setDataContext(event.state.dataContext ?? { mode: "import" });
+        setBrowserHistoryOpen(false);
+        return;
+      }
+      setDataContext(null);
       if (
         event.state?.siteHubLayer === "browser-history" ||
         event.state?.siteHubLayer === "history-detail"
@@ -432,7 +418,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     Boolean(githubRefreshReport) ||
     settingsOpen ||
     resetOpen ||
-    Boolean(pendingImport);
+    Boolean(dataContext);
   const { armSiteClickSuppression, handlers: siteClickHandlers } = useSiteClickGuard();
   const groupSort = useGroupSorting({ groups, selection, reorderGroups, reorderGroupBlock,
     onStart: () => { clearArmedDelete(); cancelGroupManagementForSort(); },
@@ -901,41 +887,16 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     }
   }
 
-  function handleExport() {
-    try {
-      downloadExport(state);
-      setTransferNotice({
-        kind: "success",
-        message: "收藏数据已导出为 JSON 文件。",
-      });
-    } catch {
-      setTransferNotice({
-        kind: "error",
-        message: "导出失败，请检查浏览器的下载权限。",
-      });
-    }
-  }
-
-  function handleGroupExport(groupId: string) {
-    const group = groups.find((item) => item.id === groupId);
-    if (!group) return;
-    try {
-      downloadGroupExport(state, groupId);
-      setTransferNotice({
-        kind: "success",
-        message: `“${group.name}”资源包已导出。`,
-      });
-    } catch {
-      setTransferNotice({
-        kind: "error",
-        message: "分组资源导出失败，请检查浏览器的下载权限。",
-      });
-    }
-  }
-
-  function requestGroupImport(groupId: string) {
-    groupImportTargetRef.current = groupId;
-    groupImportInputRef.current?.click();
+  function openData(mode: "import" | "export" = "import", groupId?: string) {
+    setGroupDialogOpen(false);
+    setSettingsOpen(false);
+    setSettingsPreview(null);
+    setDataContext({ mode, groupId });
+    setHistoryOpen(false);
+    setAddMenuOpen(false);
+    dismissBrowserHistoryLayer();
+    document.documentElement.scrollTop = 0;
+    window.history.pushState({ ...(window.history.state ?? {}), siteHubLayer: "data", dataContext: { mode, groupId } }, "", window.location.href);
   }
 
   function openSettingsPanel(
@@ -959,6 +920,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }
 
   function openBrowserHistory() {
+    setDataContext(null);
     setActiveWorkspace("main");
     if (!browserHistoryOpen) {
       window.history.pushState(
@@ -997,6 +959,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }
 
   function openCollectionHome() {
+    setDataContext(null);
     setHistoryPermissionError(null);
     setActiveWorkspace("main");
     setActiveGroupId("all");
@@ -1005,6 +968,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }
 
   function openGithubWorkspace() {
+    setDataContext(null);
     setHistoryPermissionError(null);
     dismissBrowserHistoryLayer();
     setActiveWorkspace("github");
@@ -1194,63 +1158,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     }
   }
 
-  async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    input.value = "";
-    if (!file) return;
-
-    try {
-      const imported = routeGithubSitesInState(
-        parseImportFile(await file.text()),
-      ).state;
-      setGroupDialogOpen(false);
-      setSettingsOpen(false);
-      setSettingsPreview(null);
-      setTransferNotice(null);
-      setPendingImport(imported);
-    } catch (error) {
-      setGroupDialogOpen(false);
-      setSettingsOpen(false);
-      setSettingsPreview(null);
-      setTransferNotice({
-        kind: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "无法读取这个收藏文件。",
-      });
-    }
-  }
-
-  async function handleGroupImportFile(event: ChangeEvent<HTMLInputElement>) {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    input.value = "";
-    const targetGroupId = groupImportTargetRef.current;
-    groupImportTargetRef.current = null;
-    if (!file || !targetGroupId) return;
-
-    try {
-      const payload = parseGroupImportFile(await file.text());
-      const preview = mergeGroupImportIntoState(state, targetGroupId, payload);
-      setPendingGroupImport({
-        targetGroupId,
-        payload,
-        added: preview.added,
-        skipped: preview.skipped,
-      });
-    } catch (error) {
-      setTransferNotice({
-        kind: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "无法读取这个分组资源包。",
-      });
-    }
-  }
-
   const collectionTitle =
     isGlobalCollectionSearch
       ? "全库搜索"
@@ -1394,10 +1301,10 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
             <button
               type="button"
               className={`topbar-history-button topbar-home-button ${
-                !browserHistoryOpen && activeWorkspace === "main" ? "active" : ""
+                !dataContext && !browserHistoryOpen && activeWorkspace === "main" ? "active" : ""
               }`}
               aria-label="打开收藏主页"
-              aria-pressed={!browserHistoryOpen && activeWorkspace === "main"}
+              aria-pressed={!dataContext && !browserHistoryOpen && activeWorkspace === "main"}
               onClick={openCollectionHome}
             >
               <House size={18} weight="regular" />
@@ -1406,10 +1313,10 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
             <button
               type="button"
               className={`topbar-history-button topbar-github-button ${
-                !browserHistoryOpen && activeWorkspace === "github" ? "active" : ""
+                !dataContext && !browserHistoryOpen && activeWorkspace === "github" ? "active" : ""
               }`}
               aria-label="打开 GitHub 收藏"
-              aria-pressed={!browserHistoryOpen && activeWorkspace === "github"}
+              aria-pressed={!dataContext && !browserHistoryOpen && activeWorkspace === "github"}
               onClick={openGithubWorkspace}
             >
               <GithubLogo size={18} weight="regular" />
@@ -1427,6 +1334,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
             </button>
           </div>
           <div className="topbar-actions">
+            <button type="button" className={`topbar-history-button ${dataContext ? "active" : ""}`} aria-label="打开数据" aria-pressed={Boolean(dataContext)} onClick={() => openData()}><Database size={19} /><span>数据</span></button>
             <button
               type="button"
               className="icon-button trash-button"
@@ -1493,6 +1401,31 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       </header>
 
       <main className="page-container main-content">
+        {storageError && (
+          <div className="recovery-banner" role="alert">
+            <span>{storageError}</span>
+            <button type="button" className="button secondary-button" onClick={() => void retrySave()}>重试保存</button>
+          </div>
+        )}
+
+        {recovered && (
+          <div className="recovery-banner" role="status">
+            <div>
+              <strong>本地数据无法读取</strong>
+              <span>已临时显示默认收藏，原始数据尚未被覆盖。</span>
+            </div>
+            <button
+              type="button"
+              className="button secondary-button"
+              onClick={() => setResetOpen(true)}
+            >
+              恢复默认
+            </button>
+          </div>
+        )}
+
+
+        {dataContext && <DataWorkspace key={`${dataContext.mode}-${dataContext.groupId ?? "all"}`} state={state} context={dataContext} onBack={openCollectionHome} onImport={importData} />}
           <BrowserHistoryView
             active={browserHistoryOpen}
             onBack={closeBrowserHistory}
@@ -1500,7 +1433,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
             permissionError={historyPermissionError}
             permissionVersion={historyPermissionVersion}
           />
-        {!browserHistoryOpen && (
+        {!dataContext && !browserHistoryOpen && (
           <>
         <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏" placeholder="搜索收藏，支持拼音、首字母缩写"
           onSubmit={handleSearchSubmit} inputProps={{ id: "site-search", onFocus: () => { setHistoryOpen(true); setHistoryIndex(-1); },
@@ -1552,29 +1485,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
               </div>
             )}
         </WorkspaceSearch>
-
-        {storageError && (
-          <div className="recovery-banner" role="alert">
-            <span>{storageError}</span>
-            <button type="button" className="button secondary-button" onClick={() => void retrySave()}>重试保存</button>
-          </div>
-        )}
-
-        {recovered && (
-          <div className="recovery-banner" role="status">
-            <div>
-              <strong>本地数据无法读取</strong>
-              <span>已临时显示默认收藏，原始数据尚未被覆盖。</span>
-            </div>
-            <button
-              type="button"
-              className="button secondary-button"
-              onClick={() => setResetOpen(true)}
-            >
-              恢复默认
-            </button>
-          </div>
-        )}
 
         {activeWorkspace === "github" && (
           <GithubHomeEntry
@@ -1976,8 +1886,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
           if (ids.includes(activeGroupId)) setActiveGroupId("all");
           setTransferNotice({ kind: "success", message: `已删除 ${deleted.length} 个分组，${count} 个链接已移入回收站。` });
         }}
-        onExportGroup={handleGroupExport}
-        onImportGroup={requestGroupImport}
+        onExportGroup={(id) => openData("export", id)}
+        onImportGroup={(id) => openData("import", id)}
       />
 
       {!settingsOpen && <TopbarResizeHandle value={effectiveAppearance.topbarHeight}
@@ -2009,8 +1919,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
             draft.wallpaper,
           )
         }
-        onExport={handleExport}
-        onImport={() => importInputRef.current?.click()}
+        onExport={() => openData("export")}
+        onImport={() => openData("import")}
         onResetBookmarks={() => {
           setSettingsOpen(false);
           setSettingsPreview(null);
@@ -2055,24 +1965,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         wallpaperLoadError={wallpaperError}
       />
 
-      <input
-        ref={importInputRef}
-        className="visually-hidden"
-        type="file"
-        accept=".json,application/json"
-        aria-label="选择要导入的收藏文件"
-        onChange={handleImportFile}
-      />
-
-      <input
-        ref={groupImportInputRef}
-        className="visually-hidden"
-        type="file"
-        accept=".json,application/json"
-        aria-label="选择要导入的分组资源包"
-        onChange={handleGroupImportFile}
-      />
-
       <ConfirmDialog
         open={resetOpen}
         title="恢复默认收藏？"
@@ -2087,67 +1979,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         }}
       />
 
-      <ConfirmDialog
-        open={Boolean(pendingImport)}
-        title="导入并替换收藏？"
-        description={
-          pendingImport
-            ? `将导入 ${pendingImport.sites.length} 个网站和 ${pendingImport.groups.length} 个分组，当前收藏会被替换。`
-            : ""
-        }
-        confirmLabel="确认导入"
-        onOpenChange={(open) => {
-          if (!open) setPendingImport(null);
-        }}
-        onConfirm={() => {
-          if (pendingImport) {
-            replaceState(pendingImport);
-            resetCollectionQuery();
-            setActiveGroupId("all");
-            setTransferNotice({
-              kind: "success",
-              message: "收藏数据已成功导入。",
-            });
-          }
-          setPendingImport(null);
-        }}
-      />
-
-      <ConfirmDialog
-        open={Boolean(pendingGroupImport)}
-        title="导入分组资源？"
-        description={
-          pendingGroupImport
-            ? (() => {
-                const target = groups.find(
-                  (group) => group.id === pendingGroupImport.targetGroupId,
-                );
-                return `来源分组“${pendingGroupImport.payload.group.name}”，将追加到“${
-                  target?.name ?? "当前分组"
-                }”。共 ${pendingGroupImport.payload.sites.length} 个网站，新增 ${
-                  pendingGroupImport.added
-                } 个，重复跳过 ${pendingGroupImport.skipped} 个。目标分组名称和图标保持不变。`;
-              })()
-            : ""
-        }
-        confirmLabel="确认导入"
-        onOpenChange={(open) => {
-          if (!open) setPendingGroupImport(null);
-        }}
-        onConfirm={() => {
-          if (pendingGroupImport) {
-            const result = importGroup(
-              pendingGroupImport.targetGroupId,
-              pendingGroupImport.payload,
-            );
-            setTransferNotice({
-              kind: "success",
-              message: `已导入 ${result.added} 个网站，跳过 ${result.skipped} 个重复链接。`,
-            });
-          }
-          setPendingGroupImport(null);
-        }}
-      />
     </div>
   );
 }

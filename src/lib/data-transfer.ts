@@ -127,7 +127,7 @@ export function downloadExport(
   downloadJson(serializeExport(state), `site-hub-${date}.json`, documentRef);
 }
 
-function downloadJson(text: string, filename: string, documentRef: Document): void {
+export function downloadJson(text: string, filename: string, documentRef: Document = document): void {
   const blob = new Blob([text], {
     type: "application/json;charset=utf-8",
   });
