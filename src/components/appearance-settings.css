@@ -253,8 +253,8 @@
 .brand-settings-fields {
   display: grid;
   gap: 16px;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 22px;
+  padding-top: 22px;
   border-top: 1px solid var(--border);
 }
 

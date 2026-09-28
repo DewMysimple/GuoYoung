@@ -11,7 +11,7 @@ it("adds v19 reading defaults to v18 without replacing collections or legacy tex
   const raw = JSON.stringify({ ...state, version: 18, appearance });
   const loaded = parseStoredState(raw);
   expect(loaded.recovered).toBe(false);
-  expect(loaded.state.version).toBe(19);
+  expect(loaded.state.version).toBe(20);
   expect(loaded.state.appearance).toEqual({ ...appearance, ...DEFAULT_TYPOGRAPHY, allowTextSelection: true });
   expect(loaded.state.sites).toEqual(state.sites);
   expect(loaded.state.groups).toEqual(state.groups);

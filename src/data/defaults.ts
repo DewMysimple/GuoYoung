@@ -150,6 +150,8 @@ export const LAYOUT_PRESETS: Record<
 
 export const DEFAULT_BRAND: BrandSettings = {
   name: "Mysimple",
+  tabTitle: "",
+  logoShape: "original",
   showName: true,
   showLogo: true,
   logoSource: "default",
@@ -184,6 +186,7 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
   topbarBlur: 16,
   topbarOpacity: 68,
   topbarStyle: "clear",
+  topbarReadability: "clear",
   glassTransparency: 78,
   glassControlTransparency: 82,
   glassPanelTransparency: 60,
@@ -316,7 +319,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 19,
+    version: 20,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

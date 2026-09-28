@@ -21,6 +21,9 @@ export const GLASS_PRESETS = [
   { id: "frost", label: "细腻磨砂", description: "弱化细节 · 安静阅读", values: { ...base, glassTransparency: 65, glassControlTransparency: 72, glassPanelTransparency: 46, glassPopoverTransparency: 38, glassBlur: 22, glassSaturation: 120, glassHighlight: 50, glassShadow: 18, glassRefraction: false, glassRefractionStrength: 24 } },
   { id: "light", label: "轻透无影", description: "轻薄边界 · 无外投影", values: { ...base, glassTransparency: 96, glassControlTransparency: 92, glassPanelTransparency: 76, glassPopoverTransparency: 65, glassBlur: 4, glassSaturation: 110, glassHighlight: 38, glassShadow: 0, glassRefraction: true, glassRefractionStrength: 12 } },
   { id: "classic", label: "经典玻璃", description: "均衡透光 · 日常使用", values: base },
+  { id: "snow", label: "雪景柔纱", description: "浅色壁纸 · 柔化高光", values: { ...base, glassTransparency: 35, glassControlTransparency: 28, glassPanelTransparency: 22, glassPopoverTransparency: 18, glassBlur: 18, glassSaturation: 105, glassHighlight: 25, glassShadow: 12 } },
+  { id: "night", label: "夜色凝光", description: "暗色壁纸 · 稳定衬底", values: { ...base, glassTransparency: 48, glassControlTransparency: 32, glassPanelTransparency: 28, glassPopoverTransparency: 20, glassBlur: 16, glassSaturation: 125, glassHighlight: 65, glassShadow: 22 } },
+  { id: "forest", label: "繁景静读", description: "复杂壁纸 · 强磨砂阅读", values: { ...base, glassTransparency: 22, glassControlTransparency: 18, glassPanelTransparency: 16, glassPopoverTransparency: 12, glassBlur: 30, glassSaturation: 100, glassHighlight: 32, glassShadow: 8 } },
 ] as const;
 
 export function getGlassPreset(value: WallpaperSettings) {

@@ -1,4 +1,5 @@
-import { useId, useState } from "react";
+import { useId } from "react";
+import { useSettingsDisclosure } from "./settings-location";
 import { CaretDown, Check, Desktop, Sun, Moon } from "@phosphor-icons/react";
 import {
   applyLayoutPreset, getLayoutPreset,
@@ -28,7 +29,8 @@ interface AppearanceSettingsProps {
 }
 
 export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange, onChange, panelWidth, panelMaxWidth, onPanelWidthChange }: AppearanceSettingsProps) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useSettingsDisclosure("布局微调");
+  const [dimensionsOpen, setDimensionsOpen] = useSettingsDisclosure("界面尺寸");
   const detailsId = useId();
   const preset = getLayoutPreset(value);
 
@@ -99,7 +101,7 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
         )}
       </section>
 
-      <details className="appearance-card interface-dimensions">
+      <details className="appearance-card interface-dimensions" open={dimensionsOpen} onToggle={event => setDimensionsOpen(event.currentTarget.open)}>
         <summary>界面尺寸 <span>顶栏与设置侧栏</span></summary>
         <p className="appearance-description">桌面端可直接拖动边界，双击边界恢复默认尺寸。侧栏宽度会自动记住。</p>
         <RangeControl label="顶栏高度" min={48} max={96} value={value.topbarHeight}

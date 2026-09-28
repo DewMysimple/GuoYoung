@@ -122,7 +122,7 @@ test("previews and persists a custom brand without changing the extension name",
   const panel = page.getByRole("dialog", { name: "设置" });
   await panel.getByRole("button", { name: "名称与图标" }).click();
   await panel.getByRole("textbox", { name: "品牌名称" }).fill("Studio North");
-  await expect(page).toHaveTitle("Studio North · 网站收藏");
+  await expect(page).toHaveTitle("Studio North");
   await expect(page.getByRole("button", { name: "Studio North 首页" })).toBeVisible();
 
   await panel.getByRole("radio", { name: "网络地址" }).click();
@@ -137,13 +137,13 @@ test("previews and persists a custom brand without changing the extension name",
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
 
-  await expect(page).toHaveTitle("Studio North · 网站收藏");
+  await expect(page).toHaveTitle("Studio North");
   await expect(page.getByRole("button", { name: "Studio North 首页" })).toBeVisible();
   await expect(page.locator(".topbar .brand-mark")).toHaveCount(0);
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(19);
+  expect(saved.version).toBe(20);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -340,7 +340,7 @@ test("simplifies appearance choices and preserves preview, save, reload and rese
   await expect(panel.getByRole("textbox", { name: "品牌名称" })).toHaveValue("我的书签");
   await expect(presets.getByRole("button", { name: "标准" })).toHaveAttribute("aria-pressed", "true");
   await panel.getByRole("button", { name: "取消" }).click();
-  await expect(page).toHaveTitle("Mysimple · 网站收藏");
+  await expect(page).toHaveTitle("Mysimple");
   const afterCancel = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
   expect(afterCancel.appearance).toEqual(saved.appearance);
   expect(afterCancel.sites).toEqual(saved.sites);
@@ -375,6 +375,7 @@ test("keeps the color picker and brand errors usable inside the appearance drawe
     mimeType: "image/svg+xml",
     buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="24" fill="#b45309"/><path d="M32 64h64M64 32v64" stroke="white" stroke-width="12"/></svg>'),
   });
+  await page.getByRole("dialog", { name: "调整 Logo 图片" }).getByRole("button", { name: "压缩并应用" }).click();
   await expect(panel.getByRole("radio", { name: "本地图片", exact: true })).toHaveAttribute("aria-checked", "true");
   await expect(panel.locator(".brand-settings-summary img")).toBeVisible();
   await page.screenshot({ path: screenshotPath(`appearance-brand-${testInfo.project.name}.png`), animations: "disabled" });

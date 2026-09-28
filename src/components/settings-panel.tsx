@@ -32,7 +32,6 @@ import {
 } from "../data/defaults";
 import {
   isHttpImageUrl,
-  prepareBrandLogo,
 } from "../lib/brand-logo";
 import {
   prepareWallpaper,
@@ -49,6 +48,8 @@ import { useImageImport } from "../hooks/use-image-import";
 import { ConfirmDialog } from "./confirm-dialog";
 import { AppearanceSettingsEditor } from "./appearance-settings";
 import { BrandSettingsEditor } from "./brand-settings-editor";
+import { SettingsLocationContext } from "./settings-location";
+import { LogoImageEditor } from "./logo-image-editor";
 
 export interface SettingsDraft {
   brand: BrandSettings;
@@ -130,9 +131,10 @@ export function SettingsPanel({
   const [draft, setDraft] = useState<SettingsDraft>(() => cloneDraft(state));
   const [previousPreset, setPreviousPreset] = useState(state.appearance);
   const [section, setSection] = useState<SettingsSection>("appearance");
+  const disclosureMemory = useRef(new Map<string, boolean>());
+  const scrollMemory = useRef<Partial<Record<SettingsSection, number>>>({});
   const [logoError, setLogoError] = useState("");
-  const logoImport = useImageImport(open);
-  const logoProcessing = logoImport.pending;
+  const [logoEditorSource, setLogoEditorSource] = useState<File | string>();
   const [wallpaperError, setWallpaperError] = useState("");
   const wallpaperImport = useImageImport(open);
   const isProcessing = wallpaperImport.pending;
@@ -158,7 +160,7 @@ export function SettingsPanel({
     initialDraftSnapshot.current = JSON.stringify(nextDraft);
     setDraft(nextDraft);
     setPreviousPreset(nextDraft.appearance);
-    setSection(initialSection ?? "appearance");
+    if (initialSection) setSection(initialSection);
     setLogoError("");
     setWallpaperError("");
     setWallpaperEditing(false);
@@ -187,7 +189,7 @@ export function SettingsPanel({
   }, [draft, open, onPreview]);
 
   function updateBrand(patch: Partial<BrandSettings>) {
-    if (patch.logoSource !== undefined) logoImport.cancel();
+    if (patch.logoSource !== undefined) setLogoEditorSource(undefined);
     setLogoError("");
     setDraft((current) => ({
       ...current,
@@ -195,26 +197,12 @@ export function SettingsPanel({
     }));
   }
 
-  async function chooseLocalLogo(event: ChangeEvent<HTMLInputElement>) {
+  function chooseLocalLogo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
     setLogoError("");
-    await logoImport.run(() => prepareBrandLogo(file), (logoDataUrl) => {
-      setDraft((current) => ({
-        ...current,
-        brand: {
-          ...current.brand,
-          logoSource: "local",
-          logoDataUrl,
-          logoUrl: undefined,
-        },
-        appearance:
-          current.appearance.brandLogoScale === DEFAULT_APPEARANCE.brandLogoScale
-            ? { ...current.appearance, brandLogoScale: 100 }
-            : current.appearance,
-      }));
-    });
+    setLogoEditorSource(file);
   }
 
   function updateWallpaper(patch: Partial<WallpaperSettings>) {
@@ -415,7 +403,7 @@ export function SettingsPanel({
   }
 
   function closeWithoutSaving() {
-    logoImport.cancel();
+    setLogoEditorSource(undefined);
     wallpaperImport.cancel();
     if (wallpaperFrame.current !== null) {
       window.cancelAnimationFrame(wallpaperFrame.current);
@@ -458,7 +446,7 @@ export function SettingsPanel({
       return;
     }
     const pendingWallpaper = wallpaperGestureValue.current;
-    logoImport.cancel();
+    setLogoEditorSource(undefined);
     wallpaperImport.cancel();
     onSave(
       pendingWallpaper
@@ -607,15 +595,19 @@ export function SettingsPanel({
             </button>
           </div>
 
-          <div className="settings-body">
+          <SettingsLocationContext.Provider value={disclosureMemory.current}>
+          <div className="settings-body" key={section}
+            ref={node => { if (node) node.scrollTop = scrollMemory.current[section] ?? 0; }}
+            onScroll={event => { scrollMemory.current[section] = event.currentTarget.scrollTop; }}>
             {section === "appearance" && (
               <div className="settings-section appearance-settings">
                 <AppearanceSettingsEditor value={draft.appearance} previousPreset={previousPreset} onPresetChange={setPreviousPreset}
                   panelWidth={panelWidth} panelMaxWidth={panelMaxWidth} onPanelWidthChange={rememberWidth}
                   onChange={(appearance) => setDraft((current) => ({ ...current, appearance }))} />
                 <BrandSettingsEditor value={draft.brand}
-                  error={logoError || logoImport.error} logoProcessing={logoProcessing}
+                  error={logoError}
                   onChange={updateBrand} onChooseLogo={chooseLocalLogo} onError={setLogoError}
+                  onEditLogo={() => setLogoEditorSource(draft.brand.logoDataUrl)}
                   onReset={() => updateBrand({ ...DEFAULT_BRAND, logoUrl: undefined, logoDataUrl: undefined })} />
                 <button type="button" className="text-action appearance-reset"
                   onClick={() => setDraft((current) => ({ ...current, appearance: { ...DEFAULT_APPEARANCE } }))}>
@@ -637,6 +629,7 @@ export function SettingsPanel({
               onExport={() => openDataWorkspace(onExport)} onImport={() => openDataWorkspace(onImport)} onResetBookmarks={onResetBookmarks} onClearHistory={onClearHistory} onRestoreSite={onRestoreSite} onRestoreAllSites={onRestoreAllSites} onPermanentDeleteSite={onPermanentDeleteSite} onEmptyTrash={onEmptyTrash} onTrashRetentionChange={onTrashRetentionChange} /> }
           </div>
 
+          </SettingsLocationContext.Provider>
           <div className="settings-footer">
             <button
               type="button"
@@ -656,6 +649,12 @@ export function SettingsPanel({
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+      {open && logoEditorSource && <LogoImageEditor source={logoEditorSource} shape={draft.brand.logoShape ?? "original"}
+        onCancel={() => setLogoEditorSource(undefined)} onApply={(logoDataUrl, logoShape) => {
+          updateBrand({ logoSource: "local", logoDataUrl, logoShape, logoUrl: undefined });
+          setDraft(current => ({ ...current, appearance: { ...current.appearance, brandLogoScale: 100 } }));
+          setLogoEditorSource(undefined);
+        }} />}
       <ConfirmDialog
         open={discardPromptOpen}
         title="放弃未保存的设置？"

@@ -1,0 +1,11 @@
+.dialog-content.logo-image-editor { width: min(560px, calc(100vw - 48px)); display: grid; gap: 18px; max-height: 90vh; overflow-y: auto; }
+.logo-image-editor .dialog-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.logo-editor-preview { display: grid; place-items: center; min-height: 190px; padding: 16px; }
+.logo-editor-preview canvas { display: block; max-width: 100%; max-height: 210px; width: auto; height: auto; background: repeating-conic-gradient(#bbc0c6 0 25%, #e8eaed 0 50%) 50% / 16px 16px; }
+.logo-editor-preview canvas[data-shape="circle"] { border-radius: 50%; }
+.logo-crop-controls { display: grid; gap: 12px; }
+.brand-mark-custom[data-shape="circle"] { border-radius: 50%; }
+.brand-mark-custom[data-shape="square"], .brand-mark-custom[data-shape="rectangle"] { border-radius: 0; }
+.brand-mark-custom[data-shape="rectangle"] { width: calc(var(--brand-logo-size) * 1.6); }
+.brand-mark-custom[data-shape]:not([data-shape="original"]) > img { transform: none; }
+.brand-mark { flex-shrink: 0; }

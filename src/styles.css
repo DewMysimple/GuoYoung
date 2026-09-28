@@ -98,8 +98,7 @@ button {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-select:focus-visible,
-label:has(input:focus-visible) {
+select:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--accent) 42%, transparent);
   outline-offset: 2px;
 }
@@ -2941,6 +2940,9 @@ label:has(input:focus-visible) {
   font-size: 14px;
 }
 
+/* Composite fields draw a single focus indicator on their actual control. */
+.input-shell input:focus-visible { outline: none; box-shadow: none; }
+
 .input-shell input::placeholder {
   color: var(--text-faint);
   opacity: 1;
@@ -3963,6 +3965,11 @@ label:has(input:focus-visible) {
   background: transparent;
   font: 700 13px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
   text-transform: uppercase;
+}
+
+.color-picker-value label:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .text-action {

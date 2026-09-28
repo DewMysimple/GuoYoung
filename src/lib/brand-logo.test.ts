@@ -4,6 +4,8 @@ import {
   isBrandLogoDataUrl,
   isHttpImageUrl,
   prepareBrandLogo,
+  logoCropRect,
+  DEFAULT_LOGO_EDIT,
 } from "./brand-logo";
 
 describe("brand logo validation", () => {
@@ -44,11 +46,18 @@ describe("brand logo validation", () => {
     );
 
     const logo = await prepareBrandLogo(
-      new File(["source"], "logo.png", { type: "image/png" }),
+      new File([new Uint8Array(6 * 1024 * 1024)], "logo.png", { type: "image/png" }),
     );
 
     expect(logo).toMatch(/^data:image\/webp;base64,/);
     expect(drawImage).toHaveBeenCalled();
     expect(close).toHaveBeenCalled();
+  });
+
+  it("keeps a zoomed crop within the original image at either edge", () => {
+    expect(logoCropRect(2000, 1000, { ...DEFAULT_LOGO_EDIT, shape: "square", crop: true, zoom: 2, x: 100, y: 0 }))
+      .toEqual({ x: 1500, y: 0, width: 500, height: 500, ratio: 1 });
+    const rect = logoCropRect(800, 1600, { ...DEFAULT_LOGO_EDIT, shape: "rectangle", crop: true, x: 0, y: 100 });
+    expect(rect).toEqual({ x: 0, y: 1100, width: 800, height: 500, ratio: 1.6 });
   });
 });

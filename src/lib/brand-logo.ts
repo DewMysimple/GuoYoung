@@ -93,26 +93,48 @@ async function decodeLogo(file: File): Promise<DecodedLogo> {
   }
 }
 
-export async function prepareBrandLogo(file: File): Promise<string> {
-  if (file.size > MAX_BRAND_LOGO_BYTES) {
-    throw new Error("Logo 图片不能超过 5MB");
+export interface LogoEditOptions {
+  shape: "original" | "circle" | "square" | "rectangle";
+  crop: boolean;
+  zoom: number;
+  x: number;
+  y: number;
+}
+
+export const DEFAULT_LOGO_EDIT: LogoEditOptions = { shape: "original", crop: false, zoom: 1, x: 50, y: 50 };
+
+export function logoCropRect(width: number, height: number, options: LogoEditOptions) {
+  const ratio = options.shape === "original" ? width / height : options.shape === "rectangle" ? 1.6 : 1;
+  const zoom = Math.min(4, Math.max(1, options.zoom));
+  const cropWidth = Math.min(width, height * ratio) / zoom;
+  const cropHeight = cropWidth / ratio;
+  return { x: (width - cropWidth) * Math.min(100, Math.max(0, options.x)) / 100,
+    y: (height - cropHeight) * Math.min(100, Math.max(0, options.y)) / 100,
+    width: cropWidth, height: cropHeight, ratio };
+}
+
+export function drawLogo(canvas: HTMLCanvasElement, image: CanvasImageSource, width: number, height: number, options: LogoEditOptions) {
+  const rect = logoCropRect(width, height, options);
+  canvas.width = Math.max(1, Math.round(BRAND_LOGO_MAX_EDGE * Math.min(1, rect.ratio)));
+  canvas.height = Math.max(1, Math.round(BRAND_LOGO_MAX_EDGE / Math.max(1, rect.ratio)));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("浏览器无法处理这张 Logo 图片");
+  if (options.crop) context.drawImage(image, rect.x, rect.y, rect.width, rect.height, 0, 0, canvas.width, canvas.height);
+  else {
+    const scale = Math.min(canvas.width / width, canvas.height / height);
+    context.drawImage(image, (canvas.width - width * scale) / 2, (canvas.height - height * scale) / 2, width * scale, height * scale);
   }
+}
+
+export async function prepareBrandLogo(file: File, options: LogoEditOptions = DEFAULT_LOGO_EDIT): Promise<string> {
   if (!supportedTypes.has(file.type)) {
     throw new Error("请选择 PNG、JPG、WebP 或 SVG 图片");
   }
 
   const decoded = await decodeLogo(file);
-  const scale = Math.min(
-    1,
-    BRAND_LOGO_MAX_EDGE / Math.max(decoded.width, decoded.height),
-  );
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(decoded.width * scale));
-  canvas.height = Math.max(1, Math.round(decoded.height * scale));
-  const context = canvas.getContext("2d");
   try {
-    if (!context) throw new Error("浏览器无法处理这张 Logo 图片");
-    context.drawImage(decoded.image, 0, 0, canvas.width, canvas.height);
+    drawLogo(canvas, decoded.image, decoded.width, decoded.height, options);
   } finally {
     decoded.release();
   }

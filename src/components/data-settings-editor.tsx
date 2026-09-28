@@ -1,4 +1,5 @@
 import { DataTransferActions } from "./data-transfer-actions";
+import { useSettingsDisclosure } from "./settings-location";
 import { useEffect, useRef, useState } from "react";
 import { ArrowCounterClockwise, CaretDown, CaretUp, Trash } from "@phosphor-icons/react";
 import type { SiteCollectionState, TrashRetentionDays } from "../types";
@@ -43,7 +44,8 @@ function getTrashRemainingLabel(
 }
 
 export function DataSettingsEditor({ state, initialTrashOpen, onExport, onImport, onResetBookmarks, onClearHistory, onRestoreSite, onRestoreAllSites, onPermanentDeleteSite, onEmptyTrash, onTrashRetentionChange }: DataSettingsProps) {
-  const [trashOpen, setTrashOpen] = useState(initialTrashOpen);
+  const [trashOpen, setTrashOpen] = useSettingsDisclosure("链接回收站");
+  useEffect(() => { if (initialTrashOpen) setTrashOpen(true); }, [initialTrashOpen]);
   const [armedTrashDeleteId, setArmedTrashDeleteId] = useState<string | null>(
     null,
   );

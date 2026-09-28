@@ -106,7 +106,10 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
     </SettingsDisclosure>
 
     <SettingsDisclosure title="顶栏外观" summary={value.topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"}>
-      <p className="appearance-description">融入壁纸让背景连贯，玻璃底板为导航提供独立衬底。</p>
+      <p className="appearance-description">玻璃底板可独立调节顶栏材质。要完全透出壁纸，请选择“融入壁纸”并关闭清晰阅读。</p>
+      <label className="toggle-row"><span><strong>顶部清晰阅读</strong><small>为导航、搜索和分组工具提供主题文字与阅读衬底；关闭后完全跟随页面配色和玻璃透明度。</small></span>
+        <input type="checkbox" checked={value.topbarReadability !== "page"} onChange={event => onChange({ topbarReadability: event.target.checked ? "clear" : "page" })} />
+      </label>
       <div className="segmented-control" role="group" aria-label="顶栏样式">
         {(["clear", "glass"] as const).map((topbarStyle) => <button type="button" key={topbarStyle}
           aria-pressed={value.topbarStyle === topbarStyle} className={value.topbarStyle === topbarStyle ? "active" : ""}

@@ -236,7 +236,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const [dataContext, setDataContext] = useState<DataWorkspaceContext | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] =
-    useState<SettingsSection>("appearance");
+    useState<SettingsSection>();
   const [settingsInitialTrashOpen, setSettingsInitialTrashOpen] =
     useState(false);
   const [editingSite, setEditingSite] = useState<SiteItem | null>(null);
@@ -900,7 +900,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }
 
   function openSettingsPanel(
-    section: SettingsSection = "appearance",
+    section?: SettingsSection,
     trashOpen = false,
   ) {
     setSettingsInitialSection(section);
@@ -1256,8 +1256,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   ]);
 
   useEffect(() => {
-    document.title = `${effectiveBrand.name} · 网站收藏`;
-  }, [effectiveBrand.name]);
+    document.title = effectiveBrand.tabTitle?.trim() || effectiveBrand.name;
+  }, [effectiveBrand.name, effectiveBrand.tabTitle]);
 
   if (isLoading || waitingForWallpaper) {
     return <span className="visually-hidden" role="status">正在读取收藏</span>;
@@ -1270,7 +1270,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       className={`app-shell min-h-[100dvh] ${
         activeDragId || pendingDragId ? "is-site-dragging" : ""
       } ${settingsOpen ? "settings-open" : ""} ${
-        wallpaperUrl ? `has-wallpaper topbar-${effectiveWallpaper.topbarStyle} ${effectiveWallpaper.glassRefraction && supportsGlassRefraction ? "glass-refraction" : ""}` : ""
+        wallpaperUrl ? `has-wallpaper topbar-${effectiveWallpaper.topbarStyle} ${effectiveWallpaper.topbarReadability !== "page" ? "topbar-readable" : ""} ${effectiveWallpaper.glassRefraction && supportsGlassRefraction ? "glass-refraction" : ""}` : ""
       }`}
       style={appStyle}
       {...siteClickHandlers}
@@ -1337,21 +1337,23 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
             <button type="button" className={`topbar-history-button ${dataContext ? "active" : ""}`} aria-label="打开数据" aria-pressed={Boolean(dataContext)} onClick={() => openData()}><Database size={19} /><span>数据</span></button>
             <button
               type="button"
-              className="icon-button trash-button"
+              className="topbar-history-button trash-button"
               onClick={() => openSettingsPanel("data", true)}
               aria-label="打开回收站"
               title="回收站"
             >
               <Trash size={19} weight="regular" />
+              <span>删除</span>
             </button>
             <button
               type="button"
-              className="icon-button settings-button"
+              className="topbar-history-button settings-button"
               onClick={() => openSettingsPanel()}
               aria-label="打开设置"
               title="设置"
             >
               <GearSix size={19} weight="regular" />
+              <span>设置</span>
             </button>
             <div className="topbar-add" ref={addMenuRef}>
               <button
@@ -1907,7 +1909,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         onOpenChange={(open) => {
           setSettingsOpen(open);
           if (!open) {
-            setSettingsInitialSection("appearance");
+            setSettingsInitialSection(undefined);
             setSettingsInitialTrashOpen(false);
           }
         }}

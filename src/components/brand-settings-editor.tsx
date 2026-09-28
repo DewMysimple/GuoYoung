@@ -1,22 +1,24 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useRef, type ChangeEvent } from "react";
+import { useSettingsDisclosure } from "./settings-location";
 import { ArrowCounterClockwise, CaretDown, UploadSimple } from "@phosphor-icons/react";
 import type { BrandSettings } from "../types";
 import { BrandMark } from "./brand-mark";
+import { LOGO_SHAPES } from "./logo-image-editor";
 
 interface BrandSettingsEditorProps {
   value: BrandSettings;
   error: string;
-  logoProcessing: boolean;
   onChange: (patch: Partial<BrandSettings>) => void;
   onChooseLogo: (event: ChangeEvent<HTMLInputElement>) => void;
   onError: (message: string) => void;
   onReset: () => void;
+  onEditLogo: () => void;
 }
 
 export function BrandSettingsEditor({
-  value, error, logoProcessing, onChange, onChooseLogo, onError, onReset,
+  value, error, onChange, onChooseLogo, onError, onReset, onEditLogo,
 }: BrandSettingsEditorProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useSettingsDisclosure("名称与图标");
   const logoFileRef = useRef<HTMLInputElement>(null);
   const contentId = useId();
   const isExpanded = expanded || Boolean(error);
@@ -51,6 +53,12 @@ export function BrandSettingsEditor({
           </label>
 
           <div className="brand-visibility-options">
+            <label className="settings-field">
+              <span>标签页名称</span>
+              <input aria-label="标签页名称" value={value.tabTitle ?? ""} maxLength={80} placeholder="留空时使用品牌名称"
+                onChange={event => onChange({ tabTitle: event.target.value })} />
+              <small>完整自定义浏览器标签页标题，不追加固定后缀。</small>
+            </label>
             <label className="toggle-row compact-toggle-row">
               <span><strong>显示 Logo</strong></span>
               <input
@@ -102,7 +110,7 @@ export function BrandSettingsEditor({
                     : logoFileRef.current?.click()
                 }
               >
-                {logoProcessing ? "正在处理…" : "本地图片"}
+                本地图片
               </button>
               <button
                 type="button"
@@ -122,6 +130,7 @@ export function BrandSettingsEditor({
             ref={logoFileRef}
             className="visually-hidden"
             type="file"
+            aria-label="选择 Logo 图片"
             accept="image/png,image/jpeg,image/webp,image/svg+xml"
             onChange={onChooseLogo}
           />
@@ -130,7 +139,6 @@ export function BrandSettingsEditor({
               type="button"
               className="button secondary-button brand-replace-button"
               onClick={() => logoFileRef.current?.click()}
-              disabled={logoProcessing}
             >
               <UploadSimple size={17} />更换本地 Logo
             </button>
@@ -149,6 +157,16 @@ export function BrandSettingsEditor({
               />
             </label>
           )}
+          {value.logoSource !== "default" && <>
+            <span className="settings-inline-label">Logo 外形</span>
+            <div className="segmented-control" role="group" aria-label="Logo 外形">
+              {LOGO_SHAPES.map(item => <button key={item.value} type="button" aria-pressed={(value.logoShape ?? "original") === item.value}
+                className={(value.logoShape ?? "original") === item.value ? "active" : ""}
+                onClick={() => onChange({ logoShape: item.value })}>{item.label}</button>)}
+            </div>
+            {value.logoSource === "local" && <button type="button" className="button secondary-button" onClick={onEditLogo}>裁切与压缩图片</button>}
+            {value.logoSource === "local" && value.logoDataUrl && <small className="appearance-description">已压缩为 WebP · 约 {Math.ceil((value.logoDataUrl.length - value.logoDataUrl.indexOf(",") - 1) * 3 / 4 / 1024)} KB，低于 5MB 限制。</small>}
+          </>}
           {error && (
             <p className="field-error" role="alert">{error}</p>
           )}

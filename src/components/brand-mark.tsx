@@ -35,6 +35,7 @@ export function BrandMark({ brand, preview = false, onImageError }: BrandMarkPro
 
   return (
     <span
+      data-shape={brand.logoShape ?? "original"}
       className={`brand-mark brand-mark-custom${
         preview ? " brand-mark-preview" : ""
       }`}

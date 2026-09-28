@@ -4,8 +4,8 @@ import { getGlassPreset, GLASS_PRESETS } from "./glass-presets";
 import { normalizeWallpaper, parseStoredState } from "./storage";
 
 describe("glass presets", () => {
-  it("provides six distinct, valid materials without changing image or topbar settings", () => {
-    expect(GLASS_PRESETS).toHaveLength(6);
+  it("provides nine distinct, valid materials without changing image or topbar settings", () => {
+    expect(GLASS_PRESETS).toHaveLength(9);
     const saved = { ...DEFAULT_WALLPAPER, source: "local" as const, localAssetId: "keep", zoom: 150, overlay: 47, topbarStyle: "glass" as const, topbarOpacity: 63 };
     for (const preset of GLASS_PRESETS) {
       const next = { ...saved, ...preset.values };

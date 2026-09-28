@@ -13,6 +13,7 @@ html:has(.app-shell.has-wallpaper) {
 /* Balance the native scrollbar inside the wallpaper, rather than leaving a
    blank root gutter. Search and content stay centered in the visible window. */
 .app-shell.has-wallpaper { padding-left: var(--page-scrollbar-width, 0px); }
+.has-wallpaper .topbar { margin-left: calc(-1 * var(--page-scrollbar-width, 0px)); }
 
 :root:has(.app-shell.has-wallpaper) {
   --glass-fill: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent);
@@ -59,6 +60,23 @@ html:has(.app-shell.has-wallpaper) {
 
 .has-wallpaper.topbar-clear .topbar::before { display: none; }
 .has-wallpaper.topbar-clear .brand { text-shadow: var(--wallpaper-text-shadow); }
+
+/* A local reading layer keeps navigation legible without modifying wallpaper
+   exposure, saved text colors, or the material used by the rest of the page. */
+.has-wallpaper.topbar-readable .topbar {
+  --text: var(--theme-text);
+  --text-soft: var(--theme-text);
+  --text-faint: var(--theme-text-soft);
+}
+.has-wallpaper.topbar-readable .topbar::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--page) 92%, transparent), color-mix(in srgb, var(--page) 84%, transparent));
+}
+:root .has-wallpaper.topbar-readable .topbar :is(.brand, .brand-name, .topbar-history-button) { text-shadow: none; }
 
 .has-wallpaper .topbar-history-button,
 .has-wallpaper .icon-button,
@@ -195,6 +213,15 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent),
     var(--glass-shadow);
+}
+
+.has-wallpaper.topbar-readable :is(.search-input, .category-tab, .manage-groups-button, .add-group-tab, .view-control-button, .history-range-trigger) {
+  --text: var(--theme-text);
+  --text-soft: var(--theme-text-soft);
+  --text-faint: var(--theme-text-soft);
+  --glass-fill-low: color-mix(in srgb, var(--surface) max(82%, var(--glass-control-opacity)), transparent);
+  --glass-fill-high: color-mix(in srgb, var(--glass-fill-low) 92%, var(--surface));
+  text-shadow: none;
 }
 
 .has-wallpaper .site-card,
@@ -446,7 +473,7 @@ body:has(.app-shell.has-wallpaper) .settings-tabs button.active,
 body:has(.app-shell.has-wallpaper) .appearance-option-grid > button,
 body:has(.app-shell.has-wallpaper) .settings-choice,
 body:has(.app-shell.has-wallpaper) .compact-toggle-row,
-body:has(.app-shell.has-wallpaper) .brand-source-block {
+body:has(.app-shell.has-wallpaper) .brand-source-options {
   border-color: var(--glass-edge-soft);
   background-color: var(--glass-fill-nested);
   background-image: none;
@@ -455,17 +482,35 @@ body:has(.app-shell.has-wallpaper) .brand-source-block {
 
 .has-wallpaper .data-workspace .data-field > input,
 .has-wallpaper .data-workspace .data-field .select-menu-trigger,
-body:has(.app-shell.has-wallpaper) .settings-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+body:has(.app-shell.has-wallpaper) .settings-panel :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.input-shell input):not(.color-picker-value input)),
 body:has(.app-shell.has-wallpaper) .settings-panel textarea,
 body:has(.app-shell.has-wallpaper) .settings-panel select,
-body:has(.app-shell.has-wallpaper) .dialog-content input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+body:has(.app-shell.has-wallpaper) .dialog-content :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.input-shell input):not(.color-picker-value input)),
 body:has(.app-shell.has-wallpaper) .dialog-content textarea,
-body:has(.app-shell.has-wallpaper) .dialog-content select {
+body:has(.app-shell.has-wallpaper) .dialog-content select,
+body:has(.app-shell.has-wallpaper) .input-shell {
   border-color: var(--glass-edge-soft);
   background-color: var(--glass-fill-control);
   background-image: linear-gradient(145deg, var(--glass-sheen), transparent 68%);
   box-shadow: inset 0 1px 0 var(--glass-reflection);
   backdrop-filter: none;
+}
+
+/* The shell owns the material; its input must not add a second filled layer. */
+body:has(.app-shell.has-wallpaper) .dialog-content .input-shell input {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+}
+body:has(.app-shell.has-wallpaper) .brand-source-options button.active {
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 14%, var(--glass-fill-control));
+  box-shadow: var(--glass-rim);
+}
+
+body:has(.app-shell.has-wallpaper) :is(.settings-panel, .dialog-content) :is(.settings-field input:focus, .input-shell:focus-within, .color-picker-value label:focus-within) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 body:has(.app-shell.has-wallpaper) .dialog-content .button.secondary-button,
@@ -526,9 +571,19 @@ body:has(.app-shell.has-wallpaper) .typography-font-label { border-color: var(--
 body:has(.app-shell.has-wallpaper) :is(.group-manager-list, .group-manager-editor,
   .segmented-control, .data-overview,
   .icon-source-grid, .icon-source-choice, .category-choice, .protected-note,
-  .github-refresh-stat, .github-refresh-detail) {
+  .github-refresh-stat, .github-refresh-detail, .github-import-list,
+  .github-import-statuses span, .trash-item, .color-picker-value label,
+  .wallpaper-thumbnail, .wallpaper-thumbnail span) {
   border-color: var(--glass-edge-soft);
   background: var(--glass-fill-nested);
+}
+
+body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-value input {
+  background: transparent;
+  box-shadow: none;
+}
+body:has(.app-shell.has-wallpaper) .github-import-row:hover {
+  background: var(--glass-fill-control);
 }
 
 body:has(.app-shell.has-wallpaper) :is(.segmented-control button.active,

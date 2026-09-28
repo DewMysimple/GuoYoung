@@ -41,9 +41,8 @@ test("shares glass layers across group tools, menus and panels without nested ca
   await expect(card).toHaveCSS("box-shadow", /rgba\(24, 43, 70, 0\)/);
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await page.getByRole("button", { name: "打开设置" }).click();
-  await panel.getByRole("tab", { name: /壁纸/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
+  await expect(panel.getByRole("tab", { name: /壁纸/ })).toHaveAttribute("aria-selected", "true");
+  await expect(panel.getByRole("slider", { name: "阴影强度" })).toBeVisible();
   await expect(panel.getByRole("slider", { name: "阴影强度" })).toHaveValue("35");
   await panel.getByRole("slider", { name: "面板透明度" }).fill("72");
   await panel.getByRole("slider", { name: "菜单透明度" }).fill("65");
@@ -199,9 +198,8 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await expect(page.locator("#wallpaper-glass-lens")).toHaveCount(0);
 
   await page.getByRole("button", { name: "打开设置" }).click();
-  await panel.getByRole("tab", { name: /壁纸/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
+  await expect(panel.getByRole("tab", { name: /壁纸/ })).toHaveAttribute("aria-selected", "true");
+  await expect(panel.getByRole("slider", { name: "阴影强度" })).toBeVisible();
   await panel.getByRole("slider", { name: "玻璃透明度" }).fill("88");
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
   await panel.getByRole("slider", { name: "色彩饱和度" }).fill("175");
@@ -235,7 +233,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });
 
-test("offers six reversible presets behind collapsed wallpaper parameters", async ({ page }, info) => {
+test("offers nine reversible presets behind collapsed wallpaper parameters", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop settings acceptance");
   await page.route("https://wallpaper.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
   await page.evaluate(() => {
@@ -254,9 +252,9 @@ test("offers six reversible presets behind collapsed wallpaper parameters", asyn
   await page.screenshot({ path: screenshotPath("liquid-settings-collapsed.png") });
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
   const presets = panel.getByRole("group", { name: "玻璃外观预设" });
-  await expect(presets.getByRole("button")).toHaveCount(6);
+  await expect(presets.getByRole("button")).toHaveCount(9);
   await expect(panel.getByRole("slider")).toHaveCount(0);
-  const names = [["液态清透", "8%"], ["水晶棱镜", "12%"], ["柔光薄雾", "18%"], ["细腻磨砂", "35%"], ["轻透无影", "4%"], ["经典玻璃", "22%"]];
+  const names = [["液态清透", "8%"], ["水晶棱镜", "12%"], ["柔光薄雾", "18%"], ["细腻磨砂", "35%"], ["轻透无影", "4%"], ["经典玻璃", "22%"], ["雪景柔纱", "65%"], ["夜色凝光", "52%"], ["繁景静读", "78%"]];
   const seen = new Set();
   for (const [name, opacity] of names) {
     const option = presets.getByRole("button", { name: new RegExp(`^${name}`) });
@@ -268,7 +266,7 @@ test("offers six reversible presets behind collapsed wallpaper parameters", asyn
     seen.add(await page.locator(".app-shell").getAttribute("style"));
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toEqual(original);
   }
-  expect(seen.size).toBe(6);
+  expect(seen.size).toBe(9);
   await presets.getByRole("button", { name: /^液态清透/ }).click();
   await page.screenshot({ path: screenshotPath("liquid-settings-presets.png") });
   await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
@@ -281,8 +279,7 @@ test("offers six reversible presets behind collapsed wallpaper parameters", asyn
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await expect(page.locator(".app-shell")).not.toHaveClass(/glass-refraction/);
   await page.getByRole("button", { name: "打开设置" }).click();
-  await panel.getByRole("tab", { name: /壁纸/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await expect(panel.getByRole("tab", { name: /壁纸/ })).toHaveAttribute("aria-selected", "true");
   await panel.getByRole("button", { name: /^液态清透/ }).click();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();

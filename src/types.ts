@@ -136,6 +136,8 @@ export type BrandLogoSource = "default" | "local" | "url";
 
 export interface BrandSettings {
   name: string;
+  tabTitle?: string;
+  logoShape?: "original" | "circle" | "square" | "rectangle";
   showName: boolean;
   showLogo: boolean;
   logoSource: BrandLogoSource;
@@ -210,6 +212,7 @@ export interface WallpaperSettings {
   topbarBlur: number;
   topbarOpacity: number;
   topbarStyle: "clear" | "glass";
+  topbarReadability?: "clear" | "page";
   glassTransparency: number;
   glassControlTransparency: number;
   glassPanelTransparency: number;

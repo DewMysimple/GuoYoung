@@ -9,7 +9,7 @@ test("restores layout defaults and the last chosen preset across settings tabs",
   await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();
   await panel.getByRole("tab", { name: /数据/ }).click();
   await panel.getByRole("tab", { name: /外观/ }).click();
-  await panel.getByRole("button", { name: /布局微调/ }).click();
+  await expect(panel.getByRole("button", { name: /布局微调/ })).toHaveAttribute("aria-expanded", "true");
   await panel.getByRole("button", { name: "恢复上次预设", exact: true }).click();
   await expect(panel.getByRole("slider", { name: "卡片高度" })).toHaveValue("168");
   await expect(panel.getByRole("button", { name: "使用颜色 #00897b" })).toHaveAttribute("aria-pressed", "true");

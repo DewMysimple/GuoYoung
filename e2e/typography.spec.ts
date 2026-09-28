@@ -30,14 +30,14 @@ test("previews font choices and color effects, cancels, then persists them acros
   await panel.getByRole("tab", { name: "字体调节" }).click();
   await panel.getByRole("button", { name: "本机字体", exact: true }).click();
   await panel.getByRole("textbox", { name: "本机字体名称" }).fill("Consolas");
-  await panel.locator("summary").filter({ hasText: "文字颜色" }).click();
+  await expect(panel.getByRole("group", { name: "文字配色", exact: true })).toBeVisible();
   await panel.getByRole("group", { name: "文字配色", exact: true }).getByRole("button", { name: "自定义", exact: true }).click();
   await panel.getByRole("button", { name: "自定义主要文字颜色" }).click();
   const picker = panel.getByRole("dialog", { name: "选择自定义颜色" });
   await picker.getByRole("textbox", { name: "十六进制颜色" }).fill("4b277c");
   await picker.getByRole("textbox", { name: "十六进制颜色" }).press("Enter");
   await panel.getByRole("button", { name: "自定义主要文字颜色" }).click();
-  await panel.locator("summary").filter({ hasText: "文字增强" }).click();
+  await expect(panel.getByRole("button", { name: "柔光", exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "柔光", exact: true }).click();
   await panel.locator("summary").filter({ hasText: "效果微调" }).click();
   await panel.getByRole("slider", { name: "效果强度" }).fill("75");
