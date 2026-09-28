@@ -33,7 +33,7 @@ import {
   type BrowserHistoryItem,
   type ChromiumExtensionApi,
 } from "../lib/browser-runtime";
-import { getInclusiveSelectionRange } from "../lib/selection-range";
+import { getInclusiveSelectionRange, toggleRangeSelection } from "../lib/selection-range";
 
 interface BrowserHistoryViewProps {
   active?: boolean;
@@ -254,16 +254,9 @@ function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRang
     const anchorUrl = selectionAnchorRef.current;
     const canSelectRange =
       shiftKey && Boolean(anchorUrl && orderedUrls.includes(anchorUrl));
-    const range = canSelectRange
-      ? getInclusiveSelectionRange(orderedUrls, anchorUrl, url)
-      : [];
-    setSelectedUrls((current) => {
-      const next = new Set(current);
-      if (canSelectRange) range.forEach((itemUrl) => next.add(itemUrl));
-      else if (next.has(url)) next.delete(url);
-      else next.add(url);
-      return next;
-    });
+    setSelectedUrls((current) =>
+      toggleRangeSelection(current, orderedUrls, anchorUrl, url, shiftKey).ids,
+    );
     if (!canSelectRange) selectionAnchorRef.current = url;
   }
 

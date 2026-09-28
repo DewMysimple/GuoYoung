@@ -123,16 +123,23 @@ export function downloadExport(
   state: SiteCollectionState,
   documentRef: Document = document,
 ): void {
-  const blob = new Blob([serializeExport(state)], {
+  const date = new Date().toISOString().slice(0, 10);
+  downloadJson(serializeExport(state), `site-hub-${date}.json`, documentRef);
+}
+
+function downloadJson(text: string, filename: string, documentRef: Document): void {
+  const blob = new Blob([text], {
     type: "application/json;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
-  const link = documentRef.createElement("a");
-  const date = new Date().toISOString().slice(0, 10);
-  link.href = url;
-  link.download = `site-hub-${date}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  try {
+    const link = documentRef.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 export function createGroupExportPayload(
@@ -275,18 +282,14 @@ export function downloadGroupExport(
   documentRef: Document = document,
 ): void {
   const payload = createGroupExportPayload(state, groupId);
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: "application/json;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = documentRef.createElement("a");
   const date = new Date().toISOString().slice(0, 10);
   const safeName = payload.group.name
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
     .trim()
     .slice(0, 48) || "分组";
-  link.href = url;
-  link.download = `site-hub-group-${safeName}-${date}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadJson(
+    JSON.stringify(payload, null, 2),
+    `site-hub-group-${safeName}-${date}.json`,
+    documentRef,
+  );
 }

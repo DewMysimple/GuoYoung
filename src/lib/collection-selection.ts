@@ -1,4 +1,4 @@
-import { getInclusiveSelectionRange } from "./selection-range";
+import { toggleRangeSelection } from "./selection-range";
 
 // A selection has one kind, one set and one anchor. Switching kinds cannot
 // leave an invisible selection (or a Shift anchor) in the other kind.
@@ -61,21 +61,15 @@ export function collectionSelectionReducer(
     case "toggle": {
       if (!action.orderedIds.includes(action.id)) return state;
       const sameMode = state.mode === action.mode;
-      const ids = new Set(sameMode ? state.ids : []);
-      const anchorId = sameMode ? state.anchorId : null;
-      const hasAnchor = anchorId !== null && action.orderedIds.includes(anchorId);
-      if (action.shiftKey && hasAnchor) {
-        getInclusiveSelectionRange(action.orderedIds, anchorId, action.id)
-          .forEach((id) => ids.add(id));
-      } else if (ids.has(action.id)) {
-        ids.delete(action.id);
-      } else {
-        ids.add(action.id);
-      }
       return {
         mode: action.mode,
-        ids,
-        anchorId: action.shiftKey && hasAnchor ? anchorId : action.id,
+        ...toggleRangeSelection(
+          sameMode ? state.ids : EMPTY_SELECTION_IDS,
+          action.orderedIds,
+          sameMode ? state.anchorId : null,
+          action.id,
+          action.shiftKey,
+        ),
       };
     }
     case "enter-group":

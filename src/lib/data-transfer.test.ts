@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "../data/defaults";
 import {
   createGroupExportPayload,
+  downloadExport,
+  downloadGroupExport,
   createExportPayload,
   parseGroupImportFile,
   parseImportFile,
@@ -10,6 +12,30 @@ import {
   SITE_HUB_GROUP_EXPORT_FORMAT,
   SITE_HUB_EXPORT_FORMAT,
 } from "./data-transfer";
+
+describe("JSON downloads", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it.each(["collection", "group"])("releases %s downloads even when clicking fails", (kind) => {
+    const createObjectURL = vi.fn(() => "blob:test");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+    const link = document.createElement("a");
+    vi.spyOn(link, "click").mockImplementation(() => { throw new Error("download failed"); });
+    vi.spyOn(document, "createElement").mockReturnValue(link);
+    const state = createDefaultState();
+    const download = () => kind === "collection"
+      ? downloadExport(state)
+      : downloadGroupExport(state, "search");
+    expect(download).toThrow("download failed");
+    expect(link.download).toMatch(/^site-hub-.*\.json$/);
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith("blob:test");
+  });
+});
 
 describe("data transfer", () => {
   it("exports a versioned envelope and restores the state", () => {

@@ -24,3 +24,20 @@ it("prunes deleted groups so reintroduced ids do not become selected", () => {
   rerender({ groups: DEFAULT_GROUPS });
   expect(result.current.selectedIds).toEqual([]);
 });
+
+it("applies batched inversions to the latest selection", () => {
+  const { result } = renderHook(() => useGroupManagerSelection(true, DEFAULT_GROUPS));
+  act(() => {
+    result.current.invert();
+    result.current.invert();
+  });
+  expect(result.current.selectedIds).toEqual([]);
+});
+
+it("deselects a manager range when its target is selected", () => {
+  const { result } = renderHook(() => useGroupManagerSelection(true, DEFAULT_GROUPS));
+  act(() => result.current.selectAll());
+  act(() => result.current.toggle("search", false));
+  act(() => result.current.toggle("design", true));
+  expect(result.current.selectedIds).toEqual(["media", "learn"]);
+});
