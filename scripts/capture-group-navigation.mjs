@@ -35,9 +35,10 @@ async function inspect(context, url, extension, prefix) {
           order: j, globalOrder: i * 12 + j, clickCount: j, createdAt: stamp, updatedAt: stamp,
         });
       }
+      state.sites[0] = { ...state.sites[0], name: "哔哩哔哩", url: "https://www.bilibili.com", iconSource: "brand", customIconUrl: undefined };
       state.displayModeByWorkspace.main = "grouped";
-      state.appearance = { ...state.appearance, theme, fontScale };
-      state.wallpaper = { ...state.wallpaper, source: wallpaperEnabled ? "url" : "none", url: "https://nav-wallpaper.example/background.svg", overlay: 0 };
+      state.appearance = { ...state.appearance, theme, fontScale, groupNavigationGap: 20 };
+      state.wallpaper = { ...state.wallpaper, source: wallpaperEnabled ? "url" : "none", url: "https://nav-wallpaper.example/background.svg", overlay: 0, glassPanelTransparency: 88, glassBlur: 4 };
       if (extension) await chrome.storage.local.set({ [key]: JSON.stringify(state) });
       else localStorage.setItem(key, JSON.stringify(state));
     }, { extension, theme, wallpaperEnabled, count, fontScale });
@@ -56,13 +57,18 @@ async function inspect(context, url, extension, prefix) {
       const nav = document.querySelector(".group-section-nav").getBoundingClientRect();
       const main = document.querySelector(".grouped-site-sections").getBoundingClientRect();
       const panel = getComputedStyle(document.querySelector(".group-section-nav-panel"));
-      return { gap: main.left - nav.right, x: nav.x, bottom: nav.bottom, height: innerHeight,
+      const iconBorders = [...document.querySelectorAll(".favicon-frame, .favicon-fallback")].map(node => getComputedStyle(node).borderWidth);
+      const footer = document.querySelector(".group-section-nav-footer").getBoundingClientRect();
+      return { iconBorders: [...new Set(iconBorders)], footerBottom: footer.bottom, visible: nav.width > 0,
+        savedGap: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--group-nav-gap")), gap: main.left - nav.right, x: nav.x, bottom: nav.bottom, height: innerHeight,
         overflow: document.documentElement.scrollWidth > innerWidth, filter: panel.backdropFilter,
         active: document.querySelector('.group-section-nav [aria-current="location"]')?.textContent };
     });
-    assert(metrics.gap >= 12, `${name}: navigation covers content ${JSON.stringify(metrics)}`);
+    assert(!metrics.visible || Math.abs(metrics.gap - metrics.savedGap) < 1, `${name}: navigation covers content ${JSON.stringify(metrics)}`);
     assert(metrics.x >= 0 && metrics.bottom <= metrics.height, `${name}: viewport bounds`);
     assert.equal(metrics.overflow, false, `${name}: horizontal overflow`);
+    assert(metrics.footerBottom <= metrics.height, `${name}: footer stays reachable`);
+    assert.deepEqual(metrics.iconBorders, ["0px"], `${name}: no theme outline on favicons`);
     measurements.push({ name, ...metrics });
     await page.screenshot({ path: join(output, `${prefix}-${name}.png`), animations: "disabled" });
     captures.push(`${prefix}-${name}`);
@@ -71,7 +77,10 @@ async function inspect(context, url, extension, prefix) {
     for (const withWallpaper of [false, true]) {
       await page.setViewportSize({ width: 1920, height: 1080 });
       await seed(theme, withWallpaper);
+      await page.getByRole("button", { name: "间距调节" }).click();
       await capture(`${theme}-${withWallpaper ? "wallpaper" : "plain"}-top`);
+      await page.locator('[data-testid="site-card-site-0-0"]').screenshot({ path: join(output, `${prefix}-icon-${theme}-${withWallpaper ? "wallpaper" : "plain"}.png`) });
+      captures.push(`${prefix}-icon-${theme}-${withWallpaper ? "wallpaper" : "plain"}`);
       await page.getByRole("button", { name: "定位到 专业工具", exact: true }).click();
       await expect(page.locator('.group-section-nav [aria-current="location"]')).toHaveText("专业工具");
       await expect.poll(() => page.locator('[data-group-sort-section-id="nav-3"]').evaluate(node => Math.abs(node.getBoundingClientRect().top - 88))).toBeLessThan(2);
@@ -87,6 +96,14 @@ async function inspect(context, url, extension, prefix) {
     await expect.poll(() => page.locator('[data-group-sort-section-id="nav-19"]').evaluate(node =>
       Math.abs(node.getBoundingClientRect().top - document.querySelector(".topbar").getBoundingClientRect().bottom - 24)
     )).toBeLessThan(2);
+    await page.getByRole("button", { name: "间距调节" }).click();
+    const slider = page.getByRole("slider", { name: "内容间距" });
+    for (const key of ["End", "Home"]) {
+      await slider.focus();
+      await slider.press(key);
+      await capture(`many-${width}-${key === "End" ? "96" : "8"}`);
+    }
+    await page.getByRole("button", { name: "恢复默认间距" }).click();
     await capture(`many-${width}`);
     await page.getByRole("button", { name: "打开设置" }).click();
     await expect(page.getByRole("button", { name: "关闭设置" })).toBeVisible();
@@ -94,6 +111,13 @@ async function inspect(context, url, extension, prefix) {
     await capture(`settings-${width}`);
     await page.getByRole("button", { name: "关闭设置" }).click();
   }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await seed("dark", true);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+  await expect(page.locator(".group-section-nav-panel")).toHaveCSS("backdrop-filter", "none");
+  await capture("reduced-transparency");
+  await cdp.detach();
   await page.close();
 }
 const browser = await chromium.launch({ channel: "chrome", headless: true, ignoreDefaultArgs: ["--hide-scrollbars"] });

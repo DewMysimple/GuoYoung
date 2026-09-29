@@ -446,7 +446,13 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
   backdrop-filter: var(--glass-filter);
 }
 
+.has-wallpaper .group-section-nav {
+  --border: var(--glass-edge-soft);
+  --border-strong: var(--glass-edge-soft);
+}
+
 /* Radix dialogs and settings are body portals, outside .app-shell. */
+.has-wallpaper .group-section-nav-panel,
 .has-wallpaper .data-card,
 .has-wallpaper .data-mode-switch,
 .has-wallpaper .data-notice,
@@ -460,6 +466,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   backdrop-filter: var(--glass-filter);
 }
 
+.has-wallpaper .group-section-nav-icon,
 .has-wallpaper .data-workspace .data-file-drop,
 .has-wallpaper .data-workspace .data-group-choice,
 .has-wallpaper .data-workspace .data-scope-options > button,
@@ -586,6 +593,8 @@ body:has(.app-shell.has-wallpaper) .github-import-row:hover {
   background: var(--glass-fill-control);
 }
 
+.has-wallpaper .group-section-nav button[aria-current="location"],
+.has-wallpaper .group-section-nav button:hover:not(:disabled),
 body:has(.app-shell.has-wallpaper) :is(.segmented-control button.active,
   .category-choice.selected, .icon-source-choice.selected) {
   color: var(--text);
@@ -669,6 +678,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
     background-image: none;
     backdrop-filter: none;
   }
+  .has-wallpaper .group-section-nav-panel,
   .has-wallpaper .github-home-entry::before,
   .has-wallpaper .github-home-entry-icon,
   .has-wallpaper .topbar::before,
@@ -720,6 +730,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
     backdrop-filter: none;
   }
 
+  .has-wallpaper .group-section-nav-panel,
   .has-wallpaper .github-home-entry::before,
   .has-wallpaper .github-home-entry-icon,
   .has-wallpaper .topbar,

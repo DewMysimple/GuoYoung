@@ -157,9 +157,12 @@ export const DEFAULT_BRAND: BrandSettings = {
   logoSource: "default",
 };
 
+export const GROUP_NAVIGATION_GAP = { min: 8, max: 96, default: 20 } as const;
+
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   ...DEFAULT_TYPOGRAPHY,
   allowTextSelection: true,
+  groupNavigationGap: GROUP_NAVIGATION_GAP.default,
   theme: "system",
   accentColor: "#3367d6",
   layoutPreset: "standard",
@@ -319,7 +322,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 21,
+    version: 22,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

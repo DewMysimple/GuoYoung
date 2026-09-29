@@ -1,14 +1,23 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { SlidersHorizontal, CaretDown, ArrowCounterClockwise } from "@phosphor-icons/react";
+import { GROUP_NAVIGATION_GAP } from "../data/defaults";
+import { RangeControl } from "./range-control";
 import type { SiteGroup } from "../types";
 import { CategoryIcon } from "./category-icon";
 import "./group-section-nav.css";
 
 /** A reading position, independent of the selected group and all sorting state. */
-export function GroupSectionNav({ groups, containerRef, disabled }: {
+export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsDisabled, onGapChange }: {
   groups: SiteGroup[];
   containerRef: RefObject<HTMLDivElement | null>;
   disabled: boolean;
+  gap: number;
+  settingsDisabled: boolean;
+  onGapChange: (gap: number) => void;
 }) {
+  const [adjusting, setAdjusting] = useState(false);
+  const adjustmentId = useId();
+  const adjustmentTrigger = useRef<HTMLButtonElement>(null);
   const [activeId, setActiveId] = useState<string | undefined>(groups[0]?.id);
   const navRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
@@ -26,7 +35,7 @@ export function GroupSectionNav({ groups, containerRef, disabled }: {
       const main = container.closest("main")!;
       // Fixed offsets start inside the root scrollbar gutter on Windows.
       const origin = nav.getBoundingClientRect().left - parseFloat(nav.style.left || "0");
-      nav.style.left = `${Math.max(12, main.getBoundingClientRect().left - 180) - origin}px`;
+      nav.style.left = `${Math.max(12, main.getBoundingClientRect().left - nav.offsetWidth - gap) - origin}px`;
       if (disabled) return;
       const sections = [...container.querySelectorAll<HTMLElement>("[data-group-sort-section-id]")];
       const offset = (document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0) + 24;
@@ -68,7 +77,7 @@ export function GroupSectionNav({ groups, containerRef, disabled }: {
       window.removeEventListener("keydown", releaseDestination);
       destination.current = null;
     };
-  }, [containerRef, order, disabled]);
+  }, [containerRef, order, disabled, gap]);
 
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -78,7 +87,7 @@ export function GroupSectionNav({ groups, containerRef, disabled }: {
     const item = active.getBoundingClientRect();
     if (item.top < bounds.top) list.scrollTop -= bounds.top - item.top + 8;
     else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom + 8;
-  }, [activeId]);
+  }, [activeId, adjusting]);
 
   function navigate(id: string) {
     const section = [...(containerRef.current?.querySelectorAll<HTMLElement>("[data-group-sort-section-id]") ?? [])]
@@ -107,6 +116,29 @@ export function GroupSectionNav({ groups, containerRef, disabled }: {
           </button>
         </li>)}
       </ol>
+      <div className="group-section-nav-footer" onKeyDown={event => {
+        if (event.key === "Escape" && adjusting) {
+          event.stopPropagation();
+          setAdjusting(false);
+          adjustmentTrigger.current?.focus();
+        }
+      }}>
+        <button type="button" ref={adjustmentTrigger} className="group-section-nav-adjust"
+          aria-expanded={adjusting} aria-controls={adjustmentId} disabled={disabled}
+          onClick={() => setAdjusting(value => !value)}>
+          <SlidersHorizontal size={16} /><span>间距调节</span><CaretDown size={12} />
+        </button>
+        <div id={adjustmentId} hidden={!adjusting} className="group-section-nav-settings">
+          <RangeControl label="内容间距" value={gap} min={GROUP_NAVIGATION_GAP.min} max={GROUP_NAVIGATION_GAP.max}
+            disabled={disabled || settingsDisabled} onChange={onGapChange} />
+          <div className="group-section-nav-setting-actions">
+            <span>{settingsDisabled ? "关闭设置后可调节" : "自动保存"}</span>
+            <button type="button" aria-label="恢复默认间距" title="恢复默认间距"
+              disabled={disabled || settingsDisabled || gap === GROUP_NAVIGATION_GAP.default}
+              onClick={() => onGapChange(GROUP_NAVIGATION_GAP.default)}><ArrowCounterClockwise size={15} /></button>
+          </div>
+        </div>
+      </div>
     </div>
   </nav>;
 }

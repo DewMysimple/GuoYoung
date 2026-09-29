@@ -68,6 +68,13 @@ try {
   await expect(page.locator(".popup-target-icon img")).toHaveAttribute("src", /^data:image\/svg\+xml/);
   await expect(page.getByRole("radiogroup", { name: "添加到分组" })).toBeVisible();
   await expect(page.locator(".popup-group-option").first()).toBeEnabled();
+  await expect(page.locator(".popup-target-icon .favicon-frame")).toHaveCSS("border-width", "0px");
+  const quickIconCenter = await page.locator(".popup-target-icon .favicon-frame").evaluate(frame => {
+    const tile = frame.getBoundingClientRect(), image = frame.querySelector("img").getBoundingClientRect();
+    return { x: Math.abs(tile.left + tile.width / 2 - image.left - image.width / 2),
+      y: Math.abs(tile.top + tile.height / 2 - image.top - image.height / 2) };
+  });
+  assert.ok(quickIconCenter.x < .5 && quickIconCenter.y < .5, "Resized favicon images remain centered in the common tile");
   const quickPopupSize = await page.locator(".popup-shell").evaluate((popup) => {
     const bounds = popup.getBoundingClientRect();
     return { width: Math.round(bounds.width), height: Math.round(bounds.height) };
@@ -338,10 +345,12 @@ try {
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmark-folders-dark.png"), animations: "disabled" });
   await page.getByRole("button", { name: "打开书签文件夹 参考资料" }).click();
   await expect(page.locator('[data-bookmark-kind="site"] .favicon-frame img').first()).toHaveClass(/is-loaded/);
+  await expect(page.locator('.bookmark-kind.site').first()).toHaveCSS("border-width", "0px");
+  await expect(page.locator('.bookmark-kind.site .favicon-frame').first()).toHaveCSS("border-width", "0px");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-bookmarks-dark.png"), animations: "disabled" });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, manyGroupLayout, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, folderCardWidth: folderCardSize.width, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", searchFocusOutline: searchFocusStyle.outline, destinationWidth: Math.round(destinationLayout.width), treeFooterGap: destinationLayout.treeFooterGap, oneDestinationControl: true, footerSeparator: "none", selectedCountAboveList: true, errors, screenshots: 15 }));
+  console.log(JSON.stringify({ version: manifest.version, popupHeader: "single-row", quickHeaderCenterOffset, bookmarksHeaderCenterOffset, brandHeaderElements: 0, quickTargetIdentity: true, quickIconCenter, inlineGroups: true, quickCardUsesAvailableHeight: true, visibleGroupHeight: Math.round(quickLayout.groupHeight), groupScrollHeight: quickLayout.groupScrollHeight, manyGroupLayout, darkVisibleGroups: darkGroupLayout.count, darkGroupHeight: darkGroupLayout.height, darkGroupScrollHeight: darkGroupLayout.scrollHeight, bookmarkGridColumns: 4, folderCardWidth: folderCardSize.width, bookmarkCardWidth: siteCardSize.width, bookmarkCardHeight: siteCardSize.height, bookmarkScrollbar: "rounded-thin", bookmarkIconTileSize: 30, bookmarkFolderGlyphSize: 16, bookmarkNavigation: "drilldown", searchFocusOutline: searchFocusStyle.outline, destinationWidth: Math.round(destinationLayout.width), treeFooterGap: destinationLayout.treeFooterGap, oneDestinationControl: true, footerSeparator: "none", selectedCountAboveList: true, errors, screenshots: 15 }));
 } finally {
   await context.close();
 }

@@ -1203,6 +1203,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--brand-logo-scale": String(effectiveAppearance.brandLogoScale / 100),
     "--brand-logo-radius": `${effectiveAppearance.brandLogoRadius}px`,
     "--brand-gap": `${effectiveAppearance.brandGap}px`,
+    "--group-nav-gap": `${effectiveAppearance.groupNavigationGap}px`,
     "--topbar-height": `${effectiveAppearance.topbarHeight}px`,
     "--search-width": `${effectiveAppearance.searchWidth}px`,
     "--search-height": `${effectiveAppearance.searchHeight}px`,
@@ -1755,7 +1756,11 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                   onDragCancel={handleCollectionDragCancel}
                 >
                   {isGroupedView ? (
-                    <GroupedCollection sections={groupedSections} selection={{ ...selection,
+                    <GroupedCollection navigationGap={effectiveAppearance.groupNavigationGap}
+                      navigationSettingsDisabled={settingsOpen}
+                      onNavigationGapChange={groupNavigationGap => saveSettings(state.brand,
+                        patchAppearance(state.appearance, { groupNavigationGap }), state.wallpaper)}
+                      sections={groupedSections} selection={{ ...selection,
                       toggleGroupSelection, toggleGroupedSiteSelection, enterGroupSelectionFromDoubleClick }}
                       drag={gridDrag} sorting={activeGroupSortAxis === "vertical"} sortDisabled={groupSortDisabled}
                       insertDisabled={Boolean(activeGroupSortId || activeDragId || isSearching || selectionArmed)}

@@ -1,3 +1,4 @@
+import "./favicon.css";
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { getBundledBrandIcon } from "../lib/brand-icons";
 import {

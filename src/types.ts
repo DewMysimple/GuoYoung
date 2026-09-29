@@ -178,6 +178,7 @@ export interface AppearanceSettings extends TypographySettings {
   brandLogoRadius: number;
   brandGap: number;
   topbarHeight: number;
+  groupNavigationGap: number;
   searchWidth: number;
   searchHeight: number;
   searchRadius: number;

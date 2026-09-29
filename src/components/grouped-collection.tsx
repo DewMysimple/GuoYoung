@@ -12,8 +12,11 @@ import type { GroupInsertPosition } from "./group-insert-control";
 type Selection = ReturnType<typeof useCollectionSelection>;
 
 export function GroupedCollection({ sections, selection, drag, sorting, sortDisabled, insertDisabled,
-  onInsert, onManage, onAdd, renderSite,
+  onInsert, onManage, onAdd, renderSite, navigationGap, navigationSettingsDisabled, onNavigationGapChange,
 }: {
+  navigationGap: number;
+  navigationSettingsDisabled: boolean;
+  onNavigationGapChange: (gap: number) => void;
   sections: { group: SiteGroup; sites: SiteItem[] }[];
   selection: Selection;
   drag: CollectionGridDrag;
@@ -47,7 +50,8 @@ export function GroupedCollection({ sections, selection, drag, sorting, sortDisa
         ))}
       </div>
       <GroupSectionNav groups={sections.map(({ group }) => group)} containerRef={containerRef}
-        disabled={sorting || Boolean(drag.activeId)} />
+        disabled={sorting || Boolean(drag.activeId)} gap={navigationGap}
+        settingsDisabled={navigationSettingsDisabled} onGapChange={onNavigationGapChange} />
     </SortableContext>
   );
 }

@@ -139,3 +139,71 @@ test("navigator follows saved order, live deletion and the GitHub workspace", as
   await page.getByRole("button", { name: "定位到 文档", exact: true }).click();
   await expect(page.locator('.group-section-nav [aria-current="location"]')).toHaveText("文档");
 });
+
+
+test("navigation footer adjusts and remembers spacing without overlapping content", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "Desktop group navigation");
+  await seedGroups(page, 24);
+  const nav = page.getByRole("navigation", { name: "分组定位" });
+  const trigger = nav.getByRole("button", { name: "间距调节" });
+  await trigger.click();
+  const slider = nav.getByRole("slider", { name: "内容间距" });
+  await expect(slider).toHaveValue("20");
+  for (const width of [900, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 700 });
+    for (const key of ["End", "Home"]) {
+      await slider.focus();
+      await slider.press(key);
+      const gap = key === "End" ? 96 : 8;
+      await expect(slider).toHaveValue(String(gap));
+      await expect.poll(() => nav.evaluate(node => document.querySelector(".grouped-site-sections")!.getBoundingClientRect().left - node.getBoundingClientRect().right)).toBeCloseTo(gap, 0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const footer = (await trigger.boundingBox())!;
+      expect(footer.y + footer.height).toBeLessThan(700);
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance.groupNavigationGap)).toBe(gap);
+    }
+  }
+  await slider.press("End");
+  await page.reload();
+  await trigger.click();
+  await expect(slider).toHaveValue("96");
+  await page.getByRole("button", { name: "打开设置" }).click();
+  await expect(slider).toBeDisabled();
+  await page.getByRole("button", { name: "关闭设置" }).click();
+  await expect(slider).toBeEnabled();
+  await nav.getByRole("button", { name: "恢复默认间距" }).click();
+  await expect(slider).toHaveValue("20");
+  await slider.focus();
+  await slider.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(slider).toBeHidden();
+});
+
+test("navigation uses shared panel glass and nested transparent icon surfaces", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "Desktop group navigation");
+  await seedGroups(page, 4);
+  await page.route("https://nav.example/wallpaper.svg", route => route.fulfill({ contentType: "image/svg+xml", body:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><path fill="#267a9c" d="M0 0h1600v900H0z"/></svg>' }));
+  for (const transparency of [20, 90]) {
+    await page.evaluate(transparency => {
+      const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+      state.wallpaper = { ...state.wallpaper, source: "url", url: "https://nav.example/wallpaper.svg", glassPanelTransparency: transparency, glassBlur: 7, glassShadow: 0 };
+      localStorage.setItem("site-hub:v1", JSON.stringify(state));
+    }, transparency);
+    await page.reload();
+    await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
+    const panel = page.locator(".group-section-nav-panel");
+    await expect(panel).toHaveCSS("backdrop-filter", /blur\(7px\)/);
+    const styles = await panel.evaluate(node => {
+      const reference = document.createElement("div");
+      reference.style.backgroundColor = "var(--glass-fill-panel)";
+      node.append(reference);
+      const expected = getComputedStyle(reference).backgroundColor;
+      reference.remove();
+      return { actual: getComputedStyle(node).backgroundColor, expected };
+    });
+    expect(styles.actual).toBe(styles.expected);
+    await page.getByRole("button", { name: "间距调节" }).click();
+    await page.screenshot({ path: screenshotPath(`navigation-glass-${transparency}.png`) });
+  }
+});

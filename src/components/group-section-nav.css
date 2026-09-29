@@ -1,10 +1,11 @@
 .group-section-nav { display: none; }
 
 @media (min-width: 900px) {
+  .app-shell { --group-nav-width: 160px; --group-nav-lane: calc(var(--group-nav-width) + var(--group-nav-gap)); }
   /* Reserve a real lane; the navigator must never cover cards or group actions. */
   .main-content:has(.group-section-nav) {
-    width: min(100% - var(--page-padding) * 2 - 180px, var(--content-max-width));
-    margin-left: max(calc(var(--page-padding) + 180px), calc((100% - var(--content-max-width)) / 2));
+    width: min(100% - max(12px, var(--page-padding)) * 2 - var(--group-nav-lane), var(--content-max-width));
+    margin-left: max(calc(max(12px, var(--page-padding)) + var(--group-nav-lane)), calc((100% - var(--content-max-width)) / 2));
     margin-right: auto;
   }
   .group-section-nav {
@@ -15,7 +16,7 @@
     bottom: 32px;
     display: flex;
     align-items: center;
-    width: 160px;
+    width: var(--group-nav-width);
     pointer-events: none;
     color: var(--text);
     text-shadow: none;
@@ -59,7 +60,8 @@
     background: var(--border-strong);
     content: "";
   }
-  .group-section-nav button {
+  .group-section-nav li button,
+  .group-section-nav-adjust {
     position: relative;
     display: flex;
     align-items: center;
@@ -74,7 +76,7 @@
     cursor: pointer;
     transition: background-color 150ms ease, color 150ms ease;
   }
-  .group-section-nav button:hover { background: var(--surface-hover); }
+  .group-section-nav button:hover:not(:disabled) { background: var(--surface-hover); }
   .group-section-nav button[aria-current="location"] { background: var(--accent-soft); color: var(--text); font-weight: 700; }
   .group-section-nav-icon {
     display: grid;
@@ -92,12 +94,17 @@
   }
   .group-section-nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(12px * var(--font-scale)); }
   .group-section-nav button:disabled { cursor: default; opacity: .6; }
-  .has-wallpaper .group-section-nav-panel {
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    backdrop-filter: var(--glass-filter);
-    border-color: var(--glass-edge-soft);
-    box-shadow: var(--glass-control-shadow);
-  }
+  .group-section-nav-caption, .group-section-nav-footer { flex: 0 0 auto; }
+  .group-section-nav-footer { margin: 6px 4px 0; padding-top: 6px; border-top: 1px solid var(--border); }
+  .group-section-nav-adjust { min-height: 34px; font-size: calc(11px * var(--font-scale)); color: var(--text-soft); }
+  .group-section-nav-adjust > span { flex: 1; }
+  .group-section-nav-adjust[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
+  .group-section-nav-settings { padding: 10px 5px 2px; }
+  .group-section-nav-settings .range-control > span { gap: 4px; font-size: calc(10px * var(--font-scale)); }
+  .group-section-nav-settings .range-control input { min-width: 0; margin: 0; }
+  .group-section-nav-setting-actions { display: flex; align-items: center; justify-content: space-between; gap: 2px; margin-top: 8px; }
+  .group-section-nav-setting-actions > span { font-size: 10px; color: var(--text-soft); }
+  .group-section-nav-setting-actions > button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
 }
 
 /* Editing in a narrow desktop window needs the available content width. */
@@ -110,6 +117,3 @@
 }
 
 @media (prefers-reduced-motion: reduce) { .group-section-nav button { transition: none; } }
-@media (prefers-reduced-transparency: reduce) {
-  .has-wallpaper .group-section-nav-panel { background: var(--surface); backdrop-filter: none; }
-}
