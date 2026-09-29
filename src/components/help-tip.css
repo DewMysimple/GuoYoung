@@ -1,0 +1,31 @@
+.help-tip { display: inline-flex; vertical-align: middle; margin-inline-start: 6px; }
+.help-tip-trigger {
+  display: inline-grid; place-items: center; width: 20px; height: 20px;
+  padding: 0; border: 1px solid var(--border-strong); border-radius: 50%;
+  color: var(--text-soft); background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1;
+  cursor: help; text-shadow: none;
+}
+.help-tip-trigger:hover, .help-tip-trigger:focus-visible { color: var(--text); border-color: var(--accent); }
+.help-tip-bubble {
+  position: fixed; z-index: 1000; width: max-content; max-width: min(300px, calc(100vw - 24px));
+  pointer-events: auto;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow-soft);
+  font: 12px/1.7 var(--reading-font, sans-serif); text-shadow: none; overflow-wrap: anywhere;
+}
+body:has(.app-shell.has-wallpaper) .help-tip-bubble {
+  border-color: var(--glass-edge); background: var(--glass-fill-popover);
+  background-image: var(--glass-surface-image); backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-shadow);
+}
+@media (prefers-reduced-transparency: reduce) {
+  body:has(.app-shell.has-wallpaper) .help-tip-bubble { background: var(--surface); backdrop-filter: none; }
+}
+
+.toggle-row > .settings-toggle-label { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
+
+.dialog-heading-with-help { display: flex; align-items: center; gap: 4px; }
+
+@supports not (backdrop-filter: blur(1px)) {
+  body:has(.app-shell.has-wallpaper) .help-tip-bubble { background: var(--surface); }
+}

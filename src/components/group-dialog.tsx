@@ -1,3 +1,4 @@
+import { HelpTip } from "./help-tip";
 import { DataTransferActions } from "./data-transfer-actions";
 import { CardSelectionToggle } from "./card-primitives";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -514,10 +515,10 @@ export function GroupDialog({
         >
           <div className="dialog-header">
             <div>
-              <Dialog.Title id={titleId} className="dialog-title">
-                管理分组
-              </Dialog.Title>
-              <Dialog.Description className="dialog-description">
+              <div className="dialog-heading-with-help"><Dialog.Title id={titleId} className="dialog-title">管理分组</Dialog.Title>
+                <HelpTip label="管理分组说明">点击名称编辑，勾选圆圈可批量删除；拖动手柄调整顺序。</HelpTip>
+              </div>
+              <Dialog.Description className="visually-hidden">
                 点击名称编辑，勾选圆圈可批量删除；拖动手柄调整顺序。
               </Dialog.Description>
             </div>

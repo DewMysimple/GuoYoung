@@ -1,3 +1,4 @@
+import { SettingsToggle } from "./settings-toggle";
 import { useRef, type ChangeEvent } from "react";
 import { ArrowsOutCardinal, Crosshair, Image, Trash, UploadSimple } from "@phosphor-icons/react";
 import { DEFAULT_WALLPAPER } from "../data/defaults";
@@ -47,8 +48,8 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       {error && <p className="field-error" role="alert">{error}</p>}
     </section>
 
-    <SettingsDisclosure title="位置与构图" summary="填充、位置与缩放">
-      <p className="appearance-description">铺满页面或保留完整图片，再拖动选择合适的位置。</p>
+    <SettingsDisclosure title="位置与构图" summary="填充、位置与缩放" help="铺满页面或保留完整图片，再拖动选择合适的位置。">
+
       <div className="segmented-control" role="group" aria-label="填充方式">
         {(["cover", "contain"] as const).map((fit) => <button key={fit} type="button" className={value.fit === fit ? "active" : ""}
           aria-pressed={value.fit === fit} onClick={() => onChange({ fit })}>{fit === "cover" ? "铺满" : "完整显示"}</button>)}
@@ -63,8 +64,8 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       <RangeControl label="缩放" min={50} max={300} value={value.zoom} unit="%" disabled={!enabled} onChange={(zoom) => onChange({ zoom })} />
     </SettingsDisclosure>
 
-    <SettingsDisclosure title="阅读与氛围" summary="模糊与明暗遮罩">
-      <p className="appearance-description">保留壁纸的层次，通过柔化背景改善阅读。深色主题搭配浅色壁纸时，可增加明暗遮罩，让文字更清楚。</p>
+    <SettingsDisclosure title="阅读与氛围" summary="模糊与明暗遮罩" help="保留壁纸的层次，通过柔化背景改善阅读。深色主题搭配浅色壁纸时，可增加明暗遮罩，让文字更清楚。">
+
       <div className="segmented-control" role="group" aria-label="壁纸氛围">
         {ATMOSPHERES.map(({ label, ...patch }) => <button key={label} type="button" disabled={!enabled}
           className={Object.entries(patch).every(([key, val]) => value[key as keyof WallpaperSettings] === val) ? "active" : ""}
@@ -74,7 +75,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       <RangeControl label="明暗遮罩" min={0} max={80} value={value.overlay} unit="%" disabled={!enabled} onChange={(overlay) => onChange({ overlay })} />
     </SettingsDisclosure>
 
-    <SettingsDisclosure title="玻璃外观" summary={preset?.label ?? "已自定义"}>
+    <SettingsDisclosure help="九套预设默认使用轻量玻璃；可在微调中开启折射。选择即刻预览，保存后生效。" title="玻璃外观" summary={preset?.label ?? "已自定义"}>
       <div className="glass-preset-grid" role="group" aria-label="玻璃外观预设">
         {GLASS_PRESETS.map(option => <button type="button" className="glass-preset" key={option.id}
           data-preset={option.id} aria-pressed={preset?.id === option.id} onClick={() => onChange(option.values)}>
@@ -82,9 +83,8 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
           <strong>{option.label}</strong><small>{option.description}</small>
         </button>)}
       </div>
-      <p className="appearance-description">九套预设默认使用轻量玻璃；可在微调中开启折射。选择即刻预览，保存后生效。</p>
-      <SettingsDisclosure title="玻璃参数微调" summary="透明度、高光与折射" className="glass-fine-tuning">
-      <p className="appearance-description">透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。</p>
+      <SettingsDisclosure title="玻璃参数微调" summary="透明度、高光与折射" className="glass-fine-tuning" help="透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。">
+
       {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
       <RangeControl label="玻璃透明度" min={0} max={100} value={value.glassTransparency} unit="%" onChange={(glassTransparency) => onChange({ glassTransparency })} />
       <RangeControl label="按钮透明度" min={0} max={100} value={value.glassControlTransparency} unit="%" onChange={(glassControlTransparency) => onChange({ glassControlTransparency })} />
@@ -94,31 +94,27 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       <RangeControl label="玻璃磨砂" min={0} max={30} value={value.glassBlur} onChange={(glassBlur) => onChange({ glassBlur })} />
       <RangeControl label="色彩饱和度" min={100} max={200} value={value.glassSaturation} unit="%" onChange={(glassSaturation) => onChange({ glassSaturation })} />
       <RangeControl label="边缘高光" min={0} max={100} value={value.glassHighlight} unit="%" onChange={(glassHighlight) => onChange({ glassHighlight })} />
-      <label className="toggle-row"><span><strong>玻璃折射</strong><small>弯折边缘后的壁纸；收藏较多时会增加绘制开销</small></span>
-        <input type="checkbox" checked={value.glassRefraction} onChange={(event) => onChange({ glassRefraction: event.target.checked })} />
-      </label>
+      <SettingsToggle label="玻璃折射" help="弯折边缘后的壁纸；收藏较多时会增加绘制开销。Chrome / Edge 支持折射，其他浏览器保留磨砂玻璃。" checked={value.glassRefraction}
+        onChange={checked => onChange({ glassRefraction: checked })} />
       {value.glassRefraction && <>
         <RangeControl label="折射强度" min={0} max={40} value={value.glassRefractionStrength} onChange={(glassRefractionStrength) => onChange({ glassRefractionStrength })} />
-        <p className="appearance-description">Chrome / Edge 支持折射；其他浏览器保留磨砂玻璃。关闭可减少绘制开销。</p>
       </>}
       <button type="button" className="button secondary-button" onClick={() => onChange(pickGlass(DEFAULT_WALLPAPER))}>恢复玻璃默认</button>
       </SettingsDisclosure>
     </SettingsDisclosure>
 
-    <SettingsDisclosure title="顶栏外观" summary={value.topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"}>
-      <p className="appearance-description">玻璃底板可独立调节顶栏材质。要完全透出壁纸，请选择“融入壁纸”并关闭清晰阅读。</p>
-      <label className="toggle-row"><span><strong>顶部清晰阅读</strong><small>为导航、搜索和分组工具增加阅读衬底；文字始终跟随全局配色，关闭后使用原玻璃透明度。</small></span>
-        <input type="checkbox" checked={value.topbarReadability !== "page"} onChange={event => onChange({ topbarReadability: event.target.checked ? "clear" : "page" })} />
-      </label>
+    <SettingsDisclosure title="顶栏外观" summary={value.topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"} help="玻璃底板可独立调节顶栏材质。要完全透出壁纸，请选择“融入壁纸”并关闭清晰阅读。">
+
+      <SettingsToggle label="顶部清晰阅读" help="为导航、搜索和分组工具增加阅读衬底；文字始终跟随全局配色，关闭后使用原玻璃透明度。" checked={value.topbarReadability !== "page"}
+        onChange={checked => onChange({ topbarReadability: checked ? "clear" : "page" })} />
       <div className="segmented-control" role="group" aria-label="顶栏样式">
         {(["clear", "glass"] as const).map((topbarStyle) => <button type="button" key={topbarStyle}
           aria-pressed={value.topbarStyle === topbarStyle} className={value.topbarStyle === topbarStyle ? "active" : ""}
           onClick={() => onChange({ topbarStyle })}>{topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"}</button>)}
       </div>
       {value.topbarStyle === "glass" && <>
-        <label className="toggle-row"><span><strong>模糊壁纸</strong><small>柔化顶栏下方的图片细节</small></span>
-          <input type="checkbox" checked={value.topbarBlurEnabled} onChange={(event) => onChange({ topbarBlurEnabled: event.target.checked })} />
-        </label>
+        <SettingsToggle label="模糊壁纸" help="柔化顶栏下方的图片细节" checked={value.topbarBlurEnabled}
+        onChange={checked => onChange({ topbarBlurEnabled: checked })} />
         <RangeControl label="模糊强度" min={0} max={30} value={value.topbarBlur} disabled={!value.topbarBlurEnabled} onChange={(topbarBlur) => onChange({ topbarBlur })} />
         <RangeControl label="顶栏透明度" min={0} max={100} value={100 - value.topbarOpacity} unit="%" onChange={(transparency) => onChange({ topbarOpacity: 100 - transparency })} />
       </>}

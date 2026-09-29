@@ -70,13 +70,13 @@ export function getTextShadow(value: TypographySettings) {
 
 export function typographyVariables(value: TypographySettings) {
   const primary = value.textColorMode === "custom" ? value.textColor : "var(--theme-text)";
-  const secondary = value.textColorHierarchy === "unified" ? primary
-    : value.textColorMode === "custom" ? value.textSecondaryColor : "var(--theme-text-secondary)";
+  const secondary = value.textColorMode === "theme" ? "var(--theme-text-secondary)"
+    : value.textColorHierarchy === "unified" ? primary : value.textSecondaryColor;
   return {
     "--reading-font": getFontFamily(value),
     "--reading-text": primary,
     "--reading-text-secondary": secondary,
-    "--reading-text-faint": secondary,
+    "--reading-text-faint": value.textColorMode === "theme" ? "var(--theme-text-faint)" : secondary,
     "--reading-icon": value.iconColorMode === "custom" ? value.iconColor : "inherit",
     "--reading-shadow": getTextShadow(value),
   };

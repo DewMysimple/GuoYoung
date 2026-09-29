@@ -230,11 +230,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   background-color: var(--glass-fill-low);
   background-image: var(--glass-surface-image);
   box-shadow: var(--glass-shadow);
-  transition:
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 220ms ease,
-    box-shadow 220ms ease,
-    background-color 220ms ease;
+  transition: border-color 160ms ease, background-color 160ms ease;
   backdrop-filter: var(--glass-filter);
 }
 
@@ -255,6 +251,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   .site-card:not(.is-selected):not(.is-drag-pending):not(.is-drop-target):not(.is-dragging):focus-within,
 .has-wallpaper .add-site-card:hover,
 .has-wallpaper .add-site-card[data-drop-ready] {
+  transform: none;
   border-color: color-mix(in srgb, var(--accent) 42%, var(--glass-edge));
   background-color: var(--glass-fill);
   background-image:
@@ -345,6 +342,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 .has-wallpaper .group-add-menu,
 .has-wallpaper .color-picker-popover,
 body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
+  animation: none;
   border-color: var(--glass-edge);
   background-color: var(--glass-fill-popover);
   background-image: var(--glass-surface-image);
@@ -577,6 +575,7 @@ body:has(.app-shell.has-wallpaper) .typography-font-label { border-color: var(--
 
 body:has(.app-shell.has-wallpaper) :is(.group-manager-list, .group-manager-editor,
   .segmented-control, .data-overview,
+  .group-editor-icon, .group-manager-check:not([aria-pressed="true"]):not([data-indeterminate="true"]),
   .icon-source-grid, .icon-source-choice, .category-choice, .protected-note,
   .github-refresh-stat, .github-refresh-detail, .github-import-list,
   .github-import-statuses span, .trash-item, .color-picker-value label,
@@ -765,4 +764,12 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
     backdrop-filter: none;
   }
+}
+
+/* Keep menus above grouped sections and their composited glass cards. */
+.has-wallpaper .collection-heading { position: relative; z-index: 15; }
+body:has(.app-shell.has-wallpaper) .select-menu-popover { animation: none; }
+body:has(.app-shell.has-wallpaper) .group-manager-check:is([aria-pressed="true"], [data-indeterminate="true"]) {
+  background: color-mix(in srgb, var(--accent) 65%, transparent);
+  border-color: var(--glass-edge);
 }

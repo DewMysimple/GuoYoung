@@ -22,8 +22,10 @@ async function expectControlIconColor(page: Page, expected: string) {
 
 test("shares pure theme colors across navigation, menus, settings and group management", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop color acceptance");
+  await page.route("https://colors.example/wallpaper.svg", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#41849c"/></svg>' }));
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://colors.example/wallpaper.svg" };
     state.displayModeByWorkspace.main = "grouped";
     localStorage.setItem("site-hub:v1", JSON.stringify(state));
   });
@@ -106,8 +108,8 @@ test("previews global unified/split colors and independent icons, cancels and pe
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: "字体调节" }).click();
   await panel.getByRole("button", { name: "恢复默认字体" }).click();
-  await expect(page.locator(".site-name").first()).toHaveCSS("color", "rgb(255, 255, 255)");
-  await expect(page.locator(".topbar-history-button.active svg")).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(page.locator(".site-name").first()).toHaveCSS("color", "rgb(232, 236, 243)");
+  await expect(page.locator(".topbar-history-button.active svg")).toHaveCSS("color", "rgb(232, 236, 243)");
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await expect(page.locator(".site-domain").first()).toHaveCSS("color", primary);
   await expect(page.locator(".topbar-history-button.active svg")).toHaveCSS("color", "rgb(252, 171, 18)");

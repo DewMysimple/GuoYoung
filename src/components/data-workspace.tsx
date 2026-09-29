@@ -1,3 +1,4 @@
+import { HelpTip } from "./help-tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Database, DownloadSimple, FileArrowUp, FolderSimple, UploadSimple } from "@phosphor-icons/react";
 import type { SiteCollectionState, SiteWorkspace } from "../types";
@@ -126,7 +127,7 @@ export function DataWorkspace({ state, context, onBack, onImport }: Props) {
         <dl><div><dt>导出分组</dt><dd>{exportScope === "all" ? state.groups.length : groups.filter(group => exportIds.includes(group.key)).length}</dd></div><div><dt>导出链接</dt><dd>{exportScope === "all" ? state.sites.length : groups.filter(group => exportIds.includes(group.key)).reduce((sum, group) => sum + group.payload.sites.length, 0)}</dd></div><div><dt>外观设置</dt><dd>{exportScope === "all" ? "包含" : "不包含"}</dd></div></dl>
         <button type="button" className="button primary-button" disabled={exportScope === "groups" && !groups.some(group => exportIds.includes(group.key))} onClick={exportData}><DownloadSimple size={18} />导出 JSON</button>
       </>}
-      <div className="data-footnote"><strong>关于数据</strong><p>备份不包含回收站、搜索历史、浏览器历史与本地壁纸文件。</p>{mode === "import" && <p>具体 GitHub 链接会按工作区规则归类；GitHub 组不接收普通网址和 GitHub 根入口，不符合的链接计入跳过。</p>}</div>
+      <div className="data-footnote"><strong>关于数据</strong><HelpTip label="备份范围说明">备份不包含回收站、搜索历史、浏览器历史与本地壁纸文件。</HelpTip>{mode === "import" && <p>具体 GitHub 链接会按工作区规则归类；GitHub 组不接收普通网址和 GitHub 根入口，不符合的链接计入跳过。</p>}</div>
     </aside></div>
     <ConfirmDialog destructive={destination === "replace"} open={confirming} title={destination === "replace" ? "导入并替换收藏？" : "导入分组资源？"} description={destination === "replace" ? `将替换当前 ${state.sites.length} 个收藏及外观设置，导入 ${result?.added ?? 0} 个网站。建议先导出全局备份。` : `新增 ${result?.added ?? 0} 个网站，跳过 ${result?.skipped ?? 0} 个重复或不符合工作区的链接，新建 ${result?.created ?? 0} 个分组。`} confirmLabel="确认导入" onOpenChange={setConfirming} onConfirm={() => {
       if (!request) return;

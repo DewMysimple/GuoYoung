@@ -24,7 +24,7 @@ test("previews font choices and color effects, cancels, then persists them acros
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance)).toEqual(savedAppearance);
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await expect(name).toHaveCSS("font-family", originalFont);
-  await expect(name).toHaveCSS("color", "rgb(0, 0, 0)");
+  await expect(name).toHaveCSS("color", "rgb(23, 28, 38)");
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: "字体调节" }).click();
@@ -58,7 +58,7 @@ test("previews font choices and color effects, cancels, then persists them acros
   await panel.getByRole("tab", { name: "字体调节" }).click();
   await expect(panel.getByRole("heading", { name: "字体", exact: true })).toHaveCSS("color", "rgb(75, 39, 124)");
   await panel.getByRole("button", { name: "恢复默认字体" }).click();
-  await expect(name).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(name).toHaveCSS("color", "rgb(232, 236, 243)");
   await expect(name).toHaveCSS("font-family", originalFont);
   await expect(name).toHaveCSS("text-shadow", "none");
   await panel.getByRole("button", { name: "取消", exact: true }).click();

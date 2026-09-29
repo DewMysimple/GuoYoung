@@ -51,15 +51,7 @@
     list-style: none;
   }
   .group-section-nav li { position: relative; padding-block: 3px; }
-  .group-section-nav li:not(:last-child)::before {
-    position: absolute;
-    top: 34px;
-    bottom: -12px;
-    left: 20px;
-    width: 1px;
-    background: var(--border-strong);
-    content: "";
-  }
+
   .group-section-nav li button,
   .group-section-nav-adjust {
     position: relative;

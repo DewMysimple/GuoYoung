@@ -1,3 +1,4 @@
+import { HelpTip } from "./help-tip";
 import { DialogNavigation } from "./dialog-navigation";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -289,9 +290,8 @@ export function SiteDialog({
                   aria-describedby={errors.url ? "site-url-error" : "site-url-help"}
                 />
               </div>
-              <p id="site-url-help" className="field-help">
-                可以省略 https://，填写后会自动生成网站名称
-              </p>
+              <span id="site-url-help" className="visually-hidden">可以省略 https://，填写后会自动生成网站名称</span>
+              <HelpTip label="地址填写帮助">可以省略 https://，填写后会自动生成网站名称</HelpTip>
               {errors.url && (
                 <p id="site-url-error" className="field-error">
                   {errors.url}
@@ -402,9 +402,8 @@ export function SiteDialog({
                   }
                 />
               </div>
-              <p id="site-icon-help" className="field-help">
-                留空时自动读取网站 favicon
-              </p>
+              <span id="site-icon-help" className="visually-hidden">留空时自动读取网站 favicon</span>
+              <HelpTip label="图标来源帮助">留空时自动读取网站 favicon</HelpTip>
               {errors.customIconUrl && (
                 <p id="site-icon-error" className="field-error">
                   {errors.customIconUrl}

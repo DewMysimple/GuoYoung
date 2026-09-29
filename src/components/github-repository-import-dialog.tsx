@@ -1,3 +1,4 @@
+import { HelpTip } from "./help-tip";
 import { DialogNavigation } from "./dialog-navigation";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -129,9 +130,9 @@ export function GithubRepositoryImportDialog({
                 {loading ? "读取中" : "读取仓库"}
               </button>
             </div>
-            <p className="field-help">
+            <div className="field-help"><HelpTip>
               仅读取公开仓库，不需要登录；默认包括 fork 和归档仓库。
-            </p>
+            </HelpTip></div>
           </form>
 
           {error && (

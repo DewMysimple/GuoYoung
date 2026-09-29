@@ -1,3 +1,4 @@
+import { SettingsToggle } from "./settings-toggle";
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "@phosphor-icons/react";
@@ -49,8 +50,8 @@ export function LogoImageEditor({ source, shape, onCancel, onApply }: {
         {LOGO_SHAPES.map(item => <button key={item.value} type="button" aria-pressed={options.shape === item.value} className={options.shape === item.value ? "active" : ""}
           onClick={() => setOptions(current => ({ ...current, shape: item.value }))}>{item.label}</button>)}
       </div>
-      <label className="toggle-row"><span><strong>裁切选定区域</strong><small>关闭时保留整张图片，空余区域透明。</small></span>
-        <input type="checkbox" checked={options.crop} onChange={event => setOptions(current => ({ ...current, crop: event.target.checked }))} /></label>
+      <SettingsToggle label="裁切选定区域" help="关闭时保留整张图片，空余区域透明。" checked={options.crop}
+        onChange={checked => setOptions(current => ({ ...current, crop: checked }))} />
       {options.crop && <div className="logo-crop-controls">
         <RangeControl label="裁切缩放" min={100} max={400} value={options.zoom * 100} unit="%" onChange={zoom => setOptions(current => ({ ...current, zoom: zoom / 100 }))} />
         <RangeControl label="裁切水平位置" min={0} max={100} value={options.x} unit="%" onChange={x => setOptions(current => ({ ...current, x }))} />

@@ -1,3 +1,4 @@
+import { HelpTip } from "./help-tip";
 import { useEffect, useId, useRef, type ChangeEvent } from "react";
 import { useSettingsDisclosure } from "./settings-location";
 import { ArrowCounterClockwise, CaretDown, UploadSimple } from "@phosphor-icons/react";
@@ -53,12 +54,11 @@ export function BrandSettingsEditor({
           </label>
 
           <div className="brand-visibility-options">
-            <label className="settings-field">
-              <span>标签页名称</span>
-              <input aria-label="标签页名称" value={value.tabTitle ?? ""} maxLength={80} placeholder="留空时使用品牌名称"
+            <div className="settings-field">
+              <span><label htmlFor={`${contentId}-tab-title`}>标签页名称</label><HelpTip label="标签页标题说明">完整自定义浏览器标签页标题，不追加固定后缀。</HelpTip></span>
+              <input id={`${contentId}-tab-title`} aria-label="标签页名称" value={value.tabTitle ?? ""} maxLength={80} placeholder="留空时使用品牌名称"
                 onChange={event => onChange({ tabTitle: event.target.value })} />
-              <small>完整自定义浏览器标签页标题，不追加固定后缀。</small>
-            </label>
+            </div>
             <label className="toggle-row compact-toggle-row">
               <span><strong>显示 Logo</strong></span>
               <input

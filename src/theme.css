@@ -6,11 +6,12 @@
   --surface-raised: #eef1f5;
   --surface-hover: #e8edf5;
   --icon-surface: #eef1f5;
-  --theme-text: #000000;
-  --theme-text-secondary: #394457;
+  --theme-text: #171c26;
+  --theme-text-secondary: #596273;
+  --theme-text-faint: #778091;
   --text: var(--reading-text, var(--theme-text));
-  --text-soft: var(--reading-text-secondary, var(--theme-text));
-  --text-faint: var(--reading-text-secondary, var(--theme-text));
+  --text-soft: var(--reading-text-secondary, var(--theme-text-secondary));
+  --text-faint: var(--reading-text-faint, var(--theme-text-faint));
   --border: #dfe4ec;
   --border-strong: #cbd2dd;
   --accent-base: #3367d6;
@@ -39,8 +40,9 @@
   --surface: #20242d;
   --surface-raised: #292e39;
   --surface-hover: #323947;
-  --theme-text: #ffffff;
-  --theme-text-secondary: #dde3ed;
+  --theme-text: #e8ecf3;
+  --theme-text-secondary: #bac3d2;
+  --theme-text-faint: #99a5b8;
   --border: #353d4b;
   --border-strong: #4c586a;
   --accent-text: color-mix(in srgb, var(--accent-base) 52%, #eef3ff);
@@ -57,4 +59,17 @@
   --wallpaper-text-shadow: 0 1px 2px rgb(0 0 0 / .65);
   --glass-shadow-color: 0 0 0;
   --dialog-rim: color-mix(in srgb, var(--border-strong) 60%, transparent);
+}
+
+/* Wallpaper reading contrast is scoped to the page that actually displays it.
+   Plain themes retain the three historical text levels (dea02c4). */
+:root:has(.app-shell.has-wallpaper) {
+  --theme-text: #000000;
+  --theme-text-secondary: #000000;
+  --theme-text-faint: #000000;
+}
+:root[data-theme="dark"]:has(.app-shell.has-wallpaper) {
+  --theme-text: #ffffff;
+  --theme-text-secondary: #ffffff;
+  --theme-text-faint: #ffffff;
 }

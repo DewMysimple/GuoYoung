@@ -1,3 +1,4 @@
+import { HelpTip } from "./help-tip";
 import { DataTransferActions } from "./data-transfer-actions";
 import { useSettingsDisclosure } from "./settings-location";
 import { useEffect, useRef, useState } from "react";
@@ -113,8 +114,7 @@ export function DataSettingsEditor({ state, initialTrashOpen, onExport, onImport
                 </div>
                 <div className="settings-data-card">
                   <div>
-                    <strong>导入与导出</strong>
-                    <p>在独立数据页面选择全局或指定分组，预览后导入，也可新建分组。</p>
+                    <strong>导入与导出</strong><HelpTip label="数据操作说明">在独立数据页面选择全局或指定分组，预览后导入，也可新建分组。</HelpTip>
                   </div>
                   <div className="settings-inline-actions">
                     <DataTransferActions onImport={onImport} onExport={onExport} />

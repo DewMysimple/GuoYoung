@@ -220,7 +220,7 @@ test("opens the GitHub home entry from its card surface", async ({ page, context
     };
   });
   await expect(refreshButton).toHaveCSS("background-color", "rgb(51, 103, 214)");
-  await expect(refreshButton).toHaveCSS("color", "rgb(0, 0, 0)");
+  await expect(refreshButton).toHaveCSS("color", "rgb(23, 28, 38)");
 
   const requestPromise = context.waitForEvent("request", {
     predicate: (request) => request.url().startsWith("https://github.com"),
