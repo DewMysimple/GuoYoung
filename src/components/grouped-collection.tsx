@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
+import { GroupSectionNav } from "./group-section-nav";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { SiteGroup, SiteItem } from "../types";
 import type { DroppedSitePreview } from "../lib/external-link-drop";
@@ -24,9 +25,10 @@ export function GroupedCollection({ sections, selection, drag, sorting, sortDisa
   onAdd: (groupId?: string, prefill?: DroppedSitePreview) => void;
   renderSite: (site: SiteItem, group: SiteGroup) => ReactNode;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   return (
     <SortableContext items={sections.map(({ group }) => groupSortRowId(group.id))} strategy={verticalListSortingStrategy}>
-      <div className={`grouped-site-sections ${sorting ? "is-group-sort-active" : ""}`}>
+      <div ref={containerRef} className={`grouped-site-sections ${sorting ? "is-group-sort-active" : ""}`}>
         {sections.map(({ group, sites }, index) => (
           <SortableGroupSection key={group.id} group={group} count={sites.length} disabled={sortDisabled}
             insertDisabled={insertDisabled}
@@ -44,6 +46,8 @@ export function GroupedCollection({ sections, selection, drag, sorting, sortDisa
           </SortableGroupSection>
         ))}
       </div>
+      <GroupSectionNav groups={sections.map(({ group }) => group)} containerRef={containerRef}
+        disabled={sorting || Boolean(drag.activeId)} />
     </SortableContext>
   );
 }

@@ -22,6 +22,13 @@ async function expectControlIconColor(page: Page, expected: string) {
 
 test("shares pure theme colors across navigation, menus, settings and group management", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop color acceptance");
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.displayModeByWorkspace.main = "grouped";
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  await page.reload();
+  await expect(page.getByRole("navigation", { name: "分组定位" })).toBeVisible();
   for (const [theme, color] of [["light", "rgb(0, 0, 0)"], ["dark", "rgb(255, 255, 255)"]]) {
     await page.emulateMedia({ colorScheme: theme as "light" | "dark" });
     for (const selector of [".site-name", ".site-domain", ".site-category", ".category-tab.active", ".topbar-history-button.active", ".collection-heading p"]) {
@@ -54,6 +61,13 @@ test("shares pure theme colors across navigation, menus, settings and group mana
 
 test("previews global unified/split colors and independent icons, cancels and persists", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop color acceptance");
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.displayModeByWorkspace.main = "grouped";
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  await page.reload();
+  await expect(page.getByRole("navigation", { name: "分组定位" })).toBeVisible();
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: "字体调节" }).click();

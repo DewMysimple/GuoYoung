@@ -27,7 +27,7 @@ test("keeps settings card edges fixed when expanded content needs a scrollbar", 
   expect((await card.boundingBox())!.width).toBeCloseTo(before.width, 1);
 });
 
-test("keeps the workspace width when page overflow and modal scroll locks change", async ({ page }) => {
+test("reserves the group navigation lane and keeps geometry stable through modal scroll locks", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const heading = page.locator(".collection-heading");
   const before = (await heading.boundingBox())!;
@@ -35,10 +35,14 @@ test("keeps the workspace width when page overflow and modal scroll locks change
   await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight > innerHeight)).toBe(true);
   const grouped = (await heading.boundingBox())!;
-  expect(grouped.x).toBeCloseTo(before.x, 1);
-  expect(grouped.width).toBeCloseTo(before.width, 1);
+  const rail = (await page.getByRole("navigation", { name: "分组定位" }).boundingBox())!;
+  expect(grouped.x - before.x).toBeCloseTo(rail.width + 20, 1);
+  expect(grouped.width + rail.width + 20).toBeCloseTo(before.width, 1);
+  expect(grouped.x - rail.x - rail.width).toBeCloseTo(20, 1);
   await page.getByRole("button", { name: "管理分组", exact: true }).click();
   expect((await heading.boundingBox())!.width).toBeCloseTo(grouped.width, 1);
+  expect((await heading.boundingBox())!.x).toBeCloseTo(grouped.x, 1);
   await page.getByRole("dialog", { name: "管理分组", exact: true }).getByRole("button", { name: "关闭", exact: true }).click();
   expect((await heading.boundingBox())!.width).toBeCloseTo(grouped.width, 1);
+  expect((await heading.boundingBox())!.x).toBeCloseTo(grouped.x, 1);
 });
