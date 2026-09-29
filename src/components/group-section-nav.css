@@ -1,0 +1,107 @@
+.group-section-nav { display: none; }
+
+@media (min-width: 900px) {
+  /* Reserve a real lane; the navigator must never cover cards or group actions. */
+  .main-content:has(.group-section-nav) {
+    width: min(100% - var(--page-padding) * 2 - 180px, var(--content-max-width));
+    margin-left: max(calc(var(--page-padding) + 180px), calc((100% - var(--content-max-width)) / 2));
+    margin-right: auto;
+  }
+  .group-section-nav {
+    position: fixed;
+    left: 0;
+    z-index: 12;
+    top: calc(var(--topbar-height) + 32px);
+    bottom: 32px;
+    display: flex;
+    align-items: center;
+    width: 160px;
+    pointer-events: none;
+    color: var(--theme-text);
+    text-shadow: none;
+  }
+  .group-section-nav-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: 100%;
+    padding: 14px 8px 8px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+    pointer-events: auto;
+  }
+  .group-section-nav-caption {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 9px 10px;
+    font-size: calc(11px * var(--font-scale));
+    color: var(--theme-text-secondary);
+    letter-spacing: .06em;
+  }
+  .group-section-nav-caption span { font-variant-numeric: tabular-nums; }
+  .group-section-nav ol {
+    min-height: 0;
+    margin: 0;
+    padding: 4px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    list-style: none;
+  }
+  .group-section-nav li { position: relative; padding-block: 3px; }
+  .group-section-nav li:not(:last-child)::before {
+    position: absolute;
+    top: 34px;
+    bottom: -12px;
+    left: 20px;
+    width: 1px;
+    background: var(--border-strong);
+    content: "";
+  }
+  .group-section-nav button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 42px;
+    padding: 6px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .group-section-nav button:hover { background: var(--surface-hover); }
+  .group-section-nav button[aria-current="location"] { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  .group-section-nav-icon {
+    display: grid;
+    flex: 0 0 28px;
+    height: 28px;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+  }
+  .group-section-nav button[aria-current="location"] .group-section-nav-icon {
+    color: white;
+    border-color: transparent;
+    background: var(--accent);
+  }
+  .group-section-nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(12px * var(--font-scale)); }
+  .group-section-nav button:disabled { cursor: default; opacity: .6; }
+  .has-wallpaper .group-section-nav-panel {
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    backdrop-filter: var(--glass-filter);
+    border-color: var(--glass-edge-soft);
+    box-shadow: var(--glass-control-shadow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) { .group-section-nav button { transition: none; } }
+@media (prefers-reduced-transparency: reduce) {
+  .has-wallpaper .group-section-nav-panel { background: var(--surface); backdrop-filter: none; }
+}
+
