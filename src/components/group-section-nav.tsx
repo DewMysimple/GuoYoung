@@ -22,6 +22,7 @@ export function GroupSectionNav({ groups, containerRef, disabled }: {
     let frame = 0;
     const update = () => {
       frame = 0;
+      if (!nav.getClientRects().length) return;
       const main = container.closest("main")!;
       // Fixed offsets start inside the root scrollbar gutter on Windows.
       const origin = nav.getBoundingClientRect().left - parseFloat(nav.style.left || "0");
@@ -43,14 +44,14 @@ export function GroupSectionNav({ groups, containerRef, disabled }: {
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
     const releaseDestination = () => { destination.current = null; schedule(); };
-    const observer = new ResizeObserver(schedule);
+    const observer = new ResizeObserver(releaseDestination);
     observer.observe(container);
     observer.observe(container.closest("main")!);
     const topbar = document.querySelector(".topbar");
     if (topbar) observer.observe(topbar);
     for (const section of container.children) observer.observe(section);
     window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
+    window.addEventListener("resize", releaseDestination);
     window.addEventListener("wheel", releaseDestination, { passive: true });
     window.addEventListener("touchstart", releaseDestination, { passive: true });
     window.addEventListener("pointerdown", releaseDestination);
@@ -60,7 +61,7 @@ export function GroupSectionNav({ groups, containerRef, disabled }: {
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", releaseDestination);
       window.removeEventListener("wheel", releaseDestination);
       window.removeEventListener("touchstart", releaseDestination);
       window.removeEventListener("pointerdown", releaseDestination);

@@ -100,6 +100,15 @@
   }
 }
 
+/* Editing in a narrow desktop window needs the available content width. */
+@media (min-width: 900px) and (max-width: 1199px) {
+  .settings-open .group-section-nav { display: none; }
+  .settings-open .main-content:has(.group-section-nav) {
+    width: min(100% - var(--page-padding) * 2, var(--content-max-width));
+    margin-inline: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) { .group-section-nav button { transition: none; } }
 @media (prefers-reduced-transparency: reduce) {
   .has-wallpaper .group-section-nav-panel { background: var(--surface); backdrop-filter: none; }

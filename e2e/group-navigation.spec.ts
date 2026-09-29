@@ -76,7 +76,21 @@ test("navigator follows scope and current group order, and stays clear of conten
       return content.x - rail.x - rail.width;
     }).toBeGreaterThanOrEqual(12);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 900) {
+      await page.getByRole("button", { name: "打开设置" }).click();
+      await expect(nav).toBeHidden();
+      await page.getByRole("button", { name: "关闭设置" }).click();
+      await expect(nav).toBeVisible();
+    }
   }
+  const header = (await page.locator(".grouped-site-header-main").first().boundingBox())!;
+  await page.mouse.move(header.x + 15, header.y + 15);
+  await page.mouse.down();
+  await page.mouse.move(header.x + 15, header.y + 30, { steps: 4 });
+  await expect(page.getByRole("button", { name: "定位到 分组 1", exact: true })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(page.getByRole("button", { name: "定位到 分组 1", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "显示", exact: true }).click();
   await page.getByRole("menuitemradio", { name: "全部平铺" }).click();
   await expect(page.getByRole("navigation", { name: "分组定位" })).toHaveCount(0);
@@ -89,4 +103,37 @@ test("navigator follows scope and current group order, and stays clear of conten
   expect(await page.locator(".group-section-nav-name").allTextContents()).toEqual(order);
   await page.getByRole("searchbox", { name: "搜索网页或筛选收藏" }).fill("参考");
   await expect(page.getByRole("navigation", { name: "分组定位" })).toHaveCount(0);
+});
+
+test("navigator follows saved order, live deletion and the GitHub workspace", async ({ page, context }, info) => {
+  test.skip(info.project.name === "mobile", "Desktop group navigation");
+  await seedGroups(page, 4);
+  const writer = await context.newPage();
+  await writer.goto("/");
+  await writer.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.groups.find((group: { id: string }) => group.id === "nav-2").order = -1;
+    state.groups.find((group: { id: string }) => group.id === "nav-2").name = "更新后的设计组";
+    state.groups = state.groups.filter((group: { id: string }) => group.id !== "nav-1");
+    state.sites = state.sites.filter((site: { groupId: string }) => site.groupId !== "nav-1");
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  // The web store reads other tabs on reload; live subscriptions belong to the extension store.
+  await page.reload();
+  await expect(page.locator(".group-section-nav-name").first()).toHaveText("更新后的设计组");
+  await expect(page.getByRole("button", { name: "定位到 分组 2", exact: true })).toHaveCount(0);
+  await writer.close();
+  await page.getByRole("button", { name: "管理分组", exact: true }).click();
+  const manager = page.getByRole("dialog", { name: "管理分组", exact: true });
+  await manager.getByRole("button", { name: /分组 1 14 个网站/ }).click();
+  await manager.getByRole("button", { name: "删除这个分组", exact: true }).click();
+  await manager.getByRole("button", { name: "再次点击删除这个分组", exact: true }).click();
+  await expect(page.getByRole("button", { name: "定位到 分组 1", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
+  await expect(page.getByRole("navigation", { name: "分组定位" })).toHaveCount(0);
+  await page.getByRole("button", { name: "显示", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+  await expect(page.locator(".group-section-nav-name")).toHaveText(["仓库", "工具", "文档", "其他"]);
+  await page.getByRole("button", { name: "定位到 文档", exact: true }).click();
+  await expect(page.locator('.group-section-nav [aria-current="location"]')).toHaveText("文档");
 });
