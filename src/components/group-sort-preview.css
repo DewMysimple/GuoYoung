@@ -12,7 +12,7 @@
 }
 .group-sort-drag-preview.is-vertical { width: min(360px, calc(100vw - 32px)); border-radius: var(--radius-card); padding: 16px; }
 .group-sort-preview-heading { display: flex; min-width: 0; align-items: center; gap: 10px; }
-.group-sort-preview-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 10px; color: var(--accent-text); background: var(--accent-soft); }
+.group-sort-preview-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 10px; color: var(--text); background: var(--accent-soft); }
 .group-sort-preview-copy { display: grid; min-width: 0; gap: 3px; }
 .group-sort-preview-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; }
 .group-sort-preview-count { color: var(--text-soft); font-size: 11px; }

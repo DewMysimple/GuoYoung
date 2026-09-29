@@ -10,7 +10,8 @@ import {
   Trash,
   Warning,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useInsertionEffect, useMemo, useState } from "react";
+import { typographyVariables } from "../lib/typography";
 import {
   deleteBookmarkSelection,
   filterBookmarkTree,
@@ -86,6 +87,11 @@ export function PopupApp() {
   const [tab, setTab] = useState<PopupTab>("quick");
   const [state, setState] = useState<SiteCollectionState | null>(null);
   useTextSelection(state?.appearance.allowTextSelection ?? true);
+  const typography = state?.appearance ?? DEFAULT_APPEARANCE;
+  useInsertionEffect(() => {
+    const root = document.documentElement;
+    for (const [property, value] of Object.entries(typographyVariables(typography))) root.style.setProperty(property, value);
+  }, [typography]);
   useTheme(state?.appearance.theme ?? DEFAULT_APPEARANCE.theme,
     state?.appearance.accentColor ?? DEFAULT_APPEARANCE.accentColor);
   const [activeBrowserTab, setActiveBrowserTab] = useState<BrowserTab | null>(null);

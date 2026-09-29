@@ -9,7 +9,7 @@ import type { CSSProperties } from "react";
 import "./typography-settings.css";
 
 const COLORS = [
-  { label: "墨色", main: "#171c26", secondary: "#394457" },
+  { label: "墨色", main: "#000000", secondary: "#394457" },
   { label: "白色", main: "#ffffff", secondary: "#e2e8f0" },
   { label: "暖黄", main: "#fff1c2", secondary: "#eadbb5" },
   { label: "薄荷", main: "#bef8ed", secondary: "#9ed6cd" },
@@ -70,12 +70,14 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
     </section>
 
     <SettingsDisclosure title="文字颜色" summary={value.textColorMode === "theme" ? "跟随主题" : "自定义"}>
-      <div className="segmented-control" role="group" aria-label="文字配色">
-        {[{ value: "theme", label: "跟随主题" }, { value: "custom", label: "自定义" }].map(option =>
-          <button key={option.value} type="button" className={value.textColorMode === option.value ? "active" : ""}
-            aria-pressed={value.textColorMode === option.value}
-            onClick={() => patch({ textColorMode: option.value as AppearanceSettings["textColorMode"] })}>{option.label}</button>)}
-      </div>
+      <label className="toggle-row"><span><strong>主题关联字体颜色</strong><small>浅色用纯黑，深色用纯白；关闭后保留自定义配色</small></span>
+        <input type="checkbox" checked={value.textColorMode === "theme"}
+          onChange={event => patch({ textColorMode: event.target.checked ? "theme" : "custom" })} />
+      </label>
+      <label className="toggle-row"><span><strong>区分主次文字</strong><small>关闭后，所有文字统一使用主要颜色</small></span>
+        <input type="checkbox" checked={value.textColorHierarchy === "split"}
+          onChange={event => patch({ textColorHierarchy: event.target.checked ? "split" : "unified" })} />
+      </label>
       {value.textColorMode === "custom" && <>
         <div className="typography-color-presets" role="group" aria-label="文字配色预设">
           {COLORS.map(color => <button type="button" className="settings-choice" key={color.label} aria-label={`${color.label}文字`}
@@ -85,14 +87,21 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
             {value.textColor === color.main && value.textSecondaryColor === color.secondary && <Check size={12} />}
           </button>)}
         </div>
-        <div className="typography-color-row"><span>主要文字</span><code>{value.textColor.toUpperCase()}</code>
+        <div className="typography-color-row"><span>{value.textColorHierarchy === "unified" ? "全部文字" : "主要文字"}</span><code>{value.textColor.toUpperCase()}</code>
           <CustomColorPicker label="自定义主要文字颜色" value={value.textColor} onChange={textColor => patch({ textColor })} />
         </div>
-        <div className="typography-color-row"><span>次要文字</span><code>{value.textSecondaryColor.toUpperCase()}</code>
+        {value.textColorHierarchy === "split" && <div className="typography-color-row"><span>次要文字</span><code>{value.textSecondaryColor.toUpperCase()}</code>
           <CustomColorPicker label="自定义次要文字颜色" value={value.textSecondaryColor} onChange={textSecondaryColor => patch({ textSecondaryColor })} />
-        </div>
+        </div>}
       </>}
-      <p className="typography-note">调整页面文字；设置与菜单沿用主题配色。</p>
+      <label className="toggle-row"><span><strong>图标跟随文字</strong><small>界面功能图标与文字同色，也可独立调色</small></span>
+        <input type="checkbox" checked={value.iconColorMode === "text"}
+          onChange={event => patch({ iconColorMode: event.target.checked ? "text" : "custom" })} />
+      </label>
+      {value.iconColorMode === "custom" && <div className="typography-color-row"><span>图标颜色</span><code>{value.iconColor.toUpperCase()}</code>
+        <CustomColorPicker label="自定义图标颜色" value={value.iconColor} onChange={iconColor => patch({ iconColor })} />
+      </div>}
+      <p className="typography-note">全局生效，包含设置、菜单与弹窗。网站原图标和 Logo 保留原色；选中状态通过底色、边框和勾选标记区分。</p>
     </SettingsDisclosure>
 
     <SettingsDisclosure title="文字增强" summary={effect.label}>

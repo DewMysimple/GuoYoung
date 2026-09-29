@@ -11,8 +11,8 @@ test("keeps wallpaper navigation readable and composite inputs on a single glass
   });
   await page.reload();
   await expect(page.locator(".app-shell")).toHaveClass(/topbar-readable/);
-  await expect(page.locator(".topbar .brand")).toHaveCSS("color", "rgb(23, 28, 38)");
-  await expect(page.locator(".category-tab").nth(1)).toHaveCSS("color", "rgb(89, 98, 115)");
+  await expect(page.locator(".topbar .brand")).toHaveCSS("color", "rgb(136, 136, 136)");
+  await expect(page.locator(".category-tab").nth(1)).toHaveCSS("color", "rgb(136, 136, 136)");
   await page.getByRole("button", { name: "新建分组", exact: true }).click();
   const input = page.getByRole("textbox", { name: "分组名称" });
   await input.focus();

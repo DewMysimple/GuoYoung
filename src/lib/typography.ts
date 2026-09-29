@@ -2,7 +2,8 @@ import type { AppearanceSettings, TypographySettings } from "../types";
 
 export const DEFAULT_TYPOGRAPHY: TypographySettings = {
   fontFamily: "default", customFontFamily: "", textColorMode: "theme",
-  textColor: "#171c26", textSecondaryColor: "#596273",
+  textColorHierarchy: "unified", iconColorMode: "text", iconColor: "#000000",
+  textColor: "#000000", textSecondaryColor: "#000000",
   textEffect: "auto", textEffectColor: "#000000", textEffectStrength: 40,
 };
 
@@ -32,6 +33,11 @@ export function normalizeTypography(value: Partial<TypographySettings>): Typogra
     fontFamily: FONT_OPTIONS.some(option => option.value === value.fontFamily) ? value.fontFamily! : DEFAULT_TYPOGRAPHY.fontFamily,
     customFontFamily: normalizeFontName(value.customFontFamily),
     textColorMode: value.textColorMode === "custom" ? "custom" : "theme",
+    // Existing custom palettes keep their primary/secondary distinction.
+    textColorHierarchy: value.textColorHierarchy === "unified" || value.textColorHierarchy === "split"
+      ? value.textColorHierarchy : value.textColorMode === "custom" ? "split" : "unified",
+    iconColorMode: value.iconColorMode === "custom" ? "custom" : "text",
+    iconColor: hex(value.iconColor, DEFAULT_TYPOGRAPHY.iconColor),
     textColor: hex(value.textColor, DEFAULT_TYPOGRAPHY.textColor),
     textSecondaryColor: hex(value.textSecondaryColor, DEFAULT_TYPOGRAPHY.textSecondaryColor),
     textEffect: TEXT_EFFECTS.some(option => option.value === value.textEffect) ? value.textEffect! : "auto",
@@ -63,11 +69,15 @@ export function getTextShadow(value: TypographySettings) {
 }
 
 export function typographyVariables(value: TypographySettings) {
+  const primary = value.textColorMode === "custom" ? value.textColor : "var(--theme-text)";
+  const secondary = value.textColorHierarchy === "unified" ? primary
+    : value.textColorMode === "custom" ? value.textSecondaryColor : "var(--theme-text-secondary)";
   return {
     "--reading-font": getFontFamily(value),
-    "--reading-text": value.textColorMode === "custom" ? value.textColor : "var(--theme-text)",
-    "--reading-text-secondary": value.textColorMode === "custom" ? value.textSecondaryColor : "var(--theme-text-soft)",
-    "--reading-text-faint": value.textColorMode === "custom" ? value.textSecondaryColor : "var(--theme-text-faint)",
+    "--reading-text": primary,
+    "--reading-text-secondary": secondary,
+    "--reading-text-faint": secondary,
+    "--reading-icon": value.iconColorMode === "custom" ? value.iconColor : "inherit",
     "--reading-shadow": getTextShadow(value),
   };
 }

@@ -64,9 +64,9 @@ html:has(.app-shell.has-wallpaper) {
 /* A local reading layer keeps navigation legible without modifying wallpaper
    exposure, saved text colors, or the material used by the rest of the page. */
 .has-wallpaper.topbar-readable .topbar {
-  --text: var(--theme-text);
-  --text-soft: var(--theme-text);
-  --text-faint: var(--theme-text-soft);
+  --text: var(--reading-text);
+  --text-soft: var(--reading-text-secondary);
+  --text-faint: var(--reading-text-secondary);
 }
 .has-wallpaper.topbar-readable .topbar::after {
   content: "";
@@ -177,7 +177,7 @@ body:has(.app-shell.has-wallpaper) .dialog-content .primary-button,
 body:has(.app-shell.has-wallpaper) .confirm-content .primary-button,
 body:has(.app-shell.has-wallpaper) .settings-panel .primary-button {
   border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--glass-edge-soft));
-  color: #fff;
+  color: var(--text);
   background-color: var(--glass-fill-accent);
   background-image:
     linear-gradient(142deg, rgb(255 255 255 / .28), transparent 52%),
@@ -216,9 +216,9 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 }
 
 .has-wallpaper.topbar-readable :is(.search-input, .category-tab, .manage-groups-button, .add-group-tab, .view-control-button, .history-range-trigger) {
-  --text: var(--theme-text);
-  --text-soft: var(--theme-text-soft);
-  --text-faint: var(--theme-text-soft);
+  --text: var(--reading-text);
+  --text-soft: var(--reading-text-secondary);
+  --text-faint: var(--reading-text-secondary);
   --glass-fill-low: color-mix(in srgb, var(--surface) max(82%, var(--glass-control-opacity)), transparent);
   --glass-fill-high: color-mix(in srgb, var(--glass-fill-low) 92%, var(--surface));
   text-shadow: none;
@@ -242,7 +242,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 .has-wallpaper .site-category,
 .has-wallpaper .site-card .open-arrow,
 .has-wallpaper .add-site-card {
-  color: color-mix(in srgb, var(--text) 78%, var(--text-soft));
+  color: var(--text-soft);
 }
 
 :root[data-theme="dark"] .has-wallpaper .site-card {
@@ -503,7 +503,7 @@ body:has(.app-shell.has-wallpaper) .dialog-content .input-shell input {
   border: 0;
 }
 body:has(.app-shell.has-wallpaper) .brand-source-options button.active {
-  color: var(--accent-text);
+  color: var(--text);
   background: color-mix(in srgb, var(--accent) 14%, var(--glass-fill-control));
   box-shadow: var(--glass-rim);
 }
@@ -588,7 +588,7 @@ body:has(.app-shell.has-wallpaper) .github-import-row:hover {
 
 body:has(.app-shell.has-wallpaper) :is(.segmented-control button.active,
   .category-choice.selected, .icon-source-choice.selected) {
-  color: var(--accent-text);
+  color: var(--text);
   background: color-mix(in srgb, var(--accent) 14%, var(--glass-fill-nested));
   box-shadow: none;
 }
@@ -613,11 +613,11 @@ body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
   background: color-mix(in srgb, var(--text) 9%, transparent);
 }
 .has-wallpaper .card-actions .danger-action:hover {
-  color: var(--danger);
+  color: var(--text);
   background: color-mix(in srgb, var(--danger) 13%, transparent);
 }
 .has-wallpaper .card-actions .danger-action.is-delete-armed {
-  color: white;
+  color: var(--text);
   background: var(--danger-fill);
 }
 

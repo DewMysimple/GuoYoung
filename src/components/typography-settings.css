@@ -43,7 +43,7 @@
 .typography-size { margin-top: 18px; }
 .typography-size .segmented-control { margin-top: 10px; }
 .typography-size .segmented-control button { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.typography-size .segmented-control small { font-size: 10px; font-weight: 500; opacity: .7; }
+.typography-size .segmented-control small { font-size: 10px; font-weight: 500; }
 .typography-family > .settings-subsection { margin-top: 14px; }
 .typography-effects, .typography-color-presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .typography-effects .settings-choice { flex: 1 1 auto; }

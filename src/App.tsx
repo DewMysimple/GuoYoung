@@ -4,6 +4,7 @@ import { TopbarResizeHandle } from "./components/topbar-resize-handle";
 import { GlassRefraction, supportsGlassRefraction } from "./components/glass-refraction";
 import { patchAppearance } from "./lib/appearance-settings";
 import { typographyVariables } from "./lib/typography";
+import { glassFilter } from "./lib/glass-presets";
 import { useTextSelection } from "./hooks/use-text-selection";
 import {
   Fragment,
@@ -1229,10 +1230,10 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--glass-popover-opacity": `${100 - effectiveWallpaper.glassPopoverTransparency}%`,
     "--glass-shadow-strength": String(effectiveWallpaper.glassShadow / 100),
     "--glass-highlight": String(effectiveWallpaper.glassHighlight / 100),
-    "--glass-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%)`,
-    "--glass-card-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%) url(#wallpaper-glass-lens)`,
-    "--glass-wide-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%) url(#wallpaper-glass-lens-wide)`,
-    "--glass-search-filter": `blur(${effectiveWallpaper.glassBlur}px) saturate(${effectiveWallpaper.glassSaturation}%) url(#wallpaper-glass-lens-search)`,
+    "--glass-filter": glassFilter(effectiveWallpaper),
+    "--glass-card-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens"),
+    "--glass-wide-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-wide"),
+    "--glass-search-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-search"),
     "--topbar-background": `color-mix(in srgb, var(--page) ${effectiveWallpaper.topbarOpacity}%, transparent)`,
     "--topbar-backdrop-blur": effectiveWallpaper.topbarBlurEnabled
       ? `${effectiveWallpaper.topbarBlur}px`

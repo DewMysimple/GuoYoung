@@ -151,6 +151,9 @@ export interface TypographySettings {
   fontFamily: "default" | "system" | "serif" | "wenkai" | "mono" | "custom";
   customFontFamily: string;
   textColorMode: "theme" | "custom";
+  textColorHierarchy: "unified" | "split";
+  iconColorMode: "text" | "custom";
+  iconColor: string;
   textColor: string;
   textSecondaryColor: string;
   textEffect: "auto" | "none" | "shadow" | "outline" | "glow";

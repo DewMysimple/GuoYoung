@@ -253,6 +253,11 @@ test("offers nine reversible presets behind collapsed wallpaper parameters", asy
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
   const presets = panel.getByRole("group", { name: "玻璃外观预设" });
   await expect(presets.getByRole("button")).toHaveCount(9);
+  const positions = await presets.getByRole("button").evaluateAll(buttons => buttons.map(button => {
+    const box = button.getBoundingClientRect(); return { x: box.x, y: box.y };
+  }));
+  expect(new Set(positions.map(position => position.x)).size).toBe(3);
+  expect(new Set(positions.map(position => position.y)).size).toBe(3);
   await expect(panel.getByRole("slider")).toHaveCount(0);
   const names = [["液态清透", "8%"], ["水晶棱镜", "12%"], ["柔光薄雾", "18%"], ["细腻磨砂", "35%"], ["轻透无影", "4%"], ["经典玻璃", "22%"], ["雪景柔纱", "65%"], ["夜色凝光", "52%"], ["繁景静读", "78%"]];
   const seen = new Set();
@@ -283,9 +288,9 @@ test("offers nine reversible presets behind collapsed wallpaper parameters", asy
   await panel.getByRole("button", { name: /^液态清透/ }).click();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expect(page.locator(".site-card").first()).toHaveCSS("backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
+  await expect(page.locator(".site-card").first()).toHaveCSS("backdrop-filter", "blur(2px)");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toMatchObject({
-    source: original.source, url: original.url, zoom: 110, overlay: 0, topbarStyle: original.topbarStyle, glassHighlight: 78, glassRefraction: true,
+    source: original.source, url: original.url, zoom: 110, overlay: 0, topbarStyle: original.topbarStyle, glassHighlight: 78, glassRefraction: false,
   });
   await page.screenshot({ path: screenshotPath("liquid-preset-saved.png") });
 });

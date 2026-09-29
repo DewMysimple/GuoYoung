@@ -82,7 +82,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
           <strong>{option.label}</strong><small>{option.description}</small>
         </button>)}
       </div>
-      <p className="appearance-description">选择即刻预览，保存后生效。只更换玻璃材质，保留壁纸、构图和顶栏设置。</p>
+      <p className="appearance-description">九套预设默认使用轻量玻璃；可在微调中开启折射。选择即刻预览，保存后生效。</p>
       <SettingsDisclosure title="玻璃参数微调" summary="透明度、高光与折射" className="glass-fine-tuning">
       <p className="appearance-description">透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。</p>
       {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
@@ -94,7 +94,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       <RangeControl label="玻璃磨砂" min={0} max={30} value={value.glassBlur} onChange={(glassBlur) => onChange({ glassBlur })} />
       <RangeControl label="色彩饱和度" min={100} max={200} value={value.glassSaturation} unit="%" onChange={(glassSaturation) => onChange({ glassSaturation })} />
       <RangeControl label="边缘高光" min={0} max={100} value={value.glassHighlight} unit="%" onChange={(glassHighlight) => onChange({ glassHighlight })} />
-      <label className="toggle-row"><span><strong>玻璃折射</strong><small>轻微弯折卡片边缘后的壁纸，文字保持清晰</small></span>
+      <label className="toggle-row"><span><strong>玻璃折射</strong><small>弯折边缘后的壁纸；收藏较多时会增加绘制开销</small></span>
         <input type="checkbox" checked={value.glassRefraction} onChange={(event) => onChange({ glassRefraction: event.target.checked })} />
       </label>
       {value.glassRefraction && <>
@@ -107,7 +107,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
 
     <SettingsDisclosure title="顶栏外观" summary={value.topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"}>
       <p className="appearance-description">玻璃底板可独立调节顶栏材质。要完全透出壁纸，请选择“融入壁纸”并关闭清晰阅读。</p>
-      <label className="toggle-row"><span><strong>顶部清晰阅读</strong><small>为导航、搜索和分组工具提供主题文字与阅读衬底；关闭后完全跟随页面配色和玻璃透明度。</small></span>
+      <label className="toggle-row"><span><strong>顶部清晰阅读</strong><small>为导航、搜索和分组工具增加阅读衬底；文字始终跟随全局配色，关闭后使用原玻璃透明度。</small></span>
         <input type="checkbox" checked={value.topbarReadability !== "page"} onChange={event => onChange({ topbarReadability: event.target.checked ? "clear" : "page" })} />
       </label>
       <div className="segmented-control" role="group" aria-label="顶栏样式">

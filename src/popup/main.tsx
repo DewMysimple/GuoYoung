@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/manrope";
 import "./popup.css";
+import "../typography.css";
 import "../text-selection.css";
 import { PopupApp } from "./popup-app";
 

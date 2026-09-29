@@ -9,17 +9,24 @@ export const GLASS_KEYS = [
 ] as const;
 export type GlassSettings = Pick<WallpaperSettings, typeof GLASS_KEYS[number]>;
 
+/** Neutral filters must be absent: even blur(0) creates a backdrop surface. */
+export function glassFilter(value: Pick<WallpaperSettings, "glassBlur" | "glassSaturation">, lens?: string) {
+  return [value.glassBlur > 0 ? `blur(${value.glassBlur}px)` : "",
+    value.glassSaturation !== 100 ? `saturate(${value.glassSaturation}%)` : "",
+    lens ? `url(#${lens})` : ""].filter(Boolean).join(" ") || "none";
+}
+
 export function pickGlass(value: WallpaperSettings): GlassSettings {
   return Object.fromEntries(GLASS_KEYS.map(key => [key, value[key]])) as GlassSettings;
 }
 
 const base = pickGlass(DEFAULT_WALLPAPER);
 export const GLASS_PRESETS = [
-  { id: "liquid", label: "液态清透", description: "清晰透景 · 弧面折射", values: { ...base, glassTransparency: 92, glassControlTransparency: 86, glassPanelTransparency: 68, glassPopoverTransparency: 58, glassBlur: 2, glassSaturation: 145, glassHighlight: 78, glassShadow: 28, glassRefraction: true, glassRefractionStrength: 32 } },
-  { id: "crystal", label: "水晶棱镜", description: "厚实边缘 · 鲜明反光", values: { ...base, glassTransparency: 88, glassControlTransparency: 80, glassPanelTransparency: 62, glassPopoverTransparency: 52, glassBlur: 0, glassSaturation: 170, glassHighlight: 95, glassShadow: 40, glassRefraction: true, glassRefractionStrength: 40 } },
-  { id: "soft", label: "柔光薄雾", description: "柔和磨砂 · 轻盈透光", values: { ...base, glassTransparency: 82, glassControlTransparency: 84, glassPanelTransparency: 60, glassPopoverTransparency: 50, glassBlur: 9, glassSaturation: 135, glassHighlight: 60, glassShadow: 20, glassRefraction: true, glassRefractionStrength: 18 } },
+  { id: "liquid", label: "液态清透", description: "清晰透景 · 轻量高光", values: { ...base, glassTransparency: 92, glassControlTransparency: 86, glassPanelTransparency: 68, glassPopoverTransparency: 58, glassBlur: 2, glassSaturation: 100, glassHighlight: 78, glassShadow: 28, glassRefraction: false, glassRefractionStrength: 32 } },
+  { id: "crystal", label: "水晶棱镜", description: "厚实边缘 · 鲜明反光", values: { ...base, glassTransparency: 88, glassControlTransparency: 80, glassPanelTransparency: 62, glassPopoverTransparency: 52, glassBlur: 0, glassSaturation: 100, glassHighlight: 95, glassShadow: 40, glassRefraction: false, glassRefractionStrength: 40 } },
+  { id: "soft", label: "柔光薄雾", description: "柔和磨砂 · 轻盈透光", values: { ...base, glassTransparency: 82, glassControlTransparency: 84, glassPanelTransparency: 60, glassPopoverTransparency: 50, glassBlur: 9, glassSaturation: 100, glassHighlight: 60, glassShadow: 20, glassRefraction: false, glassRefractionStrength: 18 } },
   { id: "frost", label: "细腻磨砂", description: "弱化细节 · 安静阅读", values: { ...base, glassTransparency: 65, glassControlTransparency: 72, glassPanelTransparency: 46, glassPopoverTransparency: 38, glassBlur: 22, glassSaturation: 120, glassHighlight: 50, glassShadow: 18, glassRefraction: false, glassRefractionStrength: 24 } },
-  { id: "light", label: "轻透无影", description: "轻薄边界 · 无外投影", values: { ...base, glassTransparency: 96, glassControlTransparency: 92, glassPanelTransparency: 76, glassPopoverTransparency: 65, glassBlur: 4, glassSaturation: 110, glassHighlight: 38, glassShadow: 0, glassRefraction: true, glassRefractionStrength: 12 } },
+  { id: "light", label: "轻透无影", description: "轻薄边界 · 无外投影", values: { ...base, glassTransparency: 96, glassControlTransparency: 92, glassPanelTransparency: 76, glassPopoverTransparency: 65, glassBlur: 4, glassSaturation: 100, glassHighlight: 38, glassShadow: 0, glassRefraction: false, glassRefractionStrength: 12 } },
   { id: "classic", label: "经典玻璃", description: "均衡透光 · 日常使用", values: base },
   { id: "snow", label: "雪景柔纱", description: "浅色壁纸 · 柔化高光", values: { ...base, glassTransparency: 35, glassControlTransparency: 28, glassPanelTransparency: 22, glassPopoverTransparency: 18, glassBlur: 18, glassSaturation: 105, glassHighlight: 25, glassShadow: 12 } },
   { id: "night", label: "夜色凝光", description: "暗色壁纸 · 稳定衬底", values: { ...base, glassTransparency: 48, glassControlTransparency: 32, glassPanelTransparency: 28, glassPopoverTransparency: 20, glassBlur: 16, glassSaturation: 125, glassHighlight: 65, glassShadow: 22 } },

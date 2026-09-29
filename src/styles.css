@@ -230,7 +230,7 @@ select:focus-visible {
 
 .wallpaper-edit-hud button:last-child {
   border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
-  color: white;
+  color: var(--text);
   background: var(--accent);
 }
 
@@ -362,7 +362,7 @@ select:focus-visible {
 }
 
 .topbar-history-button.active {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
   background: var(--accent-soft);
 }
@@ -426,7 +426,7 @@ select:focus-visible {
   height: 36px;
   place-items: center;
   border-radius: 10px;
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--accent-soft);
 }
 
@@ -482,7 +482,7 @@ select:focus-visible {
 }
 
 .primary-button {
-  color: #f7f9fd;
+  color: var(--text);
   background: var(--accent);
   box-shadow: inset 0 1px 0 rgba(247, 249, 253, 0.22);
 }
@@ -502,7 +502,7 @@ select:focus-visible {
 }
 
 .destructive-button {
-  color: #fff6f7;
+  color: var(--text);
   background: #a9333e;
 }
 
@@ -571,7 +571,7 @@ select:focus-visible {
 .search-history-header button {
   padding: 2px 5px;
   border: 0;
-  color: var(--accent-text);
+  color: var(--text);
   background: transparent;
   cursor: pointer;
   font-size: 11px;
@@ -629,7 +629,7 @@ select:focus-visible {
 }
 
 .search-history-delete:hover {
-  color: var(--danger);
+  color: var(--text);
   background: var(--danger-soft);
 }
 
@@ -640,7 +640,7 @@ select:focus-visible {
 
 .history-kicker {
   margin: 0 0 7px;
-  color: var(--accent-text);
+  color: var(--text);
   font-size: 11px;
   font-weight: 760;
   letter-spacing: 0.08em;
@@ -744,14 +744,14 @@ select:focus-visible {
 
 .history-range-icon {
   flex: 0 0 auto;
-  color: var(--accent-text);
+  color: var(--text);
   pointer-events: none;
 }
 
 .history-range-trigger > svg {
   flex: 0 0 auto;
   margin-left: auto;
-  color: var(--accent-text);
+  color: var(--text);
   pointer-events: none;
   transition: transform 160ms ease;
 }
@@ -816,7 +816,7 @@ select:focus-visible {
 }
 
 .history-range-menu > button.is-selected {
-  color: var(--accent-text);
+  color: var(--text);
 }
 
 .history-selection-toolbar {
@@ -860,7 +860,7 @@ select:focus-visible {
 }
 
 .history-danger-action:hover:not(:disabled) {
-  color: var(--danger);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--danger) 34%, var(--border));
   background: var(--danger-soft);
 }
@@ -874,7 +874,7 @@ select:focus-visible {
   padding: 11px 12px 11px 14px;
   border: 1px solid color-mix(in srgb, var(--danger) 32%, var(--border));
   border-radius: 12px;
-  color: var(--danger);
+  color: var(--text);
   background: color-mix(in srgb, var(--danger-soft) 62%, var(--surface));
   font-size: 12px;
 }
@@ -1042,7 +1042,7 @@ select:focus-visible {
 }
 
 .history-favicon-fallback {
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--accent-soft);
   font-weight: 760;
 }
@@ -1072,7 +1072,7 @@ select:focus-visible {
 }
 
 .history-empty svg {
-  color: var(--accent-text);
+  color: var(--text);
 }
 
 .history-empty strong {
@@ -1095,7 +1095,7 @@ select:focus-visible {
   padding: 9px 12px;
   border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
   border-radius: 10px;
-  color: var(--danger);
+  color: var(--text);
   background: color-mix(in srgb, var(--danger-soft) 58%, var(--surface));
 }
 
@@ -1121,7 +1121,7 @@ select:focus-visible {
   margin-bottom: 6px;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
   border-radius: 19px;
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--accent-soft);
 }
 
@@ -1202,7 +1202,7 @@ select:focus-visible {
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
   border-radius: 9px;
-  color: white;
+  color: var(--text);
   background: var(--accent);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 24%, transparent);
   cursor: pointer;
@@ -1351,7 +1351,7 @@ select:focus-visible {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
   border-radius: 16px;
-  color: var(--accent-text);
+  color: var(--text);
   background: color-mix(in srgb, var(--accent-soft) 74%, var(--surface));
 }
 
@@ -1390,13 +1390,13 @@ select:focus-visible {
   min-height: calc(40px * var(--control-scale));
   flex: 0 0 auto;
   padding: 0;
-  color: #f7f9fd;
+  color: var(--text);
   background: var(--accent);
 }
 
 .github-home-entry.has-site .github-home-entry-open:hover:not(:disabled),
 .github-home-entry.has-site .github-home-entry-open:focus-visible {
-  color: #f7f9fd;
+  color: var(--text);
   background: var(--accent-strong);
 }
 
@@ -1412,7 +1412,7 @@ select:focus-visible {
 }
 
 .github-home-entry-menu-trigger[aria-expanded="true"] {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
   background: var(--accent-soft);
 }
@@ -1457,7 +1457,7 @@ select:focus-visible {
 
 .github-home-entry-menu-popover button.is-danger:hover,
 .github-home-entry-menu-popover button.is-danger:focus-visible {
-  color: var(--danger);
+  color: var(--text);
   background: var(--danger-soft);
 }
 
@@ -1532,7 +1532,7 @@ select:focus-visible {
 .github-import-owner {
   min-width: 0;
   gap: 10px;
-  color: var(--accent-text);
+  color: var(--text);
 }
 
 .github-import-owner > div {
@@ -1646,7 +1646,7 @@ select:focus-visible {
 }
 
 .github-import-repo-status.new {
-  color: var(--accent-text);
+  color: var(--text);
 }
 
 .github-import-repo-status.active {
@@ -1654,7 +1654,7 @@ select:focus-visible {
 }
 
 .github-import-repo-status.deleted {
-  color: var(--danger);
+  color: var(--text);
 }
 
 .github-import-dialog > .dialog-footer {
@@ -1705,13 +1705,13 @@ select:focus-visible {
 
 .github-refresh-stat.is-success strong,
 .github-refresh-status.is-success {
-  color: var(--accent-text);
+  color: var(--text);
 }
 
 .github-refresh-stat.is-error strong,
 .github-refresh-status.is-error,
 .github-refresh-error {
-  color: var(--danger);
+  color: var(--text);
 }
 
 .github-refresh-details {
@@ -1754,7 +1754,7 @@ select:focus-visible {
 .github-refresh-owner {
   min-width: 0;
   gap: 9px;
-  color: var(--accent-text);
+  color: var(--text);
 }
 
 .github-refresh-owner > div {
@@ -1798,7 +1798,7 @@ select:focus-visible {
 }
 
 .github-refresh-repository-list a {
-  color: var(--accent-text);
+  color: var(--text);
   font-size: 12px;
   text-decoration: none;
 }
@@ -1851,7 +1851,7 @@ select:focus-visible {
 }
 
 .transfer-banner.error {
-  color: var(--danger);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
   background: color-mix(in srgb, var(--danger-soft) 54%, var(--surface));
 }
@@ -1947,14 +1947,14 @@ select:focus-visible {
 }
 
 .category-tab.is-long-press-pending {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface));
   transform: translateY(1px) scale(0.98);
 }
 
 .category-tab.active {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
   background: var(--accent-soft);
 }
@@ -1962,7 +1962,7 @@ select:focus-visible {
 .category-tab.is-drag-over {
   position: relative;
   z-index: 2;
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   box-shadow:
@@ -1973,12 +1973,12 @@ select:focus-visible {
 }
 
 .category-tab.is-drag-over > span {
-  color: var(--accent-text);
+  color: var(--text);
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 }
 
 .category-tab.active > span {
-  color: var(--accent-text);
+  color: var(--text);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 
@@ -1988,13 +1988,13 @@ select:focus-visible {
   padding: 0;
   justify-content: center;
   border-color: var(--border);
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--surface);
 }
 
 .add-group-tab:hover {
   border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--accent-soft);
 }
 
@@ -2252,7 +2252,7 @@ select:focus-visible {
   padding: 0 7px;
   border: 2px solid var(--surface);
   border-radius: 999px;
-  color: white;
+  color: var(--text);
   background: var(--accent);
   box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 28%, transparent);
   font-size: 11px;
@@ -2275,7 +2275,7 @@ select:focus-visible {
   height: 28px;
   place-items: center;
   border-radius: 9px;
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--accent-soft);
 }
 
@@ -2302,7 +2302,7 @@ select:focus-visible {
   padding: 0;
   border: 2px solid var(--surface);
   border-radius: 50%;
-  color: white;
+  color: var(--text);
   background: var(--surface-raised);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 14%, transparent);
   cursor: pointer;
@@ -2347,7 +2347,7 @@ select:focus-visible {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 13px;
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--surface-raised);
 }
 
@@ -2400,7 +2400,7 @@ select:focus-visible {
 }
 
 .favicon-letter {
-  color: var(--accent-text);
+  color: var(--text);
   font-weight: 760;
 }
 
@@ -2438,7 +2438,7 @@ select:focus-visible {
 }
 
 .danger-action:hover {
-  color: var(--danger);
+  color: var(--text);
   background: var(--danger-soft);
 }
 
@@ -2447,7 +2447,7 @@ select:focus-visible {
 }
 
 .danger-action.is-delete-armed {
-  color: white;
+  color: var(--text);
   background: var(--danger-fill);
   opacity: 1;
 }
@@ -2461,7 +2461,7 @@ select:focus-visible {
   padding: 6px 8px;
   border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
   border-radius: 8px;
-  color: var(--danger);
+  color: var(--text);
   background: var(--surface);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--text) 12%, transparent);
   font-size: 10px;
@@ -2541,7 +2541,7 @@ select:focus-visible {
   display: block;
   overflow: hidden;
   margin-top: 5px;
-  color: var(--accent-text);
+  color: var(--text);
   font-size: calc(11px * var(--card-font-scale));
   font-variant-numeric: tabular-nums;
   font-weight: 720;
@@ -2580,7 +2580,7 @@ select:focus-visible {
 .site-workspace-label {
   padding-left: 7px;
   border-left: 1px solid var(--border-strong);
-  color: var(--accent-text);
+  color: var(--text);
   font-size: 0.92em;
   font-weight: 700;
 }
@@ -2608,14 +2608,14 @@ select:focus-visible {
 }
 
 .add-site-card:hover {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface));
   transform: translateY(-2px);
 }
 
 .add-site-card[data-drop-ready] {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: var(--accent);
   border-style: solid;
   background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));
@@ -2632,7 +2632,7 @@ select:focus-visible {
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 12px;
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--surface-raised);
 }
 
@@ -2654,7 +2654,7 @@ select:focus-visible {
   margin-bottom: 18px;
   place-items: center;
   border-radius: 16px;
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--accent-soft);
 }
 
@@ -2796,7 +2796,7 @@ select:focus-visible {
 
 .panel-back-button:hover {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--surface-raised);
 }
 
@@ -2962,7 +2962,7 @@ select:focus-visible {
   padding: 11px 12px;
   border: 1px solid color-mix(in srgb, #d7a43f 52%, var(--border));
   border-radius: 11px;
-  color: var(--warning);
+  color: var(--text);
   background: var(--warning-soft);
   font-size: 0.78rem;
   line-height: 1.5;
@@ -2976,7 +2976,7 @@ select:focus-visible {
 }
 
 .field-error {
-  color: var(--danger);
+  color: var(--text);
   font-weight: 620;
 }
 
@@ -3012,7 +3012,7 @@ select:focus-visible {
 }
 
 .category-choice.selected {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: var(--accent-soft);
 }
@@ -3104,7 +3104,7 @@ select:focus-visible {
 }
 
 .icon-source-choice.selected {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
@@ -3151,7 +3151,7 @@ select:focus-visible {
   height: 17px;
   place-items: center;
   border-radius: 50%;
-  color: white;
+  color: var(--text);
   background: var(--accent);
 }
 
@@ -3397,7 +3397,7 @@ select:focus-visible {
   height: 36px;
   place-items: center;
   border-radius: 10px;
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--accent-soft);
 }
 
@@ -3465,7 +3465,7 @@ select:focus-visible {
   margin-left: auto;
   white-space: nowrap;
   border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
-  color: var(--danger);
+  color: var(--text);
   background: var(--danger-soft);
 }
 
@@ -3564,7 +3564,7 @@ select:focus-visible {
 }
 
 .group-icon-choice.selected {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: var(--accent-soft);
 }
@@ -3584,7 +3584,7 @@ select:focus-visible {
 }
 
 .confirm-icon.destructive {
-  color: var(--danger);
+  color: var(--text);
   background: var(--danger-soft);
 }
 
@@ -3759,7 +3759,7 @@ select:focus-visible {
 }
 
 .brand-source-options button.active {
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--surface);
   box-shadow: 0 1px 5px color-mix(in srgb, var(--text) 9%, transparent);
 }
@@ -3795,7 +3795,7 @@ select:focus-visible {
 }
 
 .segmented-control button.active {
-  color: var(--accent-text);
+  color: var(--text);
   background: var(--surface);
   box-shadow: 0 1px 5px color-mix(in srgb, var(--text) 9%, transparent);
 }
@@ -3815,7 +3815,7 @@ select:focus-visible {
   overflow: hidden;
   border: 2px solid var(--surface);
   border-radius: 50%;
-  color: white;
+  color: var(--text);
   box-shadow: 0 0 0 1px var(--border);
   cursor: pointer;
 }
@@ -3937,7 +3937,7 @@ select:focus-visible {
   place-items: center;
   border: 1px solid color-mix(in srgb, white 48%, transparent);
   border-radius: 10px;
-  color: white;
+  color: var(--text);
   box-shadow: 0 0 0 1px var(--border);
 }
 
@@ -4025,7 +4025,7 @@ select:focus-visible {
 
 .text-action {
   justify-self: start;
-  color: var(--accent-text);
+  color: var(--text);
 }
 
 .wallpaper-source-actions {
@@ -4051,7 +4051,7 @@ select:focus-visible {
 }
 
 .wallpaper-position-actions .button.active {
-  color: var(--accent-text);
+  color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
   background: var(--accent-soft);
 }
@@ -4247,7 +4247,7 @@ select:focus-visible {
 }
 
 .trash-item-actions .is-delete-armed {
-  color: white;
+  color: var(--text);
   background: var(--danger-fill);
 }
 
@@ -4264,7 +4264,7 @@ select:focus-visible {
 }
 
 .group-editor-delete.is-delete-armed {
-  color: white;
+  color: var(--text);
   border-color: var(--danger-fill);
   background: var(--danger-fill);
 }

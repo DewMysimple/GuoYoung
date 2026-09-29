@@ -58,7 +58,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(page.getByText("保存到网站收藏", { exact: true })).toHaveCount(0);
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".popup-shell")).toHaveCSS("background-image", /linear-gradient/);
-  await expect(page.locator(".popup-site-name input")).toHaveCSS("color", "rgb(232, 236, 243)");
+  await expect(page.locator(".popup-site-name input")).toHaveCSS("color", "rgb(255, 255, 255)");
   const groupOptions = page.getByRole("radiogroup", { name: "添加到分组" });
   await expect(groupOptions).toBeVisible();
   const quickLayout = await page.locator(".quick-page").evaluate((quickPage) => {

@@ -16,15 +16,15 @@
 .wallpaper-settings .glass-fine-tuning,
 .settings-disclosure.settings-subsection { padding: 14px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
 .settings-choice { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-soft); font-size: 12px; cursor: pointer; }
-.settings-choice[aria-pressed="true"] { color: var(--accent-text); border-color: var(--accent); background: var(--accent-soft); }
-.glass-preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.settings-choice[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.glass-preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
 .glass-preset { display: grid; gap: 6px; padding: 8px; min-width: 0; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: color-mix(in srgb, var(--surface) 18%, transparent); text-align: left; cursor: pointer; }
 .glass-preset[aria-pressed="true"] { border-color: var(--accent); outline: 1px solid var(--accent); background: var(--accent-soft); }
 .glass-preset strong { font-size: 12px; }
 .glass-preset small { color: var(--text-soft); font-size: 10px; }
 .glass-preset-sample { display: grid; height: 56px; place-items: center; overflow: hidden; border-radius: 7px; background: repeating-linear-gradient(125deg, #a7d5e6 0 15px, #428cb5 15px 25px, #ded7ef 25px 40px); }
-.glass-preset-sample i { width: 72%; height: 34px; border: 1px solid rgb(255 255 255 / .85); border-radius: 12px; background: rgb(255 255 255 / .1); box-shadow: inset 2px 2px 3px #ffffffa6, inset -2px -2px 3px #ffffff66, 0 3px 7px #22334433; backdrop-filter: blur(1px) saturate(1.4); }
-.glass-preset[data-preset="crystal"] i { border-width: 2px; backdrop-filter: saturate(1.8); }
+.glass-preset-sample i { width: 72%; height: 34px; border: 1px solid rgb(255 255 255 / .85); border-radius: 12px; background: rgb(255 255 255 / .1); box-shadow: inset 2px 2px 3px #ffffffa6, inset -2px -2px 3px #ffffff66, 0 3px 7px #22334433; backdrop-filter: blur(1px) saturate(1); }
+.glass-preset[data-preset="crystal"] i { border-width: 2px; backdrop-filter: saturate(1); }
 .glass-preset[data-preset="soft"] i { backdrop-filter: blur(4px); background: #ffffff30; }
 .glass-preset[data-preset="frost"] i { backdrop-filter: blur(9px); background: #ffffff65; }
 .glass-preset[data-preset="light"] i { box-shadow: inset 0 1px 0 #ffffff66; border-color: #ffffff60; }
@@ -50,7 +50,7 @@
 .data-settings .settings-data-card > .settings-inline-actions > button { flex: 1; }
 .data-settings .settings-data-card > button { justify-self: start; }
 .data-settings .danger-zone { border-color: color-mix(in srgb, var(--danger) 26%, var(--border)); }
-.data-settings .danger-zone button { color: var(--danger); }
+.data-settings .danger-zone button { color: var(--text); }
 .data-settings .trash-settings-summary { align-items: center; }
 .data-settings .trash-settings-summary .button { flex: 0 0 auto; }
 .data-settings .trash-settings-content { min-width: 0; }
