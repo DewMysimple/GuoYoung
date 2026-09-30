@@ -157,7 +157,7 @@ export const DEFAULT_BRAND: BrandSettings = {
   logoSource: "default",
 };
 
-export const GROUP_NAVIGATION_GAP = { min: 8, max: 96, default: 20 } as const;
+export const GROUP_NAVIGATION_GAP = { min: 8, max: 128, default: 20 } as const;
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   ...DEFAULT_TYPOGRAPHY,
@@ -185,6 +185,10 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
   zoom: 100,
   blur: 0,
   overlay: 22,
+  sidebarStyle: "shared",
+  sidebarTransparency: 60,
+  sidebarBlurEnabled: true,
+  sidebarBlur: 12,
   topbarBlurEnabled: true,
   topbarBlur: 16,
   topbarOpacity: 68,
@@ -322,7 +326,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 22,
+    version: 23,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

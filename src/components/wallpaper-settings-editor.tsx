@@ -1,3 +1,4 @@
+import { PanelGlassControls } from "./panel-glass-controls";
 import { SettingsToggle } from "./settings-toggle";
 import { useRef, type ChangeEvent } from "react";
 import { ArrowsOutCardinal, Crosshair, Image, Trash, UploadSimple } from "@phosphor-icons/react";
@@ -112,12 +113,23 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
           aria-pressed={value.topbarStyle === topbarStyle} className={value.topbarStyle === topbarStyle ? "active" : ""}
           onClick={() => onChange({ topbarStyle })}>{topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"}</button>)}
       </div>
-      {value.topbarStyle === "glass" && <>
-        <SettingsToggle label="模糊壁纸" help="柔化顶栏下方的图片细节" checked={value.topbarBlurEnabled}
-        onChange={checked => onChange({ topbarBlurEnabled: checked })} />
-        <RangeControl label="模糊强度" min={0} max={30} value={value.topbarBlur} disabled={!value.topbarBlurEnabled} onChange={(topbarBlur) => onChange({ topbarBlur })} />
-        <RangeControl label="顶栏透明度" min={0} max={100} value={100 - value.topbarOpacity} unit="%" onChange={(transparency) => onChange({ topbarOpacity: 100 - transparency })} />
-      </>}
+      {value.topbarStyle === "glass" && <PanelGlassControls label="顶栏"
+        transparency={100 - value.topbarOpacity} blur={value.topbarBlur} blurEnabled={value.topbarBlurEnabled}
+        onTransparency={transparency => onChange({ topbarOpacity: 100 - transparency })}
+        onBlur={topbarBlur => onChange({ topbarBlur })} onBlurEnabled={topbarBlurEnabled => onChange({ topbarBlurEnabled })} />}
+
+    </SettingsDisclosure>
+    <SettingsDisclosure title="设置侧栏外观" summary={value.sidebarStyle === "shared" ? "跟随公共玻璃" : value.sidebarStyle === "clear" ? "融入壁纸" : "独立玻璃底板"}
+      help="默认跟随公共面板玻璃，也可单独调整侧栏。选择壁纸后预览材质，保存后保留，取消恢复原设置。">
+      <div className="segmented-control" role="group" aria-label="设置侧栏样式">
+        {(["shared", "clear", "glass"] as const).map(sidebarStyle => <button type="button" key={sidebarStyle}
+          aria-pressed={value.sidebarStyle === sidebarStyle} className={value.sidebarStyle === sidebarStyle ? "active" : ""}
+          onClick={() => onChange({ sidebarStyle })}>{sidebarStyle === "shared" ? "跟随公共玻璃" : sidebarStyle === "clear" ? "融入壁纸" : "独立玻璃底板"}</button>)}
+      </div>
+      {value.sidebarStyle === "glass" && <PanelGlassControls label="侧栏"
+        transparency={value.sidebarTransparency} blur={value.sidebarBlur} blurEnabled={value.sidebarBlurEnabled}
+        onTransparency={sidebarTransparency => onChange({ sidebarTransparency })}
+        onBlur={sidebarBlur => onChange({ sidebarBlur })} onBlurEnabled={sidebarBlurEnabled => onChange({ sidebarBlurEnabled })} />}
     </SettingsDisclosure>
   </div>;
 }

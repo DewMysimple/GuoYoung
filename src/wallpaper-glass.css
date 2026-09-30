@@ -149,9 +149,7 @@ html:has(.app-shell.has-wallpaper) {
 .has-wallpaper .group-icon-choice:hover {
   border-color: var(--glass-edge);
   background-color: var(--glass-fill-high);
-  background-image:
-    linear-gradient(142deg, var(--glass-reflection), transparent 48%),
-    radial-gradient(ellipse at 14% 0%, var(--glass-flare), transparent 58%);
+  background-image: var(--glass-surface-image);
   box-shadow: var(--glass-shadow);
 }
 
@@ -160,6 +158,7 @@ html:has(.app-shell.has-wallpaper) {
 .has-wallpaper .view-control-button.active,
 .has-wallpaper .grouped-site-multi-select.active,
 .has-wallpaper .grouped-site-actions .compact-icon-button[aria-expanded="true"],
+.has-wallpaper .grouped-site-actions .compact-icon-button[aria-pressed="true"],
 .has-wallpaper .site-selection-toggle[aria-pressed="true"],
 .has-wallpaper .group-selection-mark {
   border-color: color-mix(in srgb, var(--accent) 44%, var(--glass-edge));
@@ -226,6 +225,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 
 .has-wallpaper .site-card,
 .has-wallpaper .add-site-card {
+  /* Keep selected and pending cards stable too; dnd-kit inline transforms still own dragging. */
+  transform: none;
   border-color: var(--glass-edge);
   background-color: var(--glass-fill-low);
   background-image: var(--glass-surface-image);
@@ -233,6 +234,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   transition: border-color 160ms ease, background-color 160ms ease;
   backdrop-filter: var(--glass-filter);
 }
+
+.has-wallpaper .add-site-card { border-style: solid; }
 
 .has-wallpaper .site-domain,
 .has-wallpaper .site-category,
@@ -254,9 +257,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   transform: none;
   border-color: color-mix(in srgb, var(--accent) 42%, var(--glass-edge));
   background-color: var(--glass-fill);
-  background-image:
-    linear-gradient(142deg, var(--glass-reflection), transparent 48%),
-    radial-gradient(ellipse at 14% 0%, var(--glass-flare), transparent 58%);
+  background-image: var(--glass-surface-image);
   box-shadow: var(--glass-shadow);
 }
 
@@ -293,6 +294,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
     linear-gradient(180deg, var(--glass-fill-high), var(--glass-fill-low));
 }
 
+.has-wallpaper .add-site-card-icon,
 .has-wallpaper .github-home-entry-icon,
 .has-wallpaper .grouped-site-icon,
 .has-wallpaper .history-state-icon,
@@ -606,7 +608,12 @@ body:has(.app-shell.has-wallpaper) :is(.dialog-footer, .settings-footer) {
 }
 
 /* This drawer is attached to the viewport, not a floating dialog. */
-body:has(.app-shell.has-wallpaper) .settings-panel { box-shadow: none; }
+body:has(.app-shell.has-wallpaper) .settings-panel {
+  box-shadow: none;
+  background-color: var(--sidebar-background);
+  background-image: var(--sidebar-image);
+  backdrop-filter: var(--sidebar-filter);
+}
 
 /* Card tools use the card's material, without three nested glass tiles. */
 .has-wallpaper .card-actions .icon-button {

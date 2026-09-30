@@ -361,6 +361,10 @@ export function normalizeWallpaper(value: unknown): WallpaperSettings {
     zoom: clamp(candidate.zoom, 50, 300, DEFAULT_WALLPAPER.zoom),
     blur: clamp(candidate.blur, 0, 20, DEFAULT_WALLPAPER.blur),
     overlay: clamp(candidate.overlay, 0, 80, DEFAULT_WALLPAPER.overlay),
+    sidebarStyle: candidate.sidebarStyle === "clear" || candidate.sidebarStyle === "glass" ? candidate.sidebarStyle : "shared",
+    sidebarTransparency: clamp(candidate.sidebarTransparency, 0, 100, DEFAULT_WALLPAPER.sidebarTransparency),
+    sidebarBlurEnabled: typeof candidate.sidebarBlurEnabled === "boolean" ? candidate.sidebarBlurEnabled : DEFAULT_WALLPAPER.sidebarBlurEnabled,
+    sidebarBlur: clamp(candidate.sidebarBlur, 0, 30, DEFAULT_WALLPAPER.sidebarBlur),
     topbarBlurEnabled:
       typeof candidate.topbarBlurEnabled === "boolean"
         ? candidate.topbarBlurEnabled
@@ -599,7 +603,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 22 &&
+    state.version === 23 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -1005,6 +1009,13 @@ function upgradeToVersion22(legacy: Record<string, unknown> | SiteCollectionStat
   return { ...candidate, version: 22, appearance: normalizeAppearance(candidate.appearance) };
 }
 
+function upgradeToVersion23(legacy: Record<string, unknown> | SiteCollectionState, sourceAppearance: unknown): SiteCollectionState | undefined {
+  const base = legacy.version === 23 ? legacy : upgradeToVersion22(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return { ...candidate, version: 23, wallpaper: normalizeWallpaper(candidate.wallpaper) };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1119,7 +1130,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
+        candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
           candidate.version === 18 ||
           candidate.version === 17 ||
           candidate.version === 16 ||
@@ -1135,7 +1146,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion22(baseCandidate, candidate.appearance)
+        ? upgradeToVersion23(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.

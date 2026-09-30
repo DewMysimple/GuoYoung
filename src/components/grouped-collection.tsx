@@ -42,7 +42,8 @@ export function GroupedCollection({ sections, selection, drag, sorting, sortDisa
             onToggleGroupSelected={shiftKey => selection.toggleGroupSelection(group.id, shiftKey)}
             onEnterGroupSelection={() => selection.enterGroupSelectionFromDoubleClick(group.id)}
             allSitesSelected={sites.length > 0 && sites.every(site => selection.selectedSiteIds.has(site.id))}
-            onToggleSiteSelectionMode={() => selection.toggleGroupedSiteSelection(sites.map(site => site.id))}>
+            onToggleSiteSelectionMode={selection.selectionMode === "none" ? selection.toggleMultiSelectMode : selection.cancelSelection}
+            onToggleAllSites={() => selection.toggleGroupedSiteSelection(sites.map(site => site.id))}>
             <CollectionSiteGrid group={group} sites={sites} grouped drag={drag}
               dropEnabled={Boolean(drag.activeId) && !drag.disabled}
               renderSite={site => renderSite(site, group)} onAdd={onAdd} />

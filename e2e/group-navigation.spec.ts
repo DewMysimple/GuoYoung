@@ -154,7 +154,7 @@ test("navigation footer adjusts and remembers spacing without overlapping conten
     for (const key of ["End", "Home"]) {
       await slider.focus();
       await slider.press(key);
-      const gap = key === "End" ? 96 : 8;
+      const gap = key === "End" ? 128 : 8;
       await expect(slider).toHaveValue(String(gap));
       await expect.poll(() => nav.evaluate(node => document.querySelector(".grouped-site-sections")!.getBoundingClientRect().left - node.getBoundingClientRect().right)).toBeCloseTo(gap, 0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -166,7 +166,7 @@ test("navigation footer adjusts and remembers spacing without overlapping conten
   await slider.press("End");
   await page.reload();
   await trigger.click();
-  await expect(slider).toHaveValue("96");
+  await expect(slider).toHaveValue("128");
   await page.getByRole("button", { name: "打开设置" }).click();
   await expect(slider).toBeDisabled();
   await page.getByRole("button", { name: "关闭设置" }).click();

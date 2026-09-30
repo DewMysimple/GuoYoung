@@ -1,4 +1,4 @@
-import { Check, CheckSquare, DotsSixVertical, DotsThree } from "@phosphor-icons/react";
+import { Check, CheckSquare, DotsSixVertical, DotsThree, X } from "@phosphor-icons/react";
 import type { HTMLAttributes } from "react";
 import type { SiteGroup } from "../types";
 import type { CollectionSelection } from "../lib/collection-selection";
@@ -20,6 +20,7 @@ export interface GroupSectionHeaderProps {
   onEnterGroupSelection: () => void;
   allSitesSelected: boolean;
   onToggleSiteSelectionMode: () => void;
+  onToggleAllSites: () => void;
   pointerListeners: Pick<HTMLAttributes<HTMLElement>, "onMouseDown" | "onTouchStart">;
 }
 
@@ -37,11 +38,11 @@ export function GroupSectionHeader({
   onEnterGroupSelection,
   allSitesSelected,
   onToggleSiteSelectionMode,
+  onToggleAllSites,
   pointerListeners,
 }: GroupSectionHeaderProps) {
   const selectionActive = selectionMode !== "none";
-  const selectionLabel = !selectionActive ? "多选"
-    : allSitesSelected && selectionMode === "sites" ? "取消全选" : "全选";
+  const selectionLabel = selectionActive ? "取消" : "多选";
 
   return (
       <header className="grouped-site-header">
@@ -79,6 +80,7 @@ export function GroupSectionHeader({
             <CompactIconButton className={`group-selection-trigger ${groupSelected ? "is-selected" : ""}`}
               disabled={group.isProtected || actionsDisabled}
               aria-label={`${groupSelected ? "取消选择" : "选择"} ${group.name} 分组`}
+              title={`${groupSelected ? "取消选择" : "选择"} ${group.name} 分组`}
               aria-pressed={groupSelected}
               onClick={event => { event.stopPropagation(); onToggleGroupSelected(event.shiftKey); }}>
               <span className="group-selection-mark">{groupSelected && <Check size={12} weight="bold" aria-hidden="true" />}</span>
@@ -86,9 +88,15 @@ export function GroupSectionHeader({
           ) : (
             <GroupInsertControl group={group} disabled={insertDisabled} onInsert={onInsert} />
           )}
-          <CompactIconButton
+          {selectionActive ? <CompactIconButton
+            aria-label={`${allSitesSelected ? "取消全选" : "全选"} ${group.name} 网站`}
+            title={`${allSitesSelected ? "取消全选" : "全选"} ${group.name} 网站`}
+            aria-pressed={allSitesSelected} disabled={actionsDisabled || count === 0}
+            onClick={event => { event.stopPropagation(); onToggleAllSites(); }}>
+            <CheckSquare size={18} weight={allSitesSelected ? "fill" : "regular"} aria-hidden="true" />
+          </CompactIconButton> : <CompactIconButton
             className="grouped-site-manage"
-            disabled={selectionActive || actionsDisabled}
+            disabled={actionsDisabled}
             aria-label={`管理 ${group.name} 分组`}
             title={`管理 ${group.name} 分组`}
             onClick={(event) => {
@@ -97,21 +105,21 @@ export function GroupSectionHeader({
             }}
           >
             <DotsThree size={18} aria-hidden="true" />
-          </CompactIconButton>
+          </CompactIconButton>}
         <button
           type="button"
           className={`grouped-site-multi-select ${selectionActive ? "active" : ""}`}
           data-selection-surface="selection-switch"
           aria-pressed={selectionActive}
           aria-label={`${selectionLabel} ${group.name} 网站`}
-          title={`${selectionLabel}网站`}
+          title={selectionActive ? "取消多选" : "进入多选"}
           disabled={actionsDisabled}
           onClick={(event) => {
             event.stopPropagation();
             onToggleSiteSelectionMode();
           }}
         >
-          <CheckSquare size={16} aria-hidden="true" />
+          {selectionActive ? <X size={16} aria-hidden="true" /> : <CheckSquare size={16} aria-hidden="true" />}
           <span>{selectionLabel}</span>
         </button>
         </div>

@@ -137,7 +137,8 @@
 }
 
 .compact-icon-button:hover,
-.compact-icon-button[aria-expanded="true"] {
+.compact-icon-button[aria-expanded="true"],
+.compact-icon-button[aria-pressed="true"] {
   color: var(--ui-accent-text);
   border-color: var(--border);
   background: var(--accent-soft);

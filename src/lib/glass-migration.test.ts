@@ -9,7 +9,7 @@ describe("wallpaper glass migration", () => {
       positionY: 71, zoom: 140, blur: 4, overlay: 18, topbarOpacity: 35, topbarBlur: 7, topbarBlurEnabled: false };
     const loaded = parseStoredState(JSON.stringify({ ...state, version: 16, wallpaper }));
     expect(loaded.recovered).toBe(false);
-    expect(loaded.state.version).toBe(22);
+    expect(loaded.state.version).toBe(23);
     expect(loaded.state.wallpaper).toEqual({ ...DEFAULT_WALLPAPER, ...wallpaper });
     expect(loaded.state.sites).toEqual(state.sites);
     expect(loaded.state.groups).toEqual(state.groups);
@@ -48,4 +48,19 @@ describe("wallpaper glass migration", () => {
       glassShadow: 0, glassPanelTransparency: 100, glassControlTransparency: 82, glassPopoverTransparency: 55,
     });
   });
+});
+
+
+it("adds independent sidebar controls to v22 without changing existing materials", () => {
+  const original = createDefaultState();
+  const { sidebarStyle: _style, sidebarTransparency: _alpha, sidebarBlur: _blur, sidebarBlurEnabled: _enabled, ...wallpaper } = original.wallpaper;
+  const legacy = { ...original, version: 22, wallpaper: { ...wallpaper, glassPanelTransparency: 83, topbarOpacity: 27 } };
+  const loaded = parseStoredState(JSON.stringify(legacy));
+  expect(loaded.recovered).toBe(false);
+  expect(loaded.state.wallpaper).toEqual({ ...legacy.wallpaper, sidebarStyle: "shared", sidebarTransparency: 60, sidebarBlur: 12, sidebarBlurEnabled: true });
+  expect(loaded.state.sites).toEqual(original.sites);
+  expect(loaded.state.groups).toEqual(original.groups);
+  const custom = { ...loaded.state, wallpaper: { ...loaded.state.wallpaper, sidebarStyle: "glass", sidebarTransparency: 88, sidebarBlur: 7, sidebarBlurEnabled: false } };
+  expect(parseStoredState(JSON.stringify(custom)).state).toEqual(custom);
+  expect(normalizeWallpaper({ sidebarStyle: "invalid", sidebarTransparency: 999, sidebarBlur: -1, sidebarBlurEnabled: "true" })).toMatchObject({ sidebarStyle: "shared", sidebarTransparency: 100, sidebarBlur: 0, sidebarBlurEnabled: true });
 });

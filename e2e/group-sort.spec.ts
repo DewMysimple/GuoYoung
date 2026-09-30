@@ -486,7 +486,7 @@ test("moves non-contiguous selected groups as one ordered block", async ({
   ).toHaveClass(/is-sortable/);
   await expect(
     searchSection.getByRole("button", { name: "全选 搜索 网站" }),
-  ).toHaveText("全选");
+  ).toHaveAttribute("aria-pressed", "false");
 
   const source = await searchSection.locator(".grouped-site-header-main").boundingBox();
   const target = await mediaSection.locator(".grouped-site-header-main").boundingBox();
@@ -556,14 +556,14 @@ test("selects one group's sites and switches directly between site and group mod
   await searchSection.getByRole("button", { name: "多选 搜索 网站" }).click();
   await expect(
     searchSection.getByRole("button", { name: "全选 搜索 网站" }),
-  ).toHaveText("全选");
+  ).toHaveAttribute("aria-pressed", "false");
   await page.screenshot({
     path: screenshotPath(`selection-mode-sites-${testInfo.project.name}.png`),
     fullPage: true,
   });
   await expect(page.getByRole("button", { name: "选择 Google" })).toBeVisible();
   await expect(page.locator(".group-selection-trigger")).toHaveCount(6);
-  await expect(searchSection.getByRole("button", { name: "管理 搜索 分组" })).toBeDisabled();
+  await expect(searchSection.getByRole("button", { name: "管理 搜索 分组" })).toHaveCount(0);
   await expect(
     searchSection.getByTestId("site-card-google").getByRole("button", { name: "编辑 Google" }),
   ).toBeDisabled();
@@ -623,8 +623,8 @@ test("selects one group's sites and switches directly between site and group mod
   ).toBeVisible();
   await expect(
     searchSection.getByRole("button", { name: "全选 搜索 网站" }),
-  ).toHaveText("全选");
-  await expect(searchSection.getByRole("button", { name: "管理 搜索 分组" })).toBeDisabled();
+  ).toHaveAttribute("aria-pressed", "false");
+  await expect(searchSection.getByRole("button", { name: "管理 搜索 分组" })).toHaveCount(0);
   await expect(
     searchSection.getByTestId("site-card-google").getByRole("button", { name: "编辑 Google" }),
   ).toBeDisabled();
@@ -657,7 +657,7 @@ test("selects one group's sites and switches directly between site and group mod
     designSection.getByRole("button", { name: "取消全选 设计 网站" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "取消选择 Figma" })).toBeVisible();
-  await page.locator("main.page-container").click({ position: { x: 5, y: 5 } });
+  await page.getByRole("heading", { level: 2, name: "全部网站" }).click();
   await expect(designSection).not.toHaveClass(/is-group-selected/);
   await expect(page.getByRole("button", { name: "多选 搜索 网站" })).toBeVisible();
   await page.screenshot({
@@ -681,7 +681,7 @@ test("double-clicking a grouped title enters group multi-select", async ({
   ).toBeVisible();
   await expect(
     searchSection.getByRole("button", { name: "全选 搜索 网站" }),
-  ).toHaveText("全选");
+  ).toHaveAttribute("aria-pressed", "false");
   await page.screenshot({
     path: screenshotPath(`selection-double-click-groups-${testInfo.project.name}.png`),
     fullPage: true,

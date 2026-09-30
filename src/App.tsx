@@ -1235,6 +1235,13 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--glass-card-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens"),
     "--glass-wide-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-wide"),
     "--glass-search-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-search"),
+    "--sidebar-background": effectiveWallpaper.sidebarStyle === "shared" ? "var(--glass-fill-panel)"
+      : effectiveWallpaper.sidebarStyle === "clear" ? "transparent"
+      : `color-mix(in srgb, var(--surface) ${100 - effectiveWallpaper.sidebarTransparency}%, transparent)`,
+    "--sidebar-filter": effectiveWallpaper.sidebarStyle === "shared" ? "var(--glass-filter)"
+      : effectiveWallpaper.sidebarStyle === "glass" && effectiveWallpaper.sidebarBlurEnabled
+      ? `blur(${effectiveWallpaper.sidebarBlur}px) saturate(${effectiveWallpaper.glassSaturation}%)` : "none",
+    "--sidebar-image": effectiveWallpaper.sidebarStyle === "clear" ? "none" : "var(--glass-surface-image)",
     "--topbar-background": `color-mix(in srgb, var(--page) ${effectiveWallpaper.topbarOpacity}%, transparent)`,
     "--topbar-backdrop-blur": effectiveWallpaper.topbarBlurEnabled
       ? `${effectiveWallpaper.topbarBlur}px`

@@ -21,7 +21,7 @@
 .resize-handle-y { left: calc(50% - 56px); width: 112px; height: 14px; bottom: -7px; cursor: row-resize; }
 .resize-handle-y span { width: 64px; height: 3px; }
 .resize-handle-y:hover span, .resize-handle-y:focus-visible span, .resize-handle-y.is-resizing span { width: 96px; }
-.topbar-resize-portal { position: fixed; z-index: 40; left: calc((100% - var(--resize-panel-width, 0px)) / 2 - 56px); top: calc(var(--topbar-height) - 7px); bottom: auto; }
+.topbar-resize-portal { position: fixed; z-index: 40; left: 0; width: calc(100% - var(--resize-panel-width, 0px)); top: calc(var(--topbar-height) - 7px); bottom: auto; }
 :root.resizing-x *, :root.resizing-y * { user-select: none !important; }
 :root.resizing-x * { cursor: col-resize !important; }
 :root.resizing-y * { cursor: row-resize !important; }

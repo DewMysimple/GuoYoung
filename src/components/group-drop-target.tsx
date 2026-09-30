@@ -216,14 +216,17 @@ export function GroupDropGrid({
     disabled: !dragActive,
     data: { type: "group-zone", groupId },
   });
+  // A disabled droppable can retain the preceding collision for one render.
+  // Never expose a drop hint outside an active drag session.
+  const highlighted = dragActive && (isOver || dragOver);
   return (
     <div
       ref={setNodeRef}
       className={`${className} ${
-        isOver || dragOver ? "is-group-drag-over" : ""
+        highlighted ? "is-group-drag-over" : ""
       }`}
       data-group-zone-id={groupId}
-      data-group-drop-target={isOver || undefined}
+      data-group-drop-target={(dragActive && isOver) || undefined}
     >
       {children}
     </div>

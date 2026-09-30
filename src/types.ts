@@ -214,6 +214,10 @@ export interface WallpaperSettings {
   overlay: number;
   topbarBlurEnabled: boolean;
   topbarBlur: number;
+  sidebarStyle: "shared" | "clear" | "glass";
+  sidebarTransparency: number;
+  sidebarBlurEnabled: boolean;
+  sidebarBlur: number;
   topbarOpacity: number;
   topbarStyle: "clear" | "glass";
   topbarReadability?: "clear" | "page";
