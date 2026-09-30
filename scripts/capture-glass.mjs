@@ -45,7 +45,7 @@ async function capture(page, name) {
     return { width: innerWidth, overflow: document.documentElement.scrollWidth > innerWidth,
       left: document.querySelector(".app-shell").getBoundingClientRect().left,
       searchCenter: box.x + box.width / 2,
-      backdrop: getComputedStyle(document.querySelector(".site-card")).backdropFilter };
+      backdrop: getComputedStyle(document.querySelector(".site-card"), "::before").backdropFilter };
   });
   assert.equal(geometry.overflow, false, name);
   assert.equal(geometry.left, 0, name);
@@ -75,7 +75,7 @@ try {
     await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
     await panel.getByRole("slider", { name: "折射强度" }).fill("32");
     await panel.getByRole("button", { name: "保存设置" }).click();
-    await expect(card).toHaveCSS("backdrop-filter", /wallpaper-glass-lens/);
+    await expect.poll(() => card.evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toMatch(/wallpaper-glass-lens/);
     await page.mouse.move(0, 0);
     await capture(page, `glass-production-${spec.name}-on`);
     const on = await card.screenshot({ animations: "disabled" });
@@ -94,14 +94,14 @@ try {
       await expect(source).toHaveCSS("opacity", "0.26");
       await expect(target).toHaveClass(/is-drop-target/);
       await expect(target).toHaveCSS("opacity", "0.78");
-      await expect(target).toHaveCSS("backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
+      await expect.poll(() => target.evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toMatch(/blur\(2px\).*wallpaper-glass-lens/);
       const targetFillAlpha = await target.evaluate(el => {
-        const color = getComputedStyle(el).backgroundColor;
+        const color = getComputedStyle(el, "::before").backgroundColor;
         return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
       });
       assert.ok(targetFillAlpha > 0.75, `Target glass fill alpha should exceed 0.75, got ${targetFillAlpha}`);
       metrics.push({ name: "site-drag-feedback", targetOpacity: 0.78, sourceOpacity: 0.26,
-        targetFillAlpha, targetBackdrop: await target.evaluate(el => getComputedStyle(el).backdropFilter) });
+        targetFillAlpha, targetBackdrop: await target.evaluate(el => getComputedStyle(el, "::before").backdropFilter) });
       await page.screenshot({ path: join(output, "glass-production-xiaohongshu-over-bilibili.png"), animations: "disabled" });
       await page.keyboard.press("Escape");
       await page.mouse.up();
@@ -142,7 +142,7 @@ try {
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expect(page.locator(".site-card").first()).toHaveCSS("backdrop-filter", /wallpaper-glass-lens/);
+  await expect.poll(() => page.locator(".site-card").first().evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toMatch(/wallpaper-glass-lens/);
   await capture(page, "glass-production-native-extension");
   assert.equal(await page.evaluate(() => chrome.runtime.getManifest().version), manifest.version);
 } finally { await context.close(); }

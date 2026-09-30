@@ -97,7 +97,7 @@ test('hover and menus preserve glass texture and never activate dashed drag surf
   await grouped(page, true);
   const card = page.getByTestId('site-card-google');
   const add = page.locator('.add-site-card').first();
-  const texture = await card.evaluate(el => getComputedStyle(el).backgroundImage);
+  const texture = await card.evaluate(el => getComputedStyle(el, "::before").backgroundImage);
   const box = await card.boundingBox();
   for (const target of [card, add, page.getByRole('button', { name: '多选 搜索 网站' })]) {
     await target.hover();
@@ -105,7 +105,7 @@ test('hover and menus preserve glass texture and never activate dashed drag surf
       await page.evaluate(() => new Promise(requestAnimationFrame));
       await expect(page.locator('.is-group-drag-over,.is-drop-target,.site-card-drop-placeholder,.is-dragging')).toHaveCount(0);
       expect(await card.boundingBox()).toEqual(box);
-      await expect(card).toHaveCSS('background-image', texture);
+      await expect.poll(() => card.evaluate(el => getComputedStyle(el, '::before').backgroundImage)).toBe(texture);
       await expect(add).toHaveCSS('border-top-style', 'solid');
     }
   }

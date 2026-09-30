@@ -95,8 +95,6 @@ html:has(.app-shell.has-wallpaper) {
 .has-wallpaper .card-action,
 .has-wallpaper .category-tab > span,
 .has-wallpaper .group-icon-choice,
-.has-wallpaper .site-card,
-.has-wallpaper .add-site-card,
 .has-wallpaper .history-detail-summary,
 .has-wallpaper .history-selection-toolbar,
 .has-wallpaper .history-empty,
@@ -228,11 +226,11 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   /* Keep selected and pending cards stable too; dnd-kit inline transforms still own dragging. */
   transform: none;
   border-color: var(--glass-edge);
-  background-color: var(--glass-fill-low);
-  background-image: var(--glass-surface-image);
+  --card-glass-fill: var(--glass-fill-low);
+  --card-glass-image: var(--glass-surface-image);
+  --card-glass-filter: var(--glass-filter);
   box-shadow: var(--glass-shadow);
-  transition: border-color 160ms ease, background-color 160ms ease;
-  backdrop-filter: var(--glass-filter);
+  transition: border-color 160ms ease;
 }
 
 .has-wallpaper .add-site-card { border-style: solid; }
@@ -256,8 +254,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 .has-wallpaper .add-site-card[data-drop-ready] {
   transform: none;
   border-color: color-mix(in srgb, var(--accent) 42%, var(--glass-edge));
-  background-color: var(--glass-fill);
-  background-image: var(--glass-surface-image);
+  --card-glass-fill: var(--glass-fill);
+  --card-glass-image: var(--glass-surface-image);
   box-shadow: var(--glass-shadow);
 }
 
@@ -265,8 +263,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 .has-wallpaper .site-card.is-drag-pending,
 .has-wallpaper .site-card.is-drop-target {
   border-color: color-mix(in srgb, var(--accent) 62%, var(--glass-edge));
-  background-color: color-mix(in srgb, var(--accent) 18%, var(--glass-fill-low));
-  background-image:
+  --card-glass-fill: color-mix(in srgb, var(--accent) 18%, var(--glass-fill-low));
+  --card-glass-image:
     linear-gradient(142deg, var(--glass-reflection), transparent 48%),
     radial-gradient(ellipse at 14% 0%, var(--glass-flare), transparent 58%);
   box-shadow:
@@ -275,20 +273,20 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 }
 
 .has-wallpaper.is-site-dragging .site-card.is-drop-target {
-  background-color: color-mix(in srgb, var(--accent) 18%, var(--glass-fill-drop-target));
+  --card-glass-fill: color-mix(in srgb, var(--accent) 18%, var(--glass-fill-drop-target));
 }
 
 .has-wallpaper .site-card.is-dragging {
   border-color: var(--accent);
-  background-color: var(--glass-fill-high);
-  background-image: none;
+  --card-glass-fill: var(--glass-fill-high);
+  --card-glass-image: none;
+  --card-glass-filter: none;
   box-shadow: none;
-  backdrop-filter: none;
 }
 
 .has-wallpaper .site-card.site-card-drop-placeholder {
   border-style: dashed;
-  background-image:
+  --card-glass-image:
     linear-gradient(142deg, var(--glass-sheen), transparent 48%),
     radial-gradient(circle at center, color-mix(in srgb, var(--accent) 22%, transparent), transparent 68%),
     linear-gradient(180deg, var(--glass-fill-high), var(--glass-fill-low));
@@ -413,13 +411,20 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
 }
 
 :root:has(.app-shell.has-wallpaper) .group-sort-drag-preview,
-:root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview,
 :root:has(.app-shell.has-wallpaper) .group-list-item-drag-preview {
   border-color: var(--glass-edge);
   background-color: var(--glass-fill-low);
   background-image: var(--glass-surface-image);
   box-shadow: var(--glass-elevated-shadow);
   backdrop-filter: var(--glass-filter);
+}
+
+:root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview {
+  --card-glass-fill: var(--glass-fill-low);
+  --card-glass-image: var(--glass-surface-image);
+  --card-glass-filter: var(--glass-filter);
+  border-color: var(--glass-edge);
+  box-shadow: var(--glass-elevated-shadow);
 }
 
 :root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview.is-batch-preview {
@@ -440,10 +445,9 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
 .has-wallpaper.is-site-dragging
   .site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):focus-within {
   border-color: var(--glass-edge);
-  background-color: var(--glass-fill-low);
-  background-image: var(--glass-surface-image);
+  --card-glass-fill: var(--glass-fill-low);
+  --card-glass-image: var(--glass-surface-image);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-filter);
 }
 
 .has-wallpaper .group-section-nav {
@@ -658,15 +662,37 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   background-color: var(--glass-fill-high);
 }
 
+/* Keep backdrop sampling on a bounded, non-interactive sibling of card content.
+   The article still owns dnd-kit's transform and the outer shadow; its tools,
+   icon fades and text no longer live inside the backdrop-filter surface.
+   This also covers history cards and DragOverlay's body portal. */
+:root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  backdrop-filter: none;
+}
+:root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-color: var(--card-glass-fill, var(--glass-fill-low));
+  background-image: var(--card-glass-image, var(--glass-surface-image));
+  backdrop-filter: var(--card-glass-filter, var(--glass-filter));
+}
+
 /* Chromium's backdrop URL filters are optional. Other engines retain the
    standard blur, and reduced-transparency below always takes precedence. */
 @supports (backdrop-filter: url("#wallpaper-glass-lens")) {
   :root:has(.app-shell.has-wallpaper.glass-refraction) .site-card.site-card-drag-preview {
-    backdrop-filter: var(--glass-card-filter);
+    --card-glass-filter: var(--glass-card-filter);
   }
   .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
   .has-wallpaper.glass-refraction .add-site-card {
-    backdrop-filter: var(--glass-card-filter);
+    --card-glass-filter: var(--glass-card-filter);
   }
   .has-wallpaper.glass-refraction .github-home-entry::before { backdrop-filter: var(--glass-wide-filter); }
   .has-wallpaper.glass-refraction .search-input { backdrop-filter: var(--glass-search-filter); }
@@ -679,7 +705,12 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 }
 
 @supports not (backdrop-filter: blur(1px)) {
-  :root:has(.app-shell.has-wallpaper) :is(.group-sort-tab-preview, .group-sort-drag-preview, .site-card.site-card-drag-preview, .group-list-item-drag-preview) {
+  :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
+    background-color: var(--surface);
+    background-image: none;
+    backdrop-filter: none;
+  }
+  :root:has(.app-shell.has-wallpaper) :is(.group-sort-tab-preview, .group-sort-drag-preview, .group-list-item-drag-preview) {
     background-color: var(--surface);
     background-image: none;
     backdrop-filter: none;
@@ -696,8 +727,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   .has-wallpaper .search-input,
   .has-wallpaper .search-submit,
   .has-wallpaper .view-control-button,
-  .has-wallpaper .site-card,
-  .has-wallpaper .add-site-card,
   .has-wallpaper .history-detail-summary,
   .has-wallpaper .github-home-entry-menu-popover,
   .has-wallpaper .topbar-add-menu,
@@ -717,14 +746,16 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  :root:has(.app-shell.has-wallpaper) :is(.group-sort-tab-preview, .group-sort-drag-preview, .site-card.site-card-drag-preview, .group-list-item-drag-preview),
-  :root:has(.app-shell.has-wallpaper.glass-refraction) .site-card.site-card-drag-preview {
+  :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
     background-image: none;
     backdrop-filter: none;
   }
-  .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
-  .has-wallpaper.glass-refraction .add-site-card,
+  :root:has(.app-shell.has-wallpaper) :is(.group-sort-tab-preview, .group-sort-drag-preview, .group-list-item-drag-preview) {
+    background-color: color-mix(in srgb, var(--surface) 96%, transparent);
+    background-image: none;
+    backdrop-filter: none;
+  }
   .has-wallpaper.glass-refraction .search-input,
   .has-wallpaper.glass-refraction .github-home-entry::before {
     backdrop-filter: none;
@@ -752,8 +783,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   .has-wallpaper .history-range-trigger,
   .has-wallpaper .grouped-site-actions .compact-icon-button,
   .has-wallpaper .grouped-site-multi-select,
-  .has-wallpaper .site-card,
-  .has-wallpaper .add-site-card,
   .has-wallpaper .history-detail-summary,
   .has-wallpaper .history-selection-toolbar,
   .has-wallpaper .history-empty,

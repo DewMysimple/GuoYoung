@@ -68,7 +68,7 @@ async function run(context, url, extension) {
       if (!visualOnly) await page.setViewportSize({ width: 2560, height: 1440 });
       await seed(sample);
       await expect(page.locator(".site-card")).toHaveCount(117);
-      const filter = await page.locator(".site-card").first().evaluate(el => getComputedStyle(el).backdropFilter);
+      const filter = await page.locator(".site-card").first().evaluate(el => getComputedStyle(el, "::before").backdropFilter);
       assert.equal(filter.includes("url("), mode === "old");
       if (mode === "new" && name === "水晶棱镜") assert.equal(filter, "none");
       for (let repeat = 0; repeat < (visualOnly ? 0 : 2); repeat++) {

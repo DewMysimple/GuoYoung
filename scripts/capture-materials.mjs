@@ -146,7 +146,7 @@ async function inspectPresets(page, mode) {
   await page.waitForTimeout(300);
   const card = page.locator(".site-card").nth(3);
   const refracted = await card.screenshot({ path: join(output, `liquid-${mode}-refraction-on.png`) });
-  const unfiltered = await page.addStyleTag({ content: ".has-wallpaper.glass-refraction .site-card:not(.is-dragging) { backdrop-filter: var(--glass-filter) !important; }" });
+  const unfiltered = await page.addStyleTag({ content: ".has-wallpaper.glass-refraction .site-card:not(.is-dragging)::before { backdrop-filter: var(--glass-filter) !important; }" });
   const ordinary = await card.screenshot({ path: join(output, `liquid-${mode}-refraction-off.png`) });
   await unfiltered.evaluate(el => el.remove());
   const optical = await page.evaluate(async ({ on, off }) => {

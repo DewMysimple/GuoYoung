@@ -1,3 +1,4 @@
+import type { Locator } from "@playwright/test";
 import { expect, test, screenshotPath } from "./fixtures";
 
 test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
@@ -116,21 +117,21 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 51, sourceBox.y + sourceBox.height / 2);
   await expect(source).toHaveCSS("opacity", "0.26");
   const sitePreview = page.getByTestId("site-card-drag-preview");
-  await expect(sitePreview).toHaveCSS("backdrop-filter", /blur\(8px\).*wallpaper-glass-lens/);
+  await expectCardMaterial(sitePreview, "backdrop-filter", /blur\(8px\).*wallpaper-glass-lens/);
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
   await expect(target).toHaveClass(/is-drop-target/);
   await expect(target).toHaveCSS("opacity", "0.78");
-  await expect(target).toHaveCSS("backdrop-filter", /blur\(8px\)/);
-  await expect(target).toHaveCSS("background-color", /\/ 0\.[0-9]+\)/);
+  await expectCardMaterial(target, "backdrop-filter", /blur\(8px\)/);
+  await expectCardMaterial(target, "background-color", /\/ 0\.[0-9]+\)/);
   await expect.poll(() => target.evaluate(el => {
-    const color = getComputedStyle(el).backgroundColor;
+    const color = getComputedStyle(el, "::before").backgroundColor;
     return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
   })).toBeGreaterThan(0.75);
   await page.screenshot({ path: screenshotPath("glass-site-drag-hover.png") });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
-  await expect(sitePreview).toHaveCSS("backdrop-filter", "none");
-  await expect(sitePreview).toHaveCSS("background-color", /\/ 0\.96\)/);
+  await expectCardMaterial(sitePreview, "backdrop-filter", "none");
+  await expectCardMaterial(sitePreview, "background-color", /\/ 0\.96\)/);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
   await cdp.detach();
   await page.keyboard.press("Escape");
@@ -173,7 +174,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   expect((await heading.boundingBox())!.x).toBeCloseTo(before.x, 1);
   expect((await heading.boundingBox())!.width).toBeCloseTo(before.width, 1);
   await page.getByRole("dialog", { name: "管理分组", exact: true }).getByRole("button", { name: "关闭", exact: true }).click();
-  const initial = await card.evaluate(el => getComputedStyle(el).backgroundColor);
+  const initial = await card.evaluate(el => getComputedStyle(el, "::before").backgroundColor);
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
@@ -183,8 +184,8 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("slider", { name: "折射强度" }).fill("32");
-  await expect(card).toHaveCSS("backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
-  await expect.poll(() => card.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(initial);
+  await expectCardMaterial(card, "backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
+  await expect.poll(() => card.evaluate(el => getComputedStyle(el, "::before").backgroundColor)).not.toBe(initial);
   await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
   await panel.getByRole("button", { name: "玻璃底板", exact: true }).click();
   await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
@@ -193,7 +194,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toContain("0.15");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.glassTransparency)).toBe(78);
   await panel.getByRole("button", { name: "取消", exact: true }).click();
-  await expect(card).toHaveCSS("background-color", initial);
+  await expectCardMaterial(card, "background-color", initial);
   await expect(shell).not.toHaveClass(/glass-refraction/);
   await expect(page.locator("#wallpaper-glass-lens")).toHaveCount(0);
 
@@ -207,16 +208,16 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expect(card).toHaveCSS("backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
+  await expectCardMaterial(card, "backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.glassTransparency)).toBe(88);
-  await expect(card).toHaveCSS("backdrop-filter", /saturate\(1.75\)/);
+  await expectCardMaterial(card, "backdrop-filter", /saturate\(1.75\)/);
   await expect(card).toHaveCSS("border-top-color", "rgba(255, 255, 255, 0.2)");
   await page.screenshot({ path: screenshotPath(`glass-refraction-${info.project.name}.png`), animations: "disabled" });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
-  await expect(card).toHaveCSS("backdrop-filter", "none");
+  await expectCardMaterial(card, "backdrop-filter", "none");
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
-  await expect(card).toHaveCSS("backdrop-filter", /wallpaper-glass-lens/);
+  await expectCardMaterial(card, "backdrop-filter", /wallpaper-glass-lens/);
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
@@ -288,7 +289,7 @@ test("offers nine reversible presets behind collapsed wallpaper parameters", asy
   await panel.getByRole("button", { name: /^液态清透/ }).click();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expect(page.locator(".site-card").first()).toHaveCSS("backdrop-filter", "blur(2px)");
+  await expectCardMaterial(page.locator(".site-card").first(), "backdrop-filter", "blur(2px)");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toMatchObject({
     source: original.source, url: original.url, zoom: 110, overlay: 0, topbarStyle: original.topbarStyle, glassHighlight: 78, glassRefraction: false,
   });
@@ -323,7 +324,7 @@ test("keeps glass sampling and complete cards from the first frame when returnin
           const style = getComputedStyle(parent);
           if (Number(style.opacity) < 1 || style.filter !== "none" || style.willChange.includes("opacity")) opaque = false;
         }
-        frames.push({ missing: !card, opaque, filter: card ? getComputedStyle(card).backdropFilter : "", searchTop: search?.getBoundingClientRect().top ?? -1 });
+        frames.push({ missing: !card, opaque, filter: card ? getComputedStyle(card, "::before").backdropFilter : "", searchTop: search?.getBoundingClientRect().top ?? -1 });
       }
       return frames;
     });
@@ -332,3 +333,10 @@ test("keeps glass sampling and complete cards from the first frame when returnin
   }
   await page.screenshot({ path: screenshotPath("liquid-github-after-history.png") });
 });
+
+async function expectCardMaterial(card: Locator, property: string, value: string | RegExp) {
+  await expect(card).toHaveCSS("backdrop-filter", "none");
+  const actual = expect.poll(() => card.evaluate((el, property) => getComputedStyle(el, "::before").getPropertyValue(property), property));
+  if (typeof value === "string") await actual.toBe(value);
+  else await actual.toMatch(value);
+}
