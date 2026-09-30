@@ -669,6 +669,9 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
   position: relative;
   isolation: isolate;
+  /* Keep fractional-pixel rasterization stable when a child's tools appear.
+     This reserves the layer; dnd-kit remains the only owner of transforms. */
+  will-change: transform;
   background: transparent;
   backdrop-filter: none;
 }
