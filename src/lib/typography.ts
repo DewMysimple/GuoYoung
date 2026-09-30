@@ -74,6 +74,7 @@ export function typographyVariables(value: TypographySettings) {
     : value.textColorHierarchy === "unified" ? primary : value.textSecondaryColor;
   return {
     "--reading-font": getFontFamily(value),
+    "--custom-text": value.textColorMode === "custom" ? value.textColor : "initial",
     "--reading-text": primary,
     "--reading-text-secondary": secondary,
     "--reading-text-faint": value.textColorMode === "theme" ? "var(--theme-text-faint)" : secondary,

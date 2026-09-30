@@ -12,6 +12,13 @@
   --text: var(--reading-text, var(--theme-text));
   --text-soft: var(--reading-text-secondary, var(--theme-text-secondary));
   --text-faint: var(--reading-text-faint, var(--theme-text-faint));
+  --ui-accent-text: var(--custom-text, var(--accent-text));
+  --ui-danger-text: var(--custom-text, var(--danger));
+  --ui-success-text: var(--custom-text, var(--success));
+  --ui-warning-text: var(--custom-text, var(--warning));
+  --ui-on-accent-text: var(--custom-text, #ffffff);
+  --ui-primary-text: var(--custom-text, #f7f9fd);
+  --ui-destructive-text: var(--custom-text, #fff6f7);
   --border: #dfe4ec;
   --border-strong: #cbd2dd;
   --accent-base: #3367d6;
@@ -64,6 +71,13 @@
 /* Wallpaper reading contrast is scoped to the page that actually displays it.
    Plain themes retain the three historical text levels (dea02c4). */
 :root:has(.app-shell.has-wallpaper) {
+  --ui-accent-text: var(--text);
+  --ui-danger-text: var(--text);
+  --ui-success-text: var(--text);
+  --ui-warning-text: var(--text);
+  --ui-on-accent-text: var(--text);
+  --ui-primary-text: var(--text);
+  --ui-destructive-text: var(--text);
   --theme-text: #000000;
   --theme-text-secondary: #000000;
   --theme-text-faint: #000000;

@@ -70,27 +70,26 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
       </SettingsDisclosure>
     </section>
 
-    <SettingsDisclosure help="全局生效，包含设置、菜单与弹窗。网站原图标和 Logo 保留原色；选中状态通过底色、边框和勾选标记区分。" title="文字颜色" summary={value.textColorMode === "theme" ? "跟随主题" : "自定义"}>
+    <SettingsDisclosure help="全局生效，包含设置、菜单与弹窗。无壁纸时保留主题层次与强调色，壁纸下主题文字统一为黑或白；网站原图标和 Logo 保留原色。" title="文字颜色" summary={value.textColorMode === "theme" ? "跟随主题" : "自定义"}>
       <SettingsToggle label="主题关联字体颜色" help="有壁纸时浅色用纯黑、深色用纯白；无壁纸时保留主题的主次层次。关闭后使用自定义配色" checked={value.textColorMode === "theme"}
         onChange={checked => patch({ textColorMode: checked ? "theme" : "custom" })} />
       <SettingsToggle label="区分主次文字" help="自定义配色下，关闭后所有文字统一使用主要颜色" checked={value.textColorHierarchy === "split"}
         onChange={checked => patch({ textColorHierarchy: checked ? "split" : "unified" })} />
-      {value.textColorMode === "custom" && <>
+      <p className="typography-note">选择预设或调整调色盘即可使用自定义颜色；开启主题关联可恢复主题配色。</p>
         <div className="typography-color-presets" role="group" aria-label="文字配色预设">
           {COLORS.map(color => <button type="button" className="settings-choice" key={color.label} aria-label={`${color.label}文字`}
-            aria-pressed={value.textColor === color.main && value.textSecondaryColor === color.secondary}
-            onClick={() => patch({ textColor: color.main, textSecondaryColor: color.secondary })}>
+            aria-pressed={value.textColorMode === "custom" && value.textColor === color.main && value.textSecondaryColor === color.secondary}
+            onClick={() => patch({ textColorMode: "custom", textColor: color.main, textSecondaryColor: color.secondary })}>
             <i style={{ background: color.main }} />{color.label}
-            {value.textColor === color.main && value.textSecondaryColor === color.secondary && <Check size={12} />}
+            {value.textColorMode === "custom" && value.textColor === color.main && value.textSecondaryColor === color.secondary && <Check size={12} />}
           </button>)}
         </div>
         <div className="typography-color-row"><span>{value.textColorHierarchy === "unified" ? "全部文字" : "主要文字"}</span><code>{value.textColor.toUpperCase()}</code>
-          <CustomColorPicker label="自定义主要文字颜色" value={value.textColor} onChange={textColor => patch({ textColor })} />
+          <CustomColorPicker label="自定义主要文字颜色" value={value.textColor} onChange={textColor => patch({ textColorMode: "custom", textColor })} />
         </div>
         {value.textColorHierarchy === "split" && <div className="typography-color-row"><span>次要文字</span><code>{value.textSecondaryColor.toUpperCase()}</code>
-          <CustomColorPicker label="自定义次要文字颜色" value={value.textSecondaryColor} onChange={textSecondaryColor => patch({ textSecondaryColor })} />
+          <CustomColorPicker label="自定义次要文字颜色" value={value.textSecondaryColor} onChange={textSecondaryColor => patch({ textColorMode: "custom", textSecondaryColor })} />
         </div>}
-      </>}
       <SettingsToggle label="图标跟随文字" help="界面功能图标与文字同色，也可独立调色" checked={value.iconColorMode === "text"}
         onChange={checked => patch({ iconColorMode: checked ? "text" : "custom" })} />
       {value.iconColorMode === "custom" && <div className="typography-color-row"><span>图标颜色</span><code>{value.iconColor.toUpperCase()}</code>

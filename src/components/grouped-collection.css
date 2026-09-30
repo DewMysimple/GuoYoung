@@ -69,7 +69,7 @@
   flex: 0 0 auto;
   place-items: center;
   border-radius: 8px;
-  color: var(--text);
+  color: var(--ui-accent-text);
   background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface));
 }
 
@@ -101,7 +101,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--text);
+  color: var(--ui-accent-text);
   opacity: 0;
   transition: opacity 140ms ease;
 }
@@ -138,7 +138,7 @@
 
 .compact-icon-button:hover,
 .compact-icon-button[aria-expanded="true"] {
-  color: var(--text);
+  color: var(--ui-accent-text);
   border-color: var(--border);
   background: var(--accent-soft);
 }
@@ -163,7 +163,7 @@
   border-radius: 50%;
   background: var(--surface);
 }
-.is-selected .group-selection-mark { border-color: var(--accent); color: var(--text); background: var(--accent); }
+.is-selected .group-selection-mark { border-color: var(--accent); color: var(--ui-on-accent-text); background: var(--accent); }
 
 .group-add-menu {
   position: absolute;
@@ -229,7 +229,7 @@
 .grouped-site-multi-select:hover,
 .grouped-site-multi-select:focus-visible,
 .grouped-site-multi-select.active {
-  color: var(--text);
+  color: var(--ui-accent-text);
   border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
   background: var(--accent-soft);
   outline: none;

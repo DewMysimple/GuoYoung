@@ -109,7 +109,7 @@ test("previews global unified/split colors and independent icons, cancels and pe
   await panel.getByRole("tab", { name: "字体调节" }).click();
   await panel.getByRole("button", { name: "恢复默认字体" }).click();
   await expect(page.locator(".site-name").first()).toHaveCSS("color", "rgb(232, 236, 243)");
-  await expect(page.locator(".topbar-history-button.active svg")).toHaveCSS("color", "rgb(232, 236, 243)");
+  await expect(page.locator(".topbar-history-button.active svg")).toHaveCSS("color", "color(srgb 0.552 0.667451 0.916392)");
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await expect(page.locator(".site-domain").first()).toHaveCSS("color", primary);
   await expect(page.locator(".topbar-history-button.active svg")).toHaveCSS("color", "rgb(252, 171, 18)");

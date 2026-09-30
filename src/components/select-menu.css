@@ -31,7 +31,7 @@
 
 .select-menu-trigger.is-active,
 .view-control-button.active {
-  color: var(--text);
+  color: var(--ui-accent-text);
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   background: var(--accent-soft);
 }
@@ -50,7 +50,7 @@
 .select-menu-caret {
   flex: 0 0 auto;
   margin-left: auto;
-  color: var(--text);
+  color: var(--ui-accent-text);
   transition: transform 160ms ease;
 }
 
@@ -124,7 +124,7 @@
 .select-menu-option.is-selected,
 .sort-popover > button.active,
 .display-popover > button.active {
-  color: var(--text);
+  color: var(--ui-accent-text);
 }
 
 .select-menu-option-label {
@@ -151,7 +151,7 @@
   min-width: 18px;
   padding: 2px 5px;
   border-radius: 999px;
-  color: var(--text);
+  color: var(--ui-on-accent-text);
   background: var(--accent);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
