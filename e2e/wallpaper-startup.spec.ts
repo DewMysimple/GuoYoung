@@ -47,7 +47,12 @@ test("paints saved local wallpaper before the app and covers GitHub entry surfac
   });
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/src/main.tsx", async route => { await gate; await route.continue(); });
+  // Block the real entry in both Vite development and production builds.
+  // A hard-coded source path never gates a bundled main.js / hashed entry.
+  const appEntry = page.locator('script[type="module"][src]:not([src*="/@vite/"])');
+  await expect(appEntry).toHaveCount(1);
+  const entryUrl = await appEntry.evaluate((el: HTMLScriptElement) => el.src);
+  await page.route(entryUrl, async route => { await gate; await route.continue(); });
   try {
     await page.reload({ waitUntil: "commit" });
     await expect(page.locator("#wallpaper-startup img")).toBeVisible();

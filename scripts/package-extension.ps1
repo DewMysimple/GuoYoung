@@ -17,16 +17,12 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
 
 New-Item -ItemType Directory -Path $artifactsDirectory -Force | Out-Null
 
-if (Test-Path -LiteralPath $unpackedDirectory -PathType Container) {
-  Remove-Item -LiteralPath $unpackedDirectory -Recurse -Force
-}
-
+# Keep the browser-loaded directory and old hashed assets alive until reload.
+# The ZIP is built only from dist-extension, so retained assets are not shipped.
+$pendingArchivePath = Join-Path $artifactsDirectory "site-hub-extension.pending.zip"
+Compress-Archive -Path (Join-Path $extensionDirectory "*") -DestinationPath $pendingArchivePath -CompressionLevel Optimal -Force
 New-Item -ItemType Directory -Path $unpackedDirectory -Force | Out-Null
 Copy-Item -Path (Join-Path $extensionDirectory "*") -Destination $unpackedDirectory -Recurse -Force
 
-if (Test-Path -LiteralPath $archivePath -PathType Leaf) {
-  Remove-Item -LiteralPath $archivePath -Force
-}
-
-Compress-Archive -Path (Join-Path $extensionDirectory "*") -DestinationPath $archivePath -CompressionLevel Optimal
+Move-Item -LiteralPath $pendingArchivePath -Destination $archivePath -Force
 Write-Output "Extension package created: $archivePath"

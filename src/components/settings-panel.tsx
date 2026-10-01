@@ -174,12 +174,7 @@ export function SettingsPanel({
 
   useEffect(
     () => () => {
-      if (wallpaperFrame.current !== null) {
-        window.cancelAnimationFrame(wallpaperFrame.current);
-      }
-      if (wallpaperWheelCommit.current !== null) {
-        window.clearTimeout(wallpaperWheelCommit.current);
-      }
+      cancelWallpaperSchedule();
       document.documentElement.classList.remove("wallpaper-positioning");
     },
     [],
@@ -206,9 +201,9 @@ export function SettingsPanel({
     setLogoEditorSource(file);
   }
 
-  function updateWallpaper(patch: Partial<WallpaperSettings>) {
-    if (patch.source !== undefined) wallpaperImport.cancel();
-    const pendingGesture = wallpaperGestureValue.current;
+  // All exits own the same scheduled frame/debounce cleanup. Gesture values
+  // are committed or discarded by the caller, never by an old timer.
+  function cancelWallpaperSchedule() {
     if (wallpaperFrame.current !== null) {
       window.cancelAnimationFrame(wallpaperFrame.current);
       wallpaperFrame.current = null;
@@ -217,6 +212,12 @@ export function SettingsPanel({
       window.clearTimeout(wallpaperWheelCommit.current);
       wallpaperWheelCommit.current = null;
     }
+  }
+
+  function updateWallpaper(patch: Partial<WallpaperSettings>) {
+    if (patch.source !== undefined) wallpaperImport.cancel();
+    const pendingGesture = wallpaperGestureValue.current;
+    cancelWallpaperSchedule();
     wallpaperGestureValue.current = null;
     setWallpaperGesturePreview(null);
     document.documentElement.classList.remove("wallpaper-positioning");
@@ -404,16 +405,13 @@ export function SettingsPanel({
   }
 
   function closeWithoutSaving() {
+    // React may see unchanged draft props after imperative rAF painting.
+    // Restore that paint explicitly, including gestures cancelled before debounce.
+    applyWallpaperGesture(state.wallpaper);
+    wallpaperDragState.current = null;
     setLogoEditorSource(undefined);
     wallpaperImport.cancel();
-    if (wallpaperFrame.current !== null) {
-      window.cancelAnimationFrame(wallpaperFrame.current);
-      wallpaperFrame.current = null;
-    }
-    if (wallpaperWheelCommit.current !== null) {
-      window.clearTimeout(wallpaperWheelCommit.current);
-      wallpaperWheelCommit.current = null;
-    }
+    cancelWallpaperSchedule();
     wallpaperGestureValue.current = null;
     setWallpaperGesturePreview(null);
     setWallpaperEditing(false);
@@ -447,6 +445,8 @@ export function SettingsPanel({
       return;
     }
     const pendingWallpaper = wallpaperGestureValue.current;
+    cancelWallpaperSchedule();
+    wallpaperDragState.current = null;
     setLogoEditorSource(undefined);
     wallpaperImport.cancel();
     onSave(

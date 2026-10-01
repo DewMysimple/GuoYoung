@@ -89,3 +89,23 @@ test("wallpaper wheel previews cross 100 percent continuously before gesture com
   await expect(image).toHaveCSS("transform", "none");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.zoom)).toBe(100);
 });
+
+test("cancelling an uncommitted wallpaper gesture restores the rendered image", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop wallpaper gesture");
+  await seedWallpaper(page);
+  await page.getByRole("button", { name: "打开设置" }).click();
+  await page.getByRole("tab", { name: "壁纸", exact: true }).click();
+  await page.locator("summary").filter({ hasText: /^位置与构图/ }).click();
+  await page.getByRole("button", { name: "在页面拖动调整", exact: true }).click();
+  await page.clock.install();
+  await page.locator(".wallpaper-edit-canvas").dispatchEvent("wheel", { deltaY: -100 });
+  await page.clock.runFor(32);
+  const image = page.locator(".wallpaper-layer img");
+  expect(await image.evaluate(el => new DOMMatrix(getComputedStyle(el).transform).a)).toBeCloseTo(1.08);
+  await page.getByRole("button", { name: "取消", exact: true }).click();
+  await page.clock.runFor(250);
+  await expect(page.getByRole("dialog", { name: "设置", exact: true })).toHaveCount(0);
+  await expect(image).toHaveCSS("transform", "none");
+  await expect(page.locator("html")).not.toHaveClass(/wallpaper-positioning/);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.zoom)).toBe(100);
+});
