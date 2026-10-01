@@ -1,3 +1,4 @@
+import { wallpaperImageTransform } from "./lib/wallpaper-presentation";
 import { DataWorkspace, type DataWorkspaceContext } from "./components/data-workspace";
 import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
@@ -195,7 +196,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const effectiveWallpaper =
     settingsPreview?.wallpaper ?? state.wallpaper;
   const wallpaperImageNeedsBlur = effectiveWallpaper.blur > 0;
-  const wallpaperImageNeedsZoom = effectiveWallpaper.zoom !== 100;
   useTheme(effectiveAppearance.theme, effectiveAppearance.accentColor);
   const { imageUrl: wallpaperUrl, error: wallpaperError, pending: wallpaperPending } =
     useWallpaper(effectiveWallpaper);
@@ -1224,7 +1224,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--wallpaper-fit": effectiveWallpaper.fit,
     "--wallpaper-position-x": `${effectiveWallpaper.positionX}%`,
     "--wallpaper-position-y": `${effectiveWallpaper.positionY}%`,
-    "--wallpaper-zoom": String(effectiveWallpaper.zoom / 100),
+    "--wallpaper-transform": wallpaperImageTransform(effectiveWallpaper.zoom),
     "--wallpaper-blur": `${effectiveWallpaper.blur}px`,
     "--wallpaper-overlay": String(effectiveWallpaper.overlay / 100),
     "--glass-opacity": `${100 - effectiveWallpaper.glassTransparency}%`,
@@ -1291,7 +1291,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         <div
           className={`wallpaper-layer${
             wallpaperImageNeedsBlur ? " wallpaper-layer-blurred" : ""
-          }${wallpaperImageNeedsZoom ? " wallpaper-layer-zoomed" : ""}`}
+          }`}
           aria-hidden="true"
         >
           <img src={wallpaperUrl} alt="" fetchPriority="high" onLoad={dismissWallpaperStartup} />

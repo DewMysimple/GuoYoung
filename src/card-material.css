@@ -1,0 +1,110 @@
+/* Card paint has three responsibilities: theme palettes, state selection and
+   one paint owner. State rules never write a parent background. Geometry,
+   borders and shadows remain in styles.css / wallpaper-glass.css. */
+:root {
+  --card-rest-paint: var(--surface);
+  --card-hover-paint: color-mix(in srgb, var(--accent-soft) 20%, var(--surface));
+  --card-pending-paint: color-mix(in srgb, var(--accent-soft) 28%, var(--surface));
+  --card-selected-paint: color-mix(in srgb, var(--accent-soft) 22%, var(--surface));
+  --card-target-paint: color-mix(in srgb, var(--accent-soft) 8%, var(--surface));
+  --card-source-paint: color-mix(in srgb, var(--accent-soft) 16%, var(--surface));
+  --card-preview-paint: color-mix(in srgb, var(--surface) 92%, var(--accent-soft));
+  --card-placeholder-paint:
+    radial-gradient(circle at center, color-mix(in srgb, var(--accent-soft) 62%, transparent), transparent 68%),
+    color-mix(in srgb, var(--accent-soft) 24%, var(--surface));
+  --card-add-paint: color-mix(in srgb, var(--surface) 58%, transparent);
+  --card-add-hover-paint: color-mix(in srgb, var(--accent-soft) 46%, var(--surface));
+  --card-add-target-paint: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));
+  --card-material-filter: none;
+}
+
+/* Root scope also supplies body-portal drag previews. Only the palette changes;
+   the same state selection below applies to both themes. */
+:root:has(.app-shell.has-wallpaper) {
+  --card-rest-paint: var(--glass-surface-image), var(--glass-fill-low);
+  --card-hover-paint: var(--card-rest-paint);
+  --card-selected-paint:
+    linear-gradient(142deg, var(--glass-reflection), transparent 48%),
+    radial-gradient(ellipse at 14% 0%, var(--glass-flare), transparent 58%),
+    color-mix(in srgb, var(--accent) 18%, var(--glass-fill-low));
+  --card-pending-paint: var(--card-selected-paint);
+  --card-target-paint: var(--glass-surface-image), color-mix(in srgb, var(--glass-fill-low) 92%, var(--accent) 8%);
+  --card-source-paint: var(--glass-fill-high);
+  --card-preview-paint: var(--card-rest-paint);
+  --card-placeholder-paint:
+    linear-gradient(142deg, var(--glass-sheen), transparent 48%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 22%, transparent), transparent 68%),
+    linear-gradient(180deg, var(--glass-fill-high), var(--glass-fill-low));
+  --card-add-paint: var(--card-rest-paint);
+  --card-add-hover-paint: var(--card-hover-paint);
+  --card-add-target-paint: var(--card-hover-paint);
+  --card-material-filter: var(--glass-filter);
+}
+
+/* Equal specificity makes precedence explicit: rest → interaction → source /
+   placeholder → overlay. Never resolve paint state with stronger selectors. */
+:where(.site-card, .add-site-card) {
+  --card-paint: var(--card-rest-paint);
+  --card-paint-filter: var(--card-material-filter);
+  background: var(--card-paint);
+}
+:where(.site-card:hover, .site-card:focus-within) {
+  --card-paint: var(--card-hover-paint);
+}
+:where(.site-card.is-selected) { --card-paint: var(--card-selected-paint); }
+:where(.site-card.is-drag-pending) { --card-paint: var(--card-pending-paint); }
+:where(.site-card.is-drop-target) { --card-paint: var(--card-target-paint); }
+:where(.is-site-dragging) :where(.site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):hover,
+  .site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):focus-within) {
+  --card-paint: var(--card-rest-paint);
+}
+:where(.site-card.is-dragging) {
+  --card-paint: var(--card-source-paint);
+  --card-paint-filter: none;
+}
+:where(.site-card.site-card-drop-placeholder) { --card-paint: var(--card-placeholder-paint); }
+:where(.site-card.site-card-drag-preview) { --card-paint: var(--card-preview-paint); }
+:where(.add-site-card) { --card-paint: var(--card-add-paint); }
+:where(.add-site-card:hover) { --card-paint: var(--card-add-hover-paint); }
+:where(.add-site-card[data-drop-ready]) { --card-paint: var(--card-add-target-paint); }
+
+/* Wallpaper cards paint exclusively on a bounded, non-interactive layer.
+   The parent owns dnd-kit geometry, foreground content and outer shadows.
+   Keep the existing fractional-DPR compositing mitigation independent of state. */
+:where(:root:has(.app-shell.has-wallpaper)) :where(.site-card, .add-site-card) {
+  position: relative;
+  isolation: isolate;
+  will-change: transform;
+  background: transparent;
+  backdrop-filter: none;
+}
+:where(:root:has(.app-shell.has-wallpaper)) :where(.site-card, .add-site-card)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--card-paint);
+  backdrop-filter: var(--card-paint-filter);
+}
+
+@supports (backdrop-filter: url("#wallpaper-glass-lens")) {
+  :root:has(.app-shell.has-wallpaper.glass-refraction) {
+    --card-material-filter: var(--glass-card-filter);
+  }
+}
+
+/* Accessibility/fallback changes the material layer, never the parent. */
+@supports not (backdrop-filter: blur(1px)) {
+  :where(:root:has(.app-shell.has-wallpaper)) :where(.site-card, .add-site-card)::before {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :where(:root:has(.app-shell.has-wallpaper)) :where(.site-card, .add-site-card)::before {
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+    backdrop-filter: none;
+  }
+}

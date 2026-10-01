@@ -1,3 +1,4 @@
+import { wallpaperImageTransform } from "../lib/wallpaper-presentation";
 import { DataSettingsEditor } from "./data-settings-editor";
 import { TypographySettingsEditor } from "./typography-settings";
 import { WallpaperSettingsEditor } from "./wallpaper-settings-editor";
@@ -233,7 +234,7 @@ export function SettingsPanel({
     const shell = document.querySelector<HTMLElement>("[data-app-shell]");
     shell?.style.setProperty("--wallpaper-position-x", `${value.positionX}%`);
     shell?.style.setProperty("--wallpaper-position-y", `${value.positionY}%`);
-    shell?.style.setProperty("--wallpaper-zoom", String(value.zoom / 100));
+    shell?.style.setProperty("--wallpaper-transform", wallpaperImageTransform(value.zoom));
   }
 
   function scheduleWallpaperGesture(value: {

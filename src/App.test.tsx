@@ -1295,7 +1295,7 @@ describe("App", () => {
 
     expect(shell.style.getPropertyValue("--wallpaper-position-x")).toBe("49%");
     await waitFor(() => {
-      expect(shell.style.getPropertyValue("--wallpaper-zoom")).toBe("1.08");
+      expect(shell.style.getPropertyValue("--wallpaper-transform")).toBe("scale(1.08)");
     });
 
     await user.click(screen.getByText("顶栏外观"));

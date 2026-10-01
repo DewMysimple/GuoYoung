@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "@fontsource-variable/manrope";
 import "./styles.css";
 import "./wallpaper-glass.css";
+import "./card-material.css";
 import "./typography.css";
 import "./text-selection.css";
 import { App } from "./App";

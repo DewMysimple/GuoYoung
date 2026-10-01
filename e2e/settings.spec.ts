@@ -280,15 +280,7 @@ test("drags and zooms wallpaper with live preview before saving", async ({
         ),
     )
     .not.toBe("50%");
-  await expect
-    .poll(() =>
-      page
-        .locator(".app-shell")
-        .evaluate((element) =>
-          element.style.getPropertyValue("--wallpaper-zoom"),
-        ),
-    )
-    .not.toBe("1");
+  await expect(page.locator(".wallpaper-layer img")).not.toHaveCSS("transform", "none");
 
   await page.locator(".wallpaper-edit-hud button").last().click();
   await page.locator(".settings-footer .primary-button").click();

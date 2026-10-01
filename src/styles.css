@@ -41,7 +41,7 @@
   --wallpaper-fit: cover;
   --wallpaper-position-x: 50%;
   --wallpaper-position-y: 50%;
-  --wallpaper-zoom: 1;
+  --wallpaper-transform: none;
   --wallpaper-blur: 0px;
   --wallpaper-overlay: 0.22;
   --topbar-background: color-mix(in srgb, var(--page) 88%, transparent);
@@ -148,7 +148,7 @@ select:focus-visible {
   object-fit: var(--wallpaper-fit);
   object-position: var(--wallpaper-position-x) var(--wallpaper-position-y);
   filter: none;
-  transform: none;
+  transform: var(--wallpaper-transform, none);
   transform-origin: var(--wallpaper-position-x) var(--wallpaper-position-y);
   transition:
     object-position 120ms ease-out,
@@ -160,15 +160,8 @@ select:focus-visible {
   filter: blur(var(--wallpaper-blur));
 }
 
-.wallpaper-layer-zoomed img {
-  transform: scale(calc(var(--wallpaper-zoom) * 1.02));
-}
-
 :root.wallpaper-positioning .wallpaper-layer img {
   transition: none;
-}
-
-:root.wallpaper-positioning .wallpaper-layer-zoomed img {
   will-change: transform;
 }
 
@@ -2092,7 +2085,6 @@ select:focus-visible {
   padding: var(--card-padding);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  background: var(--surface);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent);
   transition:
     transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -2113,14 +2105,12 @@ select:focus-visible {
 .site-card:hover,
 .site-card:focus-within {
   border-color: color-mix(in srgb, var(--accent) 33%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 20%, var(--surface));
   box-shadow: var(--shadow-soft);
   transform: translateY(-3px);
 }
 
 .site-card.is-drag-pending {
   border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 28%, var(--surface));
   box-shadow:
     0 8px 22px color-mix(in srgb, var(--accent) 12%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
@@ -2131,7 +2121,6 @@ select:focus-visible {
 .site-card.is-drop-target {
   border-style: dashed;
   border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 8%, var(--surface));
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--accent) 12%, transparent);
   transition: none;
@@ -2145,7 +2134,6 @@ select:focus-visible {
 .is-site-dragging
   .site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):focus-within {
   border-color: var(--border);
-  background: var(--surface);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent);
   transform: none;
 }
@@ -2155,7 +2143,6 @@ select:focus-visible {
 .is-site-dragging .site-card.is-drop-target {
   border-style: dashed;
   border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 8%, var(--surface));
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--accent) 12%, transparent);
   opacity: 0.78;
@@ -2164,13 +2151,6 @@ select:focus-visible {
 .site-card.site-card-drop-placeholder {
   border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
   border-style: dashed;
-  background:
-    radial-gradient(
-      circle at center,
-      color-mix(in srgb, var(--accent-soft) 62%, transparent),
-      transparent 68%
-    ),
-    color-mix(in srgb, var(--accent-soft) 24%, var(--surface));
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--accent) 16%, transparent);
   pointer-events: none;
@@ -2179,7 +2159,6 @@ select:focus-visible {
 .site-card.is-dragging {
   border-color: var(--accent);
   border-style: dashed;
-  background: color-mix(in srgb, var(--accent-soft) 16%, var(--surface));
   box-shadow: none;
   cursor: grabbing;
   opacity: 0.16;
@@ -2217,7 +2196,6 @@ select:focus-visible {
 
 .site-card.is-selected {
   border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 22%, var(--surface));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
     0 5px 16px color-mix(in srgb, var(--accent) 8%, transparent);
@@ -2231,7 +2209,6 @@ select:focus-visible {
 .site-card.site-card-drag-preview {
   width: 100%;
   border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  background: color-mix(in srgb, var(--surface) 92%, var(--accent-soft));
   box-shadow:
     0 28px 58px rgba(31, 43, 65, 0.2),
     0 8px 20px color-mix(in srgb, var(--accent) 16%, transparent);
@@ -2542,7 +2519,6 @@ select:focus-visible {
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-card);
   color: var(--text-faint);
-  background: color-mix(in srgb, var(--surface) 58%, transparent);
   font-size: calc(12px * var(--card-font-scale));
   font-weight: 680;
   transition:
@@ -2555,7 +2531,6 @@ select:focus-visible {
 .add-site-card:hover {
   color: var(--ui-accent-text);
   border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 46%, var(--surface));
   transform: translateY(-2px);
 }
 
@@ -2563,7 +2538,6 @@ select:focus-visible {
   color: var(--ui-accent-text);
   border-color: var(--accent);
   border-style: solid;
-  background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));
   box-shadow:
     0 14px 34px color-mix(in srgb, var(--accent) 14%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
