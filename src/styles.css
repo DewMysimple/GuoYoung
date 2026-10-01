@@ -147,8 +147,8 @@ select:focus-visible {
 .wallpaper-layer img {
   object-fit: var(--wallpaper-fit);
   object-position: var(--wallpaper-position-x) var(--wallpaper-position-y);
-  filter: blur(var(--wallpaper-blur));
-  transform: scale(calc(var(--wallpaper-zoom) * 1.02));
+  filter: none;
+  transform: none;
   transform-origin: var(--wallpaper-position-x) var(--wallpaper-position-y);
   transition:
     object-position 120ms ease-out,
@@ -156,8 +156,19 @@ select:focus-visible {
     filter 160ms ease;
 }
 
+.wallpaper-layer-blurred img {
+  filter: blur(var(--wallpaper-blur));
+}
+
+.wallpaper-layer-zoomed img {
+  transform: scale(calc(var(--wallpaper-zoom) * 1.02));
+}
+
 :root.wallpaper-positioning .wallpaper-layer img {
   transition: none;
+}
+
+:root.wallpaper-positioning .wallpaper-layer-zoomed img {
   will-change: transform;
 }
 

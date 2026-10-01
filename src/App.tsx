@@ -194,6 +194,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     settingsPreview?.appearance ?? state.appearance;
   const effectiveWallpaper =
     settingsPreview?.wallpaper ?? state.wallpaper;
+  const wallpaperImageNeedsBlur = effectiveWallpaper.blur > 0;
+  const wallpaperImageNeedsZoom = effectiveWallpaper.zoom !== 100;
   useTheme(effectiveAppearance.theme, effectiveAppearance.accentColor);
   const { imageUrl: wallpaperUrl, error: wallpaperError, pending: wallpaperPending } =
     useWallpaper(effectiveWallpaper);
@@ -1286,7 +1288,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     >
       {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} cardRadius={effectiveAppearance.radius} searchRadius={effectiveAppearance.searchRadius} />}
       {wallpaperUrl && (
-        <div className="wallpaper-layer" aria-hidden="true">
+        <div
+          className={`wallpaper-layer${
+            wallpaperImageNeedsBlur ? " wallpaper-layer-blurred" : ""
+          }${wallpaperImageNeedsZoom ? " wallpaper-layer-zoomed" : ""}`}
+          aria-hidden="true"
+        >
           <img src={wallpaperUrl} alt="" fetchPriority="high" onLoad={dismissWallpaperStartup} />
           <span />
         </div>
