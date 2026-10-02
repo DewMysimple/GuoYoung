@@ -36,6 +36,22 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
     });
     expect(bounded, 'Paint is bounded by the card, including the add card').toBe(true);
   }
+  // A compositing fix must preserve the foreground fade/slide, not hide the
+  // repaint defect by removing the interaction which triggers it.
+  const foreground = cards.first().locator('.card-actions');
+  await expect(foreground).toHaveCSS('opacity', '0');
+  await cards.first().hover();
+  const animated = await foreground.evaluate(async element => {
+    const transitions = element.getAnimations();
+    const properties = transitions.map(animation => (animation as CSSTransition).transitionProperty);
+    await Promise.all(transitions.map(animation => animation.finished));
+    return properties;
+  });
+  expect(animated).toContain('opacity');
+  expect(animated).toContain('transform');
+  await expect(foreground).toHaveCSS('opacity', '1');
+  await page.mouse.move(5, 850);
+  await expect(foreground).toHaveCSS('opacity', '0');
   // Include padding and the gap between cards, where the reported strip appeared.
   const first = (await cards.nth(8).boundingBox())!;
   const last = (await cards.nth(10).boundingBox())!;

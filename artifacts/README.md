@@ -38,3 +38,26 @@ releases/
 - `working/logs/`：本地视觉巡检服务器日志。
 
 历史 Wiki 日志是封存记录，其中的旧 `artifacts/<文件名>` 路径不回写；可按文件名在 `releases/` 或 `legacy/` 中定位。
+
+## 玻璃交互的整屏逐帧诊断
+
+`page.screenshot()` 和浏览器录屏会触发画面回读，不能单独作为远端闪线的验收证据。Windows 上可使用真实鼠标、桌面无损录制与每帧双热力图：
+
+```powershell
+$env:CAPTURE_STATE = 'C:\fixtures\export.json'
+$env:CAPTURE_WALLPAPER = 'C:\fixtures\wallpaper.png'
+$env:CAPTURE_BASE_URL = 'http://127.0.0.1:4173'
+$env:CAPTURE_OUTPUT = 'artifacts/working/glass-desktop'
+$env:CAPTURE_DDA = '1'
+node scripts/capture-glass-desktop.mjs
+python scripts/analyze-glass-desktop.py artifacts/working/glass-desktop
+```
+
+需要已启动的页面、含分组导航和至少八张卡片的导出配置、Edge、PATH 中的 FFmpeg，以及 Python 的 OpenCV / NumPy。当前录制尺寸固定为 1920×1006，浏览器视口为 1920×926；桌面必须容纳该尺寸。`CAPTURE_EXTENSION=1` 改用隔离配置文件加载 `dist-extension`；省略 `CAPTURE_DDA` 使用 GDI 桌面采集作交叉核对。
+
+- 实验使用隔离浏览器数据，不写回传入配置或壁纸；输入文件与录制资料不提交。录制时保持实验窗口在前台，守护进程发现切换窗口会令本次录制无效。
+- `desktop.mkv` 为无损录制；`report.json` 记录几何、鼠标命令和实际页面鼠标事件。录制过程中不调用页面截图。
+- `heatmaps/` 对解码出的每一帧输出整屏 PNG：左侧对比录制首帧，右侧对比上一帧。任意非零色差均增强显示，不用容差隐藏变化。
+- `heatmap-viewer.html` 可直接本地打开，支持逐帧滑动、方向键和播放。鼠标时间若只能近似对齐，会在页面中注明。
+- `heatmap-report.json` 同时记录整屏差异和远端统计。远端统计排除实际遍历的左侧卡片、左侧导航及异步图标；**热力图本身不排除任何像素**。分析命令检测到远端变化返回 1，表示需要调查，并不自动判定所有变化都是同一个缺陷。
+- 原版复现、候选样式与最终产品应使用不同输出目录；不能把单个裁剪区域归零当作整屏通过，也不能把实验候选归零当作滚动、折射、设置及扩展模式均已验证。
