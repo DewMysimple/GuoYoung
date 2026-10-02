@@ -1,3 +1,4 @@
+import { describeGlassMaterial } from "./read-glass-material.mjs";
 // Production startup and GitHub glass verification with synthetic local images.
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -87,7 +88,7 @@ async function verify(page, url, name, extension = false) {
   assert.ok(frames.every(frame => !frame.collection || frame.searchOpacity === "1"), "The search field must paint at its final opacity");
   await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
   await page.getByRole("button", { name: "管理 GitHub 官方主页" }).click();
-  await expect.poll(() => page.locator(".github-home-entry").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toContain("wallpaper-glass-lens");
+  await expect.poll(() => describeGlassMaterial(page.locator(".github-home-entry"), true)).toContain("refract(");
   await page.screenshot({ path: join(output, `${name}-github-light.png`), animations: "disabled" });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

@@ -1,3 +1,4 @@
+import { describeGlassMaterial } from "./read-glass-material.mjs";
 // Reproducible material comparison: identical scene/browser, old preset filters
 // versus current presets. Frame intervals are local observations, not an FPS SLA.
 import assert from "node:assert/strict";
@@ -68,8 +69,8 @@ async function run(context, url, extension) {
       if (!visualOnly) await page.setViewportSize({ width: 2560, height: 1440 });
       await seed(sample);
       await expect(page.locator(".site-card")).toHaveCount(117);
-      const filter = await page.locator(".site-card").first().evaluate(el => getComputedStyle(el, "::before").backdropFilter);
-      assert.equal(filter.includes("url("), mode === "old");
+      const filter = await describeGlassMaterial(page.locator(".site-card").first(), true);
+      assert.equal(filter.includes("refract("), mode === "old");
       if (mode === "new" && name === "水晶棱镜") assert.equal(filter, "none");
       for (let repeat = 0; repeat < (visualOnly ? 0 : 2); repeat++) {
         const intervals = await page.evaluate(() => new Promise(resolve => {

@@ -51,6 +51,10 @@ try {
   await page.evaluate(() => document.fonts.ready);
   await page.locator('.wallpaper-layer img').evaluate(image => image.decode());
   await page.waitForTimeout(3500);
+  if (process.env.CAPTURE_SCROLL_Y) {
+    await page.evaluate(y => window.scrollTo(0, y), Number(process.env.CAPTURE_SCROLL_Y));
+    await page.waitForTimeout(500);
+  }
   const session = await context.newCDPSession(page);
   const { windowId } = await session.send('Browser.getWindowForTarget');
   await session.send('Browser.setWindowBounds', { windowId, bounds: { left: 0, top: 0, windowState: 'normal' } });
@@ -59,7 +63,7 @@ try {
   await page.mouse.move(10, 850);
   await page.waitForTimeout(500);
   const rects = selector => page.locator(selector).evaluateAll(elements => elements.map(element => element.getBoundingClientRect().toJSON()));
-  const cards = await rects('.site-card[data-site-dnd-id]');
+  const cards = (await rects('.site-card[data-site-dnd-id]')).filter(rect => rect.y >= 0 && rect.bottom <= 926);
   const nav = await rects('.group-section-nav li button');
   if (cards.length < 8 || !nav.length) throw new Error('The fixture needs grouped desktop cards and navigation.');
   const errors = [];
@@ -79,7 +83,28 @@ try {
     guard.stdout.once('data', data => data.toString().trim() === 'ready' ? resolve() : reject(new Error('Unexpected foreground guard response')));
     guard.once('exit', () => reject(new Error(guardError || 'Foreground guard stopped')));
   });
-  guard.stdin.write(JSON.stringify({ x: 10, y: 850 }) + '\n');
+  // Some Chromium builds expose a render-widget HWND at the window origin,
+  // excluding the toolbar offset. Calibrate native input against DOM events.
+  await page.evaluate(() => {
+    window.__glassCalibration = null;
+    document.addEventListener('pointermove', event => {
+      window.__glassCalibration = { x: event.clientX, y: event.clientY };
+    }, { once: true });
+  });
+  guard.stdin.write(JSON.stringify({ x: 400, y: 700 }) + '\n');
+  await expect.poll(() => page.evaluate(() => window.__glassCalibration)).not.toBeNull();
+  const actual = await page.evaluate(() => window.__glassCalibration);
+  const pointerCalibration = { x: 400 - actual.x, y: 700 - actual.y };
+  const movePointer = (x, y) => guard.stdin.write(JSON.stringify({ x: x + pointerCalibration.x, y: y + pointerCalibration.y }) + '\n');
+  await page.evaluate(() => {
+    window.__glassCalibration = null;
+    document.addEventListener('pointermove', event => {
+      window.__glassCalibration = { x: event.clientX, y: event.clientY };
+    }, { once: true });
+  });
+  movePointer(500, 700);
+  await expect.poll(() => page.evaluate(() => window.__glassCalibration)).toEqual({ x: 500, y: 700 });
+  movePointer(10, 850);
   await page.waitForTimeout(500);
   await page.evaluate(() => {
     window.__glassPointerEvents = [];
@@ -107,10 +132,10 @@ try {
     const rect = i % 3 === 0 ? nav[i % nav.length] : cards[i % 4];
     const x = rect.x + rect.width * .65, y = rect.y + rect.height * .55;
     events.push({ time: Date.now(), x, y });
-    guard.stdin.write(JSON.stringify({ x, y }) + '\n');
+    movePointer(x, y);
     await page.waitForTimeout(i < 60 ? 20 : i < 120 ? 50 : 100);
   }
-  guard.stdin.write(JSON.stringify({ x: 10, y: 850 }) + '\n');
+  movePointer(10, 850);
   await page.waitForTimeout(600);
   recorder.stdin.write('q');
   await finished;
@@ -120,7 +145,7 @@ try {
   await writeFile(join(output, 'report.json'), JSON.stringify({ version, native,
     browserVersion: context.browser()?.version(), software: diagnosticArgs.length > 0,
     captureBackend: process.env.CAPTURE_DDA === '1' ? 'ddagrab' : 'gdigrab', recordingStarted,
-    windowGeometry, cards, events,
+    windowGeometry, pointerCalibration, cards, events,
     observedPointerEvents: await page.evaluate(() => window.__glassPointerEvents), errors }, null, 2));
   await page.screenshot({ path: join(output, 'after.png') });
   if (errors.length) throw new Error(`${errors.length} page errors; see report.json`);

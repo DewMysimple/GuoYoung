@@ -2,6 +2,7 @@ import { DataWorkspace, type DataWorkspaceContext } from "./components/data-work
 import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
 import { GlassRefraction, supportsGlassRefraction } from "./components/glass-refraction";
+import { WallpaperMaterial } from "./components/wallpaper-material";
 import { patchAppearance } from "./lib/appearance-settings";
 import { typographyVariables } from "./lib/typography";
 import { glassFilter } from "./lib/glass-presets";
@@ -1285,6 +1286,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       {...siteClickHandlers}
     >
       {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} cardRadius={effectiveAppearance.radius} searchRadius={effectiveAppearance.searchRadius} />}
+      {wallpaperUrl && supportsGlassRefraction && <WallpaperMaterial source={wallpaperUrl} />}
       {wallpaperUrl && (
         <div className="wallpaper-layer" aria-hidden="true">
           <img src={wallpaperUrl} alt="" fetchPriority="high" onLoad={dismissWallpaperStartup} />

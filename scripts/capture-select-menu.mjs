@@ -1,3 +1,4 @@
+import { describeGlassMaterial } from "./read-glass-material.mjs";
 // Verify the shared homepage selector against the production web build.
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
@@ -24,7 +25,7 @@ try {
   const displayMenu = page.getByRole("menu", { name: "显示方式" });
   await expect(displayMenu).toBeVisible();
   await expect(displayMenu).toHaveCSS("border-radius", "13px");
-  await expect(displayMenu).toHaveCSS("backdrop-filter", /blur/);
+  await expect.poll(() => describeGlassMaterial(displayMenu)).toMatch(/blur/);
   const bounds = await displayMenu.boundingBox();
   const viewport = page.viewportSize();
   assert.ok(bounds && viewport && bounds.x >= 0 && bounds.y >= 0

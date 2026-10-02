@@ -1,3 +1,4 @@
+import { describeGlassMaterial, withoutGlassRefraction } from "./read-glass-material.mjs";
 // Desktop production material inspection with synthetic wallpaper and collections.
 // Uses the same scenarios for a web build and an isolated native MV3 extension.
 import assert from "node:assert/strict";
@@ -10,6 +11,11 @@ const manifest = JSON.parse(await readFile("public/manifest.json", "utf8"));
 const output = resolve(`artifacts/releases/v${manifest.version}/screenshots`);
 await mkdir(output, { recursive: true });
 const errors = [], metrics = [];
+
+async function openSection(panel, title) {
+  const summary = panel.locator('summary').filter({ hasText: new RegExp(`^${title}`) });
+  if (!await summary.evaluate(element => element.parentElement.open)) await summary.click();
+}
 
 async function seed(page, extension) {
   await page.evaluate(async extension => {
@@ -63,6 +69,7 @@ async function capture(page, name) {
     footer: getComputedStyle(document.querySelector(".footer > span")).backgroundColor,
     overlay: getComputedStyle(document.documentElement).getPropertyValue("--wallpaper-overlay").trim(),
   }));
+  metric.tool = await describeGlassMaterial(page.locator(".compact-icon-button").first());
   assert.equal(metric.overflow, false);
   assert.equal(metric.footer, "rgba(0, 0, 0, 0)");
   assert.match(metric.tool, /blur\(12px\)/);
@@ -86,7 +93,7 @@ async function inspect(page, url, mode, extension = false) {
       await page.getByRole("button", { name: "打开设置" }).click();
       const panel = page.getByRole("dialog", { name: "设置", exact: true });
       await panel.getByRole("tab", { name: /壁纸/ }).click();
-      await panel.locator("summary").filter({ hasText: /^阅读与氛围/ }).click();
+      await openSection(panel, '阅读与氛围');
       await panel.getByRole("slider", { name: "明暗遮罩" }).fill("70");
       await panel.getByRole("button", { name: "保存设置" }).click();
     }
@@ -103,8 +110,8 @@ async function inspect(page, url, mode, extension = false) {
     await capture(page, `materials-${mode}-${theme}-settings`);
     const panel = page.getByRole("dialog", { name: "设置", exact: true });
     await panel.getByRole("tab", { name: /壁纸/ }).click();
-    await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-    await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
+    await openSection(panel, '玻璃外观');
+    await openSection(panel, '玻璃参数微调');
     await panel.getByRole("slider", { name: "玻璃透明度" }).scrollIntoViewIfNeeded();
     await capture(page, `materials-${mode}-${theme}-controls`);
     await panel.getByRole("button", { name: "取消", exact: true }).click();
@@ -118,15 +125,15 @@ async function inspectPresets(page, mode) {
   await page.emulateMedia({ colorScheme: "light" });
   await page.evaluate(() => scrollTo(0, 0));
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
-  const names = ["液态清透", "水晶棱镜", "柔光薄雾", "细腻磨砂", "轻透无影", "经典玻璃"];
+  const names = ["液态清透", "水晶棱镜", "柔光薄雾", "细腻磨砂", "轻透无影", "经典玻璃", "雪景柔纱", "夜色凝光", "繁景静读"];
   for (const [index, name] of names.entries()) {
     await page.getByRole("button", { name: "打开设置" }).click();
     await panel.getByRole("tab", { name: /壁纸/ }).click();
     if (!index) {
-      await panel.locator("summary").filter({ hasText: /^阅读与氛围/ }).click();
+      await openSection(panel, '阅读与氛围');
       await panel.getByRole("slider", { name: "明暗遮罩" }).fill("0");
     }
-    await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+    await openSection(panel, '玻璃外观');
     await panel.getByRole("button", { name: new RegExp(`^${name}`) }).click();
     await panel.getByRole("button", { name: "保存设置" }).click();
     await page.mouse.move(5, 5);
@@ -135,20 +142,24 @@ async function inspectPresets(page, mode) {
   }
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
+  // Disclosure positions persist between openings; collapse them explicitly.
+  for (const summary of await panel.locator('details[open] > summary').all()) {
+    if (await summary.isVisible()) await summary.click();
+  }
   await expect(panel.getByRole("slider")).toHaveCount(0);
   await page.screenshot({ path: join(output, `liquid-${mode}-collapsed.png`) });
-  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await openSection(panel, '玻璃外观');
   await panel.getByRole("button", { name: /^液态清透/ }).click();
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(output, `liquid-${mode}-presets.png`) });
+  await openSection(panel, '玻璃参数微调');
+  await panel.getByRole('checkbox', { name: '玻璃折射', exact: true }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.waitForTimeout(300);
   const card = page.locator(".site-card").nth(3);
   const refracted = await card.screenshot({ path: join(output, `liquid-${mode}-refraction-on.png`) });
-  const unfiltered = await page.addStyleTag({ content: ".has-wallpaper.glass-refraction .site-card:not(.is-dragging)::before { backdrop-filter: var(--glass-filter) !important; }" });
-  const ordinary = await card.screenshot({ path: join(output, `liquid-${mode}-refraction-off.png`) });
-  await unfiltered.evaluate(el => el.remove());
+  const ordinary = await withoutGlassRefraction(page, () => card.screenshot({ path: join(output, `liquid-${mode}-refraction-off.png`) }));
   const optical = await page.evaluate(async ({ on, off }) => {
     async function pixels(value) {
       const image = new Image(); image.src = `data:image/png;base64,${value}`; await image.decode();
@@ -183,7 +194,7 @@ async function inspectPresets(page, mode) {
   await cdp.detach();
   for (const [index, frame] of frames.entries()) await writeFile(join(output, `liquid-${mode}-transition-${String(index).padStart(2, "0")}.png`), frame);
   await page.screenshot({ path: join(output, `liquid-${mode}-github.png`) });
-  metrics.push({ mode, presets: names, optical, transitionFrames: frames.length, screenshots: 11 + frames.length });
+  metrics.push({ mode, presets: names, optical, transitionFrames: frames.length, screenshots: names.length + 5 + frames.length });
 }
 
 const browser = await chromium.launch({ channel: "chrome", ignoreDefaultArgs: ["--hide-scrollbars"] });

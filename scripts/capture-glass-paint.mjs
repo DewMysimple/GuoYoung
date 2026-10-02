@@ -1,3 +1,4 @@
+import { withoutGlassRefraction } from "./read-glass-material.mjs";
 // Run after both production builds against vite preview. Synthetic wallpaper and
 // 117 links; compare the reported distant strips at three desktop pixel ratios.
 import { chromium, expect } from '@playwright/test';
@@ -158,9 +159,7 @@ for (const scale of (process.env.CAPTURE_DPR ? [Number(process.env.CAPTURE_DPR)]
                     const opticalCard = page.locator('.site-card').nth(3);
                     sample.opticalCaptures = [`${name}-refraction-on.png`, `${name}-refraction-off.png`];
                     const refracted = await opticalCard.screenshot({ path: join(output, `${name}-refraction-on.png`) });
-                    const plain = await page.addStyleTag({ content: '.has-wallpaper .site-card::before {backdrop-filter:var(--glass-filter)!important}' });
-                    const ordinary = await opticalCard.screenshot({ path: join(output, `${name}-refraction-off.png`) });
-                    await plain.evaluate(el => el.remove());
+                    const ordinary = await withoutGlassRefraction(page, () => opticalCard.screenshot({ path: join(output, `${name}-refraction-off.png`) }));
                     sample.optics = await page.evaluate(async ({ on, off }) => {
                         async function read(value) { const image = new Image(); image.src = `data:image/png;base64,${value}`; await image.decode(); const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height; const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0); return ctx.getImageData(0, 0, image.width, image.height); }
                         const a = await read(on), b = await read(off);

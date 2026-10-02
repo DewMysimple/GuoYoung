@@ -1,3 +1,4 @@
+import { expectGlassMaterial } from "./glass-material";
 import { expect, test, screenshotPath } from "./fixtures";
 import type { Page } from "@playwright/test";
 
@@ -193,7 +194,7 @@ test("navigation uses shared panel glass and nested transparent icon surfaces", 
     await page.reload();
     await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
     const panel = page.locator(".group-section-nav-panel");
-    await expect(panel).toHaveCSS("backdrop-filter", /blur\(7px\)/);
+    await expectGlassMaterial(panel, { blur: 7 });
     const styles = await panel.evaluate(node => {
       const reference = document.createElement("div");
       reference.style.backgroundColor = "var(--glass-fill-panel)";

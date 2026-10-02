@@ -1,4 +1,5 @@
 import type { Locator } from "@playwright/test";
+import { expectGlassMaterial } from "./glass-material";
 import { expect, test, screenshotPath } from "./fixtures";
 
 test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
@@ -15,7 +16,7 @@ test("shares glass layers across group tools, menus and panels without nested ca
   await page.reload();
   await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
   const tool = page.locator(".grouped-site-actions .compact-icon-button").first();
-  await expect(tool).toHaveCSS("backdrop-filter", "blur(12px) saturate(1.3)");
+  await expectGlassMaterial(tool, { blur: 12, saturation: 1.3 });
   await expect(tool).toHaveCSS("border-top-color", "rgba(255, 255, 255, 0.294)");
   for (const tab of await page.locator(".category-tab").all()) {
     const shadow = await tab.evaluate(el => getComputedStyle(el).boxShadow);
@@ -88,7 +89,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await expect(tab).toHaveCSS("opacity", "0.46");
   await expect(tabPreview).toHaveClass(/category-tab/);
   await expect(tabPreview).toHaveCSS("border-radius", await tab.evaluate(el => getComputedStyle(el).borderRadius));
-  await expect(tabPreview).toHaveCSS("backdrop-filter", /blur\(8px\)/);
+  await expectGlassMaterial(tabPreview, { blur: 8 });
   expect((await tabPreview.boundingBox())?.height).toBeCloseTo(tabBox.height, 0);
   await page.screenshot({ path: screenshotPath("glass-group-tab-drag.png") });
   await page.keyboard.press("Escape");
@@ -101,7 +102,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.down();
   await page.mouse.move(headingBox.x + 90, headingBox.y + headingBox.height / 2 + 9);
   const groupPreview = page.getByTestId("group-sort-vertical-drag-preview");
-  await expect(groupPreview).toHaveCSS("backdrop-filter", /blur\(8px\)/);
+  await expectGlassMaterial(groupPreview, { blur: 8 });
   await expect(groupPreview).toHaveCSS("background-color", /\/ 0\.12\)/);
   await page.screenshot({ path: screenshotPath("glass-group-section-drag.png") });
   await page.keyboard.press("Escape");
@@ -117,11 +118,11 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 51, sourceBox.y + sourceBox.height / 2);
   await expect(source).toHaveCSS("opacity", "0.26");
   const sitePreview = page.getByTestId("site-card-drag-preview");
-  await expectCardMaterial(sitePreview, "backdrop-filter", /blur\(8px\).*wallpaper-glass-lens/);
+  await expectGlassMaterial(sitePreview, { blur: 8, refraction: true }, true);
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
   await expect(target).toHaveClass(/is-drop-target/);
   await expect(target).toHaveCSS("opacity", "0.78");
-  await expectCardMaterial(target, "backdrop-filter", /blur\(8px\)/);
+  await expectGlassMaterial(target, { blur: 8 }, true);
   await expectCardMaterial(target, "background-color", /\/ 0\.[0-9]+\)/);
   await expect.poll(() => target.evaluate(el => {
     const color = getComputedStyle(el, "::before").backgroundColor;
@@ -145,7 +146,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.down();
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 + 16);
   const managerPreview = page.locator(".group-list-item-drag-preview");
-  await expect(managerPreview).toHaveCSS("backdrop-filter", /blur\(8px\)/);
+  await expectGlassMaterial(managerPreview, { blur: 8 });
   await expect(managerPreview).toHaveCSS("background-color", /\/ 0\.12\)/);
   expect(await managerPreview.evaluate(el => el.closest(".app-shell"))).toBeNull();
   await page.screenshot({ path: screenshotPath("glass-manager-portal-drag.png") });
@@ -184,13 +185,13 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("slider", { name: "折射强度" }).fill("32");
-  await expectCardMaterial(card, "backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
+  await expectGlassMaterial(card, { blur: 2, refraction: true }, true);
   await expect.poll(() => card.evaluate(el => getComputedStyle(el, "::before").backgroundColor)).not.toBe(initial);
   await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
   await panel.getByRole("button", { name: "玻璃底板", exact: true }).click();
   await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
   await panel.getByRole("checkbox", { name: /模糊壁纸/ }).uncheck();
-  await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toContain("blur(0px)");
+  await expectGlassMaterial(page.locator(".topbar"), { blur: 0 }, true);
   await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toContain("0.15");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.glassTransparency)).toBe(78);
   await panel.getByRole("button", { name: "取消", exact: true }).click();
@@ -208,16 +209,17 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expectCardMaterial(card, "backdrop-filter", /blur\(2px\).*wallpaper-glass-lens/);
+  await expectGlassMaterial(card, { blur: 2, refraction: true }, true);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.glassTransparency)).toBe(88);
-  await expectCardMaterial(card, "backdrop-filter", /saturate\(1.75\)/);
+  await expectGlassMaterial(card, { saturation: 1.75 }, true);
   await expect(card).toHaveCSS("border-top-color", "rgba(255, 255, 255, 0.2)");
   await page.screenshot({ path: screenshotPath(`glass-refraction-${info.project.name}.png`), animations: "disabled" });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
   await expectCardMaterial(card, "backdrop-filter", "none");
+  await expectCardMaterial(card, "filter", "none");
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
-  await expectCardMaterial(card, "backdrop-filter", /wallpaper-glass-lens/);
+  await expectGlassMaterial(card, { refraction: true }, true);
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
@@ -289,7 +291,7 @@ test("offers nine reversible presets behind collapsed wallpaper parameters", asy
   await panel.getByRole("button", { name: /^液态清透/ }).click();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expectCardMaterial(page.locator(".site-card").first(), "backdrop-filter", "blur(2px)");
+  await expectGlassMaterial(page.locator(".site-card").first(), { blur: 2, saturation: 1, refraction: false }, true);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toMatchObject({
     source: original.source, url: original.url, zoom: 110, overlay: 0, topbarStyle: original.topbarStyle, glassHighlight: 78, glassRefraction: false,
   });
@@ -314,7 +316,7 @@ test("keeps glass sampling and complete cards from the first frame when returnin
     const frames = await page.evaluate(async () => {
       const button = document.querySelector<HTMLButtonElement>('[aria-label="打开 GitHub 收藏"]')!;
       button.click();
-      const frames: { missing: boolean; opaque: boolean; filter: string; searchTop: number }[] = [];
+      const frames: { missing: boolean; opaque: boolean; refracted: boolean; searchTop: number }[] = [];
       for (let i = 0; i < 24; i++) {
         await new Promise(requestAnimationFrame);
         const card = document.querySelector('[data-testid="site-card-continuity-repo"]');
@@ -324,11 +326,11 @@ test("keeps glass sampling and complete cards from the first frame when returnin
           const style = getComputedStyle(parent);
           if (Number(style.opacity) < 1 || style.filter !== "none" || style.willChange.includes("opacity")) opaque = false;
         }
-        frames.push({ missing: !card, opaque, filter: card ? getComputedStyle(card, "::before").backdropFilter : "", searchTop: search?.getBoundingClientRect().top ?? -1 });
+        frames.push({ missing: !card, opaque, refracted: !!card && (getComputedStyle(card, "::before").backdropFilter.includes("wallpaper-glass-lens") || !!document.getElementById(getComputedStyle(card, "::before").filter.match(/url\([^)]*#([^"')]+)/)?.[1] ?? "")?.querySelector("feDisplacementMap")), searchTop: search?.getBoundingClientRect().top ?? -1 });
       }
       return frames;
     });
-    expect(frames.every(frame => !frame.missing && frame.opaque && frame.filter.includes("wallpaper-glass-lens"))).toBe(true);
+    expect(frames.every(frame => !frame.missing && frame.opaque && frame.refracted)).toBe(true);
     expect(Math.max(...frames.map(frame => frame.searchTop)) - Math.min(...frames.map(frame => frame.searchTop))).toBeLessThan(1);
   }
   await page.screenshot({ path: screenshotPath("liquid-github-after-history.png") });

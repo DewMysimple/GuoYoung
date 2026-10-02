@@ -1,3 +1,4 @@
+import { expectGlassMaterial } from "./glass-material";
 import { expect, test, screenshotPath } from "./fixtures";
 
 test("paints saved local wallpaper before the app and covers GitHub entry surfaces", async ({ page }, info) => {
@@ -64,9 +65,9 @@ test("paints saved local wallpaper before the app and covers GitHub entry surfac
   await page.getByRole("button", { name: "打开 GitHub 收藏", exact: true }).click();
   const entry = page.locator(".github-home-entry");
   await expect(entry).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  await expect.poll(() => entry.evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toContain("wallpaper-glass-lens");
+  await expectGlassMaterial(entry, { refraction: true }, true);
   await page.getByRole("button", { name: "管理 GitHub 官方主页" }).click();
-  await expect(page.getByRole("menu")).toHaveCSS("backdrop-filter", /blur\(8px\)/);
+  await expectGlassMaterial(page.getByRole("menu"), { blur: 8 });
   await page.screenshot({ path: screenshotPath(`github-glass-startup-${info.project.name}.png`) });
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "打开设置" }).click();

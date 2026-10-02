@@ -1,4 +1,18 @@
-import { expect, test } from './fixtures';
+import { expect, test, screenshotPath } from './fixtures';
+import { expectGlassMaterial } from './glass-material';
+import { writeFileSync } from 'node:fs';
+import type { Page } from '@playwright/test';
+
+async function captureRegion(page: Page, clip: { x: number; y: number; width: number; height: number }) {
+  const screenshot = await page.screenshot();
+  const encoded = await page.evaluate(async ({ image, clip }) => {
+    const bitmap = new Image(); bitmap.src = `data:image/png;base64,${image}`; await bitmap.decode();
+    const canvas = document.createElement('canvas'); canvas.width = clip.width; canvas.height = clip.height;
+    canvas.getContext('2d')!.drawImage(bitmap, clip.x, clip.y, clip.width, clip.height, 0, 0, clip.width, clip.height);
+    return canvas.toDataURL().split(',')[1];
+  }, { image: screenshot.toString('base64'), clip });
+  return Buffer.from(encoded, 'base64');
+}
 
 test('editing tools, display menus and left-side drags leave distant glass pixels unchanged', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium', 'Desktop compositing regression');
@@ -26,10 +40,11 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
   const card = cards.nth(6);
   for (const surface of [card, page.locator('.add-site-card').first()]) {
     await expect(surface).toHaveCSS('backdrop-filter', 'none');
+    await expectGlassMaterial(surface, { blur: 12, saturation: 1.3 }, true);
     expect(await surface.evaluate(el => {
       const paint = getComputedStyle(el, '::before');
       return { filter: paint.backdropFilter, pointer: paint.pointerEvents, width: parseFloat(paint.width), height: parseFloat(paint.height), clientWidth: el.clientWidth, clientHeight: el.clientHeight };
-    })).toMatchObject({ filter: 'blur(12px) saturate(1.3)', pointer: 'none' });
+    })).toMatchObject({ pointer: 'none' });
     const bounded = await surface.evaluate(el => {
       const paint = getComputedStyle(el, '::before');
       return Math.abs(parseFloat(paint.width) - el.clientWidth) < 1 && Math.abs(parseFloat(paint.height) - el.clientHeight) < 1;
@@ -59,13 +74,20 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
   const right = (await cards.nth(7).boundingBox())!;
   const edge = { x: Math.floor(right.x - 5), y: Math.floor(right.y), width: 35, height: Math.ceil(right.height) };
   await page.waitForTimeout(200); // Let favicon opacity finish before pixel comparison.
-  const baselineRow = await page.screenshot({ clip: row });
-  const baselineEdge = await page.screenshot({ clip: edge });
+  const baselineRow = await captureRegion(page, row);
+  const baselineEdge = await captureRegion(page, edge);
   const geometry = await cards.evaluateAll(els => els.map(el => el.getBoundingClientRect().toJSON()));
   await card.getByRole('button', { name: '编辑 Sample 6' }).hover();
-  expect((await page.screenshot({ clip: row })).equals(baselineRow), 'Edit hover cannot repaint the next row').toBe(true);
+  const hoverRow = await captureRegion(page, row);
+  if (!hoverRow.equals(baselineRow)) {
+    writeFileSync(screenshotPath('glass-boundary-row-before.png'), baselineRow);
+    writeFileSync(screenshotPath('glass-boundary-row-hover.png'), hoverRow);
+    await test.info().attach('remote-row-before', { body: baselineRow, contentType: 'image/png' });
+    await test.info().attach('remote-row-hover', { body: hoverRow, contentType: 'image/png' });
+  }
+  expect(hoverRow.equals(baselineRow), 'Edit hover cannot repaint the next row').toBe(true);
   await page.getByRole('button', { name: '显示', exact: true }).click();
-  expect((await page.screenshot({ clip: row })).equals(baselineRow), 'Display menu cannot repaint the next row').toBe(true);
+  expect((await captureRegion(page, row)).equals(baselineRow), 'Display menu cannot repaint the next row').toBe(true);
   await page.keyboard.press('Escape');
   const source = (await cards.nth(2).boundingBox())!;
   await page.mouse.move(source.x + 60, source.y + 70);
@@ -74,7 +96,12 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
   await expect(page.getByTestId('site-card-drag-preview')).toBeVisible();
   for (const x of [240, 265, 290]) {
     await page.mouse.move(x, source.y + 90);
-    expect((await page.screenshot({ clip: edge })).equals(baselineEdge), 'Left-side drag cannot repaint the distant right edge').toBe(true);
+    const dragEdge = await captureRegion(page, edge);
+    if (!dragEdge.equals(baselineEdge)) {
+      writeFileSync(screenshotPath('glass-boundary-edge-before.png'), baselineEdge);
+      writeFileSync(screenshotPath('glass-boundary-edge-drag.png'), dragEdge);
+    }
+    expect(dragEdge.equals(baselineEdge), 'Left-side drag cannot repaint the distant right edge').toBe(true);
   }
   await page.keyboard.press('Escape');
   await page.mouse.up();
