@@ -25,11 +25,15 @@ export function WallpaperMaterial({ source }: { source: string }) {
     const surfaces: Surface[] = [];
     const own = new Map<HTMLElement, Surface>();
     const before = new Map<HTMLElement, Surface>();
+    let candidates: HTMLElement[] = [], discover = true;
     const profiles = new Map<string, { id: string; element: Element; padding: number; width: number; height: number }>();
-    let sequence = 0, frame = 0, animateUntil = 0, disposed = false;
-    const refresh = () => {
+    let sequence = 0, frame = 0, animateUntil = 0, disposed = false, fullRefresh = true;
+    const animated = new Set<HTMLElement>();
+    const wallpaperTransitions = new Set<string>();
+    const schedule = () => {
       if (!disposed && !frame) frame = requestAnimationFrame(measure);
     };
+    const refresh = () => { fullRefresh = true; schedule(); };
     const observe = () => {
       changes.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style"] });
       changes.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
@@ -45,13 +49,16 @@ export function WallpaperMaterial({ source }: { source: string }) {
     const resize = new ResizeObserver(refresh);
     const changes = new MutationObserver(records => {
       if (records.every(record => svg.contains(record.target))) return;
-      animateUntil = performance.now() + 250;
+      if (records.some(record => !svg.contains(record.target) && (record.type === "childList" || record.attributeName === "class" || record.target === root || record.target === document.documentElement))) discover = true;
       refresh();
     });
     function measure() {
       frame = 0;
       if (disposed || !image!.complete || !image!.naturalWidth) return;
       changes.disconnect();
+      const all = fullRefresh || discover || wallpaperTransitions.size > 0;
+      fullRefresh = false;
+      const moving = Array.from(animated);
       const img = image!;
       const box = img.getBoundingClientRect(), imageStyle = getComputedStyle(img);
       const fit = imageStyle.objectFit === "contain" ? Math.min : Math.max;
@@ -63,14 +70,25 @@ export function WallpaperMaterial({ source }: { source: string }) {
       const wallpaperBlur = parseFloat(imageStyle.filter.match(/blur\(([^)]+)/)?.[1] ?? "0");
       const overlay = getComputedStyle(root!.querySelector(".wallpaper-layer span")!).backgroundColor;
       const usedProfiles = new Set<string>();
-      for (const surface of [...surfaces]) if (!surface.element.isConnected) remove(surface);
-      for (const element of root!.querySelectorAll<HTMLElement>("*")) {
-        if (!(element instanceof HTMLElement) || element.closest(".wallpaper-layer")) continue;
+      // Complete all geometry/style reads before touching any live SVG or CSS.
+      // Interleaving these phases forces a document style flush per surface.
+      const removals = new Set(surfaces.filter(surface => !surface.element.isConnected));
+      const measurements: { element: HTMLElement; pseudo: boolean; x: number; y: number; w: number; h: number; radius: number; blur: number; saturation: number; strength: number }[] = [];
+      if (discover) {
+        candidates = Array.from(root!.querySelectorAll<HTMLElement>("*")).filter(element => {
+          if (!(element instanceof HTMLElement) || element.closest(".wallpaper-layer")) return false;
+          return own.has(element) || before.has(element) || getComputedStyle(element).backdropFilter !== "none" || getComputedStyle(element, "::before").backdropFilter !== "none";
+        });
+        discover = false;
+      }
+      for (const element of candidates) {
+        if (!element.isConnected) continue;
+        if (!all && !moving.some(target => target.contains(element))) continue;
         const rect = element.getBoundingClientRect();
         if (!rect.width || !rect.height || rect.bottom < -100 || rect.top > innerHeight + 100) continue;
         for (const pseudo of [false, true]) {
           const map = pseudo ? before : own;
-          let surface = map.get(element);
+          const surface = map.get(element);
           const style = getComputedStyle(element, pseudo ? "::before" : null);
           if (pseudo && style.content === "none") continue;
           // Chromium drops fragment-backed SVG filters on a directly promoted
@@ -78,11 +96,11 @@ export function WallpaperMaterial({ source }: { source: string }) {
           // glass; stationary siblings still use their independent image input.
           // Cards keep their image filter on the untransformed pseudo-element.
           if (!pseudo && (style.transform !== "none" || /(?:transform|opacity)/.test(style.willChange))) {
-            if (surface) remove(surface);
+            if (surface) removals.add(surface);
             continue;
           }
           const material = surface ? style.getPropertyValue("--wallpaper-material-input").trim() : style.backdropFilter;
-          if (!material || material === "none") { if (surface) remove(surface); continue; }
+          if (!material || material === "none") { if (surface) removals.add(surface); continue; }
           const border = pseudo ? getComputedStyle(element) : null;
           const x = rect.x + (border ? parseFloat(border.borderLeftWidth) : 0);
           const y = rect.y + (border ? parseFloat(border.borderTopWidth) : 0);
@@ -94,89 +112,128 @@ export function WallpaperMaterial({ source }: { source: string }) {
           const saturation = parseFloat(saturationText) / (saturationText.includes("%") ? 100 : 1);
           const lensId = material.match(/url\([^)]*#([^"')]+)/)?.[1];
           const strength = lensId ? Number(document.getElementById(lensId)?.querySelector("feDisplacementMap")?.getAttribute("scale") ?? 0) : 0;
-          // Blur each wallpaper profile once. Per-surface graphs only position
-          // that image, refract its rim, and composite the unchanged foreground.
-          const profileKey = JSON.stringify([source, left, top, width, height, innerWidth, innerHeight, wallpaperBlur, overlay, blur, saturation]);
-          usedProfiles.add(profileKey);
-          let profile = profiles.get(profileKey);
-          if (!profile) {
-            const padding = Math.max(96, Math.ceil((wallpaperBlur + blur) * 3 + 40));
-            const profileWidth = innerWidth + padding * 2, profileHeight = innerHeight + padding * 2;
-            const id = `wallpaper-source-${sequence++}`, filterId = `${id}-blur`;
-            const picture = node("svg", { id, width: profileWidth, height: profileHeight, viewBox: `${-padding} ${-padding} ${profileWidth} ${profileHeight}` });
-            const effect = node("filter", { id: filterId, filterUnits: "userSpaceOnUse", x: -padding, y: -padding, width: profileWidth, height: profileHeight, "color-interpolation-filters": "sRGB" });
-            effect.append(node("feGaussianBlur", { in: "SourceGraphic", stdDeviation: blur, edgeMode: "duplicate", result: "blurred" }),
-              node("feColorMatrix", { in: "blurred", type: "saturate", values: saturation }));
-            const content = node("g", { filter: `url(#${filterId})` });
-            const canvas = { x: -padding, y: -padding, width: profileWidth, height: profileHeight };
-            content.append(node("rect", { ...canvas, fill: "var(--page)" }),
-              node("image", { href: source, x: left, y: top, width, height, preserveAspectRatio: "none", style: `filter:blur(${wallpaperBlur}px)` }),
-              node("rect", { ...canvas, fill: overlay }));
-            picture.append(effect, content); definitions.append(picture);
-            profile = { id, element: picture, padding, width: profileWidth, height: profileHeight };
-            profiles.set(profileKey, profile);
-          }
-          const key = JSON.stringify([profile.id, x, y, w, h, radius, strength]);
-          if (!surface) {
-            const id = `wallpaper-material-${sequence++}`;
-            const filter = node("filter", { id, filterUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" });
-            definitions.append(filter);
-            surface = { element, pseudo, filter, id, key: "" };
-            surfaces.push(surface); map.set(element, surface); resize.observe(element);
-          }
-          if (surface.key !== key) {
-            const margin = Math.max(96, Math.ceil((wallpaperBlur + blur) * 3 + strength));
-            const filter = surface.filter;
-            for (const [name, value] of Object.entries({ x: -margin, y: -margin, width: w + 2 * margin, height: h + 2 * margin })) filter.setAttribute(name, String(value));
-            filter.replaceChildren(
-              node("feImage", { href: `#${profile.id}`, x: -profile.padding - x, y: -profile.padding - y, width: profile.width, height: profile.height, preserveAspectRatio: "none", result: "colored" }),
-            );
-            let input = "colored";
-            const lens = strength ? createLensMap(w, h, radius) : undefined;
-            if (lens) {
-              filter.append(node("feImage", { href: lens, x: 0, y: 0, width: w, height: h, preserveAspectRatio: "none", result: "lens" }),
-                node("feDisplacementMap", { in: input, in2: "lens", scale: strength, xChannelSelector: "R", yChannelSelector: "G", result: "refracted" }));
-              input = "refracted";
-            }
-            const mask = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="${namespace}" width="${w}" height="${h}"><rect width="100%" height="100%" rx="${radius}" fill="white"/></svg>`);
-            filter.append(node("feImage", { href: mask, x: 0, y: 0, width: w, height: h, preserveAspectRatio: "none", result: "mask" }),
-              node("feComposite", { in: input, in2: "mask", operator: "in", result: "glass" }),
-              node("feComposite", { in: "SourceGraphic", in2: "glass", operator: "over" }));
-            surface.key = key;
-          }
-          element.style.setProperty(pseudo ? "--wallpaper-material-before" : "--wallpaper-material-own", `url(#${surface.id})`);
-          element.classList.add(pseudo ? "wallpaper-material-before" : "wallpaper-material-own");
+          measurements.push({ element, pseudo, x, y, w, h, radius, blur, saturation, strength });
         }
       }
-      for (const [key, profile] of profiles) if (!usedProfiles.has(key)) {
+      for (const surface of removals) remove(surface);
+      for (const { element, pseudo, x, y, w, h, radius, blur, saturation, strength } of measurements) {
+        const map = pseudo ? before : own;
+        let surface = map.get(element);
+        // Share one wallpaper definition per set of optical parameters. Each
+        // surface positions that source, refracts its rim and adds foreground.
+        const profileKey = JSON.stringify([source, left, top, width, height, innerWidth, innerHeight, wallpaperBlur, overlay, blur, saturation]);
+        usedProfiles.add(profileKey);
+        let profile = profiles.get(profileKey);
+        if (!profile) {
+          const padding = Math.max(96, Math.ceil((wallpaperBlur + blur) * 3 + 40));
+          const profileWidth = innerWidth + padding * 2, profileHeight = innerHeight + padding * 2;
+          const id = `wallpaper-source-${sequence++}`, filterId = `${id}-blur`;
+          const picture = node("svg", { id, width: profileWidth, height: profileHeight, viewBox: `${-padding} ${-padding} ${profileWidth} ${profileHeight}` });
+          const effect = node("filter", { id: filterId, filterUnits: "userSpaceOnUse", x: -padding, y: -padding, width: profileWidth, height: profileHeight, "color-interpolation-filters": "sRGB" });
+          effect.append(node("feGaussianBlur", { in: "SourceGraphic", stdDeviation: blur, edgeMode: "duplicate", result: "blurred" }),
+            node("feColorMatrix", { in: "blurred", type: "saturate", values: saturation }));
+          const content = node("g", { filter: `url(#${filterId})` });
+          const canvas = { x: -padding, y: -padding, width: profileWidth, height: profileHeight };
+          content.append(node("rect", { ...canvas, fill: "var(--page)" }),
+            node("image", { href: source, x: left, y: top, width, height, preserveAspectRatio: "none", style: `filter:blur(${wallpaperBlur}px)` }),
+            node("rect", { ...canvas, fill: overlay }));
+          picture.append(effect, content); definitions.append(picture);
+          profile = { id, element: picture, padding, width: profileWidth, height: profileHeight };
+          profiles.set(profileKey, profile);
+        }
+        const key = JSON.stringify([profile.id, w, h, radius, strength]);
+        if (!surface) {
+          const id = `wallpaper-material-${sequence++}`;
+          const filter = node("filter", { id, filterUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" });
+          definitions.append(filter);
+          surface = { element, pseudo, filter, id, key: "" };
+          surfaces.push(surface); map.set(element, surface); resize.observe(element);
+        }
+        // React replaces className when selection/drag state changes. Restore
+        // our bindings in the write phase without rewriting unchanged values.
+        const className = pseudo ? "wallpaper-material-before" : "wallpaper-material-own";
+        const property = `--${className}`, value = `url(#${surface.id})`;
+        if (element.style.getPropertyValue(property) !== value) element.style.setProperty(property, value);
+        if (!element.classList.contains(className)) element.classList.add(className);
+        if (surface.key !== key) {
+          const margin = Math.max(96, Math.ceil((wallpaperBlur + blur) * 3 + strength));
+          const filter = surface.filter;
+          for (const [name, value] of Object.entries({ x: -margin, y: -margin, width: w + 2 * margin, height: h + 2 * margin })) filter.setAttribute(name, String(value));
+          filter.replaceChildren(
+            node("feImage", { href: `#${profile.id}`, x: -profile.padding - x, y: -profile.padding - y, width: profile.width, height: profile.height, preserveAspectRatio: "none", result: "colored" }),
+          );
+          let input = "colored";
+          const lens = strength ? createLensMap(w, h, radius) : undefined;
+          if (lens) {
+            filter.append(node("feImage", { href: lens, x: 0, y: 0, width: w, height: h, preserveAspectRatio: "none", result: "lens" }),
+              node("feDisplacementMap", { in: input, in2: "lens", scale: strength, xChannelSelector: "R", yChannelSelector: "G", result: "refracted" }));
+            input = "refracted";
+          }
+          const mask = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="${namespace}" width="${w}" height="${h}"><rect width="100%" height="100%" rx="${radius}" fill="white"/></svg>`);
+          filter.append(node("feImage", { href: mask, x: 0, y: 0, width: w, height: h, preserveAspectRatio: "none", result: "mask" }),
+            node("feComposite", { in: input, in2: "mask", operator: "in", result: "glass" }),
+            node("feComposite", { in: "SourceGraphic", in2: "glass", operator: "over" }));
+          surface.key = key;
+        }
+        // Scrolling changes only the sample origin, not the filter graph.
+        const input = surface.filter.firstElementChild!;
+        const inputX = String(-profile.padding - x), inputY = String(-profile.padding - y);
+        if (input.getAttribute("x") !== inputX) input.setAttribute("x", inputX);
+        if (input.getAttribute("y") !== inputY) input.setAttribute("y", inputY);
+      }
+      for (const [key, profile] of profiles) if (all && !usedProfiles.has(key)) {
         profile.element.remove(); profiles.delete(key);
       }
       observe();
-      if (performance.now() < animateUntil) refresh();
+      if (wallpaperTransitions.size || performance.now() < animateUntil) schedule();
+      else animated.clear();
     }
-    const transition = () => { animateUntil = performance.now() + 300; refresh(); };
+    // Color/opacity hover feedback does not move the wallpaper sampling window.
+    // Track only transitions that can change its geometry; direct drag style
+    // writes already arrive through the mutation observer.
+    const transition = (event: TransitionEvent) => {
+      // The wallpaper itself changes the input of every surface, even though
+      // it is not an ancestor of those surfaces. End/cancel also samples the
+      // final value; observing its box cannot detect transform or filter changes.
+      if (event.target === image && /^(object-position|transform|filter)$/.test(event.propertyName)) {
+        if (event.type === "transitionrun") wallpaperTransitions.add(event.propertyName);
+        else wallpaperTransitions.delete(event.propertyName);
+        refresh();
+        return;
+      }
+      if (!/^(transform|translate|scale|width|height|top|left|right|bottom|inset|padding|margin|gap|grid)/.test(event.propertyName)) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (/^(transform|translate|scale)$/.test(event.propertyName)) {
+        // A transformed own-surface temporarily uses native glass. Its return
+        // transition must still be tracked after that managed surface is gone.
+        if (!candidates.some(element => target.contains(element))) return;
+        animated.add(target);
+      } else { fullRefresh = true; animated.add(root); }
+      animateUntil = performance.now() + 300;
+      schedule();
+    };
+    const invalidate = () => { discover = true; refresh(); };
     const transparency = matchMedia("(prefers-reduced-transparency: reduce)");
-    transparency.addEventListener("change", refresh);
+    transparency.addEventListener("change", invalidate);
     resize.observe(root); resize.observe(image);
     observe();
     image.addEventListener("load", refresh);
     document.addEventListener("scroll", refresh, true);
-    window.addEventListener("resize", refresh);
+    window.addEventListener("resize", invalidate);
     root.addEventListener("transitionrun", transition);
-    root.addEventListener("transitionend", refresh);
-    root.addEventListener("pointerover", transition);
-    root.addEventListener("pointerout", transition);
+    root.addEventListener("transitionend", transition);
+    root.addEventListener("transitioncancel", transition);
     refresh();
     return () => {
       disposed = true; cancelAnimationFrame(frame); changes.disconnect(); resize.disconnect();
-      transparency.removeEventListener("change", refresh);
+      transparency.removeEventListener("change", invalidate);
       image.removeEventListener("load", refresh);
       document.removeEventListener("scroll", refresh, true);
-      window.removeEventListener("resize", refresh);
+      window.removeEventListener("resize", invalidate);
       root.removeEventListener("transitionrun", transition);
-      root.removeEventListener("transitionend", refresh);
-      root.removeEventListener("pointerover", transition);
-      root.removeEventListener("pointerout", transition);
+      root.removeEventListener("transitionend", transition);
+      root.removeEventListener("transitioncancel", transition);
       for (const surface of [...surfaces]) remove(surface);
       definitions.remove();
     };

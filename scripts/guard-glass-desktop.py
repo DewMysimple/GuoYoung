@@ -64,7 +64,10 @@ def move_pointer():
         point = json.loads(line)
         if user32.GetForegroundWindow() != target:
             return
-        user32.SetCursorPos(round(viewport["x"] + point["x"]), round(viewport["y"] + point["y"]))
+        if "wheel" in point:
+            user32.mouse_event(0x0800, 0, 0, ctypes.c_uint(point["wheel"]), 0)
+        else:
+            user32.SetCursorPos(round(viewport["x"] + point["x"]), round(viewport["y"] + point["y"]))
 
 
 threading.Thread(target=move_pointer, daemon=True).start()

@@ -14,6 +14,7 @@ if (process.platform !== 'win32' || !process.env.CAPTURE_STATE || !process.env.C
 }
 const { version } = JSON.parse(await readFile('public/manifest.json', 'utf8'));
 const native = process.env.CAPTURE_EXTENSION === '1';
+const scrollReturn = process.env.CAPTURE_SCENARIO === 'scroll-return';
 const diagnosticArgs = process.env.CAPTURE_SOFTWARE === '1' ? ['--disable-gpu'] : [];
 const output = resolve(process.env.CAPTURE_OUTPUT ?? `artifacts/releases/v${version}/recordings/glass-desktop-${native ? 'extension' : 'web'}`);
 await mkdir(output, { recursive: true });
@@ -65,7 +66,7 @@ try {
   const rects = selector => page.locator(selector).evaluateAll(elements => elements.map(element => element.getBoundingClientRect().toJSON()));
   const cards = (await rects('.site-card[data-site-dnd-id]')).filter(rect => rect.y >= 0 && rect.bottom <= 926);
   const nav = await rects('.group-section-nav li button');
-  if (cards.length < 8 || !nav.length) throw new Error('The fixture needs grouped desktop cards and navigation.');
+  if (cards.length < 8 || (!scrollReturn && !nav.length)) throw new Error('The fixture needs eight visible cards and, for hover traversal, group navigation.');
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.screenshot({ path: join(output, 'before.png') });
@@ -108,6 +109,8 @@ try {
   await page.waitForTimeout(500);
   await page.evaluate(() => {
     window.__glassPointerEvents = [];
+    window.__glassScrollEvents = [];
+    document.addEventListener('scroll', () => window.__glassScrollEvents.push({ time: Date.now(), y: scrollY }), { passive: true });
     document.addEventListener('pointermove', event => window.__glassPointerEvents.push({
       time: Date.now(), x: event.clientX, y: event.clientY,
     }));
@@ -126,8 +129,25 @@ try {
   // Attach a handler immediately, while pointer traversal runs.
   finished.catch(() => {});
   recorder.stderr.on('data', data => { log += data; });
+  // Encoder/GPU startup can exceed the settling delay. Require actual frames
+  // before the first input so the recording contains an untouched baseline.
+  await expect.poll(() => /frame=\s*[1-9]/.test(log), { timeout: 15000 }).toBe(true);
   await page.waitForTimeout(1200);
-  for (let i = 0; i < 180; i++) {
+  if (scrollReturn) {
+    // Native wheel messages continue arriving even if the renderer is busy.
+    // Leave the row, return to exactly the same document position, and hold it.
+    movePointer(850, 450);
+    for (const movement of [[-480], [-1440], [1920, 1920], [-1920, -1920], [1920, 1920]]) {
+      if (foregroundLost) throw new Error('Recording invalid: foreground lost');
+      // Chromium caps a single wheel jump at approximately one viewport.
+      for (const wheel of movement) {
+        events.push({ time: Date.now(), wheel });
+        guard.stdin.write(JSON.stringify({ wheel }) + '\n');
+        await page.waitForTimeout(80);
+      }
+      await page.waitForTimeout(1400);
+    }
+  } else for (let i = 0; i < 180; i++) {
     if (foregroundLost) throw new Error(guardError || 'Recording invalid: the diagnostic window lost foreground');
     const rect = i % 3 === 0 ? nav[i % nav.length] : cards[i % 4];
     const x = rect.x + rect.width * .65, y = rect.y + rect.height * .55;
@@ -145,7 +165,8 @@ try {
   await writeFile(join(output, 'report.json'), JSON.stringify({ version, native,
     browserVersion: context.browser()?.version(), software: diagnosticArgs.length > 0,
     captureBackend: process.env.CAPTURE_DDA === '1' ? 'ddagrab' : 'gdigrab', recordingStarted,
-    windowGeometry, pointerCalibration, cards, events,
+    windowGeometry, pointerCalibration, cards, events, scenario: scrollReturn ? 'scroll-return' : 'hover',
+    observedScrollEvents: await page.evaluate(() => window.__glassScrollEvents),
     observedPointerEvents: await page.evaluate(() => window.__glassPointerEvents), errors }, null, 2));
   await page.screenshot({ path: join(output, 'after.png') });
   if (errors.length) throw new Error(`${errors.length} page errors; see report.json`);

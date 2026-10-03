@@ -64,3 +64,23 @@ python scripts/analyze-glass-desktop.py artifacts/working/glass-desktop
 - 原版复现、候选样式与最终产品应使用不同输出目录；不能把单个裁剪区域归零当作整屏通过，也不能把实验候选归零当作滚动、折射、设置及扩展模式均已验证。
 - `CAPTURE_SCROLL_Y=550` 可在录制前滚动，脚本只遍历完整可见卡片。浏览器左下角的链接地址提示仍保留在热力图与原统计中；若产生差分，须记录位置和归因，不能直接把它说成页面闪影或把原统计改成零。
 - 显式壁纸材质使用普通 SVG filter。`read-glass-material.mjs` 读取实际滤镜图，光学回归另外检查真实条纹模糊和边缘折射，防止滤镜失效造成“远端无变化”的假通过。
+
+## 滚动后材质延迟与性能
+
+整屏热力图不能区分正常滚动与材质迟到。对此使用两个独立证据：
+
+- `CAPTURE_SCENARIO=scroll-return` 使桌面录制脚本发送原生滚轮消息，大幅离开首排后返回并停留；支持平铺配置，不要求分组导航。录制器输出第一帧后才开始输入，报告保留实际 `scrollY` 时间线。单次滚轮可能被浏览器限制为一屏，因此返回阶段发送两次；必须检查最终滚动位置，不能仅按发送量推断。
+- `scripts/analyze-glass-settling.py` 在每个视频帧中跟踪固定图标，用相对坐标采样不含文字的玻璃区域。输出全部帧 JSON、位置与材质变化曲线，统计位置停止后材质何时稳定。默认模板匹配至少 0.93，材质区域 9×9 平滑降低编码噪声，平均 RGB 差异阈值为 1/255；这些参数全部写入报告。单个区域的结果不能外推为全屏无异常。
+
+```powershell
+python scripts/analyze-glass-settling.py capture.mp4 reference.png artifacts/working/settling `
+  --template 98 221 22 22 --search 85 175 50 865 --patch 92 40 30 55
+```
+
+模板与搜索范围是像素坐标 `x y width height`；`--patch` 的前两项是相对已定位图标的偏移。图标应在整个序列中保持相同，材质区域应避开文字、按钮、鼠标与异步图标。通过原画面确认匹配和异常，不把有损视频编码噪声直接当作材质问题。
+
+`node scripts/capture-glass-performance.mjs` 复用 `CAPTURE_STATE`、`CAPTURE_WALLPAPER`、`CAPTURE_BASE_URL`、`CAPTURE_OUTPUT` 和 `CAPTURE_EXTENSION=1`，测量悬停、小幅滚动和大幅往返的 rAF 帧间隔、长任务、脚本/样式/布局耗时。`CAPTURE_TRACE=1` 另存 Chromium 性能追踪，提取追踪文件的耗时不计入测量。`CAPTURE_EXTENSION_DIR` 可选择已归档扩展，进行相同配置的版本对照。不要同时执行其他浏览器验收污染性能样本。
+
+- `CAPTURE_ACTIONS=hover,scroll,large-return` 可选择动作。
+- `CAPTURE_MODES=baseline,freeze,no-filter,freeze-no-filter` 提供因果对照；freeze 依赖未压缩的 `measure` 回调，生产构建会明确拒绝无法识别的冻结实验。冻结导致壁纸采样位置不再更新，关闭滤镜导致材质消失，两者只能帮助归因，不能作为产品修复交付。
+- 真实网页与扩展应使用不同输出目录。浏览器版本、窗口尺寸、产品版本、追踪开关和错误保留在报告中；结果是当前机器的采样，不能宣称所有设备恒定帧率或零延迟。
