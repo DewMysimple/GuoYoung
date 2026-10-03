@@ -1,24 +1,7 @@
 import { expect, test } from './fixtures';
 import type { Page } from '@playwright/test';
 import { readGlassMaterial } from '../scripts/read-glass-material.mjs';
-
-async function prepareChangingMaterial(page: Page) {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.route('https://material.example/changing.svg', route => route.fulfill({ contentType: 'image/svg+xml', body:
-    '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="1920" height="1080" fill="#79829a"/><circle cx="600" cy="500" r="300" fill="#d5b9c7"/></svg>' }));
-  await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('site-hub:v1')!);
-    // Late remote favicon mutations must not mask a missing material refresh.
-    state.sites = state.sites.filter((site: { id: string }) => ['google', 'github'].includes(site.id))
-      .map((site: Record<string, unknown>) => ({ ...site, iconSource: 'brand' }));
-    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/changing.svg', fit: 'cover', positionX: 50, positionY: 50, zoom: 100, blur: 0, overlay: 0, glassBlur: 12, glassRefraction: false };
-    localStorage.setItem('site-hub:v1', JSON.stringify(state));
-  });
-  await page.reload();
-  await expect(page.getByTestId('site-card-google')).toHaveClass(/wallpaper-material-before/);
-  await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(400);
-}
+import { prepareMaterialPage as prepareChangingMaterial } from './wallpaper-fixture';
 
 test('wallpaper material survives React selection class changes', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium', 'Desktop material lifecycle');
@@ -91,9 +74,11 @@ test('wallpaper material follows the final image geometry and blur after CSS tra
       const width = scale * image.naturalWidth, height = scale * image.naturalHeight;
       const position = style.objectPosition.split(' ').map(value => parseFloat(value) / 100);
       const expected = { x: box.x + (box.width - width) * position[0], y: box.y + (box.height - height) * position[1], width, height };
+      const transform = new DOMMatrixReadOnly(style.transform);
+      const expectedBlur = parseFloat(style.filter.match(/blur\(([^)]+)/)?.[1] ?? '0') * Math.hypot(transform.a, transform.b);
       return {
         geometry: Math.max(...Object.entries(expected).map(([name, value]) => Math.abs(Number(source.getAttribute(name)) - value))),
-        blur: Math.abs(parseFloat(getComputedStyle(source).filter.match(/blur\(([^)]+)/)?.[1] ?? '0') - parseFloat(style.filter.match(/blur\(([^)]+)/)?.[1] ?? '0')),
+        blur: Math.abs(parseFloat(getComputedStyle(source).filter.match(/blur\(([^)]+)/)?.[1] ?? '0') - expectedBlur),
       };
     });
     expect(difference, `${property}: the card must keep a real wallpaper source`).not.toBeNull();

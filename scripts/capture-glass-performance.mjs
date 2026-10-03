@@ -48,6 +48,8 @@ for (const mode of (process.env.CAPTURE_MODES ?? 'baseline').split(',')) {
  await page.evaluate(async ({state,native})=>{ if(native)await chrome.storage.local.set({'site-hub:v1':JSON.stringify(state)}); else localStorage.setItem('site-hub:v1',JSON.stringify(state)); },{state,native});
  await page.reload();
  await page.locator('.wallpaper-layer img').evaluate(img=>img.decode());
+ await page.evaluate(()=>{document.title='Mysimple glass performance diagnostic';});
+ await page.bringToFront();
  await page.waitForTimeout(4000);
  if(mode.includes('no-filter'))await page.addStyleTag({content:'.has-wallpaper .site-card::before{filter:none!important;backdrop-filter:none!important}'});
  if(mode.includes('freeze') && !await page.evaluate(()=>window.__perf.seenMeasure))throw new Error('Freeze requires an unminified measure callback; comparison invalid');
@@ -60,6 +62,9 @@ for (const mode of (process.env.CAPTURE_MODES ?? 'baseline').split(',')) {
   await page.waitForTimeout(600);
   const cards=await page.locator('.site-card[data-site-dnd-id]').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().toJSON()).filter(r=>r.y>=0&&r.bottom<926));
   if(cards.length<8)throw new Error('Eight visible cards are required');
+  const environment=await page.evaluate(()=>({visibility:document.visibilityState,focused:document.hasFocus(),dpr:devicePixelRatio,hardwareConcurrency:navigator.hardwareConcurrency}));
+  await writeFile(join(out,`${mode}-${action}-environment.json`),JSON.stringify(environment,null,2));
+  if(process.env.CAPTURE_REQUIRE_FOCUS==='1' && (!environment.focused || environment.visibility!=='visible'))throw new Error('Foreground performance sample was not started: diagnostic page is not focused and visible');
   if(trace)await session.send('Tracing.start',{categories:'devtools.timeline,disabled-by-default-devtools.timeline,blink.user_timing,cc,gpu',transferMode:'ReturnAsStream'});
   await page.evaluate(()=>{Object.assign(window.__perf,{active:true,frames:[],callbacks:[],longTasks:[]})});
   const before=(await session.send('Performance.getMetrics')).metrics;
@@ -70,6 +75,7 @@ for (const mode of (process.env.CAPTURE_MODES ?? 'baseline').split(',')) {
   const elapsed=Date.now()-start;
   const after=(await session.send('Performance.getMetrics')).metrics;
   const samples=await page.evaluate(()=>{window.__perf.active=false;return window.__perf});
+  const environmentAfter=await page.evaluate(()=>({visibility:document.visibilityState,focused:document.hasFocus()}));
   // Trace extraction happens after measurement so its I/O is not frame latency.
   if(trace){
    const complete=new Promise(resolve=>session.once('Tracing.tracingComplete',resolve));
@@ -82,9 +88,11 @@ for (const mode of (process.env.CAPTURE_MODES ?? 'baseline').split(',')) {
   const metrics=Object.fromEntries(after.map(x=>[x.name,x.value-(before.find(y=>y.name===x.name)?.value??0)]));
   const frames=[...samples.frames].sort((a,b)=>a-b);
   const callbacks={};for(const c of samples.callbacks){const s=callbacks[c.name]??={count:0,total:0,max:0};s.count++;s.total+=c.ms;s.max=Math.max(s.max,c.ms);}
-  const row={mode,action,elapsed,frameCount:frames.length,p50:frames[Math.floor(frames.length*.5)],p95:frames[Math.floor(frames.length*.95)],over33:frames.filter(x=>x>33.5).length,callbacks,longTasks:samples.longTasks,metrics};
+  const foregroundAtEndpoints=environment.focused && environmentAfter.focused && environment.visibility==='visible' && environmentAfter.visibility==='visible';
+  const row={mode,action,elapsed,environment,environmentAfter,foregroundAtEndpoints,frameCount:frames.length,p50:frames[Math.floor(frames.length*.5)],p95:frames[Math.floor(frames.length*.95)],over33:frames.filter(x=>x>33.5).length,callbacks,longTasks:samples.longTasks,metrics};
   report.push(row);console.log(JSON.stringify(row));
   await writeFile(`${out}/report.json`,JSON.stringify({version,browser:context.browser().version(),native,viewport:options.viewport,trace,errors,report},null,2));
+  if(process.env.CAPTURE_REQUIRE_FOCUS==='1' && !foregroundAtEndpoints)throw new Error('Foreground performance sample is invalid: diagnostic page lost focus or visibility');
   await page.waitForTimeout(600);
  }
  await page.screenshot({path:join(out,`${mode}-after.png`)});

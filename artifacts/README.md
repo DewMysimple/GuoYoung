@@ -84,3 +84,4 @@ python scripts/analyze-glass-settling.py capture.mp4 reference.png artifacts/wor
 - `CAPTURE_ACTIONS=hover,scroll,large-return` 可选择动作。
 - `CAPTURE_MODES=baseline,freeze,no-filter,freeze-no-filter` 提供因果对照；freeze 依赖未压缩的 `measure` 回调，生产构建会明确拒绝无法识别的冻结实验。冻结导致壁纸采样位置不再更新，关闭滤镜导致材质消失，两者只能帮助归因，不能作为产品修复交付。
 - 真实网页与扩展应使用不同输出目录。浏览器版本、窗口尺寸、产品版本、追踪开关和错误保留在报告中；结果是当前机器的采样，不能宣称所有设备恒定帧率或零延迟。
+- 性能脚本记录每个动作开始/结束时的页面焦点与可见性。`CAPTURE_REQUIRE_FOCUS=1` 会拒绝开始时未聚焦的采样，并把结束时失焦的采样判为无效；端点检查不能替代桌面录制期间的持续前台守护。旧报告未记录这些字段，不据此补写前台状态。

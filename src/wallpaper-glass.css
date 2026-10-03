@@ -1,6 +1,14 @@
 /* One material system for every surface shown over a wallpaper.
    The blur value lives in a custom property so the production CSS optimizer
    keeps the standards property Chromium actually supports. */
+/* This is a surface's authored input, never its ancestor's material. The
+   renderer can read it after replacing that surface's backdrop-filter. */
+@property --wallpaper-material-input {
+  syntax: "*";
+  inherits: false;
+  initial-value: none;
+}
+
 /* Wallpaper reaches the left viewport edge. Keep one thin, persistent native
    scrollbar on the right so short/long pages and modal locks keep their width. */
 html:has(.app-shell.has-wallpaper) {
@@ -749,25 +757,43 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  /* Change the shared material fill inputs, not arbitrary DOM backgrounds.
+     Both roots publish saved inline tokens; the preference wins in CSS while
+     those saved values remain available when the preference is turned off. */
+  :root:has(.app-shell.has-wallpaper),
+  .app-shell.has-wallpaper {
+    --glass-opacity: 96% !important;
+    --glass-control-opacity: 96% !important;
+    --glass-panel-opacity: 96% !important;
+    --glass-popover-opacity: 96% !important;
+    --glass-fill-accent: color-mix(in srgb, var(--accent) 96%, transparent);
+  }
+  /* Cover current and future surfaces, including body portals and nested
+     badges, without a separate opt-out list for every material owner. */
+  body:has(.app-shell.has-wallpaper) *,
+  body:has(.app-shell.has-wallpaper) *::before,
+  body:has(.app-shell.has-wallpaper) *::after {
+    --wallpaper-material-input: none !important;
+    backdrop-filter: none !important;
+  }
+  /* Disable an already-bound SVG immediately; the controller then releases
+     its resources when the media-query change is observed. */
+  .has-wallpaper .wallpaper-material-own,
+  .has-wallpaper .wallpaper-material-before::before {
+    filter: none !important;
+  }
   :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
     background-image: none;
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
   }
   :root:has(.app-shell.has-wallpaper) :is(.group-sort-tab-preview, .group-sort-drag-preview, .group-list-item-drag-preview) {
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
     background-image: none;
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
-  }
-  .has-wallpaper.glass-refraction .search-input,
-  .has-wallpaper.glass-refraction .github-home-entry::before {
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
   }
 
   .has-wallpaper .topbar::before {
     background-image: none;
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
   }
 
   .has-wallpaper .group-section-nav-panel,
@@ -801,7 +827,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   body:has(.app-shell.has-wallpaper) .settings-panel {
     background-image: none;
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
   }
 }
 
