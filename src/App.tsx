@@ -2,7 +2,7 @@ import { DataWorkspace, type DataWorkspaceContext } from "./components/data-work
 import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
 import { GlassRefraction, supportsGlassRefraction } from "./components/glass-refraction";
-import { WallpaperMaterial } from "./components/wallpaper-material";
+import { WallpaperSource, refreshWallpaperSource } from "./components/wallpaper-source";
 import { patchAppearance } from "./lib/appearance-settings";
 import { typographyVariables } from "./lib/typography";
 import { glassFilter } from "./lib/glass-presets";
@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FocusEvent,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
@@ -866,6 +867,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     void performSearch(query);
   }
 
+  function handleSearchBlur(event: FocusEvent<HTMLElement>) {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget.closest(".search-panel")?.contains(next)) return;
+    setHistoryOpen(false);
+  }
+
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (query.trim() || !historyOpen || state.searchHistory.length === 0) return;
     if (event.key === "ArrowDown") {
@@ -1233,6 +1240,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--glass-shadow-strength": String(effectiveWallpaper.glassShadow / 100),
     "--glass-highlight": String(effectiveWallpaper.glassHighlight / 100),
     "--glass-filter": glassFilter(effectiveWallpaper),
+    "--glass-saturation": String(effectiveWallpaper.glassSaturation / 100),
     "--glass-card-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens"),
     "--glass-wide-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-wide"),
     "--glass-search-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-search"),
@@ -1258,6 +1266,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       root.style.setProperty(property, String(value));
     }
     root.dataset.textEffect = effectiveAppearance.textEffect;
+    refreshWallpaperSource();
     return () => { delete root.dataset.textEffect; };
   }, [
     effectiveAppearance,
@@ -1286,7 +1295,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       {...siteClickHandlers}
     >
       {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} cardRadius={effectiveAppearance.radius} searchRadius={effectiveAppearance.searchRadius} />}
-      {wallpaperUrl && supportsGlassRefraction && <WallpaperMaterial source={wallpaperUrl} />}
+      {wallpaperUrl && <WallpaperSource source={wallpaperUrl} glassBlur={effectiveWallpaper.glassBlur} glassSaturation={effectiveWallpaper.glassSaturation} glassRefraction={effectiveWallpaper.glassRefraction && supportsGlassRefraction} />}
       {wallpaperUrl && (
         <div className="wallpaper-layer" aria-hidden="true">
           <img src={wallpaperUrl} alt="" fetchPriority="high" onLoad={dismissWallpaperStartup} />
@@ -1450,9 +1459,9 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
           <>
         <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏" placeholder="搜索收藏，支持拼音、首字母缩写"
           onSubmit={handleSearchSubmit} inputProps={{ id: "site-search", onFocus: () => { setHistoryOpen(true); setHistoryIndex(-1); },
-            onBlur: () => { window.setTimeout(() => setHistoryOpen(false), 120); }, onKeyDown: handleSearchKeyDown }}>
+            onBlur: handleSearchBlur, onKeyDown: handleSearchKeyDown }}>
             {historyOpen && !query.trim() && state.searchHistory.length > 0 && (
-              <div className="search-history" role="listbox" aria-label="最近搜索">
+              <div className="search-history" role="listbox" aria-label="最近搜索" onBlur={handleSearchBlur}>
                 <div className="search-history-header">
                   <span>最近搜索</span>
                   <button

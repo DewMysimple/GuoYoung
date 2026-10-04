@@ -22,23 +22,23 @@ test('wallpaper material survives React selection class changes', async ({ page 
   await expectWallpaper();
 });
 
-test('wallpaper material returns after a long button press is cancelled', async ({ page }, info) => {
+test('native button glass survives a long button press and cancellation', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium', 'Desktop material transition lifecycle');
   await prepareChangingMaterial(page);
   const button = page.getByRole('button', { name: '打开设置', exact: true });
-  await expect.poll(() => button.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'wallpaper', blur: 12 });
+  await expect.poll(() => button.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 12 });
   const box = (await button.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await expect.poll(() => button.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 12 });
-  // Outlast the short geometry update window, then release away from the
-  // button so its click action does not open a panel or mutate application state.
+  // Hold beyond the press transition, then release away from the button so
+  // cancellation does not open a panel or mutate application state.
   await page.waitForTimeout(550);
   await page.mouse.move(5, 850);
   await page.mouse.up();
   await expect(page.locator('.settings-panel')).toHaveCount(0);
   await expect(button).toHaveCSS('transform', 'none');
-  await expect.poll(() => button.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'wallpaper', blur: 12 });
+  await expect.poll(() => button.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 12 });
 });
 
 test('wallpaper material follows the final image geometry and blur after CSS transitions', async ({ page }, info) => {
@@ -64,11 +64,9 @@ test('wallpaper material follows the final image geometry and blur after CSS tra
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     }, { property, value, transition });
     const difference = await page.getByTestId('site-card-google').evaluate(card => {
-      const filterId = getComputedStyle(card, '::before').filter.match(/#([^"')]+)/)?.[1];
-      const profileHref = filterId && document.getElementById(filterId)?.querySelector('feImage[result="colored"]')?.getAttribute('href');
-      const source = profileHref && document.getElementById(profileHref.slice(1))?.querySelector('image');
-      if (!source) return null;
+      const paint = getComputedStyle(card, '::before');
       const image = document.querySelector<HTMLImageElement>('.wallpaper-layer img')!;
+      if (!paint.backgroundImage.includes(image.currentSrc) || paint.backgroundAttachment.split(',').at(-1)?.trim() !== 'fixed') return null;
       const box = image.getBoundingClientRect(), style = getComputedStyle(image);
       const scale = Math.max(box.width / image.naturalWidth, box.height / image.naturalHeight);
       const width = scale * image.naturalWidth, height = scale * image.naturalHeight;
@@ -76,9 +74,13 @@ test('wallpaper material follows the final image geometry and blur after CSS tra
       const expected = { x: box.x + (box.width - width) * position[0], y: box.y + (box.height - height) * position[1], width, height };
       const transform = new DOMMatrixReadOnly(style.transform);
       const expectedBlur = parseFloat(style.filter.match(/blur\(([^)]+)/)?.[1] ?? '0') * Math.hypot(transform.a, transform.b);
+      const [x, y] = paint.backgroundPosition.split(',').at(-1)!.trim().split(' ').map(parseFloat);
+      const [paintWidth, paintHeight] = paint.backgroundSize.split(',').at(-1)!.trim().split(' ').map(parseFloat);
+      const actual = { x, y, width: paintWidth, height: paintHeight };
+      const totalBlur = Math.hypot(...Array.from(paint.filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1])));
       return {
-        geometry: Math.max(...Object.entries(expected).map(([name, value]) => Math.abs(Number(source.getAttribute(name)) - value))),
-        blur: Math.abs(parseFloat(getComputedStyle(source).filter.match(/blur\(([^)]+)/)?.[1] ?? '0') - expectedBlur),
+        geometry: Math.max(...Object.entries(expected).map(([name, value]) => Math.abs(actual[name as keyof typeof actual] - value))),
+        blur: Math.abs(totalBlur - Math.hypot(expectedBlur, 12)),
       };
     });
     expect(difference, `${property}: the card must keep a real wallpaper source`).not.toBeNull();
@@ -101,7 +103,7 @@ test('dense wallpaper cards scroll without per-card forced style recalculation',
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   });
   await page.reload();
-  await expect(page.locator('.site-card.wallpaper-material-before').first()).toBeVisible();
+  await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 24 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(500);
   const session = await context.newCDPSession(page);
@@ -111,14 +113,14 @@ test('dense wallpaper cards scroll without per-card forced style recalculation',
   await page.evaluate(async () => {
     for (let step = 0; step < 24; step++) {
       window.scrollTo(0, 12 * step);
-      // Give scroll events and the material update a complete rendering turn.
+      // Give scroll events a complete rendering turn.
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     }
   });
   const after = await metrics();
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(200);
   expect(after.RecalcStyleCount - before.RecalcStyleCount, 'Style recalculation should scale with rendered frames, not visible card count').toBeLessThan(120);
-  await expect(page.locator('.site-card.wallpaper-material-before').first()).toHaveClass(/wallpaper-material-before/);
+  await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 24 });
 });
 
 async function pixels(page: Page, region: { x: number; y: number; width: number; height: number }) {
@@ -145,7 +147,7 @@ test('wallpaper materials visibly blur the source and refract its rim without mo
   });
   const prepare = async () => {
     await page.reload();
-    await expect(page.locator('.site-card').first()).toHaveClass(/wallpaper-material-before/);
+    await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper' });
     await page.evaluate(() => document.fonts.ready);
     // Inspect the real material without text/icons obscuring the sampled pixels.
     await page.addStyleTag({ content: '.site-card > * { visibility:hidden!important }' });
@@ -164,7 +166,7 @@ test('wallpaper materials visibly blur the source and refract its rim without mo
   expect(variation(blurred).mean).toBeGreaterThan(60);
   expect(variation(blurred).mean).toBeLessThan(220);
   expect(variation(blurred).deviation, '12px blur must remove fine wallpaper stripes').toBeLessThan(8);
-  const disable = await page.addStyleTag({ content: '.wallpaper-material-before::before { filter:none!important }' });
+  const disable = await page.addStyleTag({ content: '.site-card::before { filter:none!important }' });
   expect(variation(await pixels(page, center)).deviation, 'The unfiltered wallpaper really contains contrasting stripes').toBeGreaterThan(40);
   await disable.evaluate(element => element.remove());
 

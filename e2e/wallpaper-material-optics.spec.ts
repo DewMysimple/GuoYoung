@@ -33,9 +33,8 @@ test('neutral glass samples the same blurred wallpaper at each wallpaper zoom', 
       state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/blurred-stripes.svg', fit: 'cover',
         positionX: 50, positionY: 50, zoom, blur: 8, overlay: 0, glassBlur: 0, glassSaturation: 100,
         glassTransparency: 100, glassControlTransparency: 100, glassPanelTransparency: 100, glassPopoverTransparency: 100,
-        glassHighlight: 0, glassShadow: 0, glassRefraction: true, glassRefractionStrength: 0 };
-      // A zero-strength lens keeps the real material path active without
-      // changing pixels; the card adds no blur, tint, rim or shadow of its own.
+        glassHighlight: 0, glassShadow: 0, glassRefraction: false, glassRefractionStrength: 0 };
+      // The card adds no blur, tint, rim or shadow of its own.
       localStorage.setItem('site-hub:v1', JSON.stringify(state));
     }, zoom);
     await page.reload();
@@ -47,19 +46,11 @@ test('neutral glass samples the same blurred wallpaper at each wallpaper zoom', 
     const box = (await card.boundingBox())!;
     const region = { x: Math.round(box.x + 35), y: Math.round(box.y + 65), width: 140, height: 70 };
     const glass = await regionPixels(page, region);
-    const original = await card.evaluate(card => {
-      const filterId = getComputedStyle(card, '::before').filter.match(/#([^"')]+)/)![1];
-      const href = document.getElementById(filterId)!.querySelector('feImage[result="colored"]')!.getAttribute('href')!;
-      const source = document.getElementById(href.slice(1))!.querySelector('image')!;
-      const original = source.getAttribute('style')!;
-      source.setAttribute('style', 'filter:blur(0px)');
-      return { id: href.slice(1), original };
-    });
+    const disable = await page.addStyleTag({ content: '.site-card::before { filter:blur(0px)!important }' });
     const unblurred = await regionPixels(page, region);
     const positiveControlMean = pixelDifference(glass, unblurred).mean;
-    await page.evaluate(original => document.getElementById(original.id)!.querySelector('image')!.setAttribute('style', original.original), original);
+    await disable.evaluate(element => element.remove());
     // Opacity removes the entire composed material without moving the region.
-    // Visibility is unsuitable here: Chromium can retain fragment-filter pixels.
     await page.addStyleTag({ content: '.site-card { opacity: 0 !important; }' });
     await expect(card).toHaveCSS('opacity', '0');
     const wallpaper = await regionPixels(page, region);
@@ -70,5 +61,65 @@ test('neutral glass samples the same blurred wallpaper at each wallpaper zoom', 
     expect(comparison.positiveControlMean, `${comparison.zoom}% zoom: source blur must visibly affect the material`).toBeGreaterThan(20);
     expect(comparison.mean, `${comparison.zoom}% zoom: transparent neutral glass must match the wallpaper`).toBeLessThan(2);
     expect(comparison.max, `${comparison.zoom}% zoom: no stripe edge may diverge from the wallpaper`).toBeLessThan(6);
+  }
+});
+
+test('neutral normal-flow cards match a contained PNG at small and large source blur', async ({ page }, info) => {
+  test.skip(info.project.name !== 'chromium', 'Desktop contained wallpaper optics');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const encoded = await page.evaluate(async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1600"><defs><pattern id="p" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="#f6bf4b"/><rect width="12" height="24" fill="#2542b0"/></pattern></defs><rect width="900" height="1600" fill="url(#p)"/></svg>';
+    const image = new Image(); image.src = `data:image/svg+xml;base64,${btoa(svg)}`; await image.decode();
+    const canvas = document.createElement('canvas'); canvas.width = 900; canvas.height = 1600;
+    canvas.getContext('2d')!.drawImage(image, 0, 0);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  const url = 'https://material.example/contained-color-stripes.png';
+  await page.route(url, route => route.fulfill({ contentType: 'image/png', body: Buffer.from(encoded, 'base64') }));
+  const comparisons: { sourceBlur: number; mean: number; max: number; positiveControlMean: number }[] = [];
+  for (const sourceBlur of [8, 20]) {
+    await page.evaluate(({ sourceBlur, url }) => {
+      const state = JSON.parse(localStorage.getItem('site-hub:v1')!);
+      state.sites = state.sites.filter((site: { id: string }) => site.id === 'google')
+        .map((site: Record<string, unknown>) => ({ ...site, iconSource: 'brand' }));
+      state.appearance = { ...state.appearance, theme: 'light', cardWidth: 220, cardHeight: 200 };
+      state.wallpaper = { ...state.wallpaper, source: 'url', url, fit: 'contain', positionX: 0, positionY: 50,
+        zoom: 100, blur: sourceBlur, overlay: 0, glassBlur: 0, glassSaturation: 100,
+        glassTransparency: 100, glassControlTransparency: 100, glassPanelTransparency: 100, glassPopoverTransparency: 100,
+        glassHighlight: 0, glassShadow: 0, glassRefraction: false, glassRefractionStrength: 0 };
+      localStorage.setItem('site-hub:v1', JSON.stringify(state));
+    }, { sourceBlur, url });
+    await page.reload();
+    const card = page.getByTestId('site-card-google');
+    await expect.poll(() => card.evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 0, saturation: 1, strength: 0 });
+    await page.evaluate(() => document.fonts.ready);
+    const box = (await card.boundingBox())!;
+    // Keep the real card in its normal grid slot. Moving a fixed diagnostic
+    // surface can retain a stale raster and is not this regression's trigger.
+    await page.addStyleTag({ content: '.app-shell main,.topbar,.footer{visibility:hidden!important} [data-testid="site-card-google"]{visibility:visible!important} [data-testid="site-card-google"]>*{visibility:hidden!important}' });
+    await page.mouse.move(1430, 880);
+    const region = { x: Math.round(box.x + box.width / 2 - 60), y: Math.round(box.y + box.height / 2 - 40), width: 120, height: 80 };
+    const source = await page.locator('.wallpaper-layer').evaluate(element => {
+      const style = getComputedStyle(element, '::before');
+      return { left: parseFloat(style.backgroundPosition), width: parseFloat(style.backgroundSize),
+        blur: Math.hypot(...Array.from(style.filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1]))) };
+    });
+    expect(source.blur).toBeCloseTo(sourceBlur * 1.02, 3);
+    expect(region.x).toBeGreaterThan(source.left + 3 * source.blur);
+    expect(region.x + region.width).toBeLessThan(source.left + source.width - 3 * source.blur);
+    const glass = await regionPixels(page, region);
+    const disable = await page.addStyleTag({ content: '[data-testid="site-card-google"]::before{filter:blur(0px) saturate(1)!important}' });
+    const positiveControlMean = pixelDifference(glass, await regionPixels(page, region)).mean;
+    await disable.evaluate(element => element.remove());
+    await page.addStyleTag({ content: '[data-testid="site-card-google"]{opacity:0!important}' });
+    const wallpaper = await regionPixels(page, region);
+    expect(await card.boundingBox(), 'Optical controls cannot move the real card').toEqual(box);
+    comparisons.push({ sourceBlur, ...pixelDifference(glass, wallpaper), positiveControlMean });
+  }
+  await info.attach('contained-png-source-blur-pixels', { body: JSON.stringify(comparisons, null, 2), contentType: 'application/json' });
+  for (const comparison of comparisons) {
+    expect(comparison.positiveControlMean, `${comparison.sourceBlur}px: the actual source blur must affect pixels`).toBeGreaterThan(20);
+    expect(comparison.mean, `${comparison.sourceBlur}px: neutral glass must match the contained PNG`).toBeLessThan(2);
+    expect(comparison.max, `${comparison.sourceBlur}px: no stripe may diverge from the visible wallpaper`).toBeLessThan(6);
   }
 });

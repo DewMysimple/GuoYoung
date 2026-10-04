@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { readGlassMaterial } from './read-glass-material.mjs';
 const version = JSON.parse(await readFile('public/manifest.json', 'utf8')).version;
 const label = process.env.CAPTURE_LABEL ?? 'current';
 const output = resolve(process.env.CAPTURE_OUTPUT ?? `artifacts/working/startup-${label}`);
@@ -56,7 +57,7 @@ try {
     page = await context.newPage();
     page.on('pageerror', error => errors.push(error.message));
   }
-  await page.addInitScript(() => {
+  const installPerformanceSampling = () => {
     window.perfSamples = { frames: [], longTasks: [], maps: [] };
     const toDataURL = HTMLCanvasElement.prototype.toDataURL;
     HTMLCanvasElement.prototype.toDataURL = function (...args) { const t = performance.now(); const result = toDataURL.apply(this, args); window.perfSamples.maps.push({ time: t, width: this.width, height: this.height, duration: performance.now() - t }); return result; };
@@ -65,13 +66,26 @@ try {
       const start = performance.now(), frames = [];
       const sample = () => {
         const card = document.querySelector('.site-card'), search = document.querySelector('.search-input'), tab = document.querySelector('.category-tab:not(.active)');
-        const style = el => el ? { border: getComputedStyle(el).borderTopColor, color: getComputedStyle(el).color, fill: getComputedStyle(el).backgroundColor, filter: getComputedStyle(el).backdropFilter } : null;
-        frames.push({ t: performance.now(), cards: document.querySelectorAll('.site-card').length, card: style(card), search: style(search), tab: style(tab), wide: style(document.querySelector('.github-home-entry')), wideMap: !!document.querySelector('#wallpaper-glass-lens-wide feImage'), preview: !!document.querySelector('#wallpaper-startup'), imageReady: !!document.querySelector('.wallpaper-layer img')?.complete });
+        const style = el => el ? { border: getComputedStyle(el).borderTopColor, color: getComputedStyle(el).color,
+          fill: getComputedStyle(el, el.matches('.site-card') ? '::after' : null).backgroundColor,
+          material: window.readGlassMaterial(el, el.matches('.site-card, .github-home-entry')) } : null;
+        const wide = document.querySelector('.github-home-entry');
+        const image = document.querySelector('.wallpaper-layer img');
+        const wallpaper = image && getComputedStyle(image.parentElement, '::before');
+        const imageStyle = image && getComputedStyle(image);
+        const scale = imageStyle && new DOMMatrixReadOnly(imageStyle.transform === 'none' ? undefined : imageStyle.transform);
+        const expectedBlur = imageStyle && parseFloat(imageStyle.filter.match(/blur\(([^)]+)/)?.[1] ?? '0') * Math.hypot(scale.a, scale.b);
+        const wallpaperReady = !!image?.complete && image.naturalWidth > 0 && wallpaper.content !== 'none'
+          && wallpaper.display !== 'none' && wallpaper.backgroundImage.includes(image.currentSrc)
+          && wallpaper.backgroundAttachment === 'fixed'
+          && Math.abs(Math.hypot(...Array.from(wallpaper.filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1]))) - expectedBlur) < .01;
+        frames.push({ t: performance.now(), cards: document.querySelectorAll('.site-card').length, card: style(card), search: style(search), tab: style(tab), wide: style(wide), wideMap: !!wide && window.readGlassMaterial(wide, true)?.refraction === true, preview: !!document.querySelector('#wallpaper-startup'), imageReady: !!image?.complete && image.naturalWidth > 0, wallpaperReady, wallpaperFilter: wallpaper?.filter });
         if (performance.now() - start < duration) requestAnimationFrame(sample); else resolve(frames);
       }; requestAnimationFrame(sample);
     });
     window.sampleFrames(1500).then(frames => { window.perfSamples.frames = frames; window.perfDone = true; });
-  });
+  };
+  await page.addInitScript({ content: `window.readGlassMaterial = (${readGlassMaterial.toString()}); (${installPerformanceSampling.toString()})();` });
   const cdp = await context.newCDPSession(page);
   await cdp.send('Performance.enable');
   if (process.env.CPU_RATE) await cdp.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.CPU_RATE) });
@@ -116,12 +130,15 @@ try {
       assert.equal(frame.search.border, 'rgba(255, 255, 255, 0.45)');
       assert.equal(frame.tab.border, 'rgba(255, 255, 255, 0.294)');
       assert.equal(frame.imageReady, true, 'Wallpaper stays decoded through the handoff');
+      assert.equal(frame.wallpaperReady, true, 'The visible wallpaper background is ready, including source blur');
+      assert.equal(frame.card.material?.sampling, 'wallpaper', 'The actual card source is ready from its first frame');
       assert.equal(frame.card.fill, visible.at(-1).card.fill, 'No fill animation from an uninitialized material');
     }
     for (const { frames } of switches) {
       assert.ok(frames.length > 5);
       for (const frame of frames) {
         assert.equal(frame.imageReady, true);
+        assert.equal(frame.wallpaperReady, true);
         if (frame.card) assert.equal(frame.card.border, 'rgba(255, 255, 255, 0.45)');
         if (frame.wide) assert.equal(frame.wideMap, true, 'GitHub refraction is ready on entry');
       }

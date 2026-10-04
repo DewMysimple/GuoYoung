@@ -1228,6 +1228,79 @@ describe("App", () => {
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 
+  it("keeps search history open after the input quickly regains focus", async () => {
+    const stored = createDefaultState();
+    stored.searchHistory = [{ query: "history query", searchedAt: "2026-07-30T00:00:00.000Z" }];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    render(<App />);
+    const search = screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" });
+    act(() => search.focus());
+    expect(screen.getByRole("listbox", { name: "最近搜索" })).toBeInTheDocument();
+
+    vi.useFakeTimers();
+    try {
+      act(() => { search.blur(); search.focus(); });
+      await act(() => vi.advanceTimersByTimeAsync(200));
+      expect(search).toHaveFocus();
+      expect(screen.getByRole("listbox", { name: "最近搜索" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps search history available while tabbing inside and closes when focus leaves", async () => {
+    const stored = createDefaultState();
+    stored.searchHistory = [{ query: "history query", searchedAt: "2026-07-30T00:00:00.000Z" }];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    render(<App />);
+    const search = screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" });
+    act(() => search.focus());
+
+    const user = userEvent.setup();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "清空" })).toHaveFocus();
+    await act(() => new Promise(resolve => window.setTimeout(resolve, 200)));
+    expect(screen.getByRole("listbox", { name: "最近搜索" })).toBeInTheDocument();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "history query" })).toHaveFocus();
+    act(() => screen.getByRole("button", { name: "打开设置" }).focus());
+    expect(screen.queryByRole("listbox", { name: "最近搜索" })).not.toBeInTheDocument();
+  });
+
+  it.each(["mouse", "keyboard"])("preserves search history removal and %s activation", async (method) => {
+    const stored = createDefaultState();
+    stored.searchHistory = ["history query", "remove me"].map(query => ({ query, searchedAt: "2026-07-30T00:00:00.000Z" }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    const query = vi.fn().mockResolvedValue(undefined);
+    (globalThis as typeof globalThis & { chrome?: unknown }).chrome = {
+      runtime: { id: "test-extension" }, search: { query },
+    };
+    const user = userEvent.setup();
+    render(<App />);
+    const search = screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" });
+    await user.click(search);
+    await user.click(screen.getByRole("button", { name: "删除搜索记录 remove me" }));
+    expect(search).toHaveFocus();
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+
+    if (method === "keyboard") {
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByRole("option")).toHaveAttribute("aria-selected", "true");
+      await user.keyboard("{ArrowUp}");
+      expect(screen.getByRole("option")).toHaveAttribute("aria-selected", "false");
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("listbox", { name: "最近搜索" })).not.toBeInTheDocument();
+      act(() => search.blur());
+      await user.click(search);
+      await user.keyboard("{ArrowDown}{Enter}");
+    } else {
+      await user.click(screen.getByRole("button", { name: "history query" }));
+    }
+    expect(query).toHaveBeenCalledWith({ text: "history query", disposition: "CURRENT_TAB" });
+    expect(search).toHaveValue("history query");
+    expect(screen.queryByRole("listbox", { name: "最近搜索" })).not.toBeInTheDocument();
+  });
+
   it("previews appearance changes and rolls them back on cancel", async () => {
     const user = userEvent.setup();
     render(<App />);

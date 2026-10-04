@@ -1,4 +1,4 @@
-import { describeGlassMaterial } from "./read-glass-material.mjs";
+import { describeGlassMaterial, readGlassMaterial } from "./read-glass-material.mjs";
 // Production visual checks. Run against `vite preview`; includes a real MV3
 // extension in an isolated temporary Chromium profile, with synthetic data only.
 import assert from "node:assert/strict";
@@ -45,9 +45,9 @@ async function capture(page, name) {
     const box = document.querySelector(".search-input").getBoundingClientRect();
     return { width: innerWidth, overflow: document.documentElement.scrollWidth > innerWidth,
       left: document.querySelector(".app-shell").getBoundingClientRect().left,
-      searchCenter: box.x + box.width / 2,
-      backdrop: getComputedStyle(document.querySelector(".site-card"), "::before").backdropFilter };
+      searchCenter: box.x + box.width / 2 };
   });
+  geometry.material = await page.locator('.site-card').first().evaluate(readGlassMaterial, true);
   assert.equal(geometry.overflow, false, name);
   assert.equal(geometry.left, 0, name);
   metrics.push({ name, ...geometry });
@@ -97,7 +97,7 @@ try {
       await expect(target).toHaveCSS("opacity", "0.78");
       await expect.poll(() => describeGlassMaterial(target, true)).toMatch(/blur\(2px\).*refract\(/);
       const targetFillAlpha = await target.evaluate(el => {
-        const color = getComputedStyle(el, "::before").backgroundColor;
+        const color = getComputedStyle(el, "::after").backgroundColor;
         return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
       });
       assert.ok(targetFillAlpha > 0.75, `Target glass fill alpha should exceed 0.75, got ${targetFillAlpha}`);

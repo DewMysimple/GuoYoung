@@ -54,7 +54,7 @@ async function remainingFilters(page: Page) {
       for (const pseudo of [null, '::before', '::after']) {
         const style = getComputedStyle(element, pseudo);
         if (pseudo && (style.content === 'none' || style.display === 'none')) continue;
-        if (style.backdropFilter !== 'none' || /url\([^)]*#wallpaper-material-/.test(style.filter)) {
+        if (style.backdropFilter !== 'none' || (element.matches('.site-card, .add-site-card') && style.filter !== 'none')) {
           remaining.push(`${element.tagName.toLowerCase()}.${element.className}${pseudo ?? ''}: ${style.backdropFilter}; ${style.filter}`);
         }
       }
@@ -77,7 +77,7 @@ test('data import menus keep their own blur through material refreshes', async (
   for (let pass = 0; pass < 3; pass++) {
     await refreshMaterial(page);
     expect(await menu.evaluate(readGlassMaterial, false), `Refresh ${pass}: the menu must not inherit the enclosing 24px panel blur`)
-      .toMatchObject({ sampling: 'wallpaper', blur: 18 });
+      .toMatchObject({ sampling: 'backdrop', blur: 18 });
   }
   const dataCard = page.locator('.data-card').first();
   expect(await backgroundAlpha(dataCard)).toBeCloseTo(.1, 4);
@@ -87,7 +87,7 @@ test('data import menus keep their own blur through material refreshes', async (
   expect(await backgroundAlpha(dataCard)).toBeGreaterThanOrEqual(.96);
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }] });
   await expect.poll(() => backgroundAlpha(dataCard)).toBeCloseTo(.1, 4);
-  await expect.poll(() => menu.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'wallpaper', blur: 18 });
+  await expect.poll(() => menu.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 18 });
   await session.detach();
 });
 
@@ -96,14 +96,19 @@ test('reduced transparency disables all visible collection glass and restores it
   await prepareMaterial(page);
   await page.getByRole('button', { name: '多选', exact: true }).click();
   const badge = page.locator('.category-tab > span').first();
-  await expect.poll(() => badge.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'wallpaper', blur: 24 });
+  await expect.poll(() => badge.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0 });
+  await expect.poll(() => badge.locator('..').evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 24 });
   const session = await context.newCDPSession(page);
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'reduce' }] });
   await expect.poll(() => remainingFilters(page)).toEqual([]);
   expect(await backgroundAlpha(badge)).toBeGreaterThanOrEqual(.96);
-  await expect(page.locator('.wallpaper-layer img')).toHaveCSS('filter', 'blur(6px)');
+  await expect.poll(() => page.locator('.wallpaper-layer').evaluate(element => {
+    const filter = getComputedStyle(element, '::before').filter;
+    return Math.abs(Math.hypot(...Array.from(filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1]))) - 6.12);
+  })).toBeLessThan(.0001);
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }] });
-  await expect.poll(() => badge.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'wallpaper', blur: 24 });
+  await expect.poll(() => badge.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0 });
+  await expect.poll(() => badge.locator('..').evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 24 });
   await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, true))
     .toMatchObject({ sampling: 'wallpaper', blur: 24, refraction: true });
   await session.detach();
@@ -118,7 +123,7 @@ test('native menu filters retain their original values without wallpaper', async
     .toMatchObject({ sampling: 'backdrop', blur: 12 });
 });
 
-test('undeclared native backdrops stay native through scrolling and resizing', async ({ page }, info) => {
+test('native backdrops retain their paint and attributes through scrolling and resizing', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium', 'Desktop native material ownership');
   await prepareMaterial(page);
   await page.evaluate(() => {
@@ -129,13 +134,12 @@ test('undeclared native backdrops stay native through scrolling and resizing', a
     parent.style.cssText = 'position:fixed;top:120px;left:40px;width:160px;height:100px';
     const probe = document.createElement('div');
     probe.dataset.testid = 'native-backdrop-contract';
-    probe.dataset.managedEver = 'false';
     probe.style.cssText = 'width:100px;height:60px;backdrop-filter:blur(18px)';
-    // Record transient ownership too: an unknown native filter must never be
-    // briefly adopted and then discarded on the next material refresh.
-    new MutationObserver(() => {
-      if (probe.classList.contains('wallpaper-material-own')) probe.dataset.managedEver = 'true';
-    }).observe(probe, { attributes: true, attributeFilter: ['class'] });
+    // Record transient writes too; wallpaper sampling never owns native controls.
+    const writes: string[] = [];
+    new MutationObserver(records => writes.push(...records.map(record => record.attributeName!)))
+      .observe(probe, { attributes: true });
+    Object.assign(window, { nativeProbeWrites: writes });
     parent.append(probe);
     root.append(parent);
   });
@@ -143,19 +147,17 @@ test('undeclared native backdrops stay native through scrolling and resizing', a
   for (let pass = 0; pass < 3; pass++) {
     await page.evaluate(y => scrollTo(0, y), 100 * (pass + 1));
     await refreshMaterial(page);
-    await expect(probe).toHaveCSS('--wallpaper-material-input', 'none');
-    await expect(probe).not.toHaveClass(/wallpaper-material-own/);
     expect(await probe.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 18 });
-    await expect(probe).toHaveAttribute('data-managed-ever', 'false');
+    expect(await page.evaluate(() => (window as unknown as { nativeProbeWrites: string[] }).nativeProbeWrites)).toEqual([]);
   }
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0);
 });
 
-test('local material inputs preserve pseudo surfaces and the settings portal', async ({ page, context }, info) => {
+test('native glass preserves topbar pseudo surfaces and the settings portal', async ({ page, context }, info) => {
   test.skip(info.project.name !== 'chromium', 'Desktop material portal contract');
   await prepareMaterial(page);
   await expect.poll(() => page.locator('.topbar').evaluate(readGlassMaterial, true))
-    .toMatchObject({ sampling: 'wallpaper', blur: 4, saturation: 1.4 });
+    .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1.4 });
   await page.getByRole('button', { name: '打开设置', exact: true }).click();
   const panel = page.getByRole('dialog', { name: '设置', exact: true });
   expect(await panel.evaluate(element => element.closest('.app-shell'))).toBeNull();
@@ -166,6 +168,6 @@ test('local material inputs preserve pseudo surfaces and the settings portal', a
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }] });
   await expect.poll(() => panel.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 8 });
   await expect.poll(() => page.locator('.topbar').evaluate(readGlassMaterial, true))
-    .toMatchObject({ sampling: 'wallpaper', blur: 4, saturation: 1.4 });
+    .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1.4 });
   await session.detach();
 });

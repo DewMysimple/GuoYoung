@@ -125,7 +125,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await expectGlassMaterial(target, { blur: 8 }, true);
   await expectCardMaterial(target, "background-color", /\/ 0\.[0-9]+\)/);
   await expect.poll(() => target.evaluate(el => {
-    const color = getComputedStyle(el, "::before").backgroundColor;
+    const color = getComputedStyle(el, "::after").backgroundColor;
     return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
   })).toBeGreaterThan(0.75);
   await page.screenshot({ path: screenshotPath("glass-site-drag-hover.png") });
@@ -175,7 +175,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   expect((await heading.boundingBox())!.x).toBeCloseTo(before.x, 1);
   expect((await heading.boundingBox())!.width).toBeCloseTo(before.width, 1);
   await page.getByRole("dialog", { name: "管理分组", exact: true }).getByRole("button", { name: "关闭", exact: true }).click();
-  const initial = await card.evaluate(el => getComputedStyle(el, "::before").backgroundColor);
+  const initial = await card.evaluate(el => getComputedStyle(el, "::after").backgroundColor);
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
@@ -186,7 +186,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("slider", { name: "折射强度" }).fill("32");
   await expectGlassMaterial(card, { blur: 2, refraction: true }, true);
-  await expect.poll(() => card.evaluate(el => getComputedStyle(el, "::before").backgroundColor)).not.toBe(initial);
+  await expect.poll(() => card.evaluate(el => getComputedStyle(el, "::after").backgroundColor)).not.toBe(initial);
   await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
   await panel.getByRole("button", { name: "玻璃底板", exact: true }).click();
   await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
@@ -217,7 +217,8 @@ test("previews glass, restores cancelled drafts and persists material controls",
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
   await expectCardMaterial(card, "backdrop-filter", "none");
-  await expectCardMaterial(card, "filter", "none");
+  await expectCardMaterial(card, "display", "none");
+  await expectCardMaterial(card, "background-color", /\/ 0\.96\)/);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
   await expectGlassMaterial(card, { refraction: true }, true);
 
@@ -338,7 +339,7 @@ test("keeps glass sampling and complete cards from the first frame when returnin
 
 async function expectCardMaterial(card: Locator, property: string, value: string | RegExp) {
   await expect(card).toHaveCSS("backdrop-filter", "none");
-  const actual = expect.poll(() => card.evaluate((el, property) => getComputedStyle(el, "::before").getPropertyValue(property), property));
+  const actual = expect.poll(() => card.evaluate((el, property) => getComputedStyle(el, property.startsWith("background-") ? "::after" : "::before").getPropertyValue(property), property));
   if (typeof value === "string") await actual.toBe(value);
   else await actual.toMatch(value);
 }

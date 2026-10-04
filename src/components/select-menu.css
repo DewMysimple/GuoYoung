@@ -18,8 +18,7 @@
   font-family: inherit;
   font-size: calc(12px * var(--font-scale, 1));
   font-weight: 680;
-  --wallpaper-material-input: blur(12px);
-  backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: blur(12px);
 }
 
 .select-menu-trigger:hover:not(:disabled),
@@ -76,8 +75,7 @@
   color: var(--text);
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   box-shadow: var(--shadow-dialog);
-  --wallpaper-material-input: blur(18px);
-  backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: blur(18px);
   animation: select-menu-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 

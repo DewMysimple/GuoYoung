@@ -1,6 +1,6 @@
 // Same-machine glass performance probe. Input exports stay private.
-// CAPTURE_MODES freeze variants require unminified measure callback names;
-// they are diagnostic counterfactuals, never visual correctness checks.
+// CAPTURE_MODES can compare normal rendering with local card filters disabled.
+// The latter is a diagnostic counterfactual, never a visual correctness check.
 import { chromium, expect } from '@playwright/test';
 import { readFile, writeFile, mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -18,7 +18,7 @@ const browser = native ? null : await chromium.launch({channel:'msedge',headless
 const report = [];
 try {
 for (const mode of (process.env.CAPTURE_MODES ?? 'baseline').split(',')) {
- if (!['baseline','freeze','no-filter','freeze-no-filter'].includes(mode)) throw new Error(`Unknown mode: ${mode}`);
+ if (!['baseline','no-filter'].includes(mode)) throw new Error(`Unknown mode: ${mode}`);
  const options = { viewport:{width:1920,height:926},deviceScaleFactor:1 };
  const extension = resolve(process.env.CAPTURE_EXTENSION_DIR ?? 'dist-extension');
  const version = JSON.parse(await readFile(native ? join(extension,'manifest.json') : 'public/manifest.json','utf8')).version;
@@ -28,10 +28,8 @@ for (const mode of (process.env.CAPTURE_MODES ?? 'baseline').split(',')) {
  const base = native ? `chrome-extension://${new URL(worker.url()).host}/index.html` : process.env.CAPTURE_BASE_URL ?? 'http://127.0.0.1:4198';
  await context.addInitScript(() => {
   const raf = window.requestAnimationFrame.bind(window);
-  window.__perf = {active:false,freeze:false,seenMeasure:false,frames:[],callbacks:[],longTasks:[]};
+  window.__perf = {active:false,frames:[],callbacks:[],longTasks:[]};
   window.requestAnimationFrame = cb => raf(t => {
-   if (cb.name === 'measure') window.__perf.seenMeasure = true;
-   if (window.__perf.freeze && cb.name === 'measure') return;
    const start=performance.now(); cb(t);
    if(window.__perf.active) window.__perf.callbacks.push({name:cb.name,ms:performance.now()-start});
   });
@@ -52,8 +50,6 @@ for (const mode of (process.env.CAPTURE_MODES ?? 'baseline').split(',')) {
  await page.bringToFront();
  await page.waitForTimeout(4000);
  if(mode.includes('no-filter'))await page.addStyleTag({content:'.has-wallpaper .site-card::before{filter:none!important;backdrop-filter:none!important}'});
- if(mode.includes('freeze') && !await page.evaluate(()=>window.__perf.seenMeasure))throw new Error('Freeze requires an unminified measure callback; comparison invalid');
- await page.evaluate(freeze=>{window.__perf.freeze=freeze},mode.includes('freeze'));
  const session=await context.newCDPSession(page);await session.send('Performance.enable');
  for(const action of (process.env.CAPTURE_ACTIONS ?? 'hover,scroll,large-return').split(',')) {
   if(!['hover','scroll','large-return'].includes(action))throw new Error(`Unknown action: ${action}`);

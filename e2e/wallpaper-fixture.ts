@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect } from './fixtures';
+import { readGlassMaterial } from '../scripts/read-glass-material.mjs';
 
 /** Local image and bundled icons keep unrelated network mutations out of lifecycle tests. */
 export async function prepareMaterialPage(page: Page, glassBlur = 12) {
@@ -14,7 +15,7 @@ export async function prepareMaterialPage(page: Page, glassBlur = 12) {
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   }, glassBlur);
   await page.reload();
-  await expect(page.getByTestId('site-card-google')).toHaveClass(/wallpaper-material-before/);
+  await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, true))
+    .toMatchObject({ sampling: 'wallpaper', blur: glassBlur });
   await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(400);
 }

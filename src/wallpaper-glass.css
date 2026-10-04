@@ -1,13 +1,6 @@
 /* One material system for every surface shown over a wallpaper.
    The blur value lives in a custom property so the production CSS optimizer
    keeps the standards property Chromium actually supports. */
-/* This is a surface's authored input, never its ancestor's material. The
-   renderer can read it after replacing that surface's backdrop-filter. */
-@property --wallpaper-material-input {
-  syntax: "*";
-  inherits: false;
-  initial-value: none;
-}
 
 /* Wallpaper reaches the left viewport edge. Keep one thin, persistent native
    scrollbar on the right so short/long pages and modal locks keep their width. */
@@ -51,7 +44,7 @@ html:has(.app-shell.has-wallpaper) {
   isolation: isolate;
   border-bottom-color: transparent;
   background: transparent;
-  --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: none;
 }
 
 .has-wallpaper .topbar::before {
@@ -61,7 +54,7 @@ html:has(.app-shell.has-wallpaper) {
   border-bottom: 1px solid var(--glass-edge-soft);
   background: var(--topbar-background);
   box-shadow: inset 0 -1px 0 var(--glass-edge-soft);
-  --wallpaper-material-input: var(--topbar-backdrop-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--topbar-backdrop-filter);
   content: "";
   pointer-events: none;
 }
@@ -101,7 +94,6 @@ html:has(.app-shell.has-wallpaper) {
 .has-wallpaper .site-selection-toggle,
 .has-wallpaper .group-selection-mark,
 .has-wallpaper .card-action,
-.has-wallpaper .category-tab > span,
 .has-wallpaper .group-icon-choice,
 .has-wallpaper .history-detail-summary,
 .has-wallpaper .history-selection-toolbar,
@@ -114,7 +106,7 @@ html:has(.app-shell.has-wallpaper) {
   background-color: var(--glass-fill-low);
   background-image: var(--glass-surface-image);
   box-shadow: var(--glass-shadow);
-  --wallpaper-material-input: var(--glass-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--glass-filter);
 }
 
 .has-wallpaper .topbar-history-button,
@@ -191,7 +183,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button {
     0 3px 10px rgb(var(--glass-shadow-color) / calc(.16 * var(--glass-shadow-strength))),
     inset 0 1px 0 rgb(255 255 255 / .35),
     inset 0 0 0 1px rgb(255 255 255 / .12);
-  --wallpaper-material-input: var(--glass-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--glass-filter);
 }
 
 .has-wallpaper .github-home-entry.has-site .github-home-entry-open:hover,
@@ -315,6 +307,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 .has-wallpaper .grouped-site-count,
 .has-wallpaper .history-site-url-count,
 .has-wallpaper .category-tab > span {
+  /* Its parent already filters the backdrop; a second nested blur causes
+     independent edge invalidation when distant controls are composited. */
   border: 1px solid var(--glass-edge-soft);
   color: var(--text-soft);
   background-color: var(--glass-fill-low);
@@ -355,7 +349,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
   background-color: var(--glass-fill-popover);
   background-image: var(--glass-surface-image);
   box-shadow: var(--glass-elevated-shadow);
-  --wallpaper-material-input: var(--glass-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--glass-filter);
 }
 
 .has-wallpaper .github-home-entry-menu-popover > button:hover,
@@ -401,7 +395,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
   background-color: var(--glass-fill-low);
   background-image: var(--glass-surface-image);
   box-shadow: var(--glass-shadow);
-  --wallpaper-material-input: var(--glass-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--glass-filter);
 }
 
 :root:has(.app-shell.has-wallpaper) .group-sort-tab-preview.active {
@@ -424,7 +418,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
   background-color: var(--glass-fill-low);
   background-image: var(--glass-surface-image);
   box-shadow: var(--glass-elevated-shadow);
-  --wallpaper-material-input: var(--glass-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--glass-filter);
 }
 
 :root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview {
@@ -475,7 +469,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   background-color: var(--glass-fill-panel);
   background-image: var(--glass-surface-image);
   box-shadow: var(--glass-elevated-shadow);
-  --wallpaper-material-input: var(--glass-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--glass-filter);
 }
 
 .has-wallpaper .group-section-nav-icon,
@@ -512,7 +506,7 @@ body:has(.app-shell.has-wallpaper) .input-shell {
   background-color: var(--glass-fill-control);
   background-image: linear-gradient(145deg, var(--glass-sheen), transparent 68%);
   box-shadow: inset 0 1px 0 var(--glass-reflection);
-  --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: none;
 }
 
 /* The shell owns the material; its input must not add a second filled layer. */
@@ -624,7 +618,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   box-shadow: none;
   background-color: var(--sidebar-background);
   background-image: var(--sidebar-image);
-  --wallpaper-material-input: var(--sidebar-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--sidebar-filter);
 }
 
 /* Card tools use the card's material, without three nested glass tiles. */
@@ -633,7 +627,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   border-radius: 6px;
   background: transparent;
   box-shadow: none;
-  --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: none;
 }
 .has-wallpaper .card-actions .icon-button:hover,
 .has-wallpaper .card-actions .icon-button:focus-visible {
@@ -662,7 +656,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   border-radius: inherit;
   background-color: var(--glass-fill-low);
   background-image: var(--glass-surface-image);
-  --wallpaper-material-input: var(--glass-filter); backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: var(--glass-filter);
   content: "";
   pointer-events: none;
 }
@@ -670,20 +664,33 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   background-color: var(--glass-fill-high);
 }
 
-/* Keep backdrop sampling on a bounded, non-interactive sibling of card content.
-   The article still owns dnd-kit's transform and the outer shadow; its tools,
-   icon fades and text no longer live inside the backdrop-filter surface.
-   This also covers history cards and DragOverlay's body portal. */
+/* A shared viewport wallpaper source is painted by CSS. Scrolling never writes
+   card coordinates or invalidates per-card SVG image inputs. The overscan is
+   filtered before clipping, so the blur has real samples outside each rim. */
 :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
   position: relative;
   isolation: isolate;
-  /* Keep fractional-pixel rasterization stable when a child's tools appear.
-     This reserves the layer; dnd-kit remains the only owner of transforms. */
-  will-change: transform;
   background: transparent;
-  --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
+  backdrop-filter: none;
 }
 :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: calc(-1 * var(--wallpaper-card-spread, 0px));
+  pointer-events: none;
+  background-color: var(--page);
+  background-image:
+    linear-gradient(rgb(var(--wallpaper-overlay-color) / var(--wallpaper-overlay)), rgb(var(--wallpaper-overlay-color) / var(--wallpaper-overlay))),
+    var(--wallpaper-source-image);
+  background-attachment: scroll, fixed;
+  background-position: 0 0, var(--wallpaper-source-left) var(--wallpaper-source-top);
+  background-size: auto, var(--wallpaper-source-width) var(--wallpaper-source-height);
+  background-repeat: no-repeat;
+  filter: var(--wallpaper-card-filter, none);
+  clip-path: inset(var(--wallpaper-card-spread, 0px) round var(--radius-card));
+}
+:root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::after {
   content: "";
   position: absolute;
   z-index: -1;
@@ -692,7 +699,20 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   pointer-events: none;
   background-color: var(--card-glass-fill, var(--glass-fill-low));
   background-image: var(--card-glass-image, var(--glass-surface-image));
-  --wallpaper-material-input: var(--card-glass-filter, var(--glass-filter)); backdrop-filter: var(--wallpaper-material-input);
+}
+
+/* A transformed drag ancestor changes the fixed-background containing block.
+   Use the browser's live backdrop for the existing drag session only; dnd-kit
+   remains the sole owner of every transform. */
+:root:has(.app-shell.has-wallpaper) .grouped-site-section:is([data-has-transform], [data-transform-transition]) :is(.site-card, .add-site-card)::before,
+:root:has(.app-shell.has-wallpaper) .site-card:is([data-has-transform], [data-transform-transition])::before,
+:root:has(.app-shell.has-wallpaper) .site-card-drag-preview::before {
+  inset: 0;
+  border-radius: inherit;
+  background: none;
+  filter: none;
+  clip-path: none;
+  backdrop-filter: var(--card-glass-filter, var(--glass-filter));
 }
 
 /* Chromium's backdrop URL filters are optional. Other engines retain the
@@ -705,8 +725,12 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   .has-wallpaper.glass-refraction .add-site-card {
     --card-glass-filter: var(--glass-card-filter);
   }
-  .has-wallpaper.glass-refraction .github-home-entry::before { --wallpaper-material-input: var(--glass-wide-filter); backdrop-filter: var(--wallpaper-material-input); }
-  .has-wallpaper.glass-refraction .search-input { --wallpaper-material-input: var(--glass-search-filter); backdrop-filter: var(--wallpaper-material-input); }
+  .has-wallpaper.glass-refraction .grouped-site-section:is([data-has-transform], [data-transform-transition]) :is(.site-card, .add-site-card)::before,
+  .has-wallpaper.glass-refraction .site-card:is([data-has-transform], [data-transform-transition])::before {
+    filter: none;
+  }
+  .has-wallpaper.glass-refraction .github-home-entry::before { backdrop-filter: var(--glass-wide-filter); }
+  .has-wallpaper.glass-refraction .search-input { backdrop-filter: var(--glass-search-filter); }
   :root:has(.app-shell.glass-refraction) {
     --glass-rim: inset 1px 2px 2px rgb(255 255 255 / calc(var(--glass-highlight) * .8)),
       inset -1px -2px 2px rgb(255 255 255 / calc(var(--glass-highlight) * .38)),
@@ -719,12 +743,12 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
     background-color: var(--surface);
     background-image: none;
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
+    backdrop-filter: none;
   }
   :root:has(.app-shell.has-wallpaper) :is(.group-sort-tab-preview, .group-sort-drag-preview, .group-list-item-drag-preview) {
     background-color: var(--surface);
     background-image: none;
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
+    backdrop-filter: none;
   }
   .has-wallpaper .group-section-nav-panel,
   .has-wallpaper .github-home-entry::before,
@@ -747,12 +771,12 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   body:has(.app-shell.has-wallpaper) .confirm-content,
   body:has(.app-shell.has-wallpaper) .settings-panel {
     background-color: var(--surface);
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
+    backdrop-filter: none;
   }
 
   .has-wallpaper .topbar::before {
     background-image: none;
-    --wallpaper-material-input: none; backdrop-filter: var(--wallpaper-material-input);
+    backdrop-filter: none;
   }
 }
 
@@ -773,16 +797,12 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   body:has(.app-shell.has-wallpaper) *,
   body:has(.app-shell.has-wallpaper) *::before,
   body:has(.app-shell.has-wallpaper) *::after {
-    --wallpaper-material-input: none !important;
     backdrop-filter: none !important;
   }
-  /* Disable an already-bound SVG immediately; the controller then releases
-     its resources when the media-query change is observed. */
-  .has-wallpaper .wallpaper-material-own,
-  .has-wallpaper .wallpaper-material-before::before {
-    filter: none !important;
-  }
   :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
+    display: none;
+  }
+  :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::after {
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
     background-image: none;
   }
@@ -838,15 +858,11 @@ body:has(.app-shell.has-wallpaper) .group-manager-check:is([aria-pressed="true"]
   border-color: var(--glass-edge);
 }
 
-/* Explicit wallpaper inputs avoid sibling-dependent partial backdrop redraws. */
-.has-wallpaper .wallpaper-material-own {
-  backdrop-filter: none !important;
-  filter: var(--wallpaper-material-own);
-}
-.has-wallpaper .wallpaper-material-before::before {
-  backdrop-filter: none !important;
-  filter: var(--wallpaper-material-before);
-  contain: paint;
-}
-.has-wallpaper :is(.grouped-site-header, .collection-view-controls) { will-change: transform; }
+/* Foreground animations must keep the same compositing boundary at rest and
+   in motion. Desktop captures catch one-level color rounding across distant
+   cards if the tool layer is created only on first hover. */
 .has-wallpaper :is(.card-actions, .open-arrow) { will-change: transform, opacity; }
+.has-wallpaper :is(.grouped-site-header, .collection-view-controls) { will-change: transform; }
+/* Drag overlays must not switch distant loaded icons to another rounding path.
+   This child boundary leaves the card's viewport-fixed background untouched. */
+:root:has(.app-shell.has-wallpaper) .site-card .favicon-frame { will-change: transform; }

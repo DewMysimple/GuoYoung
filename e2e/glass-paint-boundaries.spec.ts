@@ -47,7 +47,11 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
     })).toMatchObject({ pointer: 'none' });
     const bounded = await surface.evaluate(el => {
       const paint = getComputedStyle(el, '::before');
-      return Math.abs(parseFloat(paint.width) - el.clientWidth) < 1 && Math.abs(parseFloat(paint.height) - el.clientHeight) < 1;
+      const inset = parseFloat(paint.clipPath.match(/^inset\(([^ ]+)/)?.[1] ?? 'NaN');
+      return Math.abs(parseFloat(paint.width) - 2 * inset - el.clientWidth) < 1
+        && Math.abs(parseFloat(paint.height) - 2 * inset - el.clientHeight) < 1
+        && Math.abs(parseFloat(paint.left) + inset) < 1
+        && paint.clipPath.includes('round');
     });
     expect(bounded, 'Paint is bounded by the card, including the add card').toBe(true);
   }
@@ -100,6 +104,13 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
     if (!dragEdge.equals(baselineEdge)) {
       writeFileSync(screenshotPath('glass-boundary-edge-before.png'), baselineEdge);
       writeFileSync(screenshotPath('glass-boundary-edge-drag.png'), dragEdge);
+      await test.info().attach('remote-edge-drag-materials', { contentType: 'application/json', body: JSON.stringify(await cards.evaluateAll(elements => elements.map(element => ({
+        id: element.getAttribute('data-site-dnd-id'), style: element.getAttribute('style'),
+        transformFlag: element.getAttribute('data-has-transform'), transitionFlag: element.getAttribute('data-transform-transition'),
+        box: element.getBoundingClientRect().toJSON(), filter: getComputedStyle(element, '::before').filter,
+        backdrop: getComputedStyle(element, '::before').backdropFilter,
+        ancestors: [...function* () { for (let parent = element.parentElement; parent; parent = parent.parentElement) yield parent; }()].filter(parent => getComputedStyle(parent).transform !== 'none').map(parent => ({ class: parent.className, style: parent.getAttribute('style'), transform: getComputedStyle(parent).transform })),
+      }))), null, 2) });
     }
     expect(dragEdge.equals(baselineEdge), 'Left-side drag cannot repaint the distant right edge').toBe(true);
   }

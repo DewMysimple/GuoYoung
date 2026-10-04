@@ -21,7 +21,7 @@ export const test = base.extend({
     // Playwright gives every test a fresh context. Verify that boundary rather
     // than clearing the mounted app and starting a second, abortable navigation.
     expect((await context.storageState()).origins, "Fresh collection storage").toEqual([]);
-    await page.goto("/");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: "打开设置" })).toBeVisible();
     await use(page);
     expect(errors, "Uncaught application errors").toEqual([]);
