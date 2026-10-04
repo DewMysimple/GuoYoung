@@ -5,6 +5,10 @@
 /* Wallpaper reaches the left viewport edge. Keep one thin, persistent native
    scrollbar on the right so short/long pages and modal locks keep their width. */
 html:has(.app-shell.has-wallpaper) {
+  /* Keep native backdrops stable across partial repaints. The zero-radius
+     root filter prevents the moving damage boundary from leaving blur seams.
+     Use the root: filtering .app-shell would re-anchor its fixed wallpaper. */
+  filter: blur(0px);
   scrollbar-gutter: stable;
   overflow-y: scroll;
   scrollbar-width: thin;
@@ -20,7 +24,6 @@ html:has(.app-shell.has-wallpaper) {
   --glass-fill: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent);
   --glass-fill-low: var(--glass-fill);
   --glass-fill-high: color-mix(in srgb, var(--glass-fill) 92%, var(--surface));
-  --glass-fill-drop-target: color-mix(in srgb, var(--surface) 80%, var(--glass-fill-low));
   --glass-fill-control: color-mix(in srgb, var(--surface) var(--glass-control-opacity), transparent);
   --glass-fill-panel: color-mix(in srgb, var(--surface) var(--glass-panel-opacity), transparent);
   --glass-fill-popover: color-mix(in srgb, var(--surface) var(--glass-popover-opacity), transparent);
@@ -238,6 +241,10 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 
 .has-wallpaper .add-site-card { border-style: solid; }
 
+/* Cache only these small foreground surfaces: their rounded edges otherwise
+   switch rasterization paths when unrelated controls start compositing. */
+.has-wallpaper :is(.grouped-site-icon, .grouped-site-count) { will-change: transform; }
+
 .has-wallpaper .site-domain,
 .has-wallpaper .site-category,
 .has-wallpaper .site-card .open-arrow,
@@ -260,9 +267,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   box-shadow: var(--glass-shadow);
 }
 
-.has-wallpaper .site-card.is-selected,
-.has-wallpaper .site-card.is-drag-pending,
-.has-wallpaper .site-card.is-drop-target {
+.has-wallpaper .site-card.is-selected:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.is-batch-source)) {
   border-color: color-mix(in srgb, var(--accent) 62%, var(--glass-edge));
   --card-glass-fill: color-mix(in srgb, var(--accent) 18%, var(--glass-fill-low));
   --card-glass-image:
@@ -271,26 +276,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   box-shadow:
     var(--glass-shadow),
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-.has-wallpaper.is-site-dragging .site-card.is-drop-target {
-  --card-glass-fill: color-mix(in srgb, var(--accent) 18%, var(--glass-fill-drop-target));
-}
-
-.has-wallpaper .site-card.is-dragging {
-  border-color: var(--accent);
-  --card-glass-fill: var(--glass-fill-high);
-  --card-glass-image: none;
-  --card-glass-filter: none;
-  box-shadow: none;
-}
-
-.has-wallpaper .site-card.site-card-drop-placeholder {
-  border-style: dashed;
-  --card-glass-image:
-    linear-gradient(142deg, var(--glass-sheen), transparent 48%),
-    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 22%, transparent), transparent 68%),
-    linear-gradient(180deg, var(--glass-fill-high), var(--glass-fill-low));
 }
 
 .has-wallpaper .add-site-card-icon,
@@ -430,19 +415,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
   background-image: var(--card-glass-image);
   backdrop-filter: var(--card-glass-filter);
   border-color: var(--glass-edge);
-  box-shadow: var(--glass-elevated-shadow);
-}
-
-:root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview.is-batch-preview {
-  box-shadow:
-    7px 7px 0 -2px var(--glass-fill-control),
-    7px 7px 0 -1px var(--glass-edge-soft),
-    14px 14px 0 -4px var(--glass-fill-control),
-    14px 14px 0 -3px var(--glass-edge-soft),
-    var(--glass-elevated-shadow);
-}
-
-:root:has(.app-shell.has-wallpaper) .site-card.site-card-drag-preview.is-over-group-tab {
   box-shadow: var(--glass-shadow);
 }
 
@@ -453,6 +425,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
   border-color: var(--glass-edge);
   --card-glass-fill: var(--glass-fill-low);
   --card-glass-image: var(--glass-surface-image);
+  background-color: var(--card-glass-fill);
+  background-image: var(--card-glass-image);
   box-shadow: var(--glass-shadow);
 }
 
@@ -674,7 +648,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   :root:has(.app-shell.has-wallpaper.glass-refraction) .site-card.site-card-drag-preview {
     --card-glass-filter: var(--glass-card-filter);
   }
-  .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
+  .has-wallpaper.glass-refraction .site-card,
   .has-wallpaper.glass-refraction .add-site-card {
     --card-glass-filter: var(--glass-card-filter);
   }
@@ -690,6 +664,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 
 @supports not (backdrop-filter: blur(1px)) {
   :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
+    --card-glass-fill: var(--surface) !important;
+    --card-glass-image: none !important;
     background-color: var(--surface);
     background-image: none;
     backdrop-filter: none;
@@ -749,6 +725,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
     backdrop-filter: none !important;
   }
   :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
+    --card-glass-fill: color-mix(in srgb, var(--surface) 96%, transparent) !important;
+    --card-glass-image: none !important;
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
     background-image: none;
   }

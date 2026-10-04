@@ -2099,36 +2099,16 @@ select:focus-visible {
   cursor: default;
 }
 
-.site-card:hover,
-.site-card:focus-within {
+.site-card:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.site-card-drag-preview)):hover,
+.site-card:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.site-card-drag-preview)):focus-within {
   border-color: color-mix(in srgb, var(--accent) 33%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 20%, var(--surface));
   box-shadow: var(--shadow-soft);
   transform: translateY(-3px);
 }
 
-.site-card.is-drag-pending {
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 28%, var(--surface));
-  box-shadow:
-    0 8px 22px color-mix(in srgb, var(--accent) 12%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
-  transform: translateY(-1px) scale(0.985);
-  transition-duration: 90ms;
-}
-
-.site-card.is-drop-target {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 8%, var(--surface));
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--accent) 12%, transparent);
-  transition: none;
-}
-
-/* During a drag, only the actual drop target should receive accent feedback.
-   Neutralize the regular hover/focus treatment on unrelated cards so the
-   pointer does not make a second, misleading blue highlight appear. */
+/* Dragging keeps ordinary card surfaces. dnd-kit retains the source, target
+   and pending classes for geometry, without changing their material. */
 .is-site-dragging
   .site-card:not(.is-dragging):not(.is-drop-target):not(.is-drag-pending):hover,
 .is-site-dragging
@@ -2139,43 +2119,12 @@ select:focus-visible {
   transform: none;
 }
 
-/* A collision target is a placement hint, not a selected card. Keep the
-   target frame dashed and restrained while the pointer is over it. */
-.is-site-dragging .site-card.is-drop-target {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 8%, var(--surface));
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--accent) 12%, transparent);
-  opacity: 0.78;
-}
-
 .site-card.site-card-drop-placeholder {
-  border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
-  border-style: dashed;
-  background:
-    radial-gradient(
-      circle at center,
-      color-mix(in srgb, var(--accent-soft) 62%, transparent),
-      transparent 68%
-    ),
-    color-mix(in srgb, var(--accent-soft) 24%, var(--surface));
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--accent) 16%, transparent);
   pointer-events: none;
 }
 
 .site-card.is-dragging {
-  border-color: var(--accent);
-  border-style: dashed;
-  background: color-mix(in srgb, var(--accent-soft) 16%, var(--surface));
-  box-shadow: none;
   cursor: grabbing;
-  opacity: 0.16;
-}
-
-.site-card[data-site-dnd-id].is-dragging {
-  opacity: 0.26;
 }
 
 .site-card.is-dragging[data-drag-mode="transfer"] {
@@ -2204,7 +2153,7 @@ select:focus-visible {
   opacity: 0.34;
 }
 
-.site-card.is-selected {
+.site-card.is-selected:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.is-batch-source)) {
   border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 22%, var(--surface));
   box-shadow:
@@ -2212,32 +2161,11 @@ select:focus-visible {
     0 5px 16px color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-.site-card.is-batch-source:not(.is-dragging) {
-  border-style: dashed;
-  opacity: 0.36;
-}
-
 .site-card.site-card-drag-preview {
   width: 100%;
-  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  background: color-mix(in srgb, var(--surface) 92%, var(--accent-soft));
-  box-shadow:
-    0 28px 58px rgba(31, 43, 65, 0.2),
-    0 8px 20px color-mix(in srgb, var(--accent) 16%, transparent);
   cursor: grabbing;
-  opacity: 0.98;
   pointer-events: none;
-  transform: rotate(0.6deg);
   transition: none;
-}
-
-.site-card.site-card-drag-preview.is-batch-preview {
-  box-shadow:
-    7px 7px 0 -2px color-mix(in srgb, var(--surface) 96%, var(--accent-soft)),
-    7px 7px 0 -1px color-mix(in srgb, var(--accent) 28%, var(--border)),
-    14px 14px 0 -4px color-mix(in srgb, var(--surface) 94%, var(--accent-soft)),
-    14px 14px 0 -3px color-mix(in srgb, var(--accent) 18%, var(--border)),
-    0 28px 58px rgba(31, 43, 65, 0.2);
 }
 
 .batch-drag-count {
@@ -2258,13 +2186,6 @@ select:focus-visible {
   font-size: 11px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-}
-
-.site-card.site-card-drag-preview.is-over-group-tab {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--text) 10%, transparent);
-  opacity: 0.34;
-  filter: saturate(0.72);
 }
 
 .site-drag-overlay { pointer-events: none; }

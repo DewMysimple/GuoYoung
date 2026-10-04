@@ -1,4 +1,25 @@
 import { expect, test, screenshotPath } from "./fixtures";
+import type { Locator } from "@playwright/test";
+
+function cardSurface(card: Locator) {
+  return card.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      opacity: style.opacity,
+      zIndex: style.zIndex,
+      borderColor: style.borderColor,
+      borderStyle: style.borderStyle,
+      borderWidth: style.borderWidth,
+      borderRadius: style.borderRadius,
+      backgroundColor: style.backgroundColor,
+      backgroundImage: style.backgroundImage,
+      boxShadow: style.boxShadow,
+      filter: style.filter,
+      backdropFilter: style.backdropFilter,
+      webkitBackdropFilter: style.getPropertyValue("-webkit-backdrop-filter"),
+    };
+  });
+}
 
 test("does not show a loading placeholder for a quick history read", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop history loading regression");
@@ -257,6 +278,7 @@ test("loads and deletes browser history through the extension adapter", async ({
 
   const overviewDragStart = await githubCard.boundingBox();
   if (!overviewDragStart) throw new Error("History overview drag source is not visible");
+  const ordinaryOverviewSurface = await cardSurface(githubCard);
   await page.mouse.move(
     overviewDragStart.x + overviewDragStart.width / 2,
     overviewDragStart.y + overviewDragStart.height / 2,
@@ -268,7 +290,10 @@ test("loads and deletes browser history through the extension adapter", async ({
   );
   await expect(page.getByTestId("history-card-drag-preview")).toBeVisible();
   await expect(githubCard).toHaveClass(/is-dragging/);
-  await expect(githubCard).toHaveCSS("opacity", "0.16");
+  await expect.poll(() => cardSurface(githubCard)).toEqual(ordinaryOverviewSurface);
+  await expect
+    .poll(() => cardSurface(page.getByTestId("history-card-drag-preview")))
+    .toEqual(ordinaryOverviewSurface);
   await expect(page.getByText("拖动历史卡片到收藏分组")).toHaveCount(0);
   await page.screenshot({
     path: screenshotPath(`browser-history-drag-${testInfo.project.name}.png`),
@@ -326,6 +351,13 @@ test("loads and deletes browser history through the extension adapter", async ({
   const detailCard = page.locator(".history-url-card").first();
   const detailDragStart = await detailCard.boundingBox();
   if (!detailDragStart) throw new Error("History detail drag source is not visible");
+  await page.mouse.move(0, 0);
+  // The ordinary detail card can be under the pointer after opening the view.
+  // Let that hover transition settle before recording its unhovered material.
+  await detailCard.evaluate(async (element) => {
+    await Promise.all(element.getAnimations().map((animation) => animation.finished));
+  });
+  const ordinaryDetailSurface = await cardSurface(detailCard);
   await page.mouse.move(
     detailDragStart.x + detailDragStart.width / 2,
     detailDragStart.y + detailDragStart.height / 2,
@@ -337,6 +369,10 @@ test("loads and deletes browser history through the extension adapter", async ({
   );
   await expect(page.getByTestId("history-card-drag-preview")).toBeVisible();
   await expect(detailCard).toHaveClass(/is-dragging/);
+  await expect.poll(() => cardSurface(detailCard)).toEqual(ordinaryDetailSurface);
+  await expect
+    .poll(() => cardSurface(page.getByTestId("history-card-drag-preview")))
+    .toEqual(ordinaryDetailSurface);
   await page.screenshot({
     path: screenshotPath(`browser-history-detail-drag-${testInfo.project.name}.png`),
     fullPage: true,

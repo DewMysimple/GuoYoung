@@ -113,30 +113,44 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   const sourceBox = await source.boundingBox();
   const targetBox = await target.boundingBox();
   if (!sourceBox || !targetBox) throw new Error("Site drag cards are missing");
+  const ordinaryMaterial = await source.evaluate(readCardSurface);
+  expect(ordinaryMaterial.opacity).toBe("1");
+  expect(ordinaryMaterial.borderStyle).toBe("solid");
   await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
   await page.mouse.down();
+  await expect.poll(() => source.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
   await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 51, sourceBox.y + sourceBox.height / 2);
-  await expect(source).toHaveCSS("opacity", "0.26");
+  await expect.poll(() => source.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
   const sitePreview = page.getByTestId("site-card-drag-preview");
   await expectGlassMaterial(sitePreview, { blur: 8, refraction: true });
+  await expect.poll(() => sitePreview.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
   await expect(target).toHaveClass(/is-drop-target/);
-  await expect(target).toHaveCSS("opacity", "0.78");
-  await expectGlassMaterial(target, { blur: 8 });
-  await expectCardMaterial(target, "background-color", /\/ 0\.[0-9]+\)/);
-  await expect.poll(() => target.evaluate(el => {
-    const color = getComputedStyle(el).backgroundColor;
-    return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
-  })).toBeGreaterThan(0.75);
+  await expectGlassMaterial(target, { blur: 8, refraction: true });
+  await expect.poll(() => target.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
   await page.screenshot({ path: screenshotPath("glass-site-drag-hover.png") });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
   await expectCardMaterial(sitePreview, "backdrop-filter", "none");
   await expectCardMaterial(sitePreview, "background-color", /\/ 0\.96\)/);
+  const neutral = page.getByTestId("site-card-github");
+  await neutral.locator(".drag-handle").evaluate(button => (button as HTMLElement).focus({ preventScroll: true }));
+  for (const card of [source, target, neutral, sitePreview]) {
+    await expectCardMaterial(card, "background-color", /\/ 0\.96\)/);
+    await expectCardMaterial(card, "background-image", "none");
+    await expectCardMaterial(card, "backdrop-filter", "none");
+  }
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
+  for (const card of [source, target, neutral, sitePreview]) {
+    await expect.poll(() => card.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
+  }
   await cdp.detach();
   await page.keyboard.press("Escape");
   await page.mouse.up();
+  await expect(sitePreview).toHaveCount(0);
+  // dnd-kit retains its document click guard for 50ms after detaching a sensor.
+  // The next action is an independent click, after that release-click guard.
+  await page.waitForTimeout(60);
 
   await page.getByRole("button", { name: "管理分组", exact: true }).click();
   const handle = page.getByRole("dialog", { name: "管理分组" }).getByRole("button", { name: "拖动 搜索" });
@@ -325,7 +339,11 @@ test("keeps glass sampling and complete cards from the first frame when returnin
         let opaque = !!card && !!search;
         for (const surface of [card, search]) for (let parent = surface?.parentElement; parent; parent = parent.parentElement) {
           const style = getComputedStyle(parent);
-          if (Number(style.opacity) < 1 || style.filter !== "none" || style.willChange.includes("opacity")) opaque = false;
+          // The static root blur is an identity operation. A filter on any
+          // other ancestor still breaks this continuity check (and can move
+          // the fixed wallpaper into that ancestor's coordinate system).
+          const identityRootFilter = parent === document.documentElement && style.filter === "blur(0px)";
+          if (Number(style.opacity) < 1 || (style.filter !== "none" && !identityRootFilter) || style.willChange.includes("opacity")) opaque = false;
         }
         frames.push({ missing: !card, opaque, refracted: !!card && getComputedStyle(card).backdropFilter.includes("wallpaper-glass-lens"), searchTop: search?.getBoundingClientRect().top ?? -1 });
       }
@@ -341,4 +359,11 @@ async function expectCardMaterial(card: Locator, property: string, value: string
   const actual = expect.poll(() => card.evaluate((el, property) => getComputedStyle(el).getPropertyValue(property), property));
   if (typeof value === "string") await actual.toBe(value);
   else await actual.toMatch(value);
+}
+
+function readCardSurface(element: Element) {
+  const style = getComputedStyle(element);
+  return { opacity: style.opacity, zIndex: style.zIndex, borderStyle: style.borderStyle, borderColor: style.borderColor,
+    borderRadius: style.borderRadius, backgroundColor: style.backgroundColor, backgroundImage: style.backgroundImage,
+    boxShadow: style.boxShadow, filter: style.filter, backdropFilter: style.backdropFilter };
 }

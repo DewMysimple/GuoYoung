@@ -60,7 +60,6 @@ function SortableSiteCard(props: SiteCardProps) {
   const style: CSSProperties = {
     transform: CSS.Transform.toString(drag.transform),
     transition: drag.isDragging ? "none" : drag.transition,
-    zIndex: drag.isDragging ? 10 : undefined,
   };
 
   return <SiteCardFrame {...props} drag={drag} style={style} />;
@@ -71,8 +70,8 @@ function TransferableSiteCard(props: SiteCardProps) {
   const style: CSSProperties = {
     // DragOverlay follows the pointer. Keeping the source card fixed makes it
     // an honest origin marker and prevents transfer-only drags from looking
-    // like a sortable rearrangement.
-    zIndex: drag.isDragging ? 10 : undefined,
+    // like a sortable rearrangement. Preserve its normal paint order so its
+    // shadow does not change neighboring native backdrop samples.
   };
 
   return <SiteCardFrame {...props} drag={drag} style={style} />;

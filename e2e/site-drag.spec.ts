@@ -1,4 +1,25 @@
 import { expect, test, screenshotPath } from "./fixtures";
+import type { Locator } from "@playwright/test";
+
+function cardSurface(card: Locator) {
+  return card.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      opacity: style.opacity,
+      zIndex: style.zIndex,
+      borderColor: style.borderColor,
+      borderStyle: style.borderStyle,
+      borderWidth: style.borderWidth,
+      borderRadius: style.borderRadius,
+      backgroundColor: style.backgroundColor,
+      backgroundImage: style.backgroundImage,
+      boxShadow: style.boxShadow,
+      filter: style.filter,
+      backdropFilter: style.backdropFilter,
+      webkitBackdropFilter: style.getPropertyValue("-webkit-backdrop-filter"),
+    };
+  });
+}
 
 test("drags beyond 50px without waiting and keeps the order after refresh", async ({
   page,
@@ -8,16 +29,20 @@ test("drags beyond 50px without waiting and keeps the order after refresh", asyn
   const start = await googleCard.boundingBox();
   const target = await bingCard.boundingBox();
   if (!start || !target) throw new Error("Drag targets are not visible");
+  const ordinarySurface = await cardSurface(googleCard);
 
   await page.mouse.move(start.x + start.width / 2, start.y + start.height * 0.65);
   await page.mouse.down();
   await expect(googleCard).toHaveClass(/is-drag-pending/);
+  await expect.poll(() => cardSurface(googleCard)).toEqual(ordinarySurface);
   await page.mouse.move(
     start.x + start.width / 2 + 51,
     start.y + start.height * 0.65,
   );
   const dragPreview = page.getByTestId("site-card-drag-preview");
   await expect(dragPreview).toBeVisible();
+  await expect.poll(() => cardSurface(googleCard)).toEqual(ordinarySurface);
+  await expect.poll(() => cardSurface(dragPreview)).toEqual(ordinarySurface);
   await page.mouse.move(
     target.x + target.width * 0.75,
     target.y + target.height / 2,
@@ -29,7 +54,73 @@ test("drags beyond 50px without waiting and keeps the order after refresh", asyn
   await expect
     .poll(async () => (await bingCard.boundingBox())?.x ?? target.x)
     .toBeLessThan(target.x - 30);
+
+  // Observe the entire return animation, including inline writes that can be
+  // set and restored between two frames by a drop-animation side effect.
+  const dropProbe = await googleCard.evaluateHandle((element) => {
+    const source = element as HTMLElement;
+    const frames: {
+      elapsed: number;
+      opacity: string;
+      inlineOpacity: string;
+      dragging: boolean;
+      returning: boolean;
+    }[] = [];
+    const zeroInlineWrites: string[] = [];
+    const oldStyle = document.createElement("div").style;
+    let releaseAt: number | null = null;
+    let finish!: (report: { frames: typeof frames; zeroInlineWrites: string[] }) => void;
+    const result = new Promise<{ frames: typeof frames; zeroInlineWrites: string[] }>(
+      (resolve) => { finish = resolve; },
+    );
+    const recordWrites = (records: MutationRecord[]) => {
+      for (const record of records) {
+        oldStyle.cssText = record.oldValue ?? "";
+        if (Number.parseFloat(oldStyle.opacity) === 0) zeroInlineWrites.push(oldStyle.opacity);
+        if (Number.parseFloat(source.style.opacity) === 0) zeroInlineWrites.push(source.style.opacity);
+      }
+    };
+    const observer = new MutationObserver(recordWrites);
+    observer.observe(source, { attributes: true, attributeFilter: ["style"], attributeOldValue: true });
+    const sample = (time: number) => {
+      const elapsed = releaseAt === null ? -1 : time - releaseAt;
+      const overlay = document.querySelector(".site-drag-overlay");
+      frames.push({
+        elapsed,
+        opacity: getComputedStyle(source).opacity,
+        inlineOpacity: source.style.opacity,
+        dragging: source.classList.contains("is-dragging"),
+        returning: Boolean(overlay?.getAnimations().some((animation) =>
+          animation.playState === "running" && animation.effect?.getTiming().duration === 170,
+        )),
+      });
+      if (elapsed >= 250) {
+        recordWrites(observer.takeRecords());
+        observer.disconnect();
+        finish({ frames, zeroInlineWrites });
+      } else {
+        requestAnimationFrame(sample);
+      }
+    };
+    requestAnimationFrame(sample);
+    return { release: () => { releaseAt = performance.now(); }, result };
+  });
+  await dropProbe.evaluate((probe) => probe.release());
   await page.mouse.up();
+  const dropReport = await dropProbe.evaluate((probe) => probe.result);
+  await dropProbe.dispose();
+  const releasedFrames = dropReport.frames.filter((frame) => frame.elapsed >= 0 && !frame.dragging);
+  expect(releasedFrames.length, "Frames sampled after the actual release").toBeGreaterThanOrEqual(12);
+  expect(
+    releasedFrames.at(-1)!.elapsed - releasedFrames[0].elapsed,
+    "Sampled duration covers the full 170ms return",
+  ).toBeGreaterThan(170);
+  expect(releasedFrames.at(-1)!.elapsed).toBeGreaterThanOrEqual(250);
+  expect(releasedFrames.some((frame) => frame.returning), "Actual 170ms return animation observed").toBe(true);
+  expect(ordinarySurface.opacity).toBe("1");
+  expect(dropReport.frames.every((frame) => frame.opacity === ordinarySurface.opacity)).toBe(true);
+  expect(dropReport.frames.some((frame) => Number.parseFloat(frame.inlineOpacity) === 0)).toBe(false);
+  expect(dropReport.zeroInlineWrites, "No transient inline opacity zero between frames").toEqual([]);
 
   const visibleIds = () =>
     page.locator(".site-grid > .site-card").evaluateAll((cards) =>
@@ -75,6 +166,8 @@ test("uses card overlap and moves the target frame before drop", async ({
   const start = await googleCard.boundingBox();
   const target = await bingCard.boundingBox();
   if (!start || !target) throw new Error("Drag targets are not visible");
+  const ordinarySource = await cardSurface(googleCard);
+  const ordinaryTarget = await cardSurface(bingCard);
 
   const grabX = start.x + 8;
   const grabY = start.y + start.height / 2;
@@ -85,9 +178,11 @@ test("uses card overlap and moves the target frame before drop", async ({
   await page.mouse.move(grabX + partialTravel, grabY);
 
   await expect(bingCard).toHaveClass(/is-drop-target/);
-  await expect(bingCard).toHaveCSS("border-style", "dashed");
-  await expect(bingCard).toHaveCSS("opacity", "0.78");
-  await expect(googleCard).toHaveCSS("opacity", "0.26");
+  await expect.poll(() => cardSurface(bingCard)).toEqual(ordinaryTarget);
+  await expect.poll(() => cardSurface(googleCard)).toEqual(ordinarySource);
+  await expect
+    .poll(() => cardSurface(page.getByTestId("site-card-drag-preview")))
+    .toEqual(ordinarySource);
   await expect
     .poll(async () => (await googleCard.boundingBox())?.x ?? start.x)
     .toBeGreaterThan(target.x - 3);
@@ -508,6 +603,8 @@ test("moves selected sites together from grouped All without leaving All", async
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.getByRole("button", { name: "显示" }).click();
   await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+  const ordinaryGoogle = await cardSurface(page.getByTestId("site-card-google"));
+  const ordinaryGithub = await cardSurface(page.getByTestId("site-card-github"));
   await page
     .locator('[data-group-sort-section-id="search"]')
     .getByRole("button", { name: "多选 搜索 网站" })
@@ -528,6 +625,14 @@ test("moves selected sites together from grouped All without leaving All", async
     "data-batch-count",
     "2",
   );
+  await expect(page.getByTestId("site-card-github")).toHaveClass(/is-batch-source/);
+  await expect.poll(() => cardSurface(google)).toEqual(ordinaryGoogle);
+  await expect
+    .poll(() => cardSurface(page.getByTestId("site-card-github")))
+    .toEqual(ordinaryGithub);
+  await expect
+    .poll(() => cardSurface(page.getByTestId("site-card-drag-preview")))
+    .toEqual(ordinaryGoogle);
   await page.mouse.move(target.x + target.width / 2, target.y + 40, { steps: 16 });
   await page.mouse.up();
 
@@ -841,6 +946,7 @@ test("switches group during a drag and accepts the add-card slot in the new grou
   const start = await wikipedia.boundingBox();
   const target = await mediaTab.boundingBox();
   if (!start || !target) throw new Error("Tab drag targets are not visible");
+  const ordinarySurface = await cardSurface(wikipedia);
 
   await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
   await page.mouse.down();
@@ -860,12 +966,8 @@ test("switches group during a drag and accepts the add-card slot in the new grou
   );
   await expect(mediaTab).toHaveClass(/is-drag-over/);
   await expect
-    .poll(() =>
-      page
-        .getByTestId("site-card-drag-preview")
-        .evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
-    )
-    .toBeLessThanOrEqual(0.4);
+    .poll(() => cardSurface(page.getByTestId("site-card-drag-preview")))
+    .toEqual(ordinarySurface);
   await page.waitForTimeout(500);
   await expect(mediaTab).toHaveAttribute("aria-selected", "true");
   const addCard = page.getByRole("button", { name: /在影音分组添加网站/ });

@@ -43,11 +43,11 @@ releases/
 
 清理前先确认运行依赖与归档用途。原始录屏、失败证据、报告和复现脚本先在工作目录外归档，核对文件数量、大小与 SHA-256 后再移除原件；可重新生成的热力图、缓存和过期构建可以删除。目录链接和文件链接只移除入口，不递归操作链接目标。
 
-2026-10-04 清理后，`working/` 仅保留正在运行的 `native-backdrop-review/` 与两项巡检工具使用的 `wallpaper-inventory.json`。旧相对路径和外部归档的对应关系见 [工程维护·第017次](../Wiki/日志/工程维护/第017次.md)。固定安装目录、ZIP、`releases/` 与 `legacy/` 不属于此次清理范围。
+2026-10-04第017次清理结束时，working仅保留审核服务native-backdrop-review与两项巡检工具使用的wallpaper-inventory.json。之后第046次新增native-flash-current复现脚本12文件/25,333bytes，已逐文件SHA256一致归档至D:/Mysimple-diagnostics/2026-10-04/native-flash/final-helpers，清单为同诊断根目录final-helper-manifest.json；递归及明确12个LiteralPath文件删除均被自动审核拒绝，未返回理由，原件保留且不再重试。working当前为审核服务、壁纸索引及约25KB脚本目录三项。旧相对路径归档映射见 [工程维护·第017次](../Wiki/日志/工程维护/第017次.md)，本轮资料见 [Bug处理·第046次](../Wiki/日志/Bug处理/第046次.md)。固定安装目录、ZIP、releases与legacy未清理。
 
 ## 玻璃交互的整屏逐帧诊断
 
-1.2.33 已恢复卡片宿主原生背景模糊，以下工具仅在用户要求浏览器复核时执行。用户随后报告开发审核页远端闪线复发，已允许针对性浏览器复现；该问题尚未修复。仍使用同配置与壁纸的本地开发服务器，暂不出新的 ZIP；旧版本报告和安装包保留，不作为当前原生方案通过的证据。
+1.2.34保留卡片宿主原生背景模糊，以根中性filter、有限小前景提示与普通来源堆叠顺序处理远端变化；拖拽来源/目标/浮层沿用普通卡片材质，网站归位来源保持可见。授权的同机已录场景与工程回归通过，继续同配置开发审核，不出新ZIP；实测口径见 [测试与验证基线](../Wiki/测试与验证基线.md)，候选与最后生产结果分别记录于 [Bug处理·第046次](../Wiki/日志/Bug处理/第046次.md)。
 
 `page.screenshot()` 和浏览器录屏会触发画面回读，不能单独作为远端闪线的验收证据。Windows 上可使用真实鼠标、桌面无损录制与每帧双热力图：
 
@@ -55,10 +55,10 @@ releases/
 $env:CAPTURE_STATE = 'C:\fixtures\export.json'
 $env:CAPTURE_WALLPAPER = 'C:\fixtures\wallpaper.png'
 $env:CAPTURE_BASE_URL = 'http://127.0.0.1:4173'
-$env:CAPTURE_OUTPUT = 'artifacts/working/glass-desktop'
+$env:CAPTURE_OUTPUT = 'D:\Mysimple-diagnostics\glass-desktop'
 $env:CAPTURE_DDA = '1'
 node scripts/capture-glass-desktop.mjs
-python scripts/analyze-glass-desktop.py artifacts/working/glass-desktop
+python scripts/analyze-glass-desktop.py D:\Mysimple-diagnostics\glass-desktop
 ```
 
 需要已启动的页面、含分组导航和至少八张卡片的导出配置、Edge、PATH 中的 FFmpeg，以及 Python 的 OpenCV / NumPy。当前录制尺寸固定为 1920×1006，浏览器视口为 1920×926；桌面必须容纳该尺寸。`CAPTURE_EXTENSION=1` 改用隔离配置文件加载 `dist-extension`；省略 `CAPTURE_DDA` 使用 GDI 桌面采集作交叉核对。

@@ -22,6 +22,7 @@ import {
 import {
   DndContext,
   DragOverlay,
+  defaultDropAnimationSideEffects,
   KeyboardSensor,
   MeasuringStrategy,
   MouseSensor,
@@ -1795,6 +1796,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                         : {
                             duration: 170,
                             easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+                            // Keep site card material intact during the return.
+                            // This overlay also serves vertical group sorting,
+                            // whose existing source-hiding feedback is retained.
+                            sideEffects: args => args.active.node.matches("[data-site-dnd-id]")
+                              ? undefined
+                              : defaultDropAnimationSideEffects({ styles: { active: { opacity: "0" } } })(args),
                           }
                     }
                     zIndex={dragHoverGroupId ? 30 : 80}

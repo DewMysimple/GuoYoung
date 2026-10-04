@@ -19,7 +19,6 @@ function useHistoryCardDrag(id: string, item: HistoryUrlItem | undefined, disabl
     data: item ? { kind: "history-card", item } satisfies HistoryDragData : undefined });
   return { drag, bindings: {
     ref: drag.setNodeRef,
-    style: { zIndex: drag.isDragging ? 10 : undefined },
     onMouseDown: (event: React.MouseEvent<HTMLElement>) => { if (!disabled) drag.listeners?.onMouseDown?.(event); },
     onTouchStart: (event: React.TouchEvent<HTMLElement>) => { if (!disabled) drag.listeners?.onTouchStart?.(event); },
     onDragStart: (event: React.DragEvent) => event.preventDefault(),

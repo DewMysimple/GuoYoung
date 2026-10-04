@@ -4,11 +4,11 @@ import { readGlassMaterial } from '../scripts/read-glass-material.mjs';
 
 const wallpaperUrl = 'https://material.example/contract.svg';
 
-async function prepareMaterial(page: Page) {
+async function prepareMaterial(page: Page, scrollableCollection = false) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.route(wallpaperUrl, route => route.fulfill({ contentType: 'image/svg+xml', body:
     '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="1920" height="1080" fill="#7689a2"/><circle cx="450" cy="400" r="300" fill="#d5b9c7"/></svg>' }));
-  await page.evaluate(url => {
+  await page.evaluate(({ url, scrollableCollection }) => {
     const state = JSON.parse(localStorage.getItem('site-hub:v1')!);
     state.sites = state.sites.filter((site: { id: string }) => ['google', 'github'].includes(site.id))
       .map((site: Record<string, unknown>) => ({ ...site, iconSource: 'brand' }));
@@ -17,12 +17,29 @@ async function prepareMaterial(page: Page) {
       glassTransparency: 90, glassControlTransparency: 90, glassPanelTransparency: 90, glassPopoverTransparency: 90,
       topbarStyle: 'glass', topbarReadability: 'page', topbarBlurEnabled: true, topbarBlur: 4,
       sidebarStyle: 'glass', sidebarBlurEnabled: true, sidebarBlur: 8 };
+    if (scrollableCollection) {
+      const template = state.sites.find((site: { id: string }) => site.id === 'google');
+      const timestamp = '2026-10-04T00:00:00.000Z';
+      const groups = Array.from({ length: 4 }, (_, index) => ({
+        id: `material-scroll-${index}`, name: `材质滚动分组 ${index + 1}`, icon: 'star',
+        workspace: 'main', isProtected: false, order: index, createdAt: timestamp, updatedAt: timestamp,
+      }));
+      state.groups = [...state.groups.filter((group: { workspace: string; isProtected: boolean }) =>
+        group.workspace === 'github' || group.isProtected), ...groups];
+      state.sites = groups.flatMap((group, groupIndex) => Array.from({ length: 40 }, (_, index) => ({
+        ...template, id: groupIndex === 0 && index === 0 ? 'google' : `material-site-${groupIndex}-${index}`,
+        name: `材质网站 ${groupIndex + 1} · ${index + 1}`, url: `https://www.google.com/material/${groupIndex}/${index}`,
+        groupId: group.id, order: index, globalOrder: groupIndex * 40 + index,
+      })));
+      state.displayModeByWorkspace.main = 'grouped';
+      state.wallpaper.glassRefraction = false;
+    }
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
-  }, wallpaperUrl);
+  }, { url: wallpaperUrl, scrollableCollection });
   await page.reload();
   await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
   await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, false))
-    .toMatchObject({ sampling: 'backdrop', blur: 24, refraction: true });
+    .toMatchObject({ sampling: 'backdrop', blur: 24, refraction: !scrollableCollection });
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -154,6 +171,58 @@ test('native backdrops retain their paint and attributes through scrolling and r
     expect(await page.evaluate(() => (window as unknown as { nativeProbeWrites: string[] }).nativeProbeWrites)).toEqual([]);
   }
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0);
+});
+
+test('native card blur keeps the wallpaper and navigation anchored through large scroll returns', async ({ page }, info) => {
+  test.skip(info.project.name !== 'chromium', 'Desktop native material viewport contract');
+  await prepareMaterial(page, true);
+  await expect(page.locator('.site-card')).toHaveCount(160);
+  await expect(page.getByRole('navigation', { name: '分组定位' })).toBeVisible();
+
+  const viewportGeometry = () => page.evaluate(() => {
+    const selectors = ['.wallpaper-layer', '.wallpaper-layer img', '.topbar', '.group-section-nav'];
+    return Object.fromEntries(selectors.map(selector => {
+      const rect = document.querySelector(selector)!.getBoundingClientRect();
+      return [selector, { x: rect.x, y: rect.y, width: rect.width, height: rect.height }];
+    }));
+  });
+  const before = await viewportGeometry();
+  const range = await page.evaluate(() => ({
+    maximum: document.documentElement.scrollHeight - innerHeight,
+    viewportHeight: innerHeight,
+  }));
+  expect(range.maximum, 'The fixture must exercise more than a small scroll').toBeGreaterThan(range.viewportHeight * 1.5);
+  // The configured 6px source blur extends the fixed layer by 9px on each edge.
+  // A filter on the app container would instead size it to the entire collection.
+  expect(before['.wallpaper-layer'].height).toBeCloseTo(range.viewportHeight + 18, 1);
+  expect(before['.topbar'].y).toBeCloseTo(0, 1);
+
+  for (const y of [Math.round(range.maximum * .55), range.maximum, 0, Math.round(range.maximum * .75), 0]) {
+    await page.evaluate(async y => {
+      scrollTo({ top: y, behavior: 'instant' });
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }, y);
+    expect(await page.evaluate(() => scrollY), `The document must reach ${y}px`).toBeCloseTo(y, 1);
+    const after = await viewportGeometry();
+    for (const [selector, rect] of Object.entries(before)) {
+      for (const key of ['x', 'y', 'width', 'height'] as const) {
+        expect(after[selector][key], `${selector} ${key} must remain anchored at scroll ${y}px`)
+          .toBeCloseTo(rect[key], 1);
+      }
+    }
+    const visibleCards = await page.locator('.site-card').evaluateAll(elements => elements
+      .filter(element => {
+        const rect = element.getBoundingClientRect();
+        return rect.bottom > document.querySelector('.topbar')!.getBoundingClientRect().bottom && rect.top < innerHeight;
+      }).map(element => element.getAttribute('data-testid')!));
+    expect(visibleCards.length, 'Each scroll position must expose real collection cards').toBeGreaterThan(0);
+    for (const id of visibleCards) {
+      expect(await page.getByTestId(id).evaluate(readGlassMaterial, false), `${id} at scroll ${y}px`)
+        .toMatchObject({ sampling: 'backdrop', blur: 24, saturation: 1, refraction: false });
+    }
+    expect(await page.locator('.topbar').evaluate(readGlassMaterial, true))
+      .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1.4 });
+  }
 });
 
 test('native glass preserves topbar pseudo surfaces and the settings portal', async ({ page, context }, info) => {

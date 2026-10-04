@@ -103,6 +103,9 @@ test("cancels pending and active collection sensors on page loss and can drag ag
     await page.mouse.up();
   }
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).sites)).toEqual(before);
+  // dnd-kit keeps the release-click guard for 50ms after sensor cancellation.
+  // Opening the display menu is a separate click after that guard expires.
+  await page.waitForTimeout(60);
   await page.getByRole("button", { name: "显示", exact: true }).click();
   await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
   const groupsBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).groups);
