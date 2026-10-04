@@ -2,10 +2,16 @@
 
 本目录保存本地构建交付物、真实浏览器验收资料和临时诊断素材。除扩展交付项外，正式验收资料按扩展版本归档。
 
+## 正式开发目录
+
+唯一正式工程根目录为 `E:/Software Development/WebPage`。按用户要求直接安全迁移，27项过渡链接和C盘临时数据副本已移除；原 `C:/Users/Administrator/Desktop/WebPage` 仅剩0子项的普通空目录，无链接、源码或缓存，不再作为工程入口。删除该空目录被自动审核拒绝，未返回理由，未继续重试。编辑、运行命令和新工作区使用E盘。浏览器原C路径登记的扩展需从 `E:/Software Development/WebPage/artifacts/site-hub-extension` 加载已解压扩展，浏览器配置文件保持。新路径已通过完整回归、双构建及真实浏览器截图，开发区约0.30GiB；详见本轮日志。
+
 ## 固定交付路径
 
 - `site-hub-extension/`：可直接在扩展管理页加载的解压目录。该目录保持在 `artifacts` 根目录。
 - `site-hub-extension.zip`：扩展安装包。打包脚本继续覆盖此固定路径。
+
+`npm.cmd run package:extension`（`buildStart.cmd` 调用此命令）先构建 `dist-extension`，再删除并重建固定解压目录、从构建目录复制文件，最后生成 ZIP。ZIP 文件本身不会自动解压或更新安装目录。当前脚本不保留旧资源；第018次为兼容已打开页面而保留3个旧资源，是当轮手动覆盖复制的交付方式。
 
 ## GitHub Release 发布
 
@@ -33,17 +39,21 @@ releases/
 
 ## 历史与临时资料
 
-- `legacy/screenshots/`：早期未带扩展版本号的正式截图。
+- `legacy/screenshots/`：早期未带扩展版本号的正式截图，已在本轮移到下述外部归档。
 - `working/raw-recordings/`：Playwright 原始录屏和未裁剪诊断素材，仅供回查。
 - `working/logs/`：本地视觉巡检服务器日志。
 
-历史 Wiki 日志是封存记录，其中的旧 `artifacts/<文件名>` 路径不回写；可按文件名在 `releases/` 或 `legacy/` 中定位。
+历史 Wiki 日志是封存记录，其中的旧路径不回写。2026-10-04 第019次将当前 1.2.34 以外的 `artifacts/releases` 版本资料、`artifacts/legacy` 以及 `.codex-video-review` 移出开发区；共 12,985 文件 / 6,124,650,709 字节，逐文件 SHA256 核验一致。
+
+归档根目录为 `D:/Mysimple-diagnostics/2026-10-04/workspace-migration/archive`，保留工程内原相对路径。例如旧 `artifacts/releases/v1.2.32/site-hub-extension.zip` 位于归档根目录下同一路径。逐文件清单为其父目录的 `archive-manifest.json`；迁移前盘点、复制核验和迁移中临时链接记录也位于该诊断目录，临时链接记录不代表长期开发入口。更早第017次 working 归档仍在原诊断目录，按该轮日志映射定位，不重复搬移。
+
+开发区继续保留当前 `releases/v1.2.34`、固定解压目录/ZIP 和有用途的 working 工具。详见 [工程维护·第019次](../Wiki/日志/工程维护/第019次.md)。
 
 ### 清理 working
 
 清理前先确认运行依赖与归档用途。原始录屏、失败证据、报告和复现脚本先在工作目录外归档，核对文件数量、大小与 SHA-256 后再移除原件；可重新生成的热力图、缓存和过期构建可以删除。目录链接和文件链接只移除入口，不递归操作链接目标。
 
-2026-10-04第017次清理结束时，working仅保留审核服务native-backdrop-review与两项巡检工具使用的wallpaper-inventory.json。之后第046次新增native-flash-current复现脚本12文件/25,333bytes，已逐文件SHA256一致归档至D:/Mysimple-diagnostics/2026-10-04/native-flash/final-helpers，清单为同诊断根目录final-helper-manifest.json；递归及明确12个LiteralPath文件删除均被自动审核拒绝，未返回理由，原件保留且不再重试。working当前为审核服务、壁纸索引及约25KB脚本目录三项。旧相对路径归档映射见 [工程维护·第017次](../Wiki/日志/工程维护/第017次.md)，本轮资料见 [Bug处理·第046次](../Wiki/日志/Bug处理/第046次.md)。固定安装目录、ZIP、releases与legacy未清理。
+2026-10-04第017次清理结束时，working仅保留审核服务native-backdrop-review与两项巡检工具使用的wallpaper-inventory.json。之后第046次新增native-flash-current复现脚本12文件/25,333bytes，已逐文件SHA256一致归档至D:/Mysimple-diagnostics/2026-10-04/native-flash/final-helpers，清单为同诊断根目录final-helper-manifest.json；递归及明确12个LiteralPath文件删除均被自动审核拒绝，未返回理由，原件保留且不再重试。第019次迁移继续保留这约25KB脚本，working当前为审核服务、壁纸索引及native-flash-current三项。旧相对路径归档映射见 [工程维护·第017次](../Wiki/日志/工程维护/第017次.md)，复现资料见 [Bug处理·第046次](../Wiki/日志/Bug处理/第046次.md)，旧版本资料本轮归档见上节。
 
 ## 玻璃交互的整屏逐帧诊断
 
