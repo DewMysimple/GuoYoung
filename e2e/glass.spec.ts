@@ -118,14 +118,14 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 51, sourceBox.y + sourceBox.height / 2);
   await expect(source).toHaveCSS("opacity", "0.26");
   const sitePreview = page.getByTestId("site-card-drag-preview");
-  await expectGlassMaterial(sitePreview, { blur: 8, refraction: true }, true);
+  await expectGlassMaterial(sitePreview, { blur: 8, refraction: true });
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
   await expect(target).toHaveClass(/is-drop-target/);
   await expect(target).toHaveCSS("opacity", "0.78");
-  await expectGlassMaterial(target, { blur: 8 }, true);
+  await expectGlassMaterial(target, { blur: 8 });
   await expectCardMaterial(target, "background-color", /\/ 0\.[0-9]+\)/);
   await expect.poll(() => target.evaluate(el => {
-    const color = getComputedStyle(el, "::after").backgroundColor;
+    const color = getComputedStyle(el).backgroundColor;
     return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
   })).toBeGreaterThan(0.75);
   await page.screenshot({ path: screenshotPath("glass-site-drag-hover.png") });
@@ -175,7 +175,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   expect((await heading.boundingBox())!.x).toBeCloseTo(before.x, 1);
   expect((await heading.boundingBox())!.width).toBeCloseTo(before.width, 1);
   await page.getByRole("dialog", { name: "管理分组", exact: true }).getByRole("button", { name: "关闭", exact: true }).click();
-  const initial = await card.evaluate(el => getComputedStyle(el, "::after").backgroundColor);
+  const initial = await card.evaluate(el => getComputedStyle(el).backgroundColor);
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
@@ -185,8 +185,8 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("slider", { name: "折射强度" }).fill("32");
-  await expectGlassMaterial(card, { blur: 2, refraction: true }, true);
-  await expect.poll(() => card.evaluate(el => getComputedStyle(el, "::after").backgroundColor)).not.toBe(initial);
+  await expectGlassMaterial(card, { blur: 2, refraction: true });
+  await expect.poll(() => card.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(initial);
   await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
   await panel.getByRole("button", { name: "玻璃底板", exact: true }).click();
   await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
@@ -209,18 +209,18 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expectGlassMaterial(card, { blur: 2, refraction: true }, true);
+  await expectGlassMaterial(card, { blur: 2, refraction: true });
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.glassTransparency)).toBe(88);
-  await expectGlassMaterial(card, { saturation: 1.75 }, true);
+  await expectGlassMaterial(card, { saturation: 1.75 });
   await expect(card).toHaveCSS("border-top-color", "rgba(255, 255, 255, 0.2)");
   await page.screenshot({ path: screenshotPath(`glass-refraction-${info.project.name}.png`), animations: "disabled" });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
   await expectCardMaterial(card, "backdrop-filter", "none");
-  await expectCardMaterial(card, "display", "none");
+  await expectCardMaterial(card, "display", "flex");
   await expectCardMaterial(card, "background-color", /\/ 0\.96\)/);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
-  await expectGlassMaterial(card, { refraction: true }, true);
+  await expectGlassMaterial(card, { refraction: true });
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
@@ -292,7 +292,7 @@ test("offers nine reversible presets behind collapsed wallpaper parameters", asy
   await panel.getByRole("button", { name: /^液态清透/ }).click();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expectGlassMaterial(page.locator(".site-card").first(), { blur: 2, saturation: 1, refraction: false }, true);
+  await expectGlassMaterial(page.locator(".site-card").first(), { blur: 2, saturation: 1, refraction: false });
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toMatchObject({
     source: original.source, url: original.url, zoom: 110, overlay: 0, topbarStyle: original.topbarStyle, glassHighlight: 78, glassRefraction: false,
   });
@@ -327,7 +327,7 @@ test("keeps glass sampling and complete cards from the first frame when returnin
           const style = getComputedStyle(parent);
           if (Number(style.opacity) < 1 || style.filter !== "none" || style.willChange.includes("opacity")) opaque = false;
         }
-        frames.push({ missing: !card, opaque, refracted: !!card && (getComputedStyle(card, "::before").backdropFilter.includes("wallpaper-glass-lens") || !!document.getElementById(getComputedStyle(card, "::before").filter.match(/url\([^)]*#([^"')]+)/)?.[1] ?? "")?.querySelector("feDisplacementMap")), searchTop: search?.getBoundingClientRect().top ?? -1 });
+        frames.push({ missing: !card, opaque, refracted: !!card && getComputedStyle(card).backdropFilter.includes("wallpaper-glass-lens"), searchTop: search?.getBoundingClientRect().top ?? -1 });
       }
       return frames;
     });
@@ -338,8 +338,7 @@ test("keeps glass sampling and complete cards from the first frame when returnin
 });
 
 async function expectCardMaterial(card: Locator, property: string, value: string | RegExp) {
-  await expect(card).toHaveCSS("backdrop-filter", "none");
-  const actual = expect.poll(() => card.evaluate((el, property) => getComputedStyle(el, property.startsWith("background-") ? "::after" : "::before").getPropertyValue(property), property));
+  const actual = expect.poll(() => card.evaluate((el, property) => getComputedStyle(el).getPropertyValue(property), property));
   if (typeof value === "string") await actual.toBe(value);
   else await actual.toMatch(value);
 }

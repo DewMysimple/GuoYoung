@@ -229,6 +229,9 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   --card-glass-fill: var(--glass-fill-low);
   --card-glass-image: var(--glass-surface-image);
   --card-glass-filter: var(--glass-filter);
+  background-color: var(--card-glass-fill);
+  background-image: var(--card-glass-image);
+  backdrop-filter: var(--card-glass-filter);
   box-shadow: var(--glass-shadow);
   transition: border-color 160ms ease;
 }
@@ -254,8 +257,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 .has-wallpaper .add-site-card[data-drop-ready] {
   transform: none;
   border-color: color-mix(in srgb, var(--accent) 42%, var(--glass-edge));
-  --card-glass-fill: var(--glass-fill);
-  --card-glass-image: var(--glass-surface-image);
   box-shadow: var(--glass-shadow);
 }
 
@@ -425,6 +426,9 @@ body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
   --card-glass-fill: var(--glass-fill-low);
   --card-glass-image: var(--glass-surface-image);
   --card-glass-filter: var(--glass-filter);
+  background-color: var(--card-glass-fill);
+  background-image: var(--card-glass-image);
+  backdrop-filter: var(--card-glass-filter);
   border-color: var(--glass-edge);
   box-shadow: var(--glass-elevated-shadow);
 }
@@ -664,57 +668,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   background-color: var(--glass-fill-high);
 }
 
-/* A shared viewport wallpaper source is painted by CSS. Scrolling never writes
-   card coordinates or invalidates per-card SVG image inputs. The overscan is
-   filtered before clipping, so the blur has real samples outside each rim. */
-:root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
-  position: relative;
-  isolation: isolate;
-  background: transparent;
-  backdrop-filter: none;
-}
-:root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: calc(-1 * var(--wallpaper-card-spread, 0px));
-  pointer-events: none;
-  background-color: var(--page);
-  background-image:
-    linear-gradient(rgb(var(--wallpaper-overlay-color) / var(--wallpaper-overlay)), rgb(var(--wallpaper-overlay-color) / var(--wallpaper-overlay))),
-    var(--wallpaper-source-image);
-  background-attachment: scroll, fixed;
-  background-position: 0 0, var(--wallpaper-source-left) var(--wallpaper-source-top);
-  background-size: auto, var(--wallpaper-source-width) var(--wallpaper-source-height);
-  background-repeat: no-repeat;
-  filter: var(--wallpaper-card-filter, none);
-  clip-path: inset(var(--wallpaper-card-spread, 0px) round var(--radius-card));
-}
-:root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background-color: var(--card-glass-fill, var(--glass-fill-low));
-  background-image: var(--card-glass-image, var(--glass-surface-image));
-}
-
-/* A transformed drag ancestor changes the fixed-background containing block.
-   Use the browser's live backdrop for the existing drag session only; dnd-kit
-   remains the sole owner of every transform. */
-:root:has(.app-shell.has-wallpaper) .grouped-site-section:is([data-has-transform], [data-transform-transition]) :is(.site-card, .add-site-card)::before,
-:root:has(.app-shell.has-wallpaper) .site-card:is([data-has-transform], [data-transform-transition])::before,
-:root:has(.app-shell.has-wallpaper) .site-card-drag-preview::before {
-  inset: 0;
-  border-radius: inherit;
-  background: none;
-  filter: none;
-  clip-path: none;
-  backdrop-filter: var(--card-glass-filter, var(--glass-filter));
-}
-
 /* Chromium's backdrop URL filters are optional. Other engines retain the
    standard blur, and reduced-transparency below always takes precedence. */
 @supports (backdrop-filter: url("#wallpaper-glass-lens")) {
@@ -724,10 +677,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   .has-wallpaper.glass-refraction .site-card:not(.is-dragging),
   .has-wallpaper.glass-refraction .add-site-card {
     --card-glass-filter: var(--glass-card-filter);
-  }
-  .has-wallpaper.glass-refraction .grouped-site-section:is([data-has-transform], [data-transform-transition]) :is(.site-card, .add-site-card)::before,
-  .has-wallpaper.glass-refraction .site-card:is([data-has-transform], [data-transform-transition])::before {
-    filter: none;
   }
   .has-wallpaper.glass-refraction .github-home-entry::before { backdrop-filter: var(--glass-wide-filter); }
   .has-wallpaper.glass-refraction .search-input { backdrop-filter: var(--glass-search-filter); }
@@ -740,7 +689,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 }
 
 @supports not (backdrop-filter: blur(1px)) {
-  :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
+  :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
     background-color: var(--surface);
     background-image: none;
     backdrop-filter: none;
@@ -799,10 +748,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
   body:has(.app-shell.has-wallpaper) *::after {
     backdrop-filter: none !important;
   }
-  :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::before {
-    display: none;
-  }
-  :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card)::after {
+  :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
     background-color: color-mix(in srgb, var(--surface) 96%, transparent);
     background-image: none;
   }
@@ -857,12 +803,3 @@ body:has(.app-shell.has-wallpaper) .group-manager-check:is([aria-pressed="true"]
   background: color-mix(in srgb, var(--accent) 65%, transparent);
   border-color: var(--glass-edge);
 }
-
-/* Foreground animations must keep the same compositing boundary at rest and
-   in motion. Desktop captures catch one-level color rounding across distant
-   cards if the tool layer is created only on first hover. */
-.has-wallpaper :is(.card-actions, .open-arrow) { will-change: transform, opacity; }
-.has-wallpaper :is(.grouped-site-header, .collection-view-controls) { will-change: transform; }
-/* Drag overlays must not switch distant loaded icons to another rounding path.
-   This child boundary leaves the card's viewport-fixed background untouched. */
-:root:has(.app-shell.has-wallpaper) .site-card .favicon-frame { will-change: transform; }

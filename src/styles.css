@@ -145,9 +145,6 @@ select:focus-visible {
 }
 
 .wallpaper-layer img {
-  /* Decode and measure one image, including its native settings transitions.
-     Visible wallpaper and cards use the same background rasterization below. */
-  visibility: hidden;
   object-fit: var(--wallpaper-fit);
   object-position: var(--wallpaper-position-x) var(--wallpaper-position-y);
   filter: blur(var(--wallpaper-blur));
@@ -157,19 +154,6 @@ select:focus-visible {
     object-position 120ms ease-out,
     transform 120ms ease-out,
     filter 160ms ease;
-}
-
-.wallpaper-layer::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-color: var(--page);
-  background-image: var(--wallpaper-source-image);
-  background-attachment: fixed;
-  background-position: var(--wallpaper-source-left) var(--wallpaper-source-top);
-  background-size: var(--wallpaper-source-width) var(--wallpaper-source-height);
-  background-repeat: no-repeat;
-  filter: var(--wallpaper-source-filter, none);
 }
 
 :root.wallpaper-positioning .wallpaper-layer img {

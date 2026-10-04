@@ -33,27 +33,25 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
   });
   await page.reload();
   await expect(page.locator('.app-shell')).toHaveClass(/has-wallpaper/);
+  await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
   await page.evaluate(() => document.fonts.ready);
   await expect(page.locator('[data-group-sort-section-id="search"] .favicon-frame img.is-loaded')).toHaveCount(11);
   await page.mouse.move(5, 850);
   const cards = page.locator('.site-card[data-site-dnd-id]');
   const card = cards.nth(6);
   for (const surface of [card, page.locator('.add-site-card').first()]) {
-    await expect(surface).toHaveCSS('backdrop-filter', 'none');
-    await expectGlassMaterial(surface, { blur: 12, saturation: 1.3 }, true);
+    await expectGlassMaterial(surface, { blur: 12, saturation: 1.3 });
     expect(await surface.evaluate(el => {
-      const paint = getComputedStyle(el, '::before');
-      return { filter: paint.backdropFilter, pointer: paint.pointerEvents, width: parseFloat(paint.width), height: parseFloat(paint.height), clientWidth: el.clientWidth, clientHeight: el.clientHeight };
-    })).toMatchObject({ pointer: 'none' });
-    const bounded = await surface.evaluate(el => {
-      const paint = getComputedStyle(el, '::before');
-      const inset = parseFloat(paint.clipPath.match(/^inset\(([^ ]+)/)?.[1] ?? 'NaN');
-      return Math.abs(parseFloat(paint.width) - 2 * inset - el.clientWidth) < 1
-        && Math.abs(parseFloat(paint.height) - 2 * inset - el.clientHeight) < 1
-        && Math.abs(parseFloat(paint.left) + inset) < 1
-        && paint.clipPath.includes('round');
-    });
-    expect(bounded, 'Paint is bounded by the card, including the add card').toBe(true);
+      const host = getComputedStyle(el);
+      return { filter: host.filter, clip: host.clipPath, promoted: host.willChange,
+        copiedImage: host.backgroundImage.includes('url('),
+        pseudos: ['::before', '::after'].map(pseudo => {
+          const paint = getComputedStyle(el, pseudo);
+          return { filter: paint.filter, backdrop: paint.backdropFilter,
+            copiedImage: paint.backgroundImage.includes('url(') };
+        }) };
+    })).toEqual({ filter: 'none', clip: 'none', promoted: 'auto', copiedImage: false,
+      pseudos: [{ filter: 'none', backdrop: 'none', copiedImage: false }, { filter: 'none', backdrop: 'none', copiedImage: false }] });
   }
   // A compositing fix must preserve the foreground fade/slide, not hide the
   // repaint defect by removing the interaction which triggers it.
@@ -106,9 +104,8 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
       writeFileSync(screenshotPath('glass-boundary-edge-drag.png'), dragEdge);
       await test.info().attach('remote-edge-drag-materials', { contentType: 'application/json', body: JSON.stringify(await cards.evaluateAll(elements => elements.map(element => ({
         id: element.getAttribute('data-site-dnd-id'), style: element.getAttribute('style'),
-        transformFlag: element.getAttribute('data-has-transform'), transitionFlag: element.getAttribute('data-transform-transition'),
-        box: element.getBoundingClientRect().toJSON(), filter: getComputedStyle(element, '::before').filter,
-        backdrop: getComputedStyle(element, '::before').backdropFilter,
+        box: element.getBoundingClientRect().toJSON(), filter: getComputedStyle(element).filter,
+        backdrop: getComputedStyle(element).backdropFilter,
         ancestors: [...function* () { for (let parent = element.parentElement; parent; parent = parent.parentElement) yield parent; }()].filter(parent => getComputedStyle(parent).transform !== 'none').map(parent => ({ class: parent.className, style: parent.getAttribute('style'), transform: getComputedStyle(parent).transform })),
       }))), null, 2) });
     }

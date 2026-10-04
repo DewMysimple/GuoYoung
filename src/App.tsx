@@ -2,7 +2,6 @@ import { DataWorkspace, type DataWorkspaceContext } from "./components/data-work
 import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
 import { GlassRefraction, supportsGlassRefraction } from "./components/glass-refraction";
-import { WallpaperSource, refreshWallpaperSource } from "./components/wallpaper-source";
 import { patchAppearance } from "./lib/appearance-settings";
 import { typographyVariables } from "./lib/typography";
 import { glassFilter } from "./lib/glass-presets";
@@ -1240,7 +1239,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--glass-shadow-strength": String(effectiveWallpaper.glassShadow / 100),
     "--glass-highlight": String(effectiveWallpaper.glassHighlight / 100),
     "--glass-filter": glassFilter(effectiveWallpaper),
-    "--glass-saturation": String(effectiveWallpaper.glassSaturation / 100),
     "--glass-card-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens"),
     "--glass-wide-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-wide"),
     "--glass-search-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-search"),
@@ -1266,7 +1264,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       root.style.setProperty(property, String(value));
     }
     root.dataset.textEffect = effectiveAppearance.textEffect;
-    refreshWallpaperSource();
     return () => { delete root.dataset.textEffect; };
   }, [
     effectiveAppearance,
@@ -1295,7 +1292,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       {...siteClickHandlers}
     >
       {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} cardRadius={effectiveAppearance.radius} searchRadius={effectiveAppearance.searchRadius} />}
-      {wallpaperUrl && <WallpaperSource source={wallpaperUrl} glassBlur={effectiveWallpaper.glassBlur} glassSaturation={effectiveWallpaper.glassSaturation} glassRefraction={effectiveWallpaper.glassRefraction && supportsGlassRefraction} />}
       {wallpaperUrl && (
         <div className="wallpaper-layer" aria-hidden="true">
           <img src={wallpaperUrl} alt="" fetchPriority="high" onLoad={dismissWallpaperStartup} />

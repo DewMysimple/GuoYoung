@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { createLensMap } from "../lib/glass-lens";
-import { SOURCE_UPDATED } from "./wallpaper-source";
 
 // CSS.supports(url()) also succeeds in engines without backdrop displacement.
 export const supportsGlassRefraction = typeof navigator !== "undefined"
@@ -16,19 +15,7 @@ const surfaces = [
  * per-card animation loop, screenshot duplication or transform ownership. */
 export function GlassRefraction({ strength, cardRadius, searchRadius }: { strength: number; cardRadius: number; searchRadius: number }) {
   const [maps, setMaps] = useState<Record<string, { href: string; width: number; height: number }>>({});
-  const [sourceSpread, setSourceSpread] = useState(0);
   const svg = useRef<SVGSVGElement>(null);
-  useLayoutEffect(() => {
-    const updateSpread = () => {
-      // The source owner publishes this inline value after its single read
-      // phase. No additional computed style or card geometry is needed here.
-      const value = parseFloat(document.documentElement.style.getPropertyValue("--wallpaper-card-spread"));
-      setSourceSpread(Number.isFinite(value) ? Math.max(0, value) : 0);
-    };
-    updateSpread();
-    window.addEventListener(SOURCE_UPDATED, updateSpread);
-    return () => window.removeEventListener(SOURCE_UPDATED, updateSpread);
-  }, []);
   useLayoutEffect(() => {
     const root = svg.current?.closest(".app-shell");
     const main = root?.querySelector("main");
@@ -86,17 +73,6 @@ export function GlassRefraction({ strength, cardRadius, searchRadius }: { streng
         <feImage href={maps[id].href} x="0" y="0" width={maps[id].width} height={maps[id].height} preserveAspectRatio="none" result="lens" />
         <feDisplacementMap in="SourceGraphic" in2="lens" scale={strength} xChannelSelector="R" yChannelSelector="G" />
       </>}
-    </filter>)}
-      {/* The explicit source is expanded for blur. Reuse the normal card map
-          at the unexpanded card origin; native controls keep their own maps. */}
-      <filter id="wallpaper-glass-card-source" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-        {maps["wallpaper-glass-lens"] && <>
-          <feImage href={maps["wallpaper-glass-lens"].href} x={sourceSpread} y={sourceSpread}
-            width={maps["wallpaper-glass-lens"].width} height={maps["wallpaper-glass-lens"].height}
-            preserveAspectRatio="none" result="lens" />
-          <feDisplacementMap in="SourceGraphic" in2="lens" scale={strength} xChannelSelector="R" yChannelSelector="G" />
-        </>}
-      </filter>
-    </defs>
+    </filter>)}</defs>
   </svg>;
 }

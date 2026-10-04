@@ -39,17 +39,20 @@ test('neutral glass samples the same blurred wallpaper at each wallpaper zoom', 
     }, zoom);
     await page.reload();
     const card = page.getByTestId('site-card-google');
-    await expect.poll(() => card.evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 0, strength: 0 });
+    await expect.poll(() => card.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0, strength: 0 });
+    await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
     await page.evaluate(() => document.fonts.ready);
     await page.addStyleTag({ content: '.site-card > * { visibility: hidden !important; }' });
     await page.mouse.move(5, 850);
     const box = (await card.boundingBox())!;
     const region = { x: Math.round(box.x + 35), y: Math.round(box.y + 65), width: 140, height: 70 };
     const glass = await regionPixels(page, region);
-    const disable = await page.addStyleTag({ content: '.site-card::before { filter:blur(0px)!important }' });
+    // Neutral cards have no filter. The real visible image owns source blur.
+    const disable = await page.addStyleTag({ content: '.wallpaper-layer img { filter:none!important;transition:none!important }' });
     const unblurred = await regionPixels(page, region);
     const positiveControlMean = pixelDifference(glass, unblurred).mean;
     await disable.evaluate(element => element.remove());
+    await expect(page.locator('.wallpaper-layer img')).toHaveCSS('filter', 'blur(8px)');
     // Opacity removes the entire composed material without moving the region.
     await page.addStyleTag({ content: '.site-card { opacity: 0 !important; }' });
     await expect(card).toHaveCSS('opacity', '0');
@@ -91,7 +94,8 @@ test('neutral normal-flow cards match a contained PNG at small and large source 
     }, { sourceBlur, url });
     await page.reload();
     const card = page.getByTestId('site-card-google');
-    await expect.poll(() => card.evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 0, saturation: 1, strength: 0 });
+    await expect.poll(() => card.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0, saturation: 1, strength: 0 });
+    await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
     await page.evaluate(() => document.fonts.ready);
     const box = (await card.boundingBox())!;
     // Keep the real card in its normal grid slot. Moving a fixed diagnostic
@@ -99,18 +103,24 @@ test('neutral normal-flow cards match a contained PNG at small and large source 
     await page.addStyleTag({ content: '.app-shell main,.topbar,.footer{visibility:hidden!important} [data-testid="site-card-google"]{visibility:visible!important} [data-testid="site-card-google"]>*{visibility:hidden!important}' });
     await page.mouse.move(1430, 880);
     const region = { x: Math.round(box.x + box.width / 2 - 60), y: Math.round(box.y + box.height / 2 - 40), width: 120, height: 80 };
-    const source = await page.locator('.wallpaper-layer').evaluate(element => {
-      const style = getComputedStyle(element, '::before');
-      return { left: parseFloat(style.backgroundPosition), width: parseFloat(style.backgroundSize),
-        blur: Math.hypot(...Array.from(style.filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1]))) };
+    const source = await page.locator('.wallpaper-layer img').evaluate(element => {
+      const image = element as HTMLImageElement;
+      const style = getComputedStyle(image), box = image.getBoundingClientRect();
+      const scale = Math.min(box.width / image.naturalWidth, box.height / image.naturalHeight);
+      const width = scale * image.naturalWidth;
+      const x = parseFloat(style.objectPosition) / 100;
+      const transform = new DOMMatrixReadOnly(style.transform);
+      return { left: box.x + (box.width - width) * x, width,
+        blur: Math.hypot(...Array.from(style.filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1]))) * Math.hypot(transform.a, transform.b) };
     });
     expect(source.blur).toBeCloseTo(sourceBlur * 1.02, 3);
     expect(region.x).toBeGreaterThan(source.left + 3 * source.blur);
     expect(region.x + region.width).toBeLessThan(source.left + source.width - 3 * source.blur);
     const glass = await regionPixels(page, region);
-    const disable = await page.addStyleTag({ content: '[data-testid="site-card-google"]::before{filter:blur(0px) saturate(1)!important}' });
+    const disable = await page.addStyleTag({ content: '.wallpaper-layer img{filter:none!important;transition:none!important}' });
     const positiveControlMean = pixelDifference(glass, await regionPixels(page, region)).mean;
     await disable.evaluate(element => element.remove());
+    await expect(page.locator('.wallpaper-layer img')).toHaveCSS('filter', `blur(${sourceBlur}px)`);
     await page.addStyleTag({ content: '[data-testid="site-card-google"]{opacity:0!important}' });
     const wallpaper = await regionPixels(page, region);
     expect(await card.boundingBox(), 'Optical controls cannot move the real card').toEqual(box);

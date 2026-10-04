@@ -37,6 +37,7 @@ async function prepare(page, url, extension = false) {
   }, { extension });
   await page.reload();
   await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
+  await page.locator('.wallpaper-layer img').evaluate(image => image.decode());
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -47,7 +48,7 @@ async function capture(page, name) {
       left: document.querySelector(".app-shell").getBoundingClientRect().left,
       searchCenter: box.x + box.width / 2 };
   });
-  geometry.material = await page.locator('.site-card').first().evaluate(readGlassMaterial, true);
+  geometry.material = await page.locator('.site-card').first().evaluate(readGlassMaterial, false);
   assert.equal(geometry.overflow, false, name);
   assert.equal(geometry.left, 0, name);
   metrics.push({ name, ...geometry });
@@ -76,7 +77,7 @@ try {
     await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
     await panel.getByRole("slider", { name: "折射强度" }).fill("32");
     await panel.getByRole("button", { name: "保存设置" }).click();
-    await expect.poll(() => describeGlassMaterial(card, true)).toMatch(/refract\(/);
+    await expect.poll(() => describeGlassMaterial(card)).toMatch(/refract\(/);
     await page.mouse.move(0, 0);
     await capture(page, `glass-production-${spec.name}-on`);
     const on = await card.screenshot({ animations: "disabled" });
@@ -95,14 +96,14 @@ try {
       await expect(source).toHaveCSS("opacity", "0.26");
       await expect(target).toHaveClass(/is-drop-target/);
       await expect(target).toHaveCSS("opacity", "0.78");
-      await expect.poll(() => describeGlassMaterial(target, true)).toMatch(/blur\(2px\).*refract\(/);
+      await expect.poll(() => describeGlassMaterial(target)).toMatch(/blur\(2px\).*refract\(/);
       const targetFillAlpha = await target.evaluate(el => {
-        const color = getComputedStyle(el, "::after").backgroundColor;
+        const color = getComputedStyle(el).backgroundColor;
         return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
       });
       assert.ok(targetFillAlpha > 0.75, `Target glass fill alpha should exceed 0.75, got ${targetFillAlpha}`);
       metrics.push({ name: "site-drag-feedback", targetOpacity: 0.78, sourceOpacity: 0.26,
-        targetFillAlpha, targetBackdrop: await describeGlassMaterial(target, true) });
+        targetFillAlpha, targetBackdrop: await describeGlassMaterial(target) });
       await page.screenshot({ path: join(output, "glass-production-xiaohongshu-over-bilibili.png"), animations: "disabled" });
       await page.keyboard.press("Escape");
       await page.mouse.up();
@@ -143,7 +144,7 @@ try {
   await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expect.poll(() => describeGlassMaterial(page.locator(".site-card").first(), true)).toMatch(/refract\(/);
+  await expect.poll(() => describeGlassMaterial(page.locator(".site-card").first())).toMatch(/refract\(/);
   await capture(page, "glass-production-native-extension");
   assert.equal(await page.evaluate(() => chrome.runtime.getManifest().version), manifest.version);
 } finally { await context.close(); }

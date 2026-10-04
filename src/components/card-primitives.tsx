@@ -1,14 +1,8 @@
 import { ArrowUpRight, Check, Minus } from "@phosphor-icons/react";
 import type { ComponentProps, MouseEvent, ReactNode } from "react";
-import { trackTransformTransition } from "../lib/transform-transition";
 
-export function CardSurface({ className = "", onTransitionRun, onTransitionEnd, onTransitionCancel,
-  ...props }: ComponentProps<"article">) {
-  return <article {...props} className={`site-card ${className}`}
-    data-has-transform={!!props.style?.transform && props.style.transform !== "none" || undefined}
-    onTransitionRun={event => { trackTransformTransition(event); onTransitionRun?.(event); }}
-    onTransitionEnd={event => { trackTransformTransition(event); onTransitionEnd?.(event); }}
-    onTransitionCancel={event => { trackTransformTransition(event); onTransitionCancel?.(event); }} />;
+export function CardSurface({ className = "", ...props }: ComponentProps<"article">) {
+  return <article {...props} className={`site-card ${className}`} />;
 }
 
 export function CardContent({ icon, actions, name, domain, detail, footer, external = false }: {

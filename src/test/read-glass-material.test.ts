@@ -3,65 +3,67 @@ import { test } from 'vitest';
 import { runInNewContext } from 'node:vm';
 import { readGlassMaterial } from '../../scripts/read-glass-material.mjs';
 
-// Exercise the exact serialized browser inspector with independent computed
-// paint observations. This also catches accidental module-scope dependencies.
-function inspect({ filter, sourceBlur = 8, sourceFilter = 'blur(5.65685px) blur(5.65685px)', native = false }: {
-  filter: string; sourceBlur?: number; sourceFilter?: string; native?: boolean;
-}): ReturnType<typeof readGlassMaterial> {
-  const root = {}, layer = {};
-  const source = { complete: true, naturalWidth: 1920, currentSrc: 'https://fixture.test/source.png', parentElement: layer };
-  const card = { matches: () => !native };
-  const style = { display: 'block', content: '""', filter, backdropFilter: native ? filter : 'none',
-    backgroundImage: native ? 'none' : `url("${source.currentSrc}")`, backgroundAttachment: 'scroll, fixed' };
-  const value = runInNewContext(`(${readGlassMaterial.toString()})(card, !native)`, {
-    card, native,
-    document: { documentElement: root, querySelector: () => source, getElementById: () => null },
-    getComputedStyle: (element: unknown) => element === card ? style : element === root
-      ? { getPropertyValue: () => `${sourceBlur}px` } : element === layer
-        ? { ...style, filter: sourceFilter, backgroundAttachment: 'fixed' }
-        : { filter: `blur(${sourceBlur}px)`, transform: 'none' },
+// Exercise the exact serialized inspector against independent observations.
+function inspect({ backdrop = 'blur(24px)', foreground = 'none', pseudo = false,
+  content = 'none', lensHref, lensInput = 'SourceGraphic' }: {
+  backdrop?: string; foreground?: string; pseudo?: boolean; content?: string;
+  lensHref?: string; lensInput?: string;
+} = {}): ReturnType<typeof readGlassMaterial> {
+  const element = {};
+  const graph = lensHref === undefined ? null : {
+    querySelector: (selector: string) => ({ getAttribute: (attribute: string) =>
+      selector === 'feImage' ? (attribute === 'href' ? lensHref : null)
+        : attribute === 'in' ? lensInput : attribute === 'scale' ? '12' : null }),
+  };
+  const result = runInNewContext(`(${readGlassMaterial.toString()})(element, pseudo)`, {
+    element, pseudo,
+    document: { getElementById: () => graph },
+    getComputedStyle: () => ({ display: 'block', content, filter: foreground, backdropFilter: backdrop }),
   });
-  return value === null ? null : JSON.parse(JSON.stringify(value));
+  return result === null ? null : JSON.parse(JSON.stringify(result));
 }
 
-for (const [extra, filter] of [
-  [0, 'blur(5.65686px) blur(5.65686px) saturate(1)'],
-  [1, 'blur(5.65685px) blur(5.74456px) saturate(1)'],
-  [8, 'blur(5.65685px) blur(9.79796px) saturate(1)'],
-  [24, 'blur(5.65685px) blur(24.6577px) saturate(1)'],
-] as const) test(`observes source blur 8px plus additional blur ${extra}px`, () => {
-  const result = inspect({ filter });
-  assert.ok(result);
-  assert.equal(result.sampling, 'wallpaper');
-  assert.equal(result.sourceBlur, 8);
-  assert.equal(result.blur, extra);
-  assert.ok(Math.abs(result.effectiveBlur - Math.hypot(8, extra)) < .0001);
+test('reads native glass without wallpaper geometry or source variables', () => {
+  assert.deepEqual(inspect(), { blur: 24, effectiveBlur: 24, sourceBlur: 0,
+    saturation: 1, refraction: false, strength: 0, sampling: 'backdrop' });
 });
 
-test('a missing card blur cannot masquerade as neutral glass', () => {
-  assert.equal(inspect({ filter: 'saturate(1)' }), null);
+test('combines multiple native blur passes by variance', () => {
+  const material = inspect({ backdrop: 'blur(3px) blur(4px) saturate(130%)' });
+  assert.equal(material?.blur, 5);
+  assert.equal(material?.saturation, 1.3);
 });
 
-test('a missing visible wallpaper blur cannot be justified by its source variable', () => {
-  assert.equal(inspect({ filter: 'blur(8px)', sourceFilter: 'none' }), null);
+test('foreground blur cannot masquerade as background material', () => {
+  const material = inspect({ backdrop: 'none', foreground: 'blur(24px)' });
+  assert.equal(material?.sampling, 'none');
+  assert.equal(material?.blur, 0);
 });
 
-test('zero wallpaper blur needs no redundant zero-radius pass', () => {
-  assert.equal(inspect({ filter: 'blur(24px) saturate(1)', sourceBlur: 0, sourceFilter: 'none' })?.blur, 24);
-  assert.equal(inspect({ filter: 'none', sourceBlur: 0, sourceFilter: 'none' })?.blur, 0);
+test('absent card pseudo-elements provide no material', () => {
+  assert.equal(inspect({ pseudo: true })?.sampling, 'none');
+  assert.equal(inspect({ pseudo: true })?.blur, 0);
 });
 
-test('native backdrop observations combine multiple blur passes too', () => {
-  const result = inspect({ filter: 'blur(3px) blur(4px) saturate(130%)', native: true });
-  assert.ok(result);
-  assert.equal(result.sampling, 'backdrop');
-  assert.equal(result.blur, 5);
-  assert.equal(result.saturation, 1.3);
+test('native control pseudo-elements expose their actual backdrop', () => {
+  assert.equal(inspect({ pseudo: true, content: '""', backdrop: 'blur(4px)' })?.blur, 4);
 });
 
-test('variance observations do not depend on equally split passes', () => {
-  const result = inspect({ filter: 'blur(1px) blur(11.2694px) saturate(1)', sourceFilter: 'blur(1px) blur(7.93725px)' });
-  assert.ok(result);
-  assert.equal(result.blur, 8);
-  assert.equal(result.sourceBlur, 8);
+test('neutral glass has no invented filter', () => {
+  assert.equal(inspect({ backdrop: 'none' })?.sampling, 'none');
+});
+
+test('optional refraction consumes the native SourceGraphic', () => {
+  const material = inspect({ backdrop: 'blur(24px) url("#wallpaper-glass-lens")',
+    lensHref: 'data:image/png;base64,lens-map' });
+  assert.equal(material?.sampling, 'backdrop');
+  assert.equal(material?.blur, 24);
+  assert.equal(material?.refraction, true);
+  assert.equal(material?.strength, 12);
+});
+
+test('missing or non-native lens inputs fail inspection', () => {
+  assert.equal(inspect({ backdrop: 'url("#wallpaper-glass-lens")' }), null);
+  assert.equal(inspect({ backdrop: 'url("#wallpaper-glass-lens")', lensHref: '' }), null);
+  assert.equal(inspect({ backdrop: 'url("#wallpaper-glass-lens")', lensHref: 'image', lensInput: 'wallpaper' }), null);
 });

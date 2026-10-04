@@ -40,7 +40,7 @@ test("paints saved local wallpaper before the app and covers GitHub entry surfac
       const elements = [".site-card", ".search-input", ".category-tab:not(.active)"].map(selector => document.querySelector(selector));
       if (elements.every(Boolean)) samples.push(elements.flatMap(element => {
         const style = getComputedStyle(element!);
-        const fill = getComputedStyle(element!, element!.matches('.site-card') ? '::after' : null).backgroundColor;
+        const fill = getComputedStyle(element!).backgroundColor;
         return [style.borderTopColor, fill];
       }));
       if (samples.length < 20) requestAnimationFrame(sample);

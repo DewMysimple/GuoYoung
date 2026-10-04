@@ -1,5 +1,5 @@
 // Same-machine glass performance probe. Input exports stay private.
-// CAPTURE_MODES can compare normal rendering with local card filters disabled.
+// CAPTURE_MODES can compare normal rendering with native card backdrops disabled.
 // The latter is a diagnostic counterfactual, never a visual correctness check.
 import { chromium, expect } from '@playwright/test';
 import { readFile, writeFile, mkdir, mkdtemp } from 'node:fs/promises';
@@ -49,7 +49,7 @@ for (const mode of (process.env.CAPTURE_MODES ?? 'baseline').split(',')) {
  await page.evaluate(()=>{document.title='Mysimple glass performance diagnostic';});
  await page.bringToFront();
  await page.waitForTimeout(4000);
- if(mode.includes('no-filter'))await page.addStyleTag({content:'.has-wallpaper .site-card::before{filter:none!important;backdrop-filter:none!important}'});
+ if(mode.includes('no-filter'))await page.addStyleTag({content:':root:has(.app-shell.has-wallpaper) :is(.site-card,.add-site-card){backdrop-filter:none!important}'});
  const session=await context.newCDPSession(page);await session.send('Performance.enable');
  for(const action of (process.env.CAPTURE_ACTIONS ?? 'hover,scroll,large-return').split(',')) {
   if(!['hover','scroll','large-return'].includes(action))throw new Error(`Unknown action: ${action}`);

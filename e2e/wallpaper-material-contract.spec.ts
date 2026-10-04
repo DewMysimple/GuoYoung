@@ -20,8 +20,9 @@ async function prepareMaterial(page: Page) {
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   }, wallpaperUrl);
   await page.reload();
-  await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, true))
-    .toMatchObject({ sampling: 'wallpaper', blur: 24, refraction: true });
+  await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
+  await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, false))
+    .toMatchObject({ sampling: 'backdrop', blur: 24, refraction: true });
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -102,15 +103,17 @@ test('reduced transparency disables all visible collection glass and restores it
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'reduce' }] });
   await expect.poll(() => remainingFilters(page)).toEqual([]);
   expect(await backgroundAlpha(badge)).toBeGreaterThanOrEqual(.96);
-  await expect.poll(() => page.locator('.wallpaper-layer').evaluate(element => {
-    const filter = getComputedStyle(element, '::before').filter;
-    return Math.abs(Math.hypot(...Array.from(filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1]))) - 6.12);
+  await expect.poll(() => page.locator('.wallpaper-layer img').evaluate(element => {
+    const style = getComputedStyle(element);
+    const transform = new DOMMatrixReadOnly(style.transform);
+    const blur = Math.hypot(...Array.from(style.filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1])));
+    return Math.abs(blur * Math.hypot(transform.a, transform.b) - 6.12);
   })).toBeLessThan(.0001);
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }] });
   await expect.poll(() => badge.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0 });
   await expect.poll(() => badge.locator('..').evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 24 });
-  await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, true))
-    .toMatchObject({ sampling: 'wallpaper', blur: 24, refraction: true });
+  await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, false))
+    .toMatchObject({ sampling: 'backdrop', blur: 24, refraction: true });
   await session.detach();
 });
 

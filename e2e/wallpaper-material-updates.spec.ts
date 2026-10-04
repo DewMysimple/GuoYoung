@@ -89,7 +89,7 @@ test('a nested card samples its current viewport position and returns to the sam
     document.querySelector('.app-shell')!.append(scroller);
   });
   const surface = page.locator('#nested-material');
-  await expect.poll(() => surface.evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 12 });
+  await expect.poll(() => surface.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 12 });
   const before = (await surface.boundingBox())!;
   const first = await materialPixels(page, surface);
   await page.locator('#material-scroller').evaluate(element => { element.scrollTop = 60; });
@@ -132,5 +132,5 @@ test('large scroll and return perform no root, source or card attribute writes',
   expect(result.maximumDocumentScroll).toBeGreaterThan(1000);
   expect(result.maximumNestedScroll).toBe(500);
   expect(result.finalScroll).toBe(0);
-  expect(result.writes, 'Scrolling is owned by CSS painting, with no JavaScript material synchronization').toEqual([]);
+  expect(result.writes, 'The browser owns backdrop sampling, with no JavaScript material synchronization').toEqual([]);
 });

@@ -67,19 +67,14 @@ try {
       const sample = () => {
         const card = document.querySelector('.site-card'), search = document.querySelector('.search-input'), tab = document.querySelector('.category-tab:not(.active)');
         const style = el => el ? { border: getComputedStyle(el).borderTopColor, color: getComputedStyle(el).color,
-          fill: getComputedStyle(el, el.matches('.site-card') ? '::after' : null).backgroundColor,
-          material: window.readGlassMaterial(el, el.matches('.site-card, .github-home-entry')) } : null;
+          fill: getComputedStyle(el).backgroundColor,
+          material: window.readGlassMaterial(el, el.matches('.github-home-entry')) } : null;
         const wide = document.querySelector('.github-home-entry');
         const image = document.querySelector('.wallpaper-layer img');
-        const wallpaper = image && getComputedStyle(image.parentElement, '::before');
         const imageStyle = image && getComputedStyle(image);
-        const scale = imageStyle && new DOMMatrixReadOnly(imageStyle.transform === 'none' ? undefined : imageStyle.transform);
-        const expectedBlur = imageStyle && parseFloat(imageStyle.filter.match(/blur\(([^)]+)/)?.[1] ?? '0') * Math.hypot(scale.a, scale.b);
-        const wallpaperReady = !!image?.complete && image.naturalWidth > 0 && wallpaper.content !== 'none'
-          && wallpaper.display !== 'none' && wallpaper.backgroundImage.includes(image.currentSrc)
-          && wallpaper.backgroundAttachment === 'fixed'
-          && Math.abs(Math.hypot(...Array.from(wallpaper.filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1]))) - expectedBlur) < .01;
-        frames.push({ t: performance.now(), cards: document.querySelectorAll('.site-card').length, card: style(card), search: style(search), tab: style(tab), wide: style(wide), wideMap: !!wide && window.readGlassMaterial(wide, true)?.refraction === true, preview: !!document.querySelector('#wallpaper-startup'), imageReady: !!image?.complete && image.naturalWidth > 0, wallpaperReady, wallpaperFilter: wallpaper?.filter });
+        const wallpaperReady = !!image?.complete && image.naturalWidth > 0 && imageStyle.display !== 'none'
+          && imageStyle.visibility === 'visible' && Number(imageStyle.opacity) > 0;
+        frames.push({ t: performance.now(), cards: document.querySelectorAll('.site-card').length, card: style(card), search: style(search), tab: style(tab), wide: style(wide), wideMap: !!wide && window.readGlassMaterial(wide, true)?.refraction === true, preview: !!document.querySelector('#wallpaper-startup'), imageReady: !!image?.complete && image.naturalWidth > 0, wallpaperReady, wallpaperFilter: imageStyle?.filter });
         if (performance.now() - start < duration) requestAnimationFrame(sample); else resolve(frames);
       }; requestAnimationFrame(sample);
     });

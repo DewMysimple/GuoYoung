@@ -15,7 +15,8 @@ export async function prepareMaterialPage(page: Page, glassBlur = 12) {
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   }, glassBlur);
   await page.reload();
-  await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, true))
-    .toMatchObject({ sampling: 'wallpaper', blur: glassBlur });
+  await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
+  await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, false))
+    .toMatchObject({ sampling: glassBlur ? 'backdrop' : 'none', blur: glassBlur });
   await page.evaluate(() => document.fonts.ready);
 }

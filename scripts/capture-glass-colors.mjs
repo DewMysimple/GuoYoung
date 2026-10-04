@@ -69,7 +69,7 @@ async function run(context, url, extension) {
       if (!visualOnly) await page.setViewportSize({ width: 2560, height: 1440 });
       await seed(sample);
       await expect(page.locator(".site-card")).toHaveCount(117);
-      const filter = await describeGlassMaterial(page.locator(".site-card").first(), true);
+      const filter = await describeGlassMaterial(page.locator(".site-card").first());
       assert.equal(filter.includes("refract("), mode === "old");
       if (mode === "new" && name === "水晶棱镜") assert.equal(filter, "none");
       for (let repeat = 0; repeat < (visualOnly ? 0 : 2); repeat++) {

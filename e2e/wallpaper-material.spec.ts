@@ -8,7 +8,7 @@ test('wallpaper material survives React selection class changes', async ({ page 
   await prepareChangingMaterial(page);
   const card = page.getByTestId('site-card-google');
   const expectWallpaper = async () => {
-    await expect.poll(() => card.evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 12 });
+    await expect.poll(() => card.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 12 });
   };
   await expectWallpaper();
   await page.getByRole('button', { name: '多选', exact: true }).click();
@@ -41,7 +41,7 @@ test('native button glass survives a long button press and cancellation', async 
   await expect.poll(() => button.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 12 });
 });
 
-test('wallpaper material follows the final image geometry and blur after CSS transitions', async ({ page }, info) => {
+test('wallpaper image transitions settle without changing native card sampling', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium', 'Desktop material input transitions');
   await prepareChangingMaterial(page);
   for (const [property, value, transition] of [
@@ -63,29 +63,30 @@ test('wallpaper material follows the final image geometry and blur after CSS tra
       await finished;
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     }, { property, value, transition });
-    const difference = await page.getByTestId('site-card-google').evaluate(card => {
-      const paint = getComputedStyle(card, '::before');
+    const settled = await page.getByTestId('site-card-google').evaluate((card, { property, value }) => {
+      const paint = getComputedStyle(card);
       const image = document.querySelector<HTMLImageElement>('.wallpaper-layer img')!;
-      if (!paint.backgroundImage.includes(image.currentSrc) || paint.backgroundAttachment.split(',').at(-1)?.trim() !== 'fixed') return null;
-      const box = image.getBoundingClientRect(), style = getComputedStyle(image);
-      const scale = Math.max(box.width / image.naturalWidth, box.height / image.naturalHeight);
-      const width = scale * image.naturalWidth, height = scale * image.naturalHeight;
-      const position = style.objectPosition.split(' ').map(value => parseFloat(value) / 100);
-      const expected = { x: box.x + (box.width - width) * position[0], y: box.y + (box.height - height) * position[1], width, height };
+      const style = getComputedStyle(image);
       const transform = new DOMMatrixReadOnly(style.transform);
-      const expectedBlur = parseFloat(style.filter.match(/blur\(([^)]+)/)?.[1] ?? '0') * Math.hypot(transform.a, transform.b);
-      const [x, y] = paint.backgroundPosition.split(',').at(-1)!.trim().split(' ').map(parseFloat);
-      const [paintWidth, paintHeight] = paint.backgroundSize.split(',').at(-1)!.trim().split(' ').map(parseFloat);
-      const actual = { x, y, width: paintWidth, height: paintHeight };
-      const totalBlur = Math.hypot(...Array.from(paint.filter.matchAll(/blur\(([^)]+)/g), match => parseFloat(match[1])));
+      const actual = property === '--wallpaper-zoom' ? Math.hypot(transform.a, transform.b)
+        : property === '--wallpaper-position-x' ? parseFloat(style.objectPosition)
+          : parseFloat(style.filter.match(/blur\(([^)]+)/)?.[1] ?? '0');
+      const expected = parseFloat(value) * (property === '--wallpaper-zoom' ? 1.02 : 1);
       return {
-        geometry: Math.max(...Object.entries(expected).map(([name, value]) => Math.abs(actual[name as keyof typeof actual] - value))),
-        blur: Math.abs(totalBlur - Math.hypot(expectedBlur, 12)),
+        imageReady: image.complete && image.naturalWidth > 0,
+        visibility: style.visibility,
+        settledDifference: Math.abs(actual - expected),
+        cardFilter: paint.filter,
+        cardBackdrop: paint.backdropFilter,
+        cardImage: paint.backgroundImage,
       };
-    });
-    expect(difference, `${property}: the card must keep a real wallpaper source`).not.toBeNull();
-    expect(difference!.geometry, `${property}: sample geometry must match the settled wallpaper`).toBeLessThan(.05);
-    expect(difference!.blur, `${property}: sample blur must match the settled wallpaper`).toBeLessThan(.01);
+    }, { property, value });
+    expect(settled.imageReady, `${property}: the real wallpaper is decoded`).toBe(true);
+    expect(settled.visibility, `${property}: the original image remains visible`).toBe('visible');
+    expect(settled.settledDifference, `${property}: the actual image reaches the requested value`).toBeLessThan(.01);
+    expect(settled.cardFilter, `${property}: cards do not paint a copied wallpaper`).toBe('none');
+    expect(settled.cardImage).not.toContain('url(');
+    expect(settled.cardBackdrop).toBe('blur(12px) saturate(1.3)');
   }
 });
 
@@ -103,7 +104,8 @@ test('dense wallpaper cards scroll without per-card forced style recalculation',
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   });
   await page.reload();
-  await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 24 });
+  await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
+  await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 24 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(500);
   const session = await context.newCDPSession(page);
@@ -120,7 +122,7 @@ test('dense wallpaper cards scroll without per-card forced style recalculation',
   const after = await metrics();
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(200);
   expect(after.RecalcStyleCount - before.RecalcStyleCount, 'Style recalculation should scale with rendered frames, not visible card count').toBeLessThan(120);
-  await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper', blur: 24 });
+  await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 24 });
 });
 
 async function pixels(page: Page, region: { x: number; y: number; width: number; height: number }) {
@@ -147,7 +149,8 @@ test('wallpaper materials visibly blur the source and refract its rim without mo
   });
   const prepare = async () => {
     await page.reload();
-    await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'wallpaper' });
+    await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
+    await expect.poll(() => page.locator('.site-card').first().evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop' });
     await page.evaluate(() => document.fonts.ready);
     // Inspect the real material without text/icons obscuring the sampled pixels.
     await page.addStyleTag({ content: '.site-card > * { visibility:hidden!important }' });
@@ -166,7 +169,7 @@ test('wallpaper materials visibly blur the source and refract its rim without mo
   expect(variation(blurred).mean).toBeGreaterThan(60);
   expect(variation(blurred).mean).toBeLessThan(220);
   expect(variation(blurred).deviation, '12px blur must remove fine wallpaper stripes').toBeLessThan(8);
-  const disable = await page.addStyleTag({ content: '.site-card::before { filter:none!important }' });
+  const disable = await page.addStyleTag({ content: '.site-card { backdrop-filter:none!important }' });
   expect(variation(await pixels(page, center)).deviation, 'The unfiltered wallpaper really contains contrasting stripes').toBeGreaterThan(40);
   await disable.evaluate(element => element.remove());
 

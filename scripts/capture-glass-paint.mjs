@@ -38,6 +38,7 @@ for (const scale of (process.env.CAPTURE_DPR ? [Number(process.env.CAPTURE_DPR)]
                     localStorage.setItem('site-hub:v1', JSON.stringify(state)); }, { state, native });
                 await page.reload();
                 await expect(page.locator('.has-wallpaper')).toBeVisible();
+                await page.locator('.wallpaper-layer img').evaluate(image => image.decode());
                 await page.evaluate(() => document.fonts.ready);
                 await page.waitForTimeout(500);
                 await page.evaluate(() => { window.scrollTo(0, document.querySelector('.collection-toolbar').getBoundingClientRect().top + window.scrollY - 95); });
@@ -47,10 +48,10 @@ for (const scale of (process.env.CAPTURE_DPR ? [Number(process.env.CAPTURE_DPR)]
                 const sample = { name, scale, blur, frames: [], errors: [], pixelFailures: [] };
                 report.push(sample);
                 page.on('pageerror', e => sample.errors.push(e.message));
-                const geometry = () => page.locator('.site-card[data-site-dnd-id]').evaluateAll(es => es.map(e => ({ id: e.dataset.siteDndId, rect: e.getBoundingClientRect().toJSON(), transform: getComputedStyle(e).transform, filter: getComputedStyle(e, '::before').backdropFilter })));
+                const geometry = () => page.locator('.site-card[data-site-dnd-id]').evaluateAll(es => es.map(e => ({ id: e.dataset.siteDndId, rect: e.getBoundingClientRect().toJSON(), transform: getComputedStyle(e).transform, filter: getComputedStyle(e).backdropFilter })));
                 sample.baseGeometry = await geometry();
                 sample.scrollY = await page.evaluate(() => scrollY);
-                await expect(page.locator('.site-card').first()).toHaveCSS('backdrop-filter', 'none');
+                await expect(page.locator('.site-card').first()).toHaveCSS('backdrop-filter', blur ? new RegExp(`blur\\(${blur}px\\)`) : 'saturate(1.3)');
                 await expect(page.locator('[data-group-sort-section-id="search"] .favicon-frame img.is-loaded')).toHaveCount(11);
                 // Loaded images still fade for 160ms. Sample after their transitions,
                 // including compositor demotion, so loading isn't counted as a drag repaint.

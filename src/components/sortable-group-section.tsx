@@ -2,7 +2,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { HTMLAttributes, ReactNode } from "react";
 import { groupSortRowId } from "../lib/collection-drag-ids";
-import { trackTransformTransition } from "../lib/transform-transition";
 import { GroupSectionHeader, type GroupSectionHeaderProps } from "./group-section-header";
 import "./grouped-collection.css";
 
@@ -27,9 +26,6 @@ export function SortableGroupSection({ disabled, children, ...header }: Props) {
   } : {};
   return (
     <section ref={sortable.setNodeRef}
-      data-has-transform={!!sortable.transform || undefined}
-      onTransitionRun={trackTransformTransition} onTransitionEnd={trackTransformTransition}
-      onTransitionCancel={trackTransformTransition}
       className={`grouped-site-section ${sortable.isDragging ? "is-group-sorting" : ""} ${groupSelected ? "is-group-selected" : ""}`}
       style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.isDragging ? "none" : sortable.transition }}
       aria-labelledby={`group-row-${group.id}`} data-group-sort-section-id={group.id}>

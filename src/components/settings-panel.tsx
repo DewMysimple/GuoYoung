@@ -1,7 +1,6 @@
 import { DataSettingsEditor } from "./data-settings-editor";
 import { TypographySettingsEditor } from "./typography-settings";
 import { WallpaperSettingsEditor } from "./wallpaper-settings-editor";
-import { refreshWallpaperSource } from "./wallpaper-source";
 import { useSettingsPanelWidth, DEFAULT_PANEL_WIDTH, MIN_PANEL_WIDTH } from "../hooks/use-settings-panel-width";
 import { ResizeHandle } from "./resize-handle";
 import { TopbarResizeHandle } from "./topbar-resize-handle";
@@ -181,7 +180,6 @@ export function SettingsPanel({
         window.clearTimeout(wallpaperWheelCommit.current);
       }
       document.documentElement.classList.remove("wallpaper-positioning");
-      refreshWallpaperSource();
     },
     [],
   );
@@ -221,7 +219,6 @@ export function SettingsPanel({
     wallpaperGestureValue.current = null;
     setWallpaperGesturePreview(null);
     document.documentElement.classList.remove("wallpaper-positioning");
-    refreshWallpaperSource();
     setDraft((current) => ({
       ...current,
       wallpaper: { ...current.wallpaper, ...pendingGesture, ...patch },
@@ -237,7 +234,6 @@ export function SettingsPanel({
     shell?.style.setProperty("--wallpaper-position-x", `${value.positionX}%`);
     shell?.style.setProperty("--wallpaper-position-y", `${value.positionY}%`);
     shell?.style.setProperty("--wallpaper-zoom", String(value.zoom / 100));
-    refreshWallpaperSource();
   }
 
   function scheduleWallpaperGesture(value: {
@@ -264,7 +260,6 @@ export function SettingsPanel({
     }
     if (!next) {
       document.documentElement.classList.remove("wallpaper-positioning");
-      refreshWallpaperSource();
       return;
     }
     if (wallpaperFrame.current !== null) {
@@ -279,7 +274,6 @@ export function SettingsPanel({
       wallpaper: { ...current.wallpaper, ...next },
     }));
     document.documentElement.classList.remove("wallpaper-positioning");
-    refreshWallpaperSource();
   }
 
   function startWallpaperDrag(event: PointerEvent<HTMLDivElement>) {
@@ -469,7 +463,6 @@ export function SettingsPanel({
     wallpaperGestureValue.current = null;
     setWallpaperGesturePreview(null);
     document.documentElement.classList.remove("wallpaper-positioning");
-    refreshWallpaperSource();
     onPreview(null);
     onOpenChange(false);
   }

@@ -41,6 +41,8 @@ releases/
 
 ## 玻璃交互的整屏逐帧诊断
 
+1.2.33 已恢复卡片宿主原生背景模糊，以下工具仅在用户要求浏览器复核时执行。本轮用户要求不打开浏览器、不跑录屏或性能验证，暂不出新的 ZIP，使用同配置与壁纸的本地开发服务器自行审核；旧版本报告和安装包保留，不作为本轮通过证据。
+
 `page.screenshot()` 和浏览器录屏会触发画面回读，不能单独作为远端闪线的验收证据。Windows 上可使用真实鼠标、桌面无损录制与每帧双热力图：
 
 ```powershell
@@ -63,7 +65,7 @@ python scripts/analyze-glass-desktop.py artifacts/working/glass-desktop
 - `heatmap-report.json` 同时记录整屏差异和远端统计。远端统计排除实际遍历的左侧卡片、左侧导航及异步图标；**热力图本身不排除任何像素**。分析命令检测到远端变化返回 1，表示需要调查，并不自动判定所有变化都是同一个缺陷。
 - 原版复现、候选样式与最终产品应使用不同输出目录；不能把单个裁剪区域归零当作整屏通过，也不能把实验候选归零当作滚动、折射、设置及扩展模式均已验证。
 - `CAPTURE_SCROLL_Y=550` 可在录制前滚动，脚本只遍历完整可见卡片。浏览器左下角的链接地址提示仍保留在热力图与原统计中；若产生差分，须记录位置和归因，不能直接把它说成页面闪影或把原统计改成零。
-- 可见壁纸与静止卡片共用 CSS 固定背景来源，普通控件及实际变换卡片使用原生背景滤镜。`read-glass-material.mjs` 检查实际 background/filter/backdrop-filter，将 sampling 分为 wallpaper/backdrop/none；多 blur pass 按半径方差和计算总量，blur 是扣除实际源总方差后的附加玻璃磨砂，effectiveBlur/sourceBlur 为诊断量。实际可见壁纸必须有匹配图源与滤镜，不只检查根 CSS 变量。SVG 图只用于可选折射，不再从旧逐卡 feImage/profile 读取壁纸来源。光学回归另外检查真实条纹模糊和边缘折射，防止滤镜失效造成“远端无变化”的假通过。
+- 当前可见壁纸为实际 img，卡片、拖动浮层与普通控件直接使用原生背景滤镜。`read-glass-material.mjs` 检查宿主实际 backdrop-filter 和可选折射位移图，不从旧逐卡 feImage/profile 或 WallpaperSource 变量读取壁纸来源。历史报告中的 wallpaper sampling 和多 blur pass 来源于 1.2.32 CSS 绘制路径，不作为当前机制。光学回归仍需另外检查真实条纹模糊和边缘折射，防止滤镜失效造成“远端无变化”的假通过。
 
 ## 滚动后材质延迟与性能
 
