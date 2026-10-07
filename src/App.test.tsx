@@ -609,7 +609,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":23');
+      expect(stored).toContain('"version":24');
     });
   });
 
@@ -882,7 +882,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(23);
+      expect(stored.version).toBe(24);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -1372,10 +1372,11 @@ describe("App", () => {
     });
 
     await user.click(screen.getByText("顶栏外观"));
+    await user.click(within(screen.getByRole("group", { name: "顶栏样式" })).getByRole("button", { name: "独立玻璃底板" }));
     fireEvent.change(screen.getByRole("slider", { name: "顶栏透明度" }), {
       target: { value: "58" },
     });
-    expect(shell.style.getPropertyValue("--topbar-background")).toContain("42%");
+    expect(shell.style.getPropertyValue("--topbar-glass-background")).toContain("42%");
 
     await user.click(screen.getByRole("button", { name: "保存设置" }));
     await waitFor(() => {

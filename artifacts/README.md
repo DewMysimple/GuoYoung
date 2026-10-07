@@ -11,7 +11,7 @@
 - `site-hub-extension/`：可直接在扩展管理页加载的解压目录。该目录保持在 `artifacts` 根目录。
 - `site-hub-extension.zip`：扩展安装包。打包脚本继续覆盖此固定路径。
 
-`npm.cmd run package:extension`（`buildStart.cmd` 调用此命令）先构建 `dist-extension`，再删除并重建固定解压目录、从构建目录复制文件，最后生成 ZIP。ZIP 文件本身不会自动解压或更新安装目录。当前脚本不保留旧资源；第018次为兼容已打开页面而保留3个旧资源，是当轮手动覆盖复制的交付方式。
+`npm.cmd run package:extension`（`buildStart.cmd`调用）先构建dist-extension，再由scripts/package-extension.ps1生成固定ZIP，从该ZIP覆盖解压固定安装目录并逐文件SHA256验证；保留旧页面仍可能使用的旧资源。任务完整验收后自动执行，重新加载交给浏览器，不打开扩展管理页或点击重新加载，也不再要求用户手动重载。
 
 ## GitHub Release 发布
 

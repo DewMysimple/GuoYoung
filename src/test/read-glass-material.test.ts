@@ -5,27 +5,16 @@ import { readGlassMaterial } from '../../scripts/read-glass-material.mjs';
 
 // Exercise the exact serialized inspector against independent observations.
 function inspect({ backdrop = 'blur(24px)', foreground = 'none', pseudo = false,
-  content = 'none', lensHref, lensInput = 'SourceGraphic' }: {
-  backdrop?: string; foreground?: string; pseudo?: boolean; content?: string;
-  lensHref?: string; lensInput?: string;
-} = {}): ReturnType<typeof readGlassMaterial> {
-  const element = {};
-  const graph = lensHref === undefined ? null : {
-    querySelector: (selector: string) => ({ getAttribute: (attribute: string) =>
-      selector === 'feImage' ? (attribute === 'href' ? lensHref : null)
-        : attribute === 'in' ? lensInput : attribute === 'scale' ? '12' : null }),
-  };
+  content = 'none' }: { backdrop?: string; foreground?: string; pseudo?: boolean; content?: string } = {}): ReturnType<typeof readGlassMaterial> {
   const result = runInNewContext(`(${readGlassMaterial.toString()})(element, pseudo)`, {
-    element, pseudo,
-    document: { getElementById: () => graph },
+    element: {}, pseudo,
     getComputedStyle: () => ({ display: 'block', content, filter: foreground, backdropFilter: backdrop }),
   });
   return result === null ? null : JSON.parse(JSON.stringify(result));
 }
 
 test('reads native glass without wallpaper geometry or source variables', () => {
-  assert.deepEqual(inspect(), { blur: 24, effectiveBlur: 24, sourceBlur: 0,
-    saturation: 1, refraction: false, strength: 0, sampling: 'backdrop' });
+  assert.deepEqual(inspect(), { blur: 24, saturation: 1, sampling: 'backdrop' });
 });
 
 test('combines multiple native blur passes by variance', () => {
@@ -53,17 +42,6 @@ test('neutral glass has no invented filter', () => {
   assert.equal(inspect({ backdrop: 'none' })?.sampling, 'none');
 });
 
-test('optional refraction consumes the native SourceGraphic', () => {
-  const material = inspect({ backdrop: 'blur(24px) url("#wallpaper-glass-lens")',
-    lensHref: 'data:image/png;base64,lens-map' });
-  assert.equal(material?.sampling, 'backdrop');
-  assert.equal(material?.blur, 24);
-  assert.equal(material?.refraction, true);
-  assert.equal(material?.strength, 12);
-});
-
-test('missing or non-native lens inputs fail inspection', () => {
-  assert.equal(inspect({ backdrop: 'url("#wallpaper-glass-lens")' }), null);
-  assert.equal(inspect({ backdrop: 'url("#wallpaper-glass-lens")', lensHref: '' }), null);
-  assert.equal(inspect({ backdrop: 'url("#wallpaper-glass-lens")', lensHref: 'image', lensInput: 'wallpaper' }), null);
+test('unknown filter graphs fail inspection', () => {
+  assert.equal(inspect({ backdrop: 'url("#unsupported-filter")' }), null);
 });

@@ -1,10 +1,9 @@
 import { DataWorkspace, type DataWorkspaceContext } from "./components/data-workspace";
 import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
-import { GlassRefraction, supportsGlassRefraction } from "./components/glass-refraction";
 import { patchAppearance } from "./lib/appearance-settings";
 import { typographyVariables } from "./lib/typography";
-import { glassFilter } from "./lib/glass-presets";
+import { wallpaperGlassStyle } from "./lib/wallpaper-glass";
 import { useTextSelection } from "./hooks/use-text-selection";
 import {
   Fragment,
@@ -1233,33 +1232,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--wallpaper-zoom": String(effectiveWallpaper.zoom / 100),
     "--wallpaper-blur": `${effectiveWallpaper.blur}px`,
     "--wallpaper-overlay": String(effectiveWallpaper.overlay / 100),
-    "--glass-opacity": `${100 - effectiveWallpaper.glassTransparency}%`,
-    "--glass-control-opacity": `${100 - effectiveWallpaper.glassControlTransparency}%`,
-    "--glass-panel-opacity": `${100 - effectiveWallpaper.glassPanelTransparency}%`,
-    "--glass-popover-opacity": `${100 - effectiveWallpaper.glassPopoverTransparency}%`,
-    "--glass-shadow-strength": String(effectiveWallpaper.glassShadow / 100),
-    "--glass-highlight": String(effectiveWallpaper.glassHighlight / 100),
-    "--glass-filter": glassFilter(effectiveWallpaper),
-    "--glass-card-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens"),
-    "--glass-wide-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-wide"),
-    "--glass-search-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-search"),
-    "--sidebar-background": effectiveWallpaper.sidebarStyle === "shared" ? "var(--glass-fill-panel)"
-      : `color-mix(in srgb, var(--surface) ${100 - effectiveWallpaper.sidebarTransparency}%, transparent)`,
-    "--sidebar-filter": effectiveWallpaper.sidebarStyle === "shared" ? "var(--glass-filter)"
-      : effectiveWallpaper.sidebarBlur > 0
-      ? `blur(${effectiveWallpaper.sidebarBlur}px) saturate(${effectiveWallpaper.glassSaturation}%)` : "none",
-    "--sidebar-image": effectiveWallpaper.sidebarStyle === "glass" && effectiveWallpaper.sidebarTransparency === 100
-      ? "none" : "var(--glass-surface-image)",
-    "--topbar-background": `color-mix(in srgb, var(--page) ${effectiveWallpaper.topbarOpacity}%, transparent)`,
-    "--topbar-edge": `color-mix(in srgb, var(--glass-edge-soft) ${effectiveWallpaper.topbarOpacity}%, transparent)`,
-    "--topbar-backdrop-filter": effectiveWallpaper.topbarBlur > 0
-      ? `blur(${effectiveWallpaper.topbarBlur}px) saturate(140%)` : "none",
+    ...wallpaperGlassStyle(effectiveWallpaper),
   } as CSSProperties;
 
   useInsertionEffect(() => {
     const root = document.documentElement;
-    // Publish shared CSS tokens before child layout effects measure cards and
-    // lenses. Late tokens made border-color fall back to currentColor, then
+    // Publish shared CSS tokens before child layout effects measure UI. Late tokens made border-color fall back to currentColor, then
     // animated that invalid first style into the saved glass material.
     for (const [property, value] of Object.entries(appStyle)) {
       root.style.setProperty(property, String(value));
@@ -1287,12 +1265,11 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       className={`app-shell min-h-[100dvh] ${
         activeDragId || pendingDragId ? "is-site-dragging" : ""
       } ${settingsOpen ? "settings-open" : ""} ${
-        wallpaperUrl ? `has-wallpaper ${effectiveWallpaper.glassRefraction && supportsGlassRefraction ? "glass-refraction" : ""}` : ""
+        wallpaperUrl ? "has-wallpaper" : ""
       }`}
       style={appStyle}
       {...siteClickHandlers}
     >
-      {wallpaperUrl && effectiveWallpaper.glassRefraction && supportsGlassRefraction && <GlassRefraction strength={effectiveWallpaper.glassRefractionStrength} cardRadius={effectiveAppearance.radius} searchRadius={effectiveAppearance.searchRadius} />}
       {wallpaperUrl && (
         <div className="wallpaper-layer" aria-hidden="true">
           <img src={wallpaperUrl} alt="" fetchPriority="high" onLoad={dismissWallpaperStartup} />

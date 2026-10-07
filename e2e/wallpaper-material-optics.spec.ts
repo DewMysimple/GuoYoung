@@ -33,13 +33,13 @@ test('neutral glass samples the same blurred wallpaper at each wallpaper zoom', 
       state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/blurred-stripes.svg', fit: 'cover',
         positionX: 50, positionY: 50, zoom, blur: 8, overlay: 0, glassBlur: 0, glassSaturation: 100,
         glassTransparency: 100, glassControlTransparency: 100, glassPanelTransparency: 100, glassPopoverTransparency: 100,
-        glassHighlight: 0, glassShadow: 0, glassRefraction: false, glassRefractionStrength: 0 };
+        glassHighlight: 0, glassShadow: 0 };
       // The card adds no blur, tint, rim or shadow of its own.
       localStorage.setItem('site-hub:v1', JSON.stringify(state));
     }, zoom);
     await page.reload();
     const card = page.getByTestId('site-card-google');
-    await expect.poll(() => card.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0, strength: 0 });
+    await expect.poll(() => card.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0 });
     await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
     await page.evaluate(() => document.fonts.ready);
     await page.addStyleTag({ content: '.site-card > * { visibility: hidden !important; }' });
@@ -89,12 +89,12 @@ test('neutral normal-flow cards match a contained PNG at small and large source 
       state.wallpaper = { ...state.wallpaper, source: 'url', url, fit: 'contain', positionX: 0, positionY: 50,
         zoom: 100, blur: sourceBlur, overlay: 0, glassBlur: 0, glassSaturation: 100,
         glassTransparency: 100, glassControlTransparency: 100, glassPanelTransparency: 100, glassPopoverTransparency: 100,
-        glassHighlight: 0, glassShadow: 0, glassRefraction: false, glassRefractionStrength: 0 };
+        glassHighlight: 0, glassShadow: 0 };
       localStorage.setItem('site-hub:v1', JSON.stringify(state));
     }, { sourceBlur, url });
     await page.reload();
     const card = page.getByTestId('site-card-google');
-    await expect.poll(() => card.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0, saturation: 1, strength: 0 });
+    await expect.poll(() => card.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0, saturation: 1 });
     await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
     await page.evaluate(() => document.fonts.ready);
     const box = (await card.boundingBox())!;

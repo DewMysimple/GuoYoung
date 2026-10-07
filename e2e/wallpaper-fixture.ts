@@ -11,7 +11,7 @@ export async function prepareMaterialPage(page: Page, glassBlur = 12) {
     const state = JSON.parse(localStorage.getItem('site-hub:v1')!);
     state.sites = state.sites.filter((site: { id: string }) => ['google', 'github'].includes(site.id))
       .map((site: Record<string, unknown>) => ({ ...site, iconSource: 'brand' }));
-    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/changing.svg', fit: 'cover', positionX: 50, positionY: 50, zoom: 100, blur: 0, overlay: 0, glassBlur: blur, glassRefraction: false };
+    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/changing.svg', fit: 'cover', positionX: 50, positionY: 50, zoom: 100, blur: 0, overlay: 0, glassBlur: blur };
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   }, glassBlur);
   await page.reload();

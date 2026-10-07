@@ -143,7 +143,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(23);
+  expect(saved.version).toBe(24);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -319,7 +319,7 @@ test("drags and zooms wallpaper with live preview before saving", async ({
       blur: 0,
       overlay: 22,
       topbarBlur: 16,
-      topbarOpacity: 68,
+      topbarStyle: "glass", topbarTransparency: 32,
     };
     localStorage.setItem(key, JSON.stringify(state));
   });

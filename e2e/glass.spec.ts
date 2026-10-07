@@ -72,7 +72,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.route("https://wallpaper.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
-    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://wallpaper.example/sea.svg", overlay: 0, glassTransparency: 88, glassBlur: 8, glassRefraction: true };
+    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://wallpaper.example/sea.svg", overlay: 0, glassTransparency: 88, glassBlur: 8 };
     state.displayModeByWorkspace.main = "grouped";
     localStorage.setItem("site-hub:v1", JSON.stringify(state));
   });
@@ -123,11 +123,11 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 51, sourceBox.y + sourceBox.height / 2);
   await expect.poll(() => source.evaluate(readCardSurface)).toEqual({ ...ordinaryMaterial, opacity: "0.46" });
   const sitePreview = page.getByTestId("site-card-drag-preview");
-  await expectGlassMaterial(sitePreview, { blur: 8, refraction: true });
+  await expectGlassMaterial(sitePreview, { blur: 8 });
   await expect.poll(() => sitePreview.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
   await expect(target).toHaveClass(/is-drop-target/);
-  await expectGlassMaterial(target, { blur: 8, refraction: true });
+  await expectGlassMaterial(target, { blur: 8 });
   await expect.poll(() => target.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
   await page.screenshot({ path: screenshotPath("glass-site-drag-hover.png") });
   const cdp = await page.context().newCDPSession(page);
@@ -183,7 +183,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   const shell = page.locator(".app-shell");
   const card = page.locator(".site-card").first();
   await expect(shell).toHaveClass(/has-wallpaper/);
-  await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("none");
+  await expectGlassMaterial(page.locator(".topbar"), { blur: 12, saturation: 1.3 }, true);
   expect((await shell.boundingBox())!.x).toBe(0);
   const searchBox = (await page.locator(".search-input").boundingBox())!;
   expect(Math.abs(searchBox.x + searchBox.width / 2 - (await page.evaluate(() => innerWidth)) / 2)).toBeLessThan(2);
@@ -201,11 +201,10 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await panel.getByRole("slider", { name: "玻璃透明度" }).fill("94");
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
-  await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
-  await panel.getByRole("slider", { name: "折射强度" }).fill("32");
-  await expectGlassMaterial(card, { blur: 2, refraction: true });
+  await expectGlassMaterial(card, { blur: 2 });
   await expect.poll(() => card.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(initial);
   await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
+  await panel.getByRole("group", { name: "顶栏样式" }).getByRole("button", { name: "独立玻璃底板" }).click();
   await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
   const topbarControls = panel.locator("details").filter({ has: page.locator("summary").filter({ hasText: /^顶栏外观/ }) });
   await topbarControls.getByRole("slider", { name: "模糊强度" }).fill("0");
@@ -224,21 +223,20 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
   await panel.getByRole("slider", { name: "色彩饱和度" }).fill("175");
   await panel.getByRole("slider", { name: "边缘高光" }).fill("20");
-  await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expectGlassMaterial(card, { blur: 2, refraction: true });
+  await expectGlassMaterial(card, { blur: 2 });
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.glassTransparency)).toBe(88);
   await expectGlassMaterial(card, { saturation: 1.75 });
   await expect(card).toHaveCSS("border-top-color", "rgba(255, 255, 255, 0.2)");
-  await page.screenshot({ path: screenshotPath(`glass-refraction-${info.project.name}.png`), animations: "disabled" });
+  await page.screenshot({ path: screenshotPath(`glass-saved-${info.project.name}.png`), animations: "disabled" });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
   await expectCardMaterial(card, "backdrop-filter", "none");
   await expectCardMaterial(card, "display", "flex");
   await expectCardMaterial(card, "background-color", /\/ 0\.96\)/);
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
-  await expectGlassMaterial(card, { refraction: true });
+  await expectGlassMaterial(card, { blur: 2, saturation: 1.75 });
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
@@ -246,7 +244,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await panel.getByRole("button", { name: "恢复玻璃默认" }).click();
   await expect(panel.getByRole("slider", { name: "玻璃透明度" })).toHaveValue("78");
-  await expect(panel.getByRole("checkbox", { name: /玻璃折射/ })).not.toBeChecked();
+  await expect(panel.getByRole("checkbox", { name: /玻璃折射/, hidden: true })).toHaveCount(0);
   await panel.getByRole("button", { name: "清除壁纸" }).click();
   await expect(shell).not.toHaveClass(/has-wallpaper/);
   await expect(page.locator("html")).toHaveCSS("background-image", "none");
@@ -310,9 +308,9 @@ test("offers nine reversible presets behind collapsed wallpaper parameters", asy
   await panel.getByRole("button", { name: /^液态清透/ }).click();
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
-  await expectGlassMaterial(page.locator(".site-card").first(), { blur: 2, saturation: 1, refraction: false });
+  await expectGlassMaterial(page.locator(".site-card").first(), { blur: 2, saturation: 1 });
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toMatchObject({
-    source: original.source, url: original.url, zoom: 110, overlay: 0, topbarOpacity: original.topbarOpacity, topbarBlur: original.topbarBlur, glassHighlight: 78, glassRefraction: false,
+    source: original.source, url: original.url, zoom: 110, overlay: 0, topbarStyle: original.topbarStyle, topbarTransparency: original.topbarTransparency, topbarBlur: original.topbarBlur, glassHighlight: 78,
   });
   await page.screenshot({ path: screenshotPath("liquid-preset-saved.png") });
 });
@@ -322,7 +320,7 @@ test("keeps glass sampling and complete cards from the first frame when returnin
   await page.route("https://wallpaper.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
-    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://wallpaper.example/sea.svg", overlay: 0, glassRefraction: true, glassBlur: 2 };
+    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://wallpaper.example/sea.svg", overlay: 0, glassBlur: 2 };
     const groupId = state.groups.find((group: { workspace: string }) => group.workspace === "github").id;
     state.sites.push({ ...state.sites[0], id: "continuity-repo", groupId, name: "Continuity repository", url: "https://github.com/example/continuity" });
     localStorage.setItem("site-hub:v1", JSON.stringify(state));
@@ -335,7 +333,7 @@ test("keeps glass sampling and complete cards from the first frame when returnin
     const frames = await page.evaluate(async () => {
       const button = document.querySelector<HTMLButtonElement>('[aria-label="打开 GitHub 收藏"]')!;
       button.click();
-      const frames: { missing: boolean; opaque: boolean; refracted: boolean; searchTop: number }[] = [];
+      const frames: { missing: boolean; opaque: boolean; blurred: boolean; searchTop: number }[] = [];
       for (let i = 0; i < 24; i++) {
         await new Promise(requestAnimationFrame);
         const card = document.querySelector('[data-testid="site-card-continuity-repo"]');
@@ -349,11 +347,11 @@ test("keeps glass sampling and complete cards from the first frame when returnin
           const identityRootFilter = parent === document.documentElement && style.filter === "blur(0px)";
           if (Number(style.opacity) < 1 || (style.filter !== "none" && !identityRootFilter) || style.willChange.includes("opacity")) opaque = false;
         }
-        frames.push({ missing: !card, opaque, refracted: !!card && getComputedStyle(card).backdropFilter.includes("wallpaper-glass-lens"), searchTop: search?.getBoundingClientRect().top ?? -1 });
+        frames.push({ missing: !card, opaque, blurred: !!card && getComputedStyle(card).backdropFilter.includes("blur(2px)"), searchTop: search?.getBoundingClientRect().top ?? -1 });
       }
       return frames;
     });
-    expect(frames.every(frame => !frame.missing && frame.opaque && frame.refracted)).toBe(true);
+    expect(frames.every(frame => !frame.missing && frame.opaque && frame.blurred)).toBe(true);
     expect(Math.max(...frames.map(frame => frame.searchTop)) - Math.min(...frames.map(frame => frame.searchTop))).toBeLessThan(1);
   }
   await page.screenshot({ path: screenshotPath("liquid-github-after-history.png") });

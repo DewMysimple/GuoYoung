@@ -1,4 +1,3 @@
-import { withoutGlassRefraction } from "./read-glass-material.mjs";
 // Run after both production builds against vite preview. Synthetic wallpaper and
 // 117 links; compare the reported distant strips at three desktop pixel ratios.
 import { chromium, expect } from '@playwright/test';
@@ -29,7 +28,7 @@ for (const scale of (process.env.CAPTURE_DPR ? [Number(process.env.CAPTURE_DPR)]
                 state.displayModeByWorkspace.main = 'grouped';
                 state.sortModeByWorkspace.main = 'heat';
                 state.appearance = { ...state.appearance, theme: 'dark', cardWidth: 190, cardHeight: 160, contentWidth: 1760 };
-                state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://jump.example/bg.svg', overlay: 0, glassBlur: blur, glassSaturation: 130, glassRefraction: false };
+                state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://jump.example/bg.svg', overlay: 0, glassBlur: blur, glassSaturation: 130 };
                 const seed = state.sites.find(x => x.groupId === 'search');
                 state.sites = Array.from({ length: 117 }, (_, i) => ({ ...seed, id: `sample-${i}`, name: `Sample ${i}`, url: `https://example.com/${i}`, iconSource: 'custom', customIconUrl: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="12" fill="#307abb"/><text x="17" y="46" fill="white" font-size="40">S</text></svg>'), groupId: i < 11 ? 'search' : state.groups[1 + Math.floor((i - 11) / 22)].id, order: i, globalOrder: i, clickCount: 117 - i }));
                 await page.evaluate(async ({ state, native }) => { if (native)
@@ -144,42 +143,7 @@ for (const scale of (process.env.CAPTURE_DPR ? [Number(process.env.CAPTURE_DPR)]
                 await page.mouse.up();
                 await page.waitForTimeout(300);
                 await capture('end');
-                if (scale === 1 && blur === 12) {
-                    state.wallpaper.glassRefraction = true;
-                    // Low frost preserves the high-contrast rim needed to measure displacement.
-                    // The ordinary-glass matrix above still exercises all three blur strengths.
-                    state.wallpaper.glassBlur = 2;
-                    await page.evaluate(async ({ state, native }) => { if (native)
-                        await chrome.storage.local.set({ 'site-hub:v1': JSON.stringify(state) });
-                    else
-                        localStorage.setItem('site-hub:v1', JSON.stringify(state)); }, { state, native });
-                    await page.reload();
-                    await expect(page.locator('.glass-refraction')).toBeVisible();
-                    await page.evaluate(() => document.fonts.ready);
-                    await page.waitForTimeout(500);
-                    const opticalCard = page.locator('.site-card').nth(3);
-                    sample.opticalCaptures = [`${name}-refraction-on.png`, `${name}-refraction-off.png`];
-                    const refracted = await opticalCard.screenshot({ path: join(output, `${name}-refraction-on.png`) });
-                    const ordinary = await withoutGlassRefraction(page, () => opticalCard.screenshot({ path: join(output, `${name}-refraction-off.png`) }));
-                    sample.optics = await page.evaluate(async ({ on, off }) => {
-                        async function read(value) { const image = new Image(); image.src = `data:image/png;base64,${value}`; await image.decode(); const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height; const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0); return ctx.getImageData(0, 0, image.width, image.height); }
-                        const a = await read(on), b = await read(off);
-                        let rim = 0, center = 0;
-                        for (let y = 0; y < a.height; y++)
-                            for (let x = 0; x < a.width; x++) {
-                                const i = (y * a.width + x) * 4;
-                                if (Math.max(...[0, 1, 2].map(c => Math.abs(a.data[i + c] - b.data[i + c]))) <= 8)
-                                    continue;
-                                if (Math.min(x, y, a.width - 1 - x, a.height - 1 - y) < 20)
-                                    rim++;
-                                else
-                                    center++;
-                            }
-                        return { rim, center };
-                    }, { on: refracted.toString('base64'), off: ordinary.toString('base64') });
-                    expect(sample.optics.rim).toBeGreaterThan(50);
-                    expect(sample.optics.center).toBe(0);
-                }
+
                 console.log(name, sample.frames.length);
             }
         }
@@ -189,7 +153,7 @@ for (const scale of (process.env.CAPTURE_DPR ? [Number(process.env.CAPTURE_DPR)]
         }
     }
 await writeFile(join(output, 'report.json'), JSON.stringify({ version, runs: report }, null, 2));
-console.log(JSON.stringify({ scenarios: report.length, screenshots: report.reduce((n, r) => n + r.frames.length + (r.opticalCaptures?.length ?? 0), 0), pixelComparisons: report.reduce((n, r) => n + r.frames.filter(f => f.pixelsCompared).length, 0) }));
+console.log(JSON.stringify({ scenarios: report.length, screenshots: report.reduce((n, r) => n + r.frames.length, 0), pixelComparisons: report.reduce((n, r) => n + r.frames.filter(f => f.pixelsCompared).length, 0) }));
 
 expect(report.flatMap(r => r.errors)).toEqual([]);
 expect(report.flatMap(r => r.pixelFailures), 'Distant pixel changes (full evidence saved in report.json)').toEqual([]);

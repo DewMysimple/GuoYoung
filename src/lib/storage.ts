@@ -318,9 +318,10 @@ export function normalizeBrand(value: unknown): BrandSettings {
 export function normalizeWallpaper(value: unknown): WallpaperSettings {
   const candidate =
     value && typeof value === "object"
-      ? (value as Omit<Partial<WallpaperSettings>, "sidebarStyle"> & {
+      ? (value as Omit<Partial<WallpaperSettings>, "topbarStyle" | "sidebarStyle"> & {
           position?: string;
           topbarStyle?: unknown;
+          topbarOpacity?: unknown;
           topbarBlurEnabled?: unknown;
           sidebarBlurEnabled?: unknown;
           sidebarStyle?: unknown;
@@ -374,10 +375,13 @@ export function normalizeWallpaper(value: unknown): WallpaperSettings {
       : clamp(candidate.sidebarTransparency, 0, 100, DEFAULT_WALLPAPER.sidebarTransparency),
     sidebarBlur: candidate.sidebarStyle === "clear" || candidate.sidebarBlurEnabled === false ? 0
       : clamp(candidate.sidebarBlur, 0, 30, DEFAULT_WALLPAPER.sidebarBlur),
+    // Missing mode in pre-v24 data means the existing independent topbar.
+    topbarStyle: candidate.topbarStyle === "shared" ? "shared" : "glass",
     topbarBlur: candidate.topbarStyle === "clear" || candidate.topbarBlurEnabled === false ? 0
       : clamp(candidate.topbarBlur, 0, 30, DEFAULT_WALLPAPER.topbarBlur),
-    topbarOpacity: candidate.topbarStyle === "clear" ? 0
-      : clamp(candidate.topbarOpacity, 0, 100, DEFAULT_WALLPAPER.topbarOpacity),
+    topbarTransparency: candidate.topbarStyle === "clear" ? 100
+      : clamp(candidate.topbarTransparency, 0, 100,
+          100 - clamp(candidate.topbarOpacity, 0, 100, 100 - DEFAULT_WALLPAPER.topbarTransparency)),
     glassTransparency: clamp(candidate.glassTransparency, 0, 100, DEFAULT_WALLPAPER.glassTransparency),
     glassControlTransparency: clamp(candidate.glassControlTransparency, 0, 100, DEFAULT_WALLPAPER.glassControlTransparency),
     glassPanelTransparency: clamp(candidate.glassPanelTransparency, 0, 100, DEFAULT_WALLPAPER.glassPanelTransparency),
@@ -386,8 +390,6 @@ export function normalizeWallpaper(value: unknown): WallpaperSettings {
     glassBlur: clamp(candidate.glassBlur, 0, 30, DEFAULT_WALLPAPER.glassBlur),
     glassSaturation: clamp(candidate.glassSaturation, 100, 200, DEFAULT_WALLPAPER.glassSaturation),
     glassHighlight: clamp(candidate.glassHighlight, 0, 100, DEFAULT_WALLPAPER.glassHighlight),
-    glassRefraction: typeof candidate.glassRefraction === "boolean" ? candidate.glassRefraction : DEFAULT_WALLPAPER.glassRefraction,
-    glassRefractionStrength: clamp(candidate.glassRefractionStrength, 0, 40, DEFAULT_WALLPAPER.glassRefractionStrength),
   };
 }
 
@@ -598,7 +600,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 23 &&
+    state.version === 24 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -1011,6 +1013,13 @@ function upgradeToVersion23(legacy: Record<string, unknown> | SiteCollectionStat
   return { ...candidate, version: 23, wallpaper: normalizeWallpaper(candidate.wallpaper) };
 }
 
+function upgradeToVersion24(legacy: Record<string, unknown> | SiteCollectionState, sourceAppearance: unknown): SiteCollectionState | undefined {
+  const base = legacy.version === 24 ? legacy : upgradeToVersion23(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return { ...candidate, version: 24, wallpaper: normalizeWallpaper(candidate.wallpaper) };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1125,7 +1134,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
+        candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
           candidate.version === 18 ||
           candidate.version === 17 ||
           candidate.version === 16 ||
@@ -1141,7 +1150,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion23(baseCandidate, candidate.appearance)
+        ? upgradeToVersion24(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.

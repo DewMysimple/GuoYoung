@@ -1,5 +1,4 @@
-import { PanelGlassControls } from "./panel-glass-controls";
-import { SettingsToggle } from "./settings-toggle";
+import { PanelGlassSettings } from "./panel-glass-settings";
 import { useRef, type ChangeEvent } from "react";
 import { ArrowsOutCardinal, Crosshair, Image, Trash, UploadSimple } from "@phosphor-icons/react";
 import { DEFAULT_WALLPAPER } from "../data/defaults";
@@ -82,7 +81,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
         onClick={() => onChange(BASIC_DEFAULTS)}>恢复基础默认</button>
     </SettingsDisclosure>
 
-    <SettingsDisclosure help="九套预设默认使用轻量玻璃；可在微调中开启折射。选择即刻预览，保存后生效。" title="玻璃外观" summary={preset?.label ?? "已自定义"}>
+    <SettingsDisclosure help="九套预设统一使用原生磨砂、高光和透明填色。选择即刻预览，保存后生效。" title="玻璃外观" summary={preset?.label ?? "已自定义"}>
       <div className="glass-preset-grid" role="group" aria-label="玻璃外观预设">
         {GLASS_PRESETS.map(option => <button type="button" className="glass-preset" key={option.id}
           data-preset={option.id} aria-pressed={preset?.id === option.id} onClick={() => onChange(option.values)}>
@@ -90,7 +89,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
           <strong>{option.label}</strong><small>{option.description}</small>
         </button>)}
       </div>
-      <SettingsDisclosure title="玻璃参数微调" summary="透明度、高光与折射" className="glass-fine-tuning" help="透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。">
+      <SettingsDisclosure title="玻璃参数微调" summary="透明度、磨砂与高光" className="glass-fine-tuning" help="透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。">
 
       {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
       <RangeControl label="玻璃透明度" min={0} max={100} value={value.glassTransparency} unit="%" onChange={(glassTransparency) => onChange({ glassTransparency })} />
@@ -101,33 +100,19 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       <RangeControl label="玻璃磨砂" min={0} max={30} value={value.glassBlur} onChange={(glassBlur) => onChange({ glassBlur })} />
       <RangeControl label="色彩饱和度" min={100} max={200} value={value.glassSaturation} unit="%" onChange={(glassSaturation) => onChange({ glassSaturation })} />
       <RangeControl label="边缘高光" min={0} max={100} value={value.glassHighlight} unit="%" onChange={(glassHighlight) => onChange({ glassHighlight })} />
-      <SettingsToggle label="玻璃折射" help="弯折边缘后的壁纸；收藏较多时会增加绘制开销。Chrome / Edge 支持折射，其他浏览器保留磨砂玻璃。" checked={value.glassRefraction}
-        onChange={checked => onChange({ glassRefraction: checked })} />
-      {value.glassRefraction && <>
-        <RangeControl label="折射强度" min={0} max={40} value={value.glassRefractionStrength} onChange={(glassRefractionStrength) => onChange({ glassRefractionStrength })} />
-      </>}
       <button type="button" className="button secondary-button" onClick={() => onChange(pickGlass(DEFAULT_WALLPAPER))}>恢复玻璃默认</button>
       </SettingsDisclosure>
     </SettingsDisclosure>
 
-    <SettingsDisclosure title="顶栏外观" summary="独立调节" help="直接调节顶栏透明度和模糊强度；透明度 100%、模糊强度 0 时完全透出壁纸。">
-      <PanelGlassControls label="顶栏"
-        transparency={100 - value.topbarOpacity} blur={value.topbarBlur}
-        onTransparency={transparency => onChange({ topbarOpacity: 100 - transparency })}
-        onBlur={topbarBlur => onChange({ topbarBlur })} />
-
-    </SettingsDisclosure>
-    <SettingsDisclosure title="侧栏外观" summary={value.sidebarStyle === "shared" ? "跟随公共" : "独立玻璃底板"}
-      help="默认跟随公共面板玻璃，也可独立调节透明度和模糊强度。透明度 100%、模糊强度 0 时完全透出壁纸。保存后保留，取消恢复原设置。">
-      <div className="segmented-control" role="group" aria-label="侧栏样式">
-        {(["shared", "glass"] as const).map(sidebarStyle => <button type="button" key={sidebarStyle}
-          aria-pressed={value.sidebarStyle === sidebarStyle} className={value.sidebarStyle === sidebarStyle ? "active" : ""}
-          onClick={() => onChange({ sidebarStyle })}>{sidebarStyle === "shared" ? "跟随公共" : "独立玻璃底板"}</button>)}
-      </div>
-      {value.sidebarStyle === "glass" && <PanelGlassControls label="侧栏"
-        transparency={value.sidebarTransparency} blur={value.sidebarBlur}
-        onTransparency={sidebarTransparency => onChange({ sidebarTransparency })}
-        onBlur={sidebarBlur => onChange({ sidebarBlur })} />}
-    </SettingsDisclosure>
+    <PanelGlassSettings label="顶栏" style={value.topbarStyle}
+      transparency={value.topbarTransparency} blur={value.topbarBlur}
+      onStyle={topbarStyle => onChange({ topbarStyle })}
+      onTransparency={topbarTransparency => onChange({ topbarTransparency })}
+      onBlur={topbarBlur => onChange({ topbarBlur })} />
+    <PanelGlassSettings label="侧栏" style={value.sidebarStyle}
+      transparency={value.sidebarTransparency} blur={value.sidebarBlur}
+      onStyle={sidebarStyle => onChange({ sidebarStyle })}
+      onTransparency={sidebarTransparency => onChange({ sidebarTransparency })}
+      onBlur={sidebarBlur => onChange({ sidebarBlur })} />
   </div>;
 }

@@ -202,6 +202,7 @@ export type WorkspaceDisplayModes = Record<SiteWorkspace, SiteDisplayMode>;
 
 export type WallpaperSource = "none" | "url" | "local";
 export type WallpaperFit = "cover" | "contain";
+export type PanelGlassStyle = "shared" | "glass";
 export interface WallpaperSettings {
   source: WallpaperSource;
   url?: string;
@@ -212,11 +213,12 @@ export interface WallpaperSettings {
   zoom: number;
   blur: number;
   overlay: number;
+  topbarStyle: PanelGlassStyle;
+  topbarTransparency: number;
   topbarBlur: number;
-  sidebarStyle: "shared" | "glass";
+  sidebarStyle: PanelGlassStyle;
   sidebarTransparency: number;
   sidebarBlur: number;
-  topbarOpacity: number;
   glassTransparency: number;
   glassControlTransparency: number;
   glassPanelTransparency: number;
@@ -225,8 +227,6 @@ export interface WallpaperSettings {
   glassBlur: number;
   glassSaturation: number;
   glassHighlight: number;
-  glassRefraction: boolean;
-  glassRefractionStrength: number;
 }
 
 export interface SearchHistoryEntry {

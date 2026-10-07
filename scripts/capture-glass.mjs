@@ -1,153 +1,173 @@
-import { describeGlassMaterial, readGlassMaterial } from "./read-glass-material.mjs";
-// Production visual checks. Run against `vite preview`; includes a real MV3
-// extension in an isolated temporary Chromium profile, with synthetic data only.
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import { readFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { resolve, join, extname } from "node:path";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
 import { chromium, expect } from "@playwright/test";
 
-const manifest = JSON.parse(await readFile("public/manifest.json", "utf8"));
-const output = resolve(`artifacts/releases/v${manifest.version}/screenshots`);
+const root = resolve("dist");
+const { version } = JSON.parse(await readFile(join(root, "manifest.json"), "utf8"));
+const output = resolve("artifacts/releases", `v${version}`, "screenshots");
 await mkdir(output, { recursive: true });
-const wallpaper = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1100"><defs><linearGradient id="sea" x2="1" y2="1"><stop stop-color="#3a799a"/><stop offset=".5" stop-color="#b5d9cc"/><stop offset="1" stop-color="#2e577c"/></linearGradient><pattern id="wave" width="170" height="96" patternUnits="userSpaceOnUse"><path d="M-40 32Q20 2 80 32T210 32M-45 68Q25 32 90 68T215 68" stroke="#eafff7" stroke-opacity=".6" stroke-width="3" fill="none"/></pattern></defs><path d="M0 0h1920v1100H0z" fill="url(#sea)"/><path d="M0 0h1920v1100H0z" fill="url(#wave)"/></svg>`;
-const errors = [];
-const metrics = [];
+const mime = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".json": "application/json" };
+const server = createServer(async (req, res) => {
+  const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+  const file = resolve(root, `.${pathname === "/" ? "/index.html" : pathname}`);
+  if (!file.startsWith(root + "\\")) { res.writeHead(403).end(); return; }
+  try { res.writeHead(200, { "Content-Type": mime[extname(file)] ?? "application/octet-stream" }).end(await readFile(file)); }
+  catch { res.writeHead(404).end(); }
+});
+await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+const baseURL = `http://127.0.0.1:${server.address().port}`;
+const wallpaperURL = "https://panel-glass.example/scene.svg";
+const wallpaper = '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#325d86"/><stop offset=".5" stop-color="#99afad"/><stop offset="1" stop-color="#9a6c80"/></linearGradient></defs><rect width="1600" height="1000" fill="url(#g)"/><circle cx="1180" cy="320" r="170" fill="#edd3a6"/><path d="M0 860L480 400L880 900L1400 540L1600 1000H0" fill="#334c66"/></svg>';
+const errors = [], reports = [];
+let screenshotCount = 0;
 
-async function prepare(page, url, extension = false) {
-  page.on("pageerror", error => errors.push(error.message));
-  await page.route("https://glass-check.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
-  await page.goto(url);
-  await expect(page.getByRole("button", { name: "打开设置" })).toBeVisible();
-  await page.evaluate(async ({ extension }) => {
-    const key = "site-hub:v1";
-    const raw = extension ? (await chrome.storage.local.get(key))[key] : localStorage.getItem(key);
-    const state = JSON.parse(raw);
-    state.wallpaper = { ...state.wallpaper, source: "url", url: "https://glass-check.example/sea.svg", overlay: 0,
-      glassTransparency: 86, glassBlur: 2, glassRefraction: false };
-    const originals = state.sites;
-    const sourceGroupId = originals[0]?.groupId;
-    state.displayModeByWorkspace = { ...state.displayModeByWorkspace, main: "grouped" };
-    state.sites = Array.from({ length: 48 }, (_, index) => ({ ...originals[index % originals.length],
-      id: `visual-${index}`, groupId: sourceGroupId, order: index, globalOrder: index, iconSource: "brand" }));
-    state.sites[0] = { ...state.sites[0], id: "visual-bilibili", name: "哔哩哔哩", url: "https://www.bilibili.com" };
-    state.sites[1] = { ...state.sites[1], id: "visual-xiaohongshu", name: "小红书", url: "https://www.xiaohongshu.com" };
-    if (extension) await chrome.storage.local.set({ [key]: JSON.stringify(state) });
-    else localStorage.setItem(key, JSON.stringify(state));
-  }, { extension });
-  await page.reload();
-  await expect(page.locator(".app-shell")).toHaveClass(/has-wallpaper/);
-  await page.locator('.wallpaper-layer img').evaluate(image => image.decode());
-  await page.evaluate(() => document.fonts.ready);
+async function readState(page, extension) {
+  return page.evaluate(async extension => JSON.parse(extension ? (await chrome.storage.local.get("site-hub:v1"))["site-hub:v1"] : localStorage.getItem("site-hub:v1")), extension);
 }
 
-async function capture(page, name) {
-  const geometry = await page.evaluate(() => {
-    const box = document.querySelector(".search-input").getBoundingClientRect();
-    return { width: innerWidth, overflow: document.documentElement.scrollWidth > innerWidth,
-      left: document.querySelector(".app-shell").getBoundingClientRect().left,
-      searchCenter: box.x + box.width / 2 };
-  });
-  geometry.material = await page.locator('.site-card').first().evaluate(readGlassMaterial, false);
-  assert.equal(geometry.overflow, false, name);
-  assert.equal(geometry.left, 0, name);
-  metrics.push({ name, ...geometry });
-  await page.screenshot({ path: join(output, `${name}.png`), animations: "disabled" });
-}
-
-async function settings(page) {
+async function openControls(page) {
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
-  await panel.getByRole("tab", { name: /壁纸/ }).click();
-  return panel;
+  await panel.getByRole("tab", { name: "壁纸", exact: true }).click();
+  const topbar = panel.locator("details").filter({ has: page.locator("summary").filter({ hasText: /^顶栏外观/ }) });
+  const sidebar = panel.locator("details").filter({ has: page.locator("summary").filter({ hasText: /^侧栏外观/ }) });
+  for (const section of [topbar, sidebar]) if (await section.getAttribute("open") === null) await section.locator("summary").click();
+  await expect(panel.getByRole("button", { name: /^(融入壁纸|跟随公共玻璃)$/, hidden: true })).toHaveCount(0);
+  await expect(panel.getByRole("checkbox", { name: /顶部清晰阅读|模糊壁纸/, hidden: true })).toHaveCount(0);
+  return { panel, topbar, sidebar };
 }
-
-const browser = await chromium.launch({ channel: "chrome", ignoreDefaultArgs: ["--hide-scrollbars"] });
-try {
-  for (const spec of [{ name: "desktop", width: 1920, height: 1080 }, { name: "mobile", width: 390, height: 844 }]) {
-    const context = await browser.newContext({ viewport: spec, colorScheme: "light" });
-    const page = await context.newPage();
-    await prepare(page, process.env.CAPTURE_BASE_URL ?? "http://127.0.0.1:4174");
-    await capture(page, `glass-production-${spec.name}-off`);
-    const card = page.locator(".site-card").first();
-    const off = await card.screenshot({ animations: "disabled" });
-    const panel = await settings(page);
-    await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-    await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
-    await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
-    await panel.getByRole("slider", { name: "折射强度" }).fill("32");
-    await panel.getByRole("button", { name: "保存设置" }).click();
-    await expect.poll(() => describeGlassMaterial(card)).toMatch(/refract\(/);
-    await page.mouse.move(0, 0);
-    await capture(page, `glass-production-${spec.name}-on`);
-    const on = await card.screenshot({ animations: "disabled" });
-    assert.ok(!off.equals(on), "Refraction must change the rendered card");
-    if (spec.name === "desktop") {
-      const cards = page.locator(".grouped-site-section").first().locator(".site-card[data-site-dnd-id]");
-      const target = cards.nth(0);
-      const source = cards.nth(1);
-      const sourceBox = await source.boundingBox();
-      const targetBox = await target.boundingBox();
-      assert.ok(sourceBox && targetBox, "Drag source and target cards must be visible");
-      await page.mouse.move(sourceBox.x + 8, sourceBox.y + sourceBox.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(sourceBox.x - 43, sourceBox.y + sourceBox.height / 2);
-      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 });
-      await expect(source).toHaveCSS("opacity", "0.26");
-      await expect(target).toHaveClass(/is-drop-target/);
-      await expect(target).toHaveCSS("opacity", "0.78");
-      await expect.poll(() => describeGlassMaterial(target)).toMatch(/blur\(2px\).*refract\(/);
-      const targetFillAlpha = await target.evaluate(el => {
-        const color = getComputedStyle(el).backgroundColor;
-        return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? 1);
-      });
-      assert.ok(targetFillAlpha > 0.75, `Target glass fill alpha should exceed 0.75, got ${targetFillAlpha}`);
-      metrics.push({ name: "site-drag-feedback", targetOpacity: 0.78, sourceOpacity: 0.26,
-        targetFillAlpha, targetBackdrop: await describeGlassMaterial(target) });
-      await page.screenshot({ path: join(output, "glass-production-xiaohongshu-over-bilibili.png"), animations: "disabled" });
-      await page.keyboard.press("Escape");
-      await page.mouse.up();
-    }
-    await page.emulateMedia({ colorScheme: "dark" });
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await expect(card).toHaveCSS("color", "rgb(232, 236, 243)");
-    await capture(page, `glass-production-${spec.name}-dark`);
-    await settings(page);
-    await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).scrollIntoViewIfNeeded();
-    await capture(page, `glass-production-${spec.name}-settings`);
-    await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
-    await panel.getByRole("button", { name: "玻璃底板", exact: true }).click();
-    await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
-    await panel.getByRole("button", { name: "保存设置" }).click();
-    await capture(page, `glass-production-${spec.name}-topbar`);
-    await page.getByRole("button", { name: "添加", exact: true }).click();
-    await capture(page, `glass-production-${spec.name}-menu`);
-    await context.close();
+async function capture(page, name, sections) {
+  for (const section of sections) {
+    const overflow = await section.evaluate(el => el.scrollWidth > el.clientWidth || [...el.querySelectorAll("input, button")].some(child => {
+      const outer = el.getBoundingClientRect(), box = child.getBoundingClientRect();
+      return box.left < outer.left || box.right > outer.right;
+    }));
+    assert.equal(overflow, false);
   }
-} finally { await browser.close(); }
-
-const extension = resolve("dist-extension");
-const profile = await mkdtemp(join(tmpdir(), "mysimple-glass-check-"));
-const context = await chromium.launchPersistentContext(profile, {
-  ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : { channel: "chromium" }),
-  headless: true, viewport: { width: 1440, height: 1000 },
-  ignoreDefaultArgs: ["--hide-scrollbars"],
-  args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
-});
-try {
-  const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
+  await sections.at(-1).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(output, `${name}.png`), animations: "disabled" });
+  screenshotCount++;
+}
+async function inspect(context, extension, theme, enabled) {
   const page = await context.newPage();
-  await prepare(page, `chrome-extension://${new URL(worker.url()).host}/index.html`, true);
-  const panel = await settings(page);
-  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
-  await panel.getByRole("checkbox", { name: /玻璃折射/ }).check();
+  const width = enabled ? 360 : 440;
+  const name = `glass-cleanup-${extension ? "extension" : "web"}-${theme}-${enabled ? "wallpaper" : "empty"}-${width}`;
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await context.route(wallpaperURL, route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto(extension || baseURL, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: "打开设置" })).toBeVisible();
+  const initial = await readState(page, Boolean(extension));
+  const state = { ...initial, appearance: { ...initial.appearance, theme }, wallpaper: { ...initial.wallpaper,
+    source: enabled ? "url" : "none", url: enabled ? wallpaperURL : undefined,
+    topbarStyle: "shared", topbarTransparency: 68, topbarBlur: 7, sidebarStyle: "shared", sidebarTransparency: 60, sidebarBlur: 12 } };
+  await page.evaluate(async ({ state, extension, width }) => {
+    localStorage.setItem("site-hub:settings-panel-width", String(width));
+    if (extension) await chrome.storage.local.set({ "site-hub:v1": JSON.stringify(state) });
+    else localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  }, { state, extension: Boolean(extension), width });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  if (enabled) await page.locator(".wallpaper-layer img").evaluate(image => image.decode());
+  await page.evaluate(() => document.fonts.ready);
+  let { panel, topbar, sidebar } = await openControls(page);
+  await expect(panel).toHaveCSS("width", `${width}px`);
+  for (const section of [topbar, sidebar]) {
+    await expect(section.getByRole("button", { name: "跟随公共", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(section.getByRole("group").getByRole("button")).toHaveCount(2);
+    await expect(section.getByRole("slider")).toHaveCount(0);
+  }
+  await expect(panel.getByRole("checkbox", { name: /玻璃折射/, hidden: true })).toHaveCount(0);
+  await expect(page.locator("filter, feDisplacementMap")).toHaveCount(0);
+  await capture(page, `${name}-shared`, [topbar, sidebar]);
+  const original = await readState(page, Boolean(extension));
+  await topbar.getByRole("button", { name: "独立玻璃底板", exact: true }).click();
+  await topbar.getByRole("slider", { name: "顶栏透明度" }).fill("100");
+  await topbar.getByRole("slider", { name: "模糊强度" }).fill("0");
+  await sidebar.getByRole("button", { name: "独立玻璃底板", exact: true }).click();
+  await sidebar.getByRole("slider", { name: "侧栏透明度" }).fill("100");
+  await sidebar.getByRole("slider", { name: "模糊强度" }).fill("0");
+  if (enabled) {
+    await expect(panel).toHaveCSS("backdrop-filter", "none");
+    await expect(panel).toHaveCSS("background-image", "none");
+    await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("none");
+    const paint = await page.locator(".topbar").evaluate(el => ({ fill: getComputedStyle(el, "::before").backgroundColor, border: getComputedStyle(el, "::before").borderBottomColor, reading: getComputedStyle(el, "::after").content }));
+    assert.match(paint.fill, /(?:\/ 0\)|rgba\(0, 0, 0, 0\))/);
+    assert.match(paint.border, /(?:\/ 0\)|rgba\(0, 0, 0, 0\))/);
+    assert.equal(paint.reading, "none");
+  }
+  await topbar.getByRole("slider", { name: "顶栏透明度" }).fill("62");
+  await topbar.getByRole("slider", { name: "模糊强度" }).fill("9");
+  await sidebar.getByRole("slider", { name: "侧栏透明度" }).fill("80");
+  await sidebar.getByRole("slider", { name: "模糊强度" }).fill("8");
+  if (enabled) {
+    await expect(panel).toHaveCSS("backdrop-filter", "blur(8px) saturate(1.3)");
+    await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(9px) saturate(1.3)");
+  }
+  // Shared mode follows public edits immediately and retains the independent knobs.
+  for (const section of [topbar, sidebar]) await section.getByRole("button", { name: "跟随公共", exact: true }).click();
+  for (const title of ["玻璃外观", "玻璃参数微调"]) {
+    const section = panel.locator("details").filter({ has: page.locator("summary").filter({ hasText: new RegExp(`^${title}`) }) }).last();
+    if (await section.getAttribute("open") === null) await section.locator(":scope > summary").click();
+  }
+  await panel.getByRole("slider", { name: "面板透明度" }).fill("74");
+  await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("5");
+  if (enabled) {
+    await expect(panel).toHaveCSS("backdrop-filter", "blur(5px) saturate(1.3)");
+    await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(5px) saturate(1.3)");
+    await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toContain("0.26");
+  }
+  for (const [section, label, alpha, blur] of [[topbar, "顶栏", "62", "9"], [sidebar, "侧栏", "80", "8"]]) {
+    await section.getByRole("button", { name: "独立玻璃底板", exact: true }).click();
+    await expect(section.getByRole("slider", { name: `${label}透明度` })).toHaveValue(alpha);
+    await expect(section.getByRole("slider", { name: "模糊强度" })).toHaveValue(blur);
+  }
+  assert.deepEqual(await readState(page, Boolean(extension)), original);
+  await capture(page, `${name}-independent`, [topbar, sidebar]);
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  ({ panel, topbar, sidebar } = await openControls(page));
+  for (const section of [topbar, sidebar]) {
+    await expect(section.getByRole("button", { name: "跟随公共", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await section.getByRole("button", { name: "独立玻璃底板", exact: true }).click();
+  }
+  await expect(topbar.getByRole("slider", { name: "顶栏透明度" })).toHaveValue("68");
+  await expect(topbar.getByRole("slider", { name: "模糊强度" })).toHaveValue("7");
+  await topbar.getByRole("slider", { name: "顶栏透明度" }).fill("37");
+  await sidebar.getByRole("slider", { name: "模糊强度" }).fill("0");
+  for (const section of [topbar, sidebar]) await section.getByRole("button", { name: "跟随公共", exact: true }).click();
   await panel.getByRole("button", { name: "保存设置" }).click();
-  await page.reload();
-  await expect.poll(() => describeGlassMaterial(page.locator(".site-card").first())).toMatch(/refract\(/);
-  await capture(page, "glass-production-native-extension");
-  assert.equal(await page.evaluate(() => chrome.runtime.getManifest().version), manifest.version);
-} finally { await context.close(); }
-assert.deepEqual(errors, []);
-await writeFile(join(output, "glass-production-metrics.json"), JSON.stringify({ metrics, errors }, null, 2));
-console.log(JSON.stringify({ screenshots: metrics.length, errors }, null, 2));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const saved = await readState(page, Boolean(extension));
+  assert.deepEqual(saved.wallpaper, { ...original.wallpaper, topbarTransparency: 37, sidebarBlur: 0 });
+  for (const key of ["topbarOpacity", "topbarReadability", "topbarBlurEnabled", "sidebarBlurEnabled", "glassRefraction", "glassRefractionStrength"]) assert.equal(key in saved.wallpaper, false);
+  ({ panel, topbar, sidebar } = await openControls(page));
+  for (const section of [topbar, sidebar]) await expect(section.getByRole("button", { name: "跟随公共", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await topbar.getByRole("button", { name: "独立玻璃底板", exact: true }).click();
+  await expect(topbar.getByRole("slider", { name: "顶栏透明度" })).toHaveValue("37");
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  reports.push({ name, width, previewCancelSave: true, zeroBlur: true, overflow: false });
+  await page.close();
+}
+try {
+  const browser = await chromium.launch({ channel: "chrome", headless: true, ignoreDefaultArgs: ["--hide-scrollbars"] });
+  try {
+    const context = await browser.newContext();
+    for (const theme of ["light", "dark"]) for (const enabled of [true, false]) await inspect(context, false, theme, enabled);
+  } finally { await browser.close(); }
+  const extensionDirectory = resolve("dist-extension");
+  const context = await chromium.launchPersistentContext(await mkdtemp(join(tmpdir(), "mysimple-glass-cleanup-")), {
+    channel: "chromium", headless: true, ignoreDefaultArgs: ["--hide-scrollbars"],
+    args: [`--disable-extensions-except=${extensionDirectory}`, `--load-extension=${extensionDirectory}`],
+  });
+  try {
+    const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
+    const extensionURL = `chrome-extension://${new URL(worker.url()).host}/index.html`;
+    for (const theme of ["light", "dark"]) for (const enabled of [true, false]) await inspect(context, extensionURL, theme, enabled);
+  } finally { await context.close(); }
+  assert.deepEqual(errors, []);
+  await writeFile(join(output, "glass-cleanup-report.json"), JSON.stringify({ version, screenshotCount, errors, reports }, null, 2));
+  console.log(JSON.stringify({ version, screenshotCount, errors, scenarios: reports.length }));
+} finally { server.close(); }

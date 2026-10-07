@@ -23,11 +23,11 @@ async function inspect(context, url, extension) {
     await page.screenshot({ path: join(output, file), animations: 'allow' });
     report.captures.push(file);
   };
-  for (const theme of ['light', 'dark']) for (const material of ['plain', 'glass', 'refraction']) {
+  for (const theme of ['light', 'dark']) for (const material of ['plain', 'glass', 'clear']) {
     const state = structuredClone(original);
     state.displayModeByWorkspace.main = 'grouped';
     state.appearance = { ...state.appearance, theme, textColorMode: 'theme', groupNavigationGap: 128 };
-    state.wallpaper = { ...state.wallpaper, source: material === 'plain' ? 'none' : 'url', url: 'https://interaction.example/bg.svg', overlay: 0, glassHighlight: 80, glassBlur: material === 'refraction' ? 0 : 8, glassSaturation: 100, glassRefraction: material === 'refraction' };
+    state.wallpaper = { ...state.wallpaper, source: material === 'plain' ? 'none' : 'url', url: 'https://interaction.example/bg.svg', overlay: 0, glassHighlight: 80, glassBlur: material === 'clear' ? 0 : 8, glassSaturation: 100 };
     const source = state.sites.find(site => site.groupId === 'search');
     state.sites = [...Array.from({ length: 13 }, (_, i) => ({ ...source, id: `sample-${i}`, name: `示例网站 ${i + 1}`, url: `https://example.com/${i}`, order: i, globalOrder: i })), ...state.sites.filter(site => site.groupId !== 'search').map((site, i) => ({ ...site, globalOrder: i + 13 }))];
     await page.evaluate(async ({ state, extension }) => {

@@ -13,9 +13,9 @@ async function prepareMaterial(page: Page, scrollableCollection = false) {
     state.sites = state.sites.filter((site: { id: string }) => ['google', 'github'].includes(site.id))
       .map((site: Record<string, unknown>) => ({ ...site, iconSource: 'brand' }));
     state.wallpaper = { ...state.wallpaper, source: 'url', url, blur: 6, overlay: 0,
-      glassBlur: 24, glassSaturation: 100, glassRefraction: true, glassRefractionStrength: 32,
+      glassBlur: 24, glassSaturation: 100,
       glassTransparency: 90, glassControlTransparency: 90, glassPanelTransparency: 90, glassPopoverTransparency: 90,
-      topbarOpacity: 68, topbarBlur: 4,
+      topbarStyle: "glass", topbarTransparency: 32, topbarBlur: 4,
       sidebarStyle: 'glass', sidebarBlur: 8 };
     if (scrollableCollection) {
       const template = state.sites.find((site: { id: string }) => site.id === 'google');
@@ -32,14 +32,13 @@ async function prepareMaterial(page: Page, scrollableCollection = false) {
         groupId: group.id, order: index, globalOrder: groupIndex * 40 + index,
       })));
       state.displayModeByWorkspace.main = 'grouped';
-      state.wallpaper.glassRefraction = false;
     }
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   }, { url: wallpaperUrl, scrollableCollection });
   await page.reload();
   await page.locator('.wallpaper-layer img').evaluate(image => (image as HTMLImageElement).decode());
   await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, false))
-    .toMatchObject({ sampling: 'backdrop', blur: 24, refraction: !scrollableCollection });
+    .toMatchObject({ sampling: 'backdrop', blur: 24 });
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -130,7 +129,7 @@ test('reduced transparency disables all visible collection glass and restores it
   await expect.poll(() => badge.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0 });
   await expect.poll(() => badge.locator('..').evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 24 });
   await expect.poll(() => page.getByTestId('site-card-google').evaluate(readGlassMaterial, false))
-    .toMatchObject({ sampling: 'backdrop', blur: 24, refraction: true });
+    .toMatchObject({ sampling: 'backdrop', blur: 24 });
   await session.detach();
 });
 
@@ -218,10 +217,10 @@ test('native card blur keeps the wallpaper and navigation anchored through large
     expect(visibleCards.length, 'Each scroll position must expose real collection cards').toBeGreaterThan(0);
     for (const id of visibleCards) {
       expect(await page.getByTestId(id).evaluate(readGlassMaterial, false), `${id} at scroll ${y}px`)
-        .toMatchObject({ sampling: 'backdrop', blur: 24, saturation: 1, refraction: false });
+        .toMatchObject({ sampling: 'backdrop', blur: 24, saturation: 1 });
     }
     expect(await page.locator('.topbar').evaluate(readGlassMaterial, true))
-      .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1.4 });
+      .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1 });
   }
 });
 
@@ -229,7 +228,7 @@ test('native glass preserves topbar pseudo surfaces and the settings portal', as
   test.skip(info.project.name !== 'chromium', 'Desktop material portal contract');
   await prepareMaterial(page);
   await expect.poll(() => page.locator('.topbar').evaluate(readGlassMaterial, true))
-    .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1.4 });
+    .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1 });
   await page.getByRole('button', { name: '打开设置', exact: true }).click();
   const panel = page.getByRole('dialog', { name: '设置', exact: true });
   expect(await panel.evaluate(element => element.closest('.app-shell'))).toBeNull();
@@ -240,6 +239,6 @@ test('native glass preserves topbar pseudo surfaces and the settings portal', as
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }] });
   await expect.poll(() => panel.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 8 });
   await expect.poll(() => page.locator('.topbar').evaluate(readGlassMaterial, true))
-    .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1.4 });
+    .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1 });
   await session.detach();
 });

@@ -1,6 +1,5 @@
 import { describeGlassMaterial } from "./read-glass-material.mjs";
-// Reproducible material comparison: identical scene/browser, old preset filters
-// versus current presets. Frame intervals are local observations, not an FPS SLA.
+// Current preset checks. Frame intervals are local observations, not an FPS SLA.
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile, mkdtemp } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -14,7 +13,7 @@ const inventory = JSON.parse(await readFile("artifacts/working/wallpaper-invento
 const wallpaper = inventory[0];
 const report = { version, browser: "", scene: { screenshotViewport: { width: 1440, height: 1000 }, benchmarkViewport: { width: 2560, height: 1440 }, cards: 117, wallpaper: { width: wallpaper.width, height: wallpaper.height } }, frames: [], colors: [], captures: [], errors: [] };
 const presets = [
-  ["液态清透", 145, 32], ["水晶棱镜", 170, 40], ["柔光薄雾", 135, 18], ["轻透无影", 110, 12],
+  "液态清透", "水晶棱镜", "柔光薄雾", "轻透无影",
 ];
 const visualOnly = process.argv.includes("--visual-only");
 async function run(context, url, extension) {
@@ -46,7 +45,7 @@ async function run(context, url, extension) {
   state.appearance = { ...state.appearance, theme: "dark", cardWidth: 160, cardHeight: 132, textColorMode: "theme", textColorHierarchy: "unified", iconColorMode: "text" };
   state.wallpaper = { ...state.wallpaper, source: "url", url: "https://glass-check.example/wallpaper", blur: 0, overlay: 0 };
   await seed(state);
-  for (const [name, saturation, strength] of presets) {
+  for (const name of presets) {
     await page.getByRole("button", { name: "打开设置" }).click();
     await page.getByRole("tab", { name: "壁纸", exact: true }).click();
     const disclosure = page.locator("details").filter({ has: page.locator("summary > span", { hasText: /^玻璃外观$/ }) });
@@ -61,38 +60,31 @@ async function run(context, url, extension) {
     }
     await page.getByRole("button", { name: "保存设置" }).click();
     const current = await read();
-    // Alternate order between presets to reduce warm-up bias.
-    const modes = visualOnly ? ["new"] : name === "水晶棱镜" || name === "轻透无影" ? ["new", "old"] : ["old", "new"];
-    for (const mode of modes) {
-      const sample = structuredClone(current);
-      if (mode === "old") Object.assign(sample.wallpaper, { glassRefraction: true, glassSaturation: saturation, glassRefractionStrength: strength });
-      if (!visualOnly) await page.setViewportSize({ width: 2560, height: 1440 });
-      await seed(sample);
-      await expect(page.locator(".site-card")).toHaveCount(117);
-      const filter = await describeGlassMaterial(page.locator(".site-card").first());
-      assert.equal(filter.includes("refract("), mode === "old");
-      if (mode === "new" && name === "水晶棱镜") assert.equal(filter, "none");
-      for (let repeat = 0; repeat < (visualOnly ? 0 : 2); repeat++) {
-        const intervals = await page.evaluate(() => new Promise(resolve => {
-          const times = []; let started = 0, previous = 0;
-          const max = Math.max(0, document.documentElement.scrollHeight - innerHeight);
-          const frame = time => {
-            if (!started) started = time;
-            if (previous) times.push(time - previous);
-            previous = time;
-            const elapsed = time - started;
-            window.scrollTo(0, max * (1 - Math.cos(elapsed / 2600 * Math.PI * 2)) / 2);
-            if (elapsed < 2600) requestAnimationFrame(frame);
-            else { window.scrollTo(0, 0); resolve(times); }
-          };
-          requestAnimationFrame(frame);
-        }));
-        const sorted = [...intervals].sort((a, b) => a - b);
-        report.frames.push({ prefix, name, mode, repeat, filter, count: intervals.length, averageMs: intervals.reduce((a, b) => a + b, 0) / intervals.length, p95Ms: sorted[Math.floor(sorted.length * .95)], over25ms: intervals.filter(ms => ms > 25).length });
-      }
-      await page.setViewportSize({ width: 1440, height: 1000 });
-      if (mode === "new") await capture(`material-${presets.findIndex(preset => preset[0] === name)}`);
+    if (!visualOnly) await page.setViewportSize({ width: 2560, height: 1440 });
+    await seed(current);
+    await expect(page.locator(".site-card")).toHaveCount(117);
+    const filter = await describeGlassMaterial(page.locator(".site-card").first());
+    if (name === "水晶棱镜") assert.equal(filter, "none");
+    for (let repeat = 0; repeat < (visualOnly ? 0 : 2); repeat++) {
+      const intervals = await page.evaluate(() => new Promise(resolve => {
+        const times = []; let started = 0, previous = 0;
+        const max = Math.max(0, document.documentElement.scrollHeight - innerHeight);
+        const frame = time => {
+          if (!started) started = time;
+          if (previous) times.push(time - previous);
+          previous = time;
+          const elapsed = time - started;
+          window.scrollTo(0, max * (1 - Math.cos(elapsed / 2600 * Math.PI * 2)) / 2);
+          if (elapsed < 2600) requestAnimationFrame(frame);
+          else { window.scrollTo(0, 0); resolve(times); }
+        };
+        requestAnimationFrame(frame);
+      }));
+      const sorted = [...intervals].sort((a, b) => a - b);
+      report.frames.push({ prefix, name, repeat, filter, count: intervals.length, averageMs: intervals.reduce((a, b) => a + b, 0) / intervals.length, p95Ms: sorted[Math.floor(sorted.length * .95)], over25ms: intervals.filter(ms => ms > 25).length });
     }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await capture(`material-${presets.indexOf(name)}`);
     await seed(current);
   }
   for (const theme of ["light", "dark"]) {

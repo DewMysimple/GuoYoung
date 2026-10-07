@@ -24,7 +24,7 @@ test('editing tools, display menus and left-side drags leave distant glass pixel
     state.displayModeByWorkspace.main = 'grouped';
     state.sortModeByWorkspace.main = 'heat';
     state.appearance = { ...state.appearance, theme: 'dark', cardWidth: 190, cardHeight: 160, contentWidth: 1760 };
-    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://paint.example/wallpaper.svg', overlay: 0, glassBlur: 12, glassSaturation: 130, glassRefraction: false };
+    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://paint.example/wallpaper.svg', overlay: 0, glassBlur: 12, glassSaturation: 130 };
     const seed = state.sites.find((site: { groupId: string }) => site.groupId === 'search');
     state.sites = Array.from({ length: 117 }, (_, i) => ({ ...seed, id: `paint-${i}`, name: `Sample ${i}`, url: `https://example.com/${i}`, iconSource: 'custom',
       customIconUrl: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#307abb"/></svg>'),

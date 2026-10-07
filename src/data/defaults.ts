@@ -188,8 +188,9 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
   sidebarStyle: "shared",
   sidebarTransparency: 60,
   sidebarBlur: 12,
+  topbarStyle: "shared",
+  topbarTransparency: 100,
   topbarBlur: 0,
-  topbarOpacity: 0,
   glassTransparency: 78,
   glassControlTransparency: 82,
   glassPanelTransparency: 60,
@@ -198,8 +199,6 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
   glassBlur: 12,
   glassSaturation: 130,
   glassHighlight: 45,
-  glassRefraction: false,
-  glassRefractionStrength: 24,
 };
 
 export const DEFAULT_GROUPS: SiteGroup[] = [
@@ -322,7 +321,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 23,
+    version: 24,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

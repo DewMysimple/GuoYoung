@@ -25,7 +25,7 @@ test("paints saved local wallpaper before the app and covers GitHub entry surfac
       };
     });
     const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
-    state.wallpaper = { ...state.wallpaper, source: "local", localAssetId: "startup-local", overlay: 0, glassTransparency: 88, glassBlur: 8, glassRefraction: true };
+    state.wallpaper = { ...state.wallpaper, source: "local", localAssetId: "startup-local", overlay: 0, glassTransparency: 88, glassBlur: 8 };
     localStorage.setItem("site-hub:v1", JSON.stringify(state));
   });
   await page.reload();
@@ -66,7 +66,7 @@ test("paints saved local wallpaper before the app and covers GitHub entry surfac
   await page.getByRole("button", { name: "打开 GitHub 收藏", exact: true }).click();
   const entry = page.locator(".github-home-entry");
   await expect(entry).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  await expectGlassMaterial(entry, { refraction: true }, true);
+  await expectGlassMaterial(entry, { blur: 8, saturation: 1.3 }, true);
   await page.getByRole("button", { name: "管理 GitHub 官方主页" }).click();
   await expectGlassMaterial(page.getByRole("menu"), { blur: 8 });
   await page.screenshot({ path: screenshotPath(`github-glass-startup-${info.project.name}.png`) });

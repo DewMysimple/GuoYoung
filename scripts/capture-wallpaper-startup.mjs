@@ -34,7 +34,7 @@ async function seedWallpaper(page, extension) {
     });
     const key = "site-hub:v1";
     const state = JSON.parse(extension ? (await chrome.storage.local.get(key))[key] : localStorage.getItem(key));
-    state.wallpaper = { ...state.wallpaper, source: "local", localAssetId: "startup-local", overlay: 0, glassTransparency: 88, glassBlur: 8, glassRefraction: true };
+    state.wallpaper = { ...state.wallpaper, source: "local", localAssetId: "startup-local", overlay: 0, glassTransparency: 88, glassBlur: 8 };
     if (extension) await chrome.storage.local.set({ [key]: JSON.stringify(state) });
     else localStorage.setItem(key, JSON.stringify(state));
   }, extension);
@@ -88,7 +88,7 @@ async function verify(page, url, name, extension = false) {
   assert.ok(frames.every(frame => !frame.collection || frame.searchOpacity === "1"), "The search field must paint at its final opacity");
   await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
   await page.getByRole("button", { name: "管理 GitHub 官方主页" }).click();
-  await expect.poll(() => describeGlassMaterial(page.locator(".github-home-entry"), true)).toContain("refract(");
+  await expect.poll(() => describeGlassMaterial(page.locator(".github-home-entry"), true)).toContain("blur(8px)");
   await page.screenshot({ path: join(output, `${name}-github-light.png`), animations: "disabled" });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

@@ -100,7 +100,7 @@ test('dense wallpaper cards scroll without per-card forced style recalculation',
     const template = state.sites[0];
     state.sites = Array.from({ length: 117 }, (_, index) => ({ ...template, id: `material-perf-${index}`, name: `Material ${index}`, url: `https://example.com/${index}`, iconSource: 'brand', order: index, globalOrder: index }));
     state.appearance = { ...state.appearance, cardWidth: 140, cardHeight: 124 };
-    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/performance.svg', blur: 0, overlay: 0, glassBlur: 24, glassTransparency: 90, glassSaturation: 100, glassRefraction: false };
+    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/performance.svg', blur: 0, overlay: 0, glassBlur: 24, glassTransparency: 90, glassSaturation: 100 };
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   });
   await page.reload();
@@ -136,7 +136,7 @@ async function pixels(page: Page, region: { x: number; y: number; width: number;
   }, { image: screenshot.toString('base64'), region });
 }
 
-test('wallpaper materials visibly blur the source and refract its rim without moving the center', async ({ page }, info) => {
+test('wallpaper materials visibly blur fine source stripes', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium', 'Desktop material optics');
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route('https://material.example/stripes.svg', route => route.fulfill({ contentType: 'image/svg+xml', body:
@@ -144,7 +144,7 @@ test('wallpaper materials visibly blur the source and refract its rim without mo
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('site-hub:v1')!);
     state.appearance = { ...state.appearance, theme: 'dark', cardWidth: 190, cardHeight: 160 };
-    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/stripes.svg', blur: 0, overlay: 0, glassBlur: 12, glassSaturation: 100, glassRefraction: false };
+    state.wallpaper = { ...state.wallpaper, source: 'url', url: 'https://material.example/stripes.svg', blur: 0, overlay: 0, glassBlur: 12, glassSaturation: 100 };
     localStorage.setItem('site-hub:v1', JSON.stringify(state));
   });
   const prepare = async () => {
@@ -172,25 +172,4 @@ test('wallpaper materials visibly blur the source and refract its rim without mo
   const disable = await page.addStyleTag({ content: '.site-card { backdrop-filter:none!important }' });
   expect(variation(await pixels(page, center)).deviation, 'The unfiltered wallpaper really contains contrasting stripes').toBeGreaterThan(40);
   await disable.evaluate(element => element.remove());
-
-  await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('site-hub:v1')!);
-    state.wallpaper = { ...state.wallpaper, glassBlur: 2, glassRefraction: true, glassRefractionStrength: 32 };
-    localStorage.setItem('site-hub:v1', JSON.stringify(state));
-  });
-  await prepare();
-  const edge = { x: Math.round(box.x + 3), y: Math.round(box.y + 40), width: 14, height: 70 };
-  const refractedCenter = await pixels(page, center), refractedEdge = await pixels(page, edge);
-  await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('site-hub:v1')!);
-    // Keep refraction's sheen/border styling unchanged; isolate displacement.
-    state.wallpaper.glassRefractionStrength = 0;
-    localStorage.setItem('site-hub:v1', JSON.stringify(state));
-  });
-  await prepare();
-  const difference = (a: number[], b: number[]) => a.reduce((sum, value, index) => sum + (index % 4 === 3 ? 0 : Math.abs(value - b[index])), 0) / (a.length * .75);
-  const centerChange = difference(refractedCenter, await pixels(page, center));
-  const edgeChange = difference(refractedEdge, await pixels(page, edge));
-  expect(centerChange, 'Refraction keeps the center optically anchored').toBeLessThan(3);
-  expect(edgeChange, 'Refraction visibly bends the wallpaper near the rim').toBeGreaterThan(centerChange + 3);
 });

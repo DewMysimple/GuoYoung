@@ -45,7 +45,7 @@ try {
     const template = state.sites[0];
     const groups = state.groups.filter(g => !g.workspace || g.workspace === 'main');
     state.sites = Array.from({ length: 117 }, (_, i) => ({ ...template, id: `perf-${i}`, name: `收藏 ${i + 1}`, url: `https://figma.com/perf/${i}`, groupId: groups[i % groups.length].id, iconSource: 'brand', order: i, globalOrder: i }));
-    state.wallpaper = { ...state.wallpaper, source: 'local', localAssetId: 'perf-wallpaper', overlay: 0, glassTransparency: 88, glassBlur: 8, glassRefraction: true };
+    state.wallpaper = { ...state.wallpaper, source: 'local', localAssetId: 'perf-wallpaper', overlay: 0, glassTransparency: 88, glassBlur: 8 };
     if (extension) await chrome.storage.local.set({ 'site-hub:v1': JSON.stringify(state) });
     else localStorage.setItem('site-hub:v1', JSON.stringify(state));
   }, extension);
@@ -74,7 +74,7 @@ try {
         const imageStyle = image && getComputedStyle(image);
         const wallpaperReady = !!image?.complete && image.naturalWidth > 0 && imageStyle.display !== 'none'
           && imageStyle.visibility === 'visible' && Number(imageStyle.opacity) > 0;
-        frames.push({ t: performance.now(), cards: document.querySelectorAll('.site-card').length, card: style(card), search: style(search), tab: style(tab), wide: style(wide), wideMap: !!wide && window.readGlassMaterial(wide, true)?.refraction === true, preview: !!document.querySelector('#wallpaper-startup'), imageReady: !!image?.complete && image.naturalWidth > 0, wallpaperReady, wallpaperFilter: imageStyle?.filter });
+        frames.push({ t: performance.now(), cards: document.querySelectorAll('.site-card').length, card: style(card), search: style(search), tab: style(tab), wide: style(wide), wideReady: !!wide && window.readGlassMaterial(wide, true)?.blur === 8, preview: !!document.querySelector('#wallpaper-startup'), imageReady: !!image?.complete && image.naturalWidth > 0, wallpaperReady, wallpaperFilter: imageStyle?.filter });
         if (performance.now() - start < duration) requestAnimationFrame(sample); else resolve(frames);
       }; requestAnimationFrame(sample);
     });
@@ -135,7 +135,7 @@ try {
         assert.equal(frame.imageReady, true);
         assert.equal(frame.wallpaperReady, true);
         if (frame.card) assert.equal(frame.card.border, 'rgba(255, 255, 255, 0.45)');
-        if (frame.wide) assert.equal(frame.wideMap, true, 'GitHub refraction is ready on entry');
+        if (frame.wide) assert.equal(frame.wideReady, true, 'GitHub native glass is ready on entry');
       }
     }
     assert.deepEqual(errors, []);

@@ -1,4 +1,4 @@
-import { describeGlassMaterial, withoutGlassRefraction } from "./read-glass-material.mjs";
+import { describeGlassMaterial } from "./read-glass-material.mjs";
 // Desktop production material inspection with synthetic wallpaper and collections.
 // Uses the same scenarios for a web build and an isolated native MV3 extension.
 import assert from "node:assert/strict";
@@ -153,33 +153,7 @@ async function inspectPresets(page, mode) {
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(output, `liquid-${mode}-presets.png`) });
-  await openSection(panel, '玻璃参数微调');
-  await panel.getByRole('checkbox', { name: '玻璃折射', exact: true }).check();
   await panel.getByRole("button", { name: "保存设置" }).click();
-  await page.waitForTimeout(300);
-  const card = page.locator(".site-card").nth(3);
-  const refracted = await card.screenshot({ path: join(output, `liquid-${mode}-refraction-on.png`) });
-  const ordinary = await withoutGlassRefraction(page, () => card.screenshot({ path: join(output, `liquid-${mode}-refraction-off.png`) }));
-  const optical = await page.evaluate(async ({ on, off }) => {
-    async function pixels(value) {
-      const image = new Image(); image.src = `data:image/png;base64,${value}`; await image.decode();
-      const canvas = document.createElement("canvas"); canvas.width = image.width; canvas.height = image.height;
-      const context = canvas.getContext("2d"); context.drawImage(image, 0, 0);
-      return { data: context.getImageData(0, 0, image.width, image.height).data, width: image.width, height: image.height };
-    }
-    const a = await pixels(on), b = await pixels(off);
-    let rimChanged = 0, centerChanged = 0;
-    for (let y = 0; y < a.height; y++) for (let x = 0; x < a.width; x++) {
-      const i = (y * a.width + x) * 4;
-      const delta = Math.max(...[0, 1, 2].map(c => Math.abs(a.data[i + c] - b.data[i + c])));
-      if (delta <= 8) continue;
-      if (Math.min(x, y, a.width - 1 - x, a.height - 1 - y) < 20) rimChanged++;
-      else centerChanged++;
-    }
-    return { rimChanged, centerChanged };
-  }, { on: refracted.toString("base64"), off: ordinary.toString("base64") });
-  assert.ok(optical.rimChanged > 50, "The rim must refract actual wallpaper pixels");
-  assert.equal(optical.centerChanged, 0, "The lens center and text must stay stationary");
   await page.getByRole("button", { name: "打开历史记录" }).click();
   const cdp = await page.context().newCDPSession(page);
   const frames = [];
