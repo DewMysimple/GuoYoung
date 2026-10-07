@@ -69,12 +69,15 @@ describe("collection selection transitions", () => {
     expect(reduce(state, { type: "enter-group", id: "second" })).toBe(state);
   });
 
-  it("preserves selected drag sources and replaces them when an unselected site is dragged", () => {
-    const state = toggle(toggle(EMPTY_SELECTION, "a"), "c");
-    expect(reduce(state, { type: "site-drag", id: "a" })).toBe(state);
-    expect(ids(reduce(state, { type: "site-drag", id: "b" }))).toEqual(["b"]);
-    const armed = reduce(EMPTY_SELECTION, { type: "toggle-sites-mode" });
-    expect(reduce(armed, { type: "site-drag", id: "a" })).toEqual(EMPTY_SELECTION);
+  it("adds only swept IDs once and preserves existing selections and the last touched anchor", () => {
+    const state = toggle(EMPTY_SELECTION, "b");
+    const next = reduce(state, { type: "select-sites", ids: ["a", "d", "a"] });
+    expect(ids(next)).toEqual(["b", "a", "d"]);
+    expect(next).toMatchObject({ mode: "sites", anchorId: "a" });
+    expect(ids(state)).toEqual(["b"]);
+    expect(reduce(EMPTY_SELECTION, { type: "select-sites", ids: ["a"] })).toBe(EMPTY_SELECTION);
+    const groups = toggle(EMPTY_SELECTION, "first", "groups");
+    expect(reduce(groups, { type: "select-sites", ids: ["a"] })).toBe(groups);
   });
 
   it("keeps a selected group block and clears it when dragging an unselected row", () => {

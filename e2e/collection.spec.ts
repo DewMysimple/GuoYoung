@@ -234,7 +234,7 @@ test("selects the inclusive site range with the native Shift gesture", async ({
       "true",
     );
   }
-  await expect(page.getByRole("button", { name: "完成 5" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "取消", exact: true })).toBeVisible();
   await page.screenshot({
     path: screenshotPath(`multi-select-shift-range-${testInfo.project.name}.png`),
     fullPage: true,

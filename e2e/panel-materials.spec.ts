@@ -23,9 +23,9 @@ test("topbar and sidebar share aligned controls, follow public glass and retain 
     await expect(section.getByRole("group").getByRole("button")).toHaveText(["跟随公共", "独立玻璃底板"]);
     await expect(section.getByRole("slider")).toHaveCount(0);
   }
-  for (const title of ["玻璃外观", "玻璃参数微调"]) await panel.locator("summary").filter({ hasText: new RegExp(`^${title}`) }).click();
   await expect(panel.getByRole("checkbox", { name: /玻璃折射/, hidden: true })).toHaveCount(0);
   await expect(panel.getByRole("slider", { name: "折射强度", hidden: true })).toHaveCount(0);
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
   await panel.getByRole("slider", { name: "面板透明度" }).fill("73");
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("5");
   await panel.getByRole("slider", { name: "色彩饱和度" }).fill("160");

@@ -3,9 +3,8 @@ import { closestCorners, pointerWithin, rectIntersection, type CollisionDetectio
 import type { SiteItem, SiteGroup } from "../types";
 import { readDropGroupId } from "../lib/collection-drag-ids";
 import { captureStableDropGeometry as measureDropGeometry, pointInDropRect, distanceToDropRect, rectOverlapArea, readOverlappingGroupTab, type StableDropGeometry } from "../lib/collection-drag-geometry";
-import { moveSiteToGroupEnd, moveSitesToGroupEnd, reorderSites, reorderSitesGlobally } from "../lib/site-utils";
+import { moveSiteToGroupEnd, reorderSites, reorderSitesGlobally } from "../lib/site-utils";
 import { getGroupWorkspace, isGithubHomeUrl } from "../lib/github-workspace";
-import { useCollectionSelection } from "./use-collection-selection";
 import { useTabEdgeScroll } from "./use-tab-edge-scroll";
 import { useDragWindowEvents } from "./use-drag-window-events";
 import { useLatestEvent } from "./use-latest-event";
@@ -25,7 +24,6 @@ interface Options {
   isGroupedView: boolean;
   canReorderSites: boolean;
   dragDisabled: boolean;
-  selection: ReturnType<typeof useCollectionSelection>;
   setActiveGroupId: (id: string) => void;
   setDragSitesPreview: (sites: SiteItem[] | null) => void;
   commitSites: (sites: SiteItem[]) => void;
@@ -35,13 +33,12 @@ interface Options {
 
 /** Owns one website drag transaction; the snapshot sent upward is display-only. */
 export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupIds, activeGroupId,
-  isGroupedView, canReorderSites, dragDisabled, selection, setActiveGroupId, setDragSitesPreview,
+  isGroupedView, canReorderSites, dragDisabled, setActiveGroupId, setDragSitesPreview,
   commitSites, onStart, armSiteClickSuppression }: Options) {
   const [pendingDragId, setPendingDragId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [overDragId, setOverDragId] = useState<string | null>(null);
   const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
-  const [batchDragIds, setBatchDragIds] = useState<string[]>([]);
   const dragSitesPreviewRef = useRef<SiteItem[] | null>(null);
   const dragBaseSitesRef = useRef<SiteItem[] | null>(null);
   const sourceStateRef = useRef<{ sites: SiteItem[]; groups: SiteGroup[] } | null>(null);
@@ -62,9 +59,6 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
   const switchedDragGroupIdRef = useRef<string | null>(null);
   const groupHoverTimerRef = useRef<number | null>(null);
   const groupOverlapFrameRef = useRef<number | null>(null);
-  const batchDragIdsRef = useRef<string[]>([]);
-  const { selectedSiteIds, cancelSelection } = selection;
-  const multiSelectMode = selection.selectionMode === "sites";
   const edgeScroll = useTabEdgeScroll(() => Boolean(activeDragIdRef.current), () => {
     const groupId = readOverlappingGroupTab();
     if (groupId) scheduleGroupTabSwitch(groupId);
@@ -219,28 +213,13 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     };
 
   function handleDragStart(event: DragStartEvent) {
+    if (dragDisabled) return;
     onStart();
     sourceStateRef.current = { sites, groups };
     const preview = sites.map((site) => ({ ...site }));
     const activeId = String(event.active.id);
-    selection.prepareSiteDrag(activeId);
-    let nextBatchIds = [activeId];
-    if (multiSelectMode) {
-      const selectedForDrag = selectedSiteIds.has(activeId)
-        ? new Set(selectedSiteIds)
-        : new Set([activeId]);
-      const domOrder = Array.from(
-        document.querySelectorAll<HTMLElement>("[data-site-dnd-id]"),
-      ).map((element) => element.dataset.siteDndId!);
-      nextBatchIds = domOrder.filter((id) => selectedForDrag.has(id));
-      for (const id of selectedForDrag) {
-        if (!nextBatchIds.includes(id)) nextBatchIds.push(id);
-      }
-    }
-    batchDragIdsRef.current = nextBatchIds;
-    setBatchDragIds(nextBatchIds);
     activeDragIdRef.current = activeId;
-    dragCanReorderRef.current = canReorderSites && !multiSelectMode;
+    dragCanReorderRef.current = canReorderSites;
     siteDropIntentRef.current = null;
     dragBaseSitesRef.current = preview;
     dragSitesPreviewRef.current = preview;
@@ -388,27 +367,15 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     }
     const activeId = activeDragIdRef.current;
     if (!activeId) return false;
-    const draggedIds =
-      batchDragIdsRef.current.length > 0
-        ? batchDragIdsRef.current
-        : [activeId];
-    return draggedIds.some((id) => {
-      const site = calculationBase.find((candidate) => candidate.id === id);
-      return Boolean(site && isGithubHomeUrl(site.url));
-    });
+    const site = calculationBase.find((candidate) => candidate.id === activeId);
+    return Boolean(site && isGithubHomeUrl(site.url));
   }
 
   function isTransferTargetNoOp(groupId: string) {
     const calculationBase = dragBaseSitesRef.current;
     const activeId = activeDragIdRef.current;
     if (!calculationBase || !activeId) return true;
-    const draggedIds =
-      batchDragIdsRef.current.length > 0
-        ? batchDragIdsRef.current
-        : [activeId];
-    return draggedIds.every(
-      (id) => calculationBase.find((site) => site.id === id)?.groupId === groupId,
-    );
+    return calculationBase.find((site) => site.id === activeId)?.groupId === groupId;
   }
 
   function previewGroupEndDrop(groupId: string) {
@@ -559,33 +526,17 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
 
     if (!dragCanReorderRef.current) {
       const targetGroupId = dropIntent?.groupId;
-      const draggedIds =
-        batchDragIdsRef.current.length > 0
-          ? batchDragIdsRef.current
-          : [String(active.id)];
       const hasTransfer = Boolean(
         calculationBase &&
           targetGroupId &&
-          draggedIds.some(
-            (id) =>
-              calculationBase.find((site) => site.id === id)?.groupId !==
-              targetGroupId,
-          ),
+          calculationBase.find((site) => site.id === String(active.id))?.groupId !== targetGroupId,
       );
-      if (calculationBase && targetGroupId && hasTransfer) {
+      if (calculationBase && targetGroupId && hasTransfer && !dragDisabled) {
         commitSites(
-          moveSitesToGroupEnd(
-            calculationBase,
-            draggedIds,
-            targetGroupId,
-            draggedIds,
-          ),
+          moveSiteToGroupEnd(calculationBase, String(active.id), targetGroupId),
         );
         if (!dragStartedFromAllRef.current) {
           setActiveGroupId(targetGroupId);
-        }
-        if (multiSelectMode) {
-          cancelSelection();
         }
       }
       clearDragState();
@@ -638,8 +589,6 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     setPendingDragId(null);
     setActiveDragId(null);
     setOverDragId(null);
-    batchDragIdsRef.current = [];
-    setBatchDragIds([]);
     edgeScroll.stop();
   }
 
@@ -675,7 +624,7 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     // Invalidate delayed recapture work without publishing state during unmount.
     dragBaseSitesRef.current = null;
   }, []);
-  return { pendingDragId, activeDragId, overDragId, dragHoverGroupId, batchDragIds,
+  return { pendingDragId, activeDragId, overDragId, dragHoverGroupId,
     originGroupId: dragOriginGroupIdRef.current,
     activeDraggedSite: activeDragId ? (dragSitesPreviewRef.current ?? renderedSites).find(site => site.id === activeDragId) : undefined,
     setPendingDragId, activeCollisionDetection, handleDragStart, handleDragOver, handleDragEnd, handleDragCancel };

@@ -2098,8 +2098,8 @@ select:focus-visible {
   cursor: default;
 }
 
-.site-card:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.site-card-drag-preview)):hover,
-.site-card:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.site-card-drag-preview)):focus-within {
+.site-card:where(:not([data-site-dnd-id].is-selection-mode):not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.site-card-drag-preview)):hover,
+.site-card:where(:not([data-site-dnd-id].is-selection-mode):not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.site-card-drag-preview)):focus-within {
   border-color: color-mix(in srgb, var(--accent) 33%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 20%, var(--surface));
   box-shadow: var(--shadow-soft);
@@ -2126,8 +2126,7 @@ select:focus-visible {
   cursor: grabbing;
 }
 
-.site-card[data-site-dnd-id].is-dragging,
-.site-card.is-batch-source {
+.site-card[data-site-dnd-id].is-dragging {
   opacity: 0.46;
 }
 
@@ -2157,7 +2156,7 @@ select:focus-visible {
   opacity: 0.34;
 }
 
-.site-card.is-selected:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.is-batch-source)) {
+.site-card.is-selected:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target)) {
   border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 22%, var(--surface));
   box-shadow:
@@ -2170,26 +2169,6 @@ select:focus-visible {
   cursor: grabbing;
   pointer-events: none;
   transition: none;
-}
-
-.batch-drag-count {
-  position: absolute;
-  z-index: 4;
-  top: -10px;
-  right: -10px;
-  display: grid;
-  min-width: 28px;
-  height: 28px;
-  place-items: center;
-  padding: 0 7px;
-  border: 2px solid var(--surface);
-  border-radius: 999px;
-  color: var(--ui-on-accent-text);
-  background: var(--accent);
-  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 28%, transparent);
-  font-size: 11px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
 }
 
 .site-drag-overlay { pointer-events: none; }

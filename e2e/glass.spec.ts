@@ -34,7 +34,6 @@ test("shares glass layers across group tools, menus and panels without nested ca
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   for (const [name, value] of [["按钮透明度", "90"], ["面板透明度", "72"], ["菜单透明度", "65"], ["阴影强度", "0"]]) {
     await panel.getByRole("slider", { name }).fill(value);
   }
@@ -198,7 +197,6 @@ test("previews glass, restores cancelled drafts and persists material controls",
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await panel.getByRole("slider", { name: "玻璃透明度" }).fill("94");
   await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
   await expectGlassMaterial(card, { blur: 2 });
@@ -241,7 +239,6 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: /壁纸/ }).click();
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃参数微调/ }).click();
   await panel.getByRole("button", { name: "恢复玻璃默认" }).click();
   await expect(panel.getByRole("slider", { name: "玻璃透明度" })).toHaveValue("78");
   await expect(panel.getByRole("checkbox", { name: /玻璃折射/, hidden: true })).toHaveCount(0);
@@ -305,7 +302,7 @@ test("offers six standalone appearance presets with the reference material and o
   }
   await presets.nth(0).click();
   await page.screenshot({ path: screenshotPath("appearance-six-presets.png") });
-  for (const title of ["玻璃外观", "玻璃参数微调"]) await panel.locator("summary").filter({ hasText: new RegExp(`^${title}`) }).click();
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
   for (const [label, value] of [["玻璃透明度", "100"], ["按钮透明度", "100"], ["面板透明度", "100"], ["菜单透明度", "100"],
     ["阴影强度", "72"], ["玻璃磨砂", "21"], ["色彩饱和度", "100"], ["边缘高光", "18"]]) {
     await expect(panel.getByRole("slider", { name: label, exact: true })).toHaveValue(value);
@@ -334,7 +331,7 @@ test("custom appearance slots save, apply, overwrite and cancel within the setti
   const open = async () => {
     await page.getByRole("button", { name: "打开设置" }).click();
     await panel.getByRole("tab", { name: "壁纸", exact: true }).click();
-    for (const title of ["外观预设", "玻璃外观", "玻璃参数微调", "顶栏外观"]) {
+    for (const title of ["外观预设", "玻璃外观", "顶栏外观"]) {
       const summary = panel.locator("summary").filter({ hasText: new RegExp(`^${title}`) });
       if (await summary.evaluate(el => !el.parentElement!.hasAttribute("open"))) await summary.click();
     }

@@ -23,14 +23,14 @@ export function useCollectionSelection({
     [groups],
   );
   const cancelSelection = useCallback(() => dispatch({ type: "clear" }), []);
+  const selectSites = useCallback((ids: readonly string[]) => dispatch({ type: "select-sites", ids }), []);
 
   useEffect(() => {
     if (isSearching) {
       cancelSelection();
       return;
     }
-    // Validate against persisted sites, never the temporary drag preview:
-    // hover-switching groups must not drop the selected transfer sources.
+    // Validate against persisted sites, independently of display order.
     dispatch({
       type: "reconcile",
       siteIds: new Set(sites.map((site) => site.id)),
@@ -57,7 +57,7 @@ export function useCollectionSelection({
     enterGroupSelectionFromDoubleClick: (id: string) => {
       if (isGroupedView && orderedGroupIds.includes(id)) dispatch({ type: "enter-group", id });
     },
-    prepareSiteDrag: (id: string) => dispatch({ type: "site-drag", id }),
+    selectSites,
     prepareGroupDrag: (id: string, vertical: boolean) => dispatch({ type: "group-drag", id, vertical }),
   };
 }

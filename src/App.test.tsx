@@ -663,7 +663,7 @@ describe("App", () => {
     }
   });
 
-  it("enters a discoverable multi-select mode and clears it on Done", async () => {
+  it("enters a discoverable multi-select mode and clears it on Cancel", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -674,7 +674,7 @@ describe("App", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByRole("button", { name: "完成 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消" })).toBeInTheDocument();
     const googleToggle = screen.getByRole("button", {
       name: "取消选择 Google",
     });
@@ -683,7 +683,7 @@ describe("App", () => {
       "data-site-dnd-id",
       "google",
     );
-    await user.click(screen.getByRole("button", { name: "完成 2" }));
+    await user.click(screen.getByRole("button", { name: "取消" }));
     expect(screen.queryByRole("button", { name: "取消选择 Google" })).toBeNull();
     expect(screen.getByRole("link", { name: "打开 Google" })).toBeInTheDocument();
   });
@@ -708,7 +708,7 @@ describe("App", () => {
       screen.getByRole("button", { name: "取消选择 Stack Overflow" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "取消选择 CodePen" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "完成 5" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消" })).toBeInTheDocument();
   });
 
   it("loads selectable icon sources while adding a valid website", async () => {

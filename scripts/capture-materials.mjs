@@ -111,7 +111,6 @@ async function inspect(page, url, mode, extension = false) {
     const panel = page.getByRole("dialog", { name: "设置", exact: true });
     await panel.getByRole("tab", { name: /壁纸/ }).click();
     await openSection(panel, '玻璃外观');
-    await openSection(panel, '玻璃参数微调');
     await panel.getByRole("slider", { name: "玻璃透明度" }).scrollIntoViewIfNeeded();
     await capture(page, `materials-${mode}-${theme}-controls`);
     await panel.getByRole("button", { name: "取消", exact: true }).click();

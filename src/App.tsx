@@ -96,6 +96,7 @@ import { useSiteClickGuard } from "./hooks/use-site-click-guard";
 import { groupSortTabId, readGroupSortId } from "./lib/collection-drag-ids";
 import { CollectionMouseSensor, CollectionTouchSensor, GROUP_SORT_ACTIVATION_DISTANCE, SITE_DRAG_ACTIVATION_DISTANCE } from "./lib/collection-drag-sensors";
 import { useCollectionSelection } from "./hooks/use-collection-selection";
+import { useSiteSweepSelection } from "./hooks/use-site-sweep-selection";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
 import { dismissWallpaperStartup } from "./lib/wallpaper-startup";
@@ -403,13 +404,11 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const multiSelectMode = selectionMode === "sites";
   const groupSelectionActive = selectedGroupIds.size > 0;
   const groupSelectionMode = isGroupedView && selectionMode === "groups";
-  const dragDisabled = isSearching || groupSelectionMode;
+  const dragDisabled = isSearching || selectionArmed;
   const canReorderSites = sortMode === "manual";
   const siteDragMode: SiteDragMode = dragDisabled
     ? "disabled"
-    : multiSelectMode
-      ? "transfer"
-      : canReorderSites
+    : canReorderSites
       ? "reorder"
       : "transfer";
   const anyModalOpen =
@@ -422,16 +421,17 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     resetOpen ||
     Boolean(dataContext);
   const { armSiteClickSuppression, handlers: siteClickHandlers } = useSiteClickGuard();
+  const sweepSelection = useSiteSweepSelection(multiSelectMode && !anyModalOpen, selection.selectSites);
   const groupSort = useGroupSorting({ groups, selection, reorderGroups, reorderGroupBlock,
     onStart: () => { clearArmedDelete(); cancelGroupManagementForSort(); },
   });
   const { beginGroupSort, finishGroupSort, detectGroupSortCollisions, updateKeyboardGroupSortIntent,
     handleGroupTabDragStart, handleGroupTabDragOver, handleGroupTabDragEnd } = groupSort;
-  const { pendingDragId, activeDragId, overDragId, dragHoverGroupId, batchDragIds, originGroupId,
+  const { pendingDragId, activeDragId, overDragId, dragHoverGroupId, originGroupId,
     activeDraggedSite, setPendingDragId, activeCollisionDetection: siteCollisionDetection,
     handleDragStart, handleDragOver, handleDragEnd, handleDragCancel,
   } = useSiteDragging({ sites: state.sites, groups: state.groups, renderedSites, workspaceGroupIds,
-    activeGroupId, isGroupedView, canReorderSites, dragDisabled, selection, setActiveGroupId,
+    activeGroupId, isGroupedView, canReorderSites, dragDisabled, setActiveGroupId,
     setDragSitesPreview, commitSites, onStart: clearArmedDelete, armSiteClickSuppression });
   const activeCollisionDetection: CollisionDetection = args => args.active.data.current?.type === "group-row-sort"
     ? detectGroupSortCollisions(args, "vertical") : siteCollisionDetection(args);
@@ -467,7 +467,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
 
   const gridDrag = { activeId: activeDragId, overId: overDragId, originGroupId,
     reorder: canReorderSites && !multiSelectMode, disabled: dragDisabled };
-  const selectedSiteCount = selectedSiteIds.size;
+  const allVisibleSitesSelected = selectableSiteIds.length > 0 && selectableSiteIds.every(id => selectedSiteIds.has(id));
 
   useEffect(() => {
     if (
@@ -608,15 +608,13 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
             : undefined
         }
         dragMode={siteDragMode}
-        dragDisabledReason={isSearching ? "搜索时无法排序" : undefined}
+        dragDisabledReason={isSearching ? "搜索时无法排序" : selectionArmed ? "多选时按住并划过卡片选择" : undefined}
         dragPending={pendingDragId === site.id}
         selectionMode={multiSelectMode}
-        selectionEntryEnabled={isGroupedView && selectionArmed}
+        selectionEntryEnabled={selectionArmed}
         linkInteractionDisabled={groupSelectionMode}
         actionsDisabled={selectionArmed}
         selected={selectedSiteIds.has(site.id)}
-        selectedCount={selectedSiteCount}
-        batchDragging={Boolean(activeDragId) && batchDragIds.includes(site.id)}
         deleteArmed={armedDeleteSiteId === site.id}
         dropTarget={
           canReorderSites && !multiSelectMode && Boolean(activeDragId) &&
@@ -1661,7 +1659,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                 </p>
             </div>
             <div className="collection-view-controls">
-              <SelectMenu
+              {(!multiSelectMode || isGroupedView || activeGroupId === "all") && <SelectMenu
                 value={sortMode}
                 options={SORT_OPTIONS}
                 onChange={(nextMode) => persistSortMode(nextMode, activeWorkspace)}
@@ -1677,8 +1675,17 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                   <ArrowsDownUp size={16} />
                   <span>{isSearching ? "相关度" : option?.label ?? "排列"}</span>
                 </>}
-              />
-              {activeGroupId === "all" && !isSearching && (
+              />}
+              {multiSelectMode && !isGroupedView ? <button
+                type="button" className="view-control-button"
+                data-selection-surface="select-all"
+                aria-pressed={allVisibleSitesSelected}
+                disabled={selectableSiteIds.length === 0}
+                onClick={() => toggleGroupedSiteSelection(selectableSiteIds)}
+              >
+                <CheckSquare size={16} />
+                <span>{allVisibleSitesSelected ? "取消全选" : "全选"}</span>
+              </button> : activeGroupId === "all" && !isSearching && (
                 <SelectMenu
                   value={state.displayModeByWorkspace[activeWorkspace]}
                   options={[
@@ -1712,20 +1719,14 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                 disabled={isSearching || Boolean(activeDragId)}
                 onClick={toggleMultiSelectMode}
               >
-                <CheckSquare size={16} />
-                <span>
-                  {multiSelectMode
-                    ? selectedSiteCount > 0
-                      ? `完成 ${selectedSiteCount}`
-                      : "选择"
-                    : "多选"}
-                </span>
+                {multiSelectMode ? <X size={16} /> : <CheckSquare size={16} />}
+                <span>{multiSelectMode ? "取消" : "多选"}</span>
               </button>
               )}
             </div>
           </div>
 
-          <div className="collection-grid-content">
+          <div className="collection-grid-content" ref={sweepSelection.containerRef} {...sweepSelection.handlers}>
               {addCardGroup && (
                 <DndContext
                   sensors={sensors}
@@ -1797,7 +1798,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                         group={activeDraggedGroup}
                         showClickCount={sortMode === "heat"}
                         overGroupTab={Boolean(dragHoverGroupId)}
-                        batchCount={Math.max(1, batchDragIds.length)}
                       />
                     ) : null}
                   </DragOverlay>

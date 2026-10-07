@@ -239,7 +239,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   box-shadow: var(--glass-shadow);
 }
 
-.has-wallpaper .site-card.is-selected:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target):not(.is-batch-source)) {
+.has-wallpaper .site-card.is-selected:where(:not(.is-drag-pending):not(.is-dragging):not(.is-drop-target)) {
   border-color: color-mix(in srgb, var(--accent) 62%, var(--glass-edge));
   --card-glass-fill: color-mix(in srgb, var(--accent) 18%, var(--glass-fill-low));
   --card-glass-image:
@@ -524,7 +524,7 @@ body:has(.app-shell.has-wallpaper) .group-list-item.is-checked {
 
 /* Nested surfaces share the parent's blur and add only a light tint. Opaque
    layout wrappers used to hide the wallpaper regardless of material settings. */
-body:has(.app-shell.has-wallpaper) :is(.settings-disclosure.settings-subsection, .glass-fine-tuning) {
+body:has(.app-shell.has-wallpaper) .settings-disclosure.settings-subsection {
   border-color: var(--glass-edge-soft);
   background: transparent;
   box-shadow: none;

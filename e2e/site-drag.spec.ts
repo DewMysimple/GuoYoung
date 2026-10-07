@@ -603,113 +603,42 @@ test("moves a non-manually sorted card to a group tab with touch input", async (
   await expect(wikipedia).toBeVisible();
 });
 
-test("moves selected sites together from grouped All without leaving All", async ({
-  page,
-}, testInfo) => {
-  test.skip(testInfo.project.name === "mobile", "Desktop batch drag assertion");
-  await page.setViewportSize({ width: 1440, height: 1200 });
-  await page.getByRole("button", { name: "显示" }).click();
-  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
-  const ordinaryGoogle = await cardSurface(page.getByTestId("site-card-google"));
-  const ordinaryGithub = await cardSurface(page.getByTestId("site-card-github"));
-  await page
-    .locator('[data-group-sort-section-id="search"]')
-    .getByRole("button", { name: "多选 搜索 网站" })
-    .click();
-  await page.getByRole("button", { name: "选择 Google" }).click();
-  await page.getByTestId("site-card-github").click();
-
-  const google = page.getByTestId("site-card-google");
-  const designTrack = page.locator('[data-group-zone-id="design"]');
-  const start = await google.boundingBox();
-  const target = await designTrack.boundingBox();
-  if (!start || !target) throw new Error("Batch drag targets are not visible");
-
-  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(start.x + start.width / 2 + 52, start.y + start.height / 2);
-  await expect(page.getByTestId("site-card-drag-preview")).toHaveAttribute(
-    "data-batch-count",
-    "2",
-  );
-  await expect(page.getByTestId("site-card-github")).toHaveClass(/is-batch-source/);
-  await expect.poll(() => cardSurface(google)).toEqual({ ...ordinaryGoogle, opacity: "0.46" });
-  await expect
-    .poll(() => cardSurface(page.getByTestId("site-card-github")))
-    .toEqual({ ...ordinaryGithub, opacity: "0.46" });
-  await expect
-    .poll(() => cardSurface(page.getByTestId("site-card-drag-preview")))
-    .toEqual(ordinaryGoogle);
-  await page.mouse.move(target.x + target.width / 2, target.y + 40, { steps: 16 });
-  await page.mouse.up();
-
-  await expect.poll(() =>
-    page.evaluate(() => {
-      const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
-      return ["google", "github"].map(
-        (id) => state.sites.find((site: { id: string }) => site.id === id).groupId,
-      );
-    }),
-  ).toEqual(["design", "design"]);
-  await expect(page.getByRole("tab", { name: /全部/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(
-    page
-      .locator('[data-group-sort-section-id="search"]')
-      .getByRole("button", { name: "多选 搜索 网站" }),
-  ).toBeVisible();
-  await page.waitForTimeout(220);
-  await page.screenshot({
-    path: screenshotPath("group-order-multiselect.png"),
-    fullPage: true,
+for (const view of ["grouped", "focused"] as const) {
+  test(`selection sweeps do not transfer websites or hover-switch groups in ${view} view`, async ({ page }, info) => {
+    test.skip(info.project.name !== "chromium", "Desktop selection gesture");
+    await page.setViewportSize({ width: 1440, height: 1200 });
+    if (view === "grouped") {
+      await page.getByRole("button", { name: "显示", exact: true }).click();
+      await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+      await page.getByRole("button", { name: "多选 搜索 网站" }).click();
+    } else {
+      await page.locator('[data-group-drop-id="develop"]').click();
+      await page.getByRole("button", { name: /手动排列/ }).click();
+      await page.getByRole("menuitemradio", { name: "名称 Z–A" }).click();
+      await page.getByRole("button", { name: "多选", exact: true }).click();
+    }
+    const before = await page.evaluate(() => localStorage.getItem("site-hub:v1"));
+    await page.getByRole("button", { name: "选择 GitHub", exact: true }).click();
+    const github = page.getByTestId("site-card-github");
+    await expect(github).toHaveAttribute("data-drag-mode", "disabled");
+    const start = (await github.boundingBox())!;
+    const target = (await page.locator('[data-group-drop-id="media"]').boundingBox())!;
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(start.x + start.width / 2 + 52, start.y + start.height / 2);
+    await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 14 });
+    await page.waitForTimeout(520);
+    await expect(page.locator('[data-group-drop-id="media"]')).toHaveAttribute("aria-selected", "false");
+    await page.mouse.up();
+    expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(before);
+    await expect(github).toHaveClass(/is-selected/);
+    await expect(github).not.toHaveClass(/is-dragging|is-drag-pending/);
+    await expect(github).toHaveCSS("transform", "none");
+    await expect(github).toHaveCSS("opacity", "1");
+    await page.screenshot({ path: screenshotPath(`selection-no-transfer-${view}.png`) });
   });
-});
-
-test("moves selected sites from a specifically focused non-manual group", async ({
-  page,
-}, testInfo) => {
-  test.skip(testInfo.project.name === "mobile", "Desktop focused batch drag assertion");
-  const developTab = page.locator('[data-group-drop-id="develop"]');
-  const mediaTab = page.locator('[data-group-drop-id="media"]');
-  await developTab.click();
-  await page.getByRole("button", { name: /手动排列/ }).click();
-  await page.getByRole("menuitemradio", { name: "名称 Z–A" }).click();
-  await page.getByRole("button", { name: "多选" }).click();
-  await page.getByRole("button", { name: "选择 GitHub" }).click();
-  await page.getByRole("button", { name: "选择 CodePen" }).click();
-
-  const github = page.getByTestId("site-card-github");
-  const start = await github.boundingBox();
-  const target = await mediaTab.boundingBox();
-  if (!start || !target) throw new Error("Focused batch drag targets are not visible");
-
-  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(start.x + start.width / 2 + 52, start.y + start.height / 2);
-  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, {
-    steps: 14,
-  });
-  await expect(page.getByTestId("site-card-drag-preview")).toHaveAttribute(
-    "data-batch-count",
-    "2",
-  );
-  await page.waitForTimeout(520);
-  await expect(mediaTab).toHaveAttribute("aria-selected", "true");
-  await page.mouse.up();
-
-  await expect.poll(() =>
-    page.evaluate(() => {
-      const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
-      return ["github", "codepen"].map(
-        (id) => state.sites.find((site: { id: string }) => site.id === id).groupId,
-      );
-    }),
-  ).toEqual(["media", "media"]);
-  await expect(mediaTab).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("button", { name: "多选" })).toBeVisible();
-});
+}
 
 test("auto-scrolls overflowing group tabs during a site transfer", async ({
   page,

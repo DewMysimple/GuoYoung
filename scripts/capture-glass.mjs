@@ -215,7 +215,7 @@ async function inspect(context, extension, theme, enabled) {
   }
   // Shared mode follows public edits immediately and retains the independent knobs.
   for (const section of [topbar, sidebar]) await section.getByRole("button", { name: "跟随公共", exact: true }).click();
-  for (const title of ["玻璃外观", "玻璃参数微调"]) {
+  for (const title of ["玻璃外观"]) {
     const section = panel.locator("details").filter({ has: page.locator("summary").filter({ hasText: new RegExp(`^${title}`) }) }).last();
     if (await section.getAttribute("open") === null) await section.locator(":scope > summary").click();
   }

@@ -9,7 +9,6 @@ import {
   inferSiteName,
   isDuplicateUrl,
   normalizeUrl,
-  moveSitesToGroupEnd,
   reorderGroupBlock,
   reorderGroups,
   reorderSites,
@@ -252,32 +251,5 @@ describe("site utilities", () => {
     expect(reordered.at(-1)?.id).toBe("other");
   });
 
-  it("moves multiple sites to a group end while preserving global order", () => {
-    const originalGlobalOrder = new Map(
-      DEFAULT_SITES.map((site) => [site.id, site.globalOrder]),
-    );
-    const moved = moveSitesToGroupEnd(
-      DEFAULT_SITES,
-      ["google", "github", "figma"],
-      "design",
-      ["github", "google", "figma"],
-    );
 
-    expect(getSitesInGroup(moved, "design").map((site) => site.id)).toEqual([
-      "figma",
-      "dribbble",
-      "github",
-      "google",
-    ]);
-    expect(moved.find((site) => site.id === "figma")?.order).toBe(0);
-    for (const site of moved) {
-      expect(site.globalOrder).toBe(originalGlobalOrder.get(site.id));
-    }
-  });
-
-  it("treats a batch already in the destination group as a no-op", () => {
-    expect(
-      moveSitesToGroupEnd(DEFAULT_SITES, ["figma", "dribbble"], "design"),
-    ).toBe(DEFAULT_SITES);
-  });
 });

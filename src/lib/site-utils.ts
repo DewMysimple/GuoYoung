@@ -421,58 +421,6 @@ export function moveSiteToGroupEnd(
   return next.map((site) => affected.get(site.id) ?? site);
 }
 
-export function moveSitesToGroupEnd(
-  sites: SiteItem[],
-  activeIds: Iterable<string>,
-  targetGroupId: string,
-  orderedIds?: Iterable<string>,
-): SiteItem[] {
-  const selectedIds = new Set(activeIds);
-  const preferredOrder = orderedIds ? [...orderedIds] : [...selectedIds];
-  const byId = new Map(sites.map((site) => [site.id, site]));
-  const movedIds = preferredOrder.filter((id) => {
-    const site = byId.get(id);
-    return selectedIds.has(id) && site && site.groupId !== targetGroupId;
-  });
-
-  for (const id of selectedIds) {
-    const site = byId.get(id);
-    if (site && site.groupId !== targetGroupId && !movedIds.includes(id)) {
-      movedIds.push(id);
-    }
-  }
-  if (movedIds.length === 0) return sites;
-
-  const movedIdSet = new Set(movedIds);
-  const next = sites.map((site) => ({ ...site }));
-  const affectedGroupIds = new Set<string>([targetGroupId]);
-  const now = new Date().toISOString();
-
-  for (const site of next) {
-    if (!movedIdSet.has(site.id)) continue;
-    affectedGroupIds.add(site.groupId);
-    site.groupId = targetGroupId;
-    site.updatedAt = now;
-  }
-
-  for (const groupId of affectedGroupIds) {
-    const groupSites = next
-      .filter((site) => site.groupId === groupId && !movedIdSet.has(site.id))
-      .sort((a, b) => a.order - b.order);
-    if (groupId === targetGroupId) {
-      for (const id of movedIds) {
-        const moved = next.find((site) => site.id === id);
-        if (moved) groupSites.push(moved);
-      }
-    }
-    groupSites.forEach((site, order) => {
-      site.order = order;
-    });
-  }
-
-  return next;
-}
-
 export function reorderSitesGlobally(
   sites: SiteItem[],
   activeId: string,

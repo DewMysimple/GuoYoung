@@ -17,7 +17,7 @@ test('wallpaper material survives React selection class changes', async ({ page 
   await card.getByRole('button', { name: '选择 Google', exact: true }).click();
   await expect(card).toHaveClass(/is-selected/);
   await expectWallpaper();
-  await page.getByRole('button', { name: '完成 1', exact: true }).click();
+  await page.getByRole('button', { name: '取消', exact: true }).click();
   await expect(card).not.toHaveClass(/is-selection-mode/);
   await expectWallpaper();
 });

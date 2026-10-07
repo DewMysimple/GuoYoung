@@ -30,8 +30,6 @@ interface SiteCardProps {
   linkInteractionDisabled?: boolean;
   actionsDisabled?: boolean;
   selected?: boolean;
-  selectedCount?: number;
-  batchDragging?: boolean;
   deleteArmed?: boolean;
   onToggleSelected?: (site: SiteItem, shiftKey?: boolean) => void;
   onVisit: (site: SiteItem) => void;
@@ -105,8 +103,6 @@ function SiteCardFrame({
   linkInteractionDisabled = false,
   actionsDisabled = false,
   selected = false,
-  selectedCount = 0,
-  batchDragging = false,
   deleteArmed = false,
   onToggleSelected,
   onVisit,
@@ -126,9 +122,7 @@ function SiteCardFrame({
   const dragActionLabel = dragDisabled
     ? dragDisabledReason
     : dragMode === "transfer"
-      ? selectedCount > 1 && selected
-        ? `拖动 ${selectedCount} 个已选网站更换分组`
-        : `拖动 ${site.name} 更换分组`
+      ? `拖动 ${site.name} 更换分组`
       : `拖动 ${site.name} 调整顺序`;
   const dragActionTitle = dragDisabled
     ? dragDisabledReason
@@ -146,7 +140,7 @@ function SiteCardFrame({
         dropTarget && !isDragging ? "is-drop-target" : ""
       } ${selectionMode ? "is-selection-mode" : ""} ${
         selected ? "is-selected" : ""
-      } ${batchDragging && selected ? "is-batch-source" : ""} ${
+      } ${
         linkInteractionDisabled ? "is-link-interaction-disabled" : ""
       } ${actionsDisabled ? "is-actions-disabled" : ""}
       `}
@@ -252,7 +246,6 @@ interface SiteCardDragPreviewProps {
   site: SiteItem;
   group: SiteGroup;
   overGroupTab?: boolean;
-  batchCount?: number;
   showClickCount?: boolean;
 }
 
@@ -260,23 +253,16 @@ export function SiteCardDragPreview({
   site,
   group,
   overGroupTab = false,
-  batchCount = 1,
   showClickCount = false,
 }: SiteCardDragPreviewProps) {
   return (
     <CardSurface
       className={`site-card-drag-preview ${
         overGroupTab ? "is-over-group-tab" : ""
-      } ${batchCount > 1 ? "is-batch-preview" : ""}`}
+      }`}
       aria-hidden="true"
       data-testid="site-card-drag-preview"
-      data-batch-count={batchCount}
     >
-      {batchCount > 1 && (
-        <span className="batch-drag-count" aria-label={`${batchCount} 个网站`}>
-          {batchCount}
-        </span>
-      )}
       <CardContent icon={<Favicon site={site} size="large" />} actions={<span className="drag-preview-grip">
           <DotsSixVertical size={20} weight="bold" />
         </span>} name={site.name} domain={getHostname(site.url)} external

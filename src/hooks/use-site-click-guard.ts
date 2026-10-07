@@ -60,6 +60,12 @@ export function useSiteClickGuard() {
           return;
         }
         clearSiteClickSuppression();
+        // Sweep selection owns its release click; normal cards (including
+        // history buttons) still reset old drag suppression on a fresh press.
+        if (card.matches("[data-site-dnd-id].is-selection-mode")) {
+          sitePointerGestureRef.current = null;
+          return;
+        }
         sitePointerGestureRef.current = {
           pointerId: event.pointerId,
           startX: event.clientX,

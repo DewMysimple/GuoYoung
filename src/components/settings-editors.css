@@ -13,7 +13,6 @@
 .settings-disclosure[open] > summary svg { rotate: 180deg; }
 .settings-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 4px; }
 .settings-disclosure-content { display: grid; gap: 14px; padding-top: 20px; }
-.wallpaper-settings .glass-fine-tuning,
 .settings-disclosure.settings-subsection { padding: 14px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
 .settings-choice { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-soft); font-size: 12px; cursor: pointer; }
 .settings-choice[aria-pressed="true"] { color: var(--ui-accent-text); border-color: var(--accent); background: var(--accent-soft); }

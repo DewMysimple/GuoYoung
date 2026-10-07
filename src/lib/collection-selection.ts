@@ -17,6 +17,7 @@ type SelectionAction =
   | { type: "clear" }
   | { type: "toggle-sites-mode" }
   | { type: "group-sites"; ids: readonly string[] }
+  | { type: "select-sites"; ids: readonly string[] }
   | {
       type: "toggle";
       mode: "sites" | "groups";
@@ -25,7 +26,6 @@ type SelectionAction =
       shiftKey: boolean;
     }
   | { type: "enter-group"; id: string }
-  | { type: "site-drag"; id: string }
   | { type: "group-drag"; id: string; vertical: boolean }
   | {
       type: "reconcile";
@@ -76,12 +76,11 @@ export function collectionSelectionReducer(
       return state.mode === "none"
         ? { mode: "groups", ids: new Set([action.id]), anchorId: action.id }
         : state;
-    case "site-drag":
-      if (state.mode !== "sites") return state;
-      if (state.ids.size === 0) return EMPTY_SELECTION;
-      return state.ids.has(action.id)
-        ? state
-        : { mode: "sites", ids: new Set([action.id]), anchorId: action.id };
+    case "select-sites": {
+      if (state.mode !== "sites" || action.ids.length === 0) return state;
+      const ids = new Set([...state.ids, ...action.ids]);
+      return { mode: "sites", ids, anchorId: action.ids.at(-1)! };
+    }
     case "group-drag":
       if (state.mode !== "groups" || state.ids.size === 0) return EMPTY_SELECTION;
       return action.vertical && !state.ids.has(action.id)

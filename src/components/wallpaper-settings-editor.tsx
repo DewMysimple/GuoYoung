@@ -84,8 +84,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
         onClick={() => onChange(BASIC_DEFAULTS)}>恢复基础默认</button>
     </SettingsDisclosure>
 
-    <SettingsDisclosure help="公共玻璃用于卡片、按钮、面板和菜单；顶栏或侧栏选择“跟随公共”时也使用这里的材质。" title="玻璃外观" summary="公共玻璃参数">
-      <SettingsDisclosure title="玻璃参数微调" summary="透明度、磨砂与高光" className="glass-fine-tuning" help="透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。">
+    <SettingsDisclosure help="公共玻璃用于卡片、按钮、面板和菜单；顶栏或侧栏选择“跟随公共”时也使用这里的材质。透明度越高，越能看见壁纸；阴影设为 0 可关闭投影。" title="玻璃外观" summary="透明度、磨砂与高光">
 
       {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
       <RangeControl label="玻璃透明度" min={0} max={100} value={value.glassTransparency} unit="%" onChange={(glassTransparency) => onChange({ glassTransparency })} />
@@ -97,7 +96,6 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       <RangeControl label="色彩饱和度" min={100} max={200} value={value.glassSaturation} unit="%" onChange={(glassSaturation) => onChange({ glassSaturation })} />
       <RangeControl label="边缘高光" min={0} max={100} value={value.glassHighlight} unit="%" onChange={(glassHighlight) => onChange({ glassHighlight })} />
       <button type="button" className="button secondary-button" onClick={() => onChange(pickGlass(DEFAULT_WALLPAPER))}>恢复玻璃默认</button>
-      </SettingsDisclosure>
     </SettingsDisclosure>
 
     <PanelGlassSettings label="顶栏" style={value.topbarStyle}

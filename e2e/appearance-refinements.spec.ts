@@ -49,7 +49,6 @@ test("remembers settings section, expanded groups and scroll only for this page"
   await page.getByRole("button", { name: "打开设置" }).click();
   await page.getByRole("tab", { name: "壁纸", exact: true }).click();
   await page.locator("summary").filter({ hasText: "玻璃外观" }).click();
-  await page.locator("summary").filter({ hasText: "玻璃参数微调" }).click();
   await page.getByRole("slider", { name: "边缘高光" }).scrollIntoViewIfNeeded();
   const body = page.locator(".settings-body");
   const scroll = await body.evaluate(node => node.scrollTop);

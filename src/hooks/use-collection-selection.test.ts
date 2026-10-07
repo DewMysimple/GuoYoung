@@ -23,7 +23,7 @@ describe("collection selection lifecycle", () => {
     expect(result.current.selectionMode).toBe("groups");
   });
 
-  it("preserves selected sources while drag preview changes the visible sites", () => {
+  it("preserves valid site selections when display order changes", () => {
     const { result, rerender } = renderHook(useCollectionSelection, { initialProps: options });
     act(() => result.current.toggleSiteSelection(defaults.sites[0]));
     rerender({ ...options, orderedSiteIds: ["figma"], isGroupedView: false });
