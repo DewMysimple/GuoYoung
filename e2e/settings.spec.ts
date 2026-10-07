@@ -219,6 +219,83 @@ test("preserves legacy custom geometry while narrow screens keep safe sizes", as
   expect(saved.appearance).toMatchObject({ brandFontScale: 150, brandLogoSize: 62, siteIconSize: 60, accentColor: "#00897b" });
 });
 
+test("unifies wallpaper basics and scopes defaults, preview and saved changes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop wallpaper settings");
+  const url = "https://example.test/basic-wallpaper.svg";
+  await page.route(url, route => route.fulfill({ contentType: "image/svg+xml",
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="#315ca8"/><circle cx="1200" cy="300" r="220" fill="#ffd38b"/></svg>' }));
+  const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  const basic = panel.locator(".wallpaper-basic-settings");
+  const shell = page.locator(".app-shell");
+  const readWallpaper = () => page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper);
+  const openWallpaper = async () => {
+    await page.getByRole("button", { name: "打开设置" }).click();
+    await panel.getByRole("tab", { name: "壁纸", exact: true }).click();
+  };
+  await openWallpaper();
+  await expect(basic).not.toHaveAttribute("open");
+  await basic.locator("summary").click();
+  await expect(panel.locator("summary").filter({ hasText: /^(位置与构图|阅读与氛围)/ })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: /^(清晰阅读|柔和背景|突出壁纸)$/, hidden: true })).toHaveCount(0);
+  for (const name of ["缩放", "模糊", "明暗遮罩"]) await expect(basic.getByRole("slider", { name, exact: true })).toBeDisabled();
+  await expect(basic.getByRole("slider", { name: "模糊", exact: true })).toHaveValue("0");
+  await expect(basic.getByRole("slider", { name: "明暗遮罩", exact: true })).toHaveValue("0");
+  await expect(basic.getByRole("button", { name: "完整显示", exact: true })).toBeDisabled();
+  await expect(basic.getByRole("button", { name: "拖动调整", exact: true })).toBeDisabled();
+  await panel.getByLabel("网络图片地址").fill(url);
+  await expect(panel.getByAltText("当前壁纸预览")).toBeVisible();
+  await basic.getByRole("button", { name: "完整显示", exact: true }).click();
+  await basic.getByRole("slider", { name: "缩放", exact: true }).fill("180");
+  await basic.getByRole("slider", { name: "模糊", exact: true }).fill("8");
+  await basic.getByRole("slider", { name: "明暗遮罩", exact: true }).fill("35");
+  await expect(shell).toHaveCSS("--wallpaper-fit", "contain");
+  await expect(shell).toHaveCSS("--wallpaper-zoom", "1.8");
+  await expect(shell).toHaveCSS("--wallpaper-blur", "8px");
+  await expect(shell).toHaveCSS("--wallpaper-overlay", "0.35");
+  expect((await readWallpaper()).source).toBe("none");
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(shell).not.toHaveClass(/has-wallpaper/);
+
+  await openWallpaper();
+  await expect(basic).toHaveAttribute("open", "");
+  await panel.getByLabel("网络图片地址").fill(url);
+  await basic.getByRole("button", { name: "完整显示", exact: true }).click();
+  await basic.getByRole("slider", { name: "缩放", exact: true }).fill("180");
+  await basic.getByRole("slider", { name: "模糊", exact: true }).fill("8");
+  await basic.getByRole("slider", { name: "明暗遮罩", exact: true }).fill("35");
+  await basic.getByRole("button", { name: "居中复位", exact: true }).click();
+  await expect(basic.getByRole("slider", { name: "缩放", exact: true })).toHaveValue("100");
+  await expect(basic.getByRole("slider", { name: "模糊", exact: true })).toHaveValue("8");
+  await expect(basic.getByRole("slider", { name: "明暗遮罩", exact: true })).toHaveValue("35");
+  await expect(basic.getByRole("button", { name: "完整显示", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await basic.getByRole("slider", { name: "缩放", exact: true }).fill("180");
+  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
+  await panel.locator('.glass-preset[data-preset="crystal"]').click();
+  await panel.getByRole("button", { name: "保存设置", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  const saved = await readWallpaper();
+  expect(saved).toMatchObject({ source: "url", url, fit: "contain", zoom: 180, blur: 8, overlay: 35 });
+  await page.reload();
+  await openWallpaper();
+  await basic.locator("summary").click();
+  await expect(basic.getByRole("slider", { name: "模糊", exact: true })).toHaveValue("8");
+  await expect(basic.getByRole("slider", { name: "明暗遮罩", exact: true })).toHaveValue("35");
+  await basic.getByRole("button", { name: "恢复基础默认", exact: true }).click();
+  await expect(basic.getByRole("slider", { name: "模糊", exact: true })).toHaveValue("0");
+  await expect(basic.getByRole("slider", { name: "明暗遮罩", exact: true })).toHaveValue("0");
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  expect(await readWallpaper()).toEqual(saved);
+  await expect(shell).toHaveCSS("--wallpaper-blur", "8px");
+  await openWallpaper();
+  await basic.getByRole("button", { name: "恢复基础默认", exact: true }).click();
+  await panel.getByRole("button", { name: "保存设置", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await page.reload();
+  expect(await readWallpaper()).toEqual({ ...saved, fit: "cover", positionX: 50, positionY: 50, zoom: 100, blur: 0, overlay: 0 });
+  await expect(shell).toHaveCSS("--wallpaper-blur", "0px");
+  await expect(shell).toHaveCSS("--wallpaper-overlay", "0");
+});
+
 test("drags and zooms wallpaper with live preview before saving", async ({
   page,
 }, testInfo) => {
@@ -251,8 +328,8 @@ test("drags and zooms wallpaper with live preview before saving", async ({
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await page.getByRole("tab", { name: "壁纸", exact: true }).click();
-  await page.locator("summary").filter({ hasText: /^位置与构图/ }).click();
-  await page.locator(".wallpaper-position-actions button").first().click();
+  await page.locator("summary").filter({ hasText: /^基础设置/ }).click();
+  await page.getByRole("button", { name: "拖动调整", exact: true }).click();
 
   const canvas = page.locator(".wallpaper-edit-canvas");
   await expect(canvas).toBeVisible();

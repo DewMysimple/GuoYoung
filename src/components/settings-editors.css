@@ -40,6 +40,14 @@
 .wallpaper-thumbnail:has(img) { align-content: end; justify-content: start; padding: 10px; }
 .wallpaper-source-actions, .wallpaper-position-actions { display: flex; gap: 8px; align-items: center; }
 .wallpaper-source-actions .button, .wallpaper-position-actions .button { flex: 1; min-width: 0; }
+.wallpaper-source-actions .button { padding-inline: 10px; }
+.wallpaper-position-actions .button.active { color: var(--ui-accent-text); border-color: color-mix(in srgb, var(--accent) 44%, var(--border)); background: var(--accent-soft); }
+.wallpaper-basic-row { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 20px; }
+.wallpaper-basic-row > span { color: var(--text-soft); font-size: 12px; font-weight: 600; }
+.wallpaper-basic-row .button { padding-inline: 8px; font-size: 11px; }
+.wallpaper-basic-row .icon-button { flex: 0 0 36px; width: 36px; height: 36px; }
+.wallpaper-image-effects { display: grid; gap: 14px; padding-top: 16px; border-top: 1px solid var(--border); }
+.wallpaper-basic-reset { justify-self: end; min-height: 32px; padding: 5px 10px; font-size: 11px; }
 .wallpaper-settings .segmented-control button { font-size: 11px; padding-inline: 4px; }
 .data-settings { gap: 14px; }
 .data-overview { display: flex; gap: 20px; padding: 16px; border-radius: 14px; background: var(--surface-raised); }

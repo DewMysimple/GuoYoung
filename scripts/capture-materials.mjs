@@ -93,7 +93,7 @@ async function inspect(page, url, mode, extension = false) {
       await page.getByRole("button", { name: "打开设置" }).click();
       const panel = page.getByRole("dialog", { name: "设置", exact: true });
       await panel.getByRole("tab", { name: /壁纸/ }).click();
-      await openSection(panel, '阅读与氛围');
+      await openSection(panel, '基础设置');
       await panel.getByRole("slider", { name: "明暗遮罩" }).fill("70");
       await panel.getByRole("button", { name: "保存设置" }).click();
     }
@@ -130,7 +130,7 @@ async function inspectPresets(page, mode) {
     await page.getByRole("button", { name: "打开设置" }).click();
     await panel.getByRole("tab", { name: /壁纸/ }).click();
     if (!index) {
-      await openSection(panel, '阅读与氛围');
+      await openSection(panel, '基础设置');
       await panel.getByRole("slider", { name: "明暗遮罩" }).fill("0");
     }
     await openSection(panel, '玻璃外观');

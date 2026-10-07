@@ -9,11 +9,14 @@ import { SettingsDisclosure } from "./settings-disclosure";
 import { GLASS_PRESETS, getGlassPreset, pickGlass } from "../lib/glass-presets";
 import "./settings-editors.css";
 
-const ATMOSPHERES = [
-  { label: "清晰阅读", blur: 0, overlay: 22 },
-  { label: "柔和背景", blur: 6, overlay: 38 },
-  { label: "突出壁纸", blur: 0, overlay: 0 },
-] as const;
+const BASIC_DEFAULTS = {
+  fit: DEFAULT_WALLPAPER.fit,
+  positionX: DEFAULT_WALLPAPER.positionX,
+  positionY: DEFAULT_WALLPAPER.positionY,
+  zoom: DEFAULT_WALLPAPER.zoom,
+  blur: DEFAULT_WALLPAPER.blur,
+  overlay: DEFAULT_WALLPAPER.overlay,
+};
 
 export function WallpaperSettingsEditor({ value, imageUrl, error, processing, editing, onChange, onChoose, onToggleEditing }: {
   value: WallpaperSettings;
@@ -49,31 +52,34 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       {error && <p className="field-error" role="alert">{error}</p>}
     </section>
 
-    <SettingsDisclosure title="位置与构图" summary="填充、位置与缩放" help="铺满页面或保留完整图片，再拖动选择合适的位置。">
-
-      <div className="segmented-control" role="group" aria-label="填充方式">
-        {(["cover", "contain"] as const).map((fit) => <button key={fit} type="button" className={value.fit === fit ? "active" : ""}
-          aria-pressed={value.fit === fit} onClick={() => onChange({ fit })}>{fit === "cover" ? "铺满" : "完整显示"}</button>)}
+    <SettingsDisclosure title="基础设置" summary="构图与画面效果" className="wallpaper-basic-settings"
+      help="选择显示方式，再拖动和缩放调整构图。模糊与明暗遮罩默认关闭，可按需增加；恢复默认只重置本组参数。">
+      <div className="wallpaper-basic-row">
+        <span>显示方式</span>
+        <div className="segmented-control" role="group" aria-label="填充方式">
+          {(["cover", "contain"] as const).map((fit) => <button key={fit} type="button" disabled={!enabled}
+            className={value.fit === fit ? "active" : ""} aria-pressed={value.fit === fit}
+            onClick={() => onChange({ fit })}>{fit === "cover" ? "铺满" : "完整显示"}</button>)}
+        </div>
       </div>
-      <div className="wallpaper-position-actions">
-        <button type="button" className={`button secondary-button ${editing ? "active" : ""}`} disabled={!enabled} onClick={onToggleEditing}>
-          <ArrowsOutCardinal size={17} />{editing ? "完成位置调整" : "在页面拖动调整"}
-        </button>
-        <button type="button" className="icon-button" aria-label="居中复位" title="居中复位" disabled={!enabled}
-          onClick={() => onChange({ positionX: 50, positionY: 50, zoom: 100 })}><Crosshair size={17} /></button>
+      <div className="wallpaper-basic-row">
+        <span>画面位置</span>
+        <div className="wallpaper-position-actions">
+          <button type="button" className={`button secondary-button ${editing ? "active" : ""}`} disabled={!enabled}
+            aria-pressed={editing} onClick={onToggleEditing}>
+            <ArrowsOutCardinal size={17} />{editing ? "完成调整" : "拖动调整"}
+          </button>
+          <button type="button" className="icon-button" aria-label="居中复位" title="居中复位" disabled={!enabled}
+            onClick={() => onChange({ positionX: DEFAULT_WALLPAPER.positionX, positionY: DEFAULT_WALLPAPER.positionY, zoom: DEFAULT_WALLPAPER.zoom })}><Crosshair size={17} /></button>
+        </div>
       </div>
       <RangeControl label="缩放" min={50} max={300} value={value.zoom} unit="%" disabled={!enabled} onChange={(zoom) => onChange({ zoom })} />
-    </SettingsDisclosure>
-
-    <SettingsDisclosure title="阅读与氛围" summary="模糊与明暗遮罩" help="保留壁纸的层次，通过柔化背景改善阅读。深色主题搭配浅色壁纸时，可增加明暗遮罩，让文字更清楚。">
-
-      <div className="segmented-control" role="group" aria-label="壁纸氛围">
-        {ATMOSPHERES.map(({ label, ...patch }) => <button key={label} type="button" disabled={!enabled}
-          className={Object.entries(patch).every(([key, val]) => value[key as keyof WallpaperSettings] === val) ? "active" : ""}
-          onClick={() => onChange(patch)}>{label}</button>)}
+      <div className="wallpaper-image-effects" role="group" aria-label="画面效果">
+        <RangeControl label="模糊" min={0} max={20} value={value.blur} disabled={!enabled} onChange={(blur) => onChange({ blur })} />
+        <RangeControl label="明暗遮罩" min={0} max={80} value={value.overlay} unit="%" disabled={!enabled} onChange={(overlay) => onChange({ overlay })} />
       </div>
-      <RangeControl label="模糊" min={0} max={20} value={value.blur} disabled={!enabled} onChange={(blur) => onChange({ blur })} />
-      <RangeControl label="明暗遮罩" min={0} max={80} value={value.overlay} unit="%" disabled={!enabled} onChange={(overlay) => onChange({ overlay })} />
+      <button type="button" className="button secondary-button wallpaper-basic-reset" disabled={!enabled}
+        onClick={() => onChange(BASIC_DEFAULTS)}>恢复基础默认</button>
     </SettingsDisclosure>
 
     <SettingsDisclosure help="九套预设默认使用轻量玻璃；可在微调中开启折射。选择即刻预览，保存后生效。" title="玻璃外观" summary={preset?.label ?? "已自定义"}>

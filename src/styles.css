@@ -43,7 +43,7 @@
   --wallpaper-position-y: 50%;
   --wallpaper-zoom: 1;
   --wallpaper-blur: 0px;
-  --wallpaper-overlay: 0.22;
+  --wallpaper-overlay: 0;
   --topbar-background: color-mix(in srgb, var(--page) 88%, transparent);
   --topbar-backdrop-blur: 18px;
   --settings-panel-width: 440px;
@@ -3887,36 +3887,6 @@ select:focus-visible {
   justify-self: start;
   color: var(--ui-accent-text);
 }
-
-.wallpaper-source-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.wallpaper-source-actions .button {
-  flex: 1;
-  padding-inline: 10px;
-}
-
-.wallpaper-position-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
-}
-
-.wallpaper-position-actions .button {
-  min-width: 0;
-  padding-inline: 10px;
-}
-
-.wallpaper-position-actions .button.active {
-  color: var(--ui-accent-text);
-  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
-  background: var(--accent-soft);
-}
-
-
 
 .toggle-row {
   display: flex;

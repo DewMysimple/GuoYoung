@@ -15,6 +15,27 @@ function memoryStorage(initial?: string) {
 }
 
 describe("local storage", () => {
+  it("defaults missing wallpaper effects to zero while preserving saved values", () => {
+    const defaults = createDefaultState();
+    expect(defaults.wallpaper).toMatchObject({ blur: 0, overlay: 0 });
+    for (const version of [5, 17, 23]) {
+      for (const [effects, expected] of [
+        [{}, { blur: 0, overlay: 0 }],
+        [{ blur: "invalid", overlay: null }, { blur: 0, overlay: 0 }],
+        [{ blur: 0, overlay: 0 }, { blur: 0, overlay: 0 }],
+        [{ blur: 6, overlay: 22 }, { blur: 6, overlay: 22 }],
+        [{ blur: 8, overlay: 38 }, { blur: 8, overlay: 38 }],
+      ]) {
+        const loaded = parseStoredState(JSON.stringify({ ...defaults, version,
+          wallpaper: { source: "url", url: "https://example.test/wallpaper.png", ...effects } }));
+        expect(loaded.recovered).toBe(false);
+        expect(loaded.state.wallpaper).toMatchObject(expected);
+        expect(loaded.state.sites).toEqual(defaults.sites);
+        expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
+      }
+    }
+  });
+
   it("migrates navigation spacing without changing data and preserves backup round trips", () => {
     const defaults = createDefaultState();
     for (const version of [20, 21, 22, 23]) {

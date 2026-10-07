@@ -63,7 +63,7 @@
     image.style.transform = `scale(${clamp(wallpaper.zoom, 50, 300, 100) / 100 * 1.02})`;
     image.style.filter = `blur(${blur}px)`;
     const overlay = document.createElement("span");
-    overlay.style.background = `rgb(${dark ? "14 17 23" : "244 246 249"} / ${clamp(wallpaper.overlay, 0, 80, 22) / 100})`;
+    overlay.style.background = `rgb(${dark ? "14 17 23" : "244 246 249"} / ${clamp(wallpaper.overlay, 0, 80, 0) / 100})`;
     layer.append(image, overlay);
     document.documentElement.dataset.wallpaperStartup = "true";
     document.documentElement.append(layer);

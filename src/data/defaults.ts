@@ -184,7 +184,7 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
   positionY: 50,
   zoom: 100,
   blur: 0,
-  overlay: 22,
+  overlay: 0,
   sidebarStyle: "shared",
   sidebarTransparency: 60,
   sidebarBlurEnabled: true,

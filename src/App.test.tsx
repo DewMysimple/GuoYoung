@@ -493,8 +493,8 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("网络图片地址"), {
       target: { value: "https://example.com/wallpaper.jpg" },
     });
-    await user.click(screen.getByText("位置与构图"));
-    await user.click(screen.getByRole("button", { name: "在页面拖动调整" }));
+    await user.click(screen.getByText("基础设置"));
+    await user.click(screen.getByRole("button", { name: "拖动调整" }));
     expect(screen.queryByTestId("settings-outside-dismiss-layer")).toBeNull();
     const canvas = screen.getByRole("application", {
       name: /拖动壁纸调整位置/,
@@ -1357,8 +1357,8 @@ describe("App", () => {
     fireEvent.change(screen.getByLabelText("网络图片地址"), {
       target: { value: "https://example.com/wallpaper.jpg" },
     });
-    await user.click(screen.getByText("位置与构图"));
-    await user.click(screen.getByRole("button", { name: "在页面拖动调整" }));
+    await user.click(screen.getByText("基础设置"));
+    await user.click(screen.getByRole("button", { name: "拖动调整" }));
 
     const canvas = screen.getByRole("application", {
       name: /拖动壁纸调整位置/,

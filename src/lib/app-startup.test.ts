@@ -2,12 +2,28 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "../data/defaults";
 import { prepareAppStore } from "./app-startup";
 import { STORAGE_KEY } from "./storage";
-import { THEME_STARTUP_KEY } from "./wallpaper-startup";
+import { THEME_STARTUP_KEY, WALLPAPER_STARTUP_KEY } from "./wallpaper-startup";
 import { readFileSync } from "node:fs";
 
 afterEach(() => { localStorage.clear(); delete window.__MYSIMPLE_STARTUP__; vi.unstubAllGlobals(); });
 
 describe("first application commit", () => {
+  it("boots missing wallpaper effects at zero and retains a saved shade", () => {
+    const boot = readFileSync("public/wallpaper-boot.js", "utf8");
+    for (const [effects, expectedBlur, expectedAlpha] of [[{}, "blur(0px)", "0"], [{ blur: 6, overlay: 22 }, "blur(6px)", "0.22"]] as const) {
+      localStorage.setItem(WALLPAPER_STARTUP_KEY, JSON.stringify({ key: "url:https://example.test/wallpaper.png",
+        preview: "data:image/png;base64,YQ==", theme: "light",
+        wallpaper: { source: "url", url: "https://example.test/wallpaper.png", ...effects } }));
+      window.eval(boot);
+      const layer = document.getElementById("wallpaper-startup")!;
+      expect(layer.querySelector("img")!.style.filter).toBe(expectedBlur);
+      expect(layer.querySelector("span")!.style.background).toBe(`rgba(244, 246, 249, ${expectedAlpha})`);
+      layer.remove();
+      document.getElementById("wallpaper-startup-style")?.remove();
+      delete document.documentElement.dataset.wallpaperStartup;
+    }
+  });
+
   it("uses storage changes received after the early read has already completed", async () => {
     const initial = createDefaultState();
     const newer = { ...initial, brand: { ...initial.brand, name: "Saved in another tab" } };
