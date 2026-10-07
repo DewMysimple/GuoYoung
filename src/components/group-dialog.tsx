@@ -167,6 +167,7 @@ export function GroupDialog({
   onImportGroup,
 }: GroupDialogProps) {
   const titleId = useId();
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const orderedGroups = useMemo(
     () => groups.slice().sort((a, b) => a.order - b.order),
     [groups],
@@ -512,10 +513,14 @@ export function GroupDialog({
         <Dialog.Content
           className="dialog-content group-dialog-content"
           aria-labelledby={titleId}
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            titleRef.current?.focus({ preventScroll: true });
+          }}
         >
           <div className="dialog-header">
             <div>
-              <div className="dialog-heading-with-help"><Dialog.Title id={titleId} className="dialog-title">管理分组</Dialog.Title>
+              <div className="dialog-heading-with-help"><Dialog.Title ref={titleRef} id={titleId} className="dialog-title" tabIndex={-1}>管理分组</Dialog.Title>
                 <HelpTip label="管理分组说明">点击名称编辑，勾选圆圈可批量删除；拖动手柄调整顺序。</HelpTip>
               </div>
               <Dialog.Description className="visually-hidden">

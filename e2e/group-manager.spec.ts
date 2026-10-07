@@ -31,9 +31,34 @@ test("creates a group, selects it, and keeps it after refresh", async ({ page })
   await expect(page.getByRole("tab", { name: /工作/ })).toBeVisible();
 });
 
-test("opens the exact group manager from long press and grouped heading", async ({
+test("opens group management without automatic help and supports every entry", async ({
   page,
-}) => {
+}, testInfo) => {
+  const manageButton = page.getByRole("button", { name: "管理分组", exact: true });
+  await manageButton.click();
+  let dialog = page.getByRole("dialog", { name: "管理分组" });
+  await expect(dialog).toBeVisible();
+  await page.screenshot({ path: screenshotPath(`group-manager-initial-focus-${testInfo.project.name}.png`) });
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await expect(dialog.getByRole("heading", { name: "管理分组", exact: true })).toBeFocused();
+  const help = dialog.getByRole("button", { name: "管理分组说明" });
+  await page.keyboard.press("Tab");
+  await expect(help).toBeFocused();
+  await expect(page.getByRole("tooltip")).toContainText("点击名称编辑");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await help.click();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await dialog.getByRole("button", { name: "返回收藏主页" }).click();
+  await expect(dialog).toHaveCount(0);
+  await manageButton.focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog.getByRole("heading", { name: "管理分组", exact: true })).toBeFocused();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+
   const designTab = page.locator('[data-group-drop-id="design"]');
   await designTab.scrollIntoViewIfNeeded();
   const tabBox = await designTab.boundingBox();
@@ -47,8 +72,9 @@ test("opens the exact group manager from long press and grouped heading", async 
     clientY: tabBox.y + tabBox.height / 2,
   });
   await page.waitForTimeout(460);
-  let dialog = page.getByRole("dialog", { name: "管理分组" });
+  dialog = page.getByRole("dialog", { name: "管理分组" });
   await expect(dialog.getByLabel("分组名称")).toHaveValue("设计");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "返回收藏主页" })).toBeVisible();
   await expect(page.locator(".group-dialog-overlay")).toHaveCSS(
     "background-color",
@@ -116,6 +142,7 @@ test("opens the exact group manager from long press and grouped heading", async 
   await page.getByRole("button", { name: "管理 学习 分组" }).click();
   dialog = page.getByRole("dialog", { name: "管理分组" });
   await expect(dialog.getByLabel("分组名称")).toHaveValue("学习");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   await dialog.getByRole("button", { name: "返回收藏主页" }).click();
   await expect(page.getByRole("dialog", { name: "管理分组" })).toHaveCount(0);
 });
