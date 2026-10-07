@@ -2127,6 +2127,11 @@ select:focus-visible {
   cursor: grabbing;
 }
 
+.site-card[data-site-dnd-id].is-dragging,
+.site-card.is-batch-source {
+  opacity: 0.46;
+}
+
 .site-card.is-dragging[data-drag-mode="transfer"] {
   transform: none;
   transition: none;

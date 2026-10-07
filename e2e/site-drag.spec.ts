@@ -41,7 +41,7 @@ test("drags beyond 50px without waiting and keeps the order after refresh", asyn
   );
   const dragPreview = page.getByTestId("site-card-drag-preview");
   await expect(dragPreview).toBeVisible();
-  await expect.poll(() => cardSurface(googleCard)).toEqual(ordinarySurface);
+  await expect.poll(() => cardSurface(googleCard)).toEqual({ ...ordinarySurface, opacity: "0.46" });
   await expect.poll(() => cardSurface(dragPreview)).toEqual(ordinarySurface);
   await page.mouse.move(
     target.x + target.width * 0.75,
@@ -118,7 +118,9 @@ test("drags beyond 50px without waiting and keeps the order after refresh", asyn
   expect(releasedFrames.at(-1)!.elapsed).toBeGreaterThanOrEqual(250);
   expect(releasedFrames.some((frame) => frame.returning), "Actual 170ms return animation observed").toBe(true);
   expect(ordinarySurface.opacity).toBe("1");
-  expect(dropReport.frames.every((frame) => frame.opacity === ordinarySurface.opacity)).toBe(true);
+  expect(dropReport.frames.every((frame) =>
+    frame.opacity === (frame.dragging ? "0.46" : ordinarySurface.opacity),
+  )).toBe(true);
   expect(dropReport.frames.some((frame) => Number.parseFloat(frame.inlineOpacity) === 0)).toBe(false);
   expect(dropReport.zeroInlineWrites, "No transient inline opacity zero between frames").toEqual([]);
 
@@ -155,6 +157,7 @@ test("cancels a site drag when the browser window loses focus", async ({
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
   await expect(page.getByTestId("site-card-drag-preview")).toBeHidden();
   await expect(page.locator(".site-card.is-dragging")).toHaveCount(0);
+  await expect(googleCard).toHaveCSS("opacity", "1");
   await page.mouse.up();
 });
 
@@ -179,7 +182,7 @@ test("uses card overlap and moves the target frame before drop", async ({
 
   await expect(bingCard).toHaveClass(/is-drop-target/);
   await expect.poll(() => cardSurface(bingCard)).toEqual(ordinaryTarget);
-  await expect.poll(() => cardSurface(googleCard)).toEqual(ordinarySource);
+  await expect.poll(() => cardSurface(googleCard)).toEqual({ ...ordinarySource, opacity: "0.46" });
   await expect
     .poll(() => cardSurface(page.getByTestId("site-card-drag-preview")))
     .toEqual(ordinarySource);
@@ -219,6 +222,9 @@ test("keeps unrelated cards neutral during a transfer drag", async ({
   await page.mouse.down();
   await page.mouse.move(start.x + start.width / 2 + 51, start.y + start.height / 2);
   await expect(page.getByTestId("site-card-drag-preview")).toBeVisible();
+  await expect(googleCard).toHaveCSS("opacity", "0.46");
+  await expect(page.getByTestId("site-card-drag-preview")).toHaveCSS("opacity", "1");
+  expect(await googleCard.boundingBox()).toEqual(start);
   await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2);
 
   await expect(bingCard).not.toHaveClass(/is-drop-target/);
@@ -226,6 +232,7 @@ test("keeps unrelated cards neutral during a transfer drag", async ({
     .poll(() => bingCard.evaluate((element) => getComputedStyle(element).borderColor))
     .toBe(neutralBorder);
   await page.mouse.up();
+  await expect(googleCard).toHaveCSS("opacity", "1");
 });
 
 test("keeps the original order when the live target frame returns to source", async ({
@@ -626,10 +633,10 @@ test("moves selected sites together from grouped All without leaving All", async
     "2",
   );
   await expect(page.getByTestId("site-card-github")).toHaveClass(/is-batch-source/);
-  await expect.poll(() => cardSurface(google)).toEqual(ordinaryGoogle);
+  await expect.poll(() => cardSurface(google)).toEqual({ ...ordinaryGoogle, opacity: "0.46" });
   await expect
     .poll(() => cardSurface(page.getByTestId("site-card-github")))
-    .toEqual(ordinaryGithub);
+    .toEqual({ ...ordinaryGithub, opacity: "0.46" });
   await expect
     .poll(() => cardSurface(page.getByTestId("site-card-drag-preview")))
     .toEqual(ordinaryGoogle);

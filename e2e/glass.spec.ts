@@ -94,6 +94,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.screenshot({ path: screenshotPath("glass-group-tab-drag.png") });
   await page.keyboard.press("Escape");
   await page.mouse.up();
+  await expect(tab).toHaveCSS("opacity", "1");
 
   const heading = page.locator('.grouped-site-section[data-group-sort-section-id="search"] .grouped-site-header-main');
   const headingBox = await heading.boundingBox();
@@ -120,7 +121,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.down();
   await expect.poll(() => source.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
   await page.mouse.move(sourceBox.x + sourceBox.width / 2 + 51, sourceBox.y + sourceBox.height / 2);
-  await expect.poll(() => source.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
+  await expect.poll(() => source.evaluate(readCardSurface)).toEqual({ ...ordinaryMaterial, opacity: "0.46" });
   const sitePreview = page.getByTestId("site-card-drag-preview");
   await expectGlassMaterial(sitePreview, { blur: 8, refraction: true });
   await expect.poll(() => sitePreview.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
@@ -142,12 +143,15 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   }
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
   for (const card of [source, target, neutral, sitePreview]) {
-    await expect.poll(() => card.evaluate(readCardSurface)).toEqual(ordinaryMaterial);
+    await expect.poll(() => card.evaluate(readCardSurface)).toEqual({
+      ...ordinaryMaterial, opacity: card === source ? "0.46" : "1",
+    });
   }
   await cdp.detach();
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(sitePreview).toHaveCount(0);
+  await expect(source).toHaveCSS("opacity", "1");
   // dnd-kit retains its document click guard for 50ms after detaching a sensor.
   // The next action is an independent click, after that release-click guard.
   await page.waitForTimeout(60);
