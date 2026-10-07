@@ -110,32 +110,24 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       </SettingsDisclosure>
     </SettingsDisclosure>
 
-    <SettingsDisclosure title="顶栏外观" summary={value.topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"} help="玻璃底板可独立调节顶栏材质。要完全透出壁纸，请选择“融入壁纸”并关闭清晰阅读。">
-
-      <SettingsToggle label="顶部清晰阅读" help="为导航、搜索和分组工具增加阅读衬底；文字始终跟随全局配色，关闭后使用原玻璃透明度。" checked={value.topbarReadability !== "page"}
-        onChange={checked => onChange({ topbarReadability: checked ? "clear" : "page" })} />
-      <div className="segmented-control" role="group" aria-label="顶栏样式">
-        {(["clear", "glass"] as const).map((topbarStyle) => <button type="button" key={topbarStyle}
-          aria-pressed={value.topbarStyle === topbarStyle} className={value.topbarStyle === topbarStyle ? "active" : ""}
-          onClick={() => onChange({ topbarStyle })}>{topbarStyle === "clear" ? "融入壁纸" : "玻璃底板"}</button>)}
-      </div>
-      {value.topbarStyle === "glass" && <PanelGlassControls label="顶栏"
-        transparency={100 - value.topbarOpacity} blur={value.topbarBlur} blurEnabled={value.topbarBlurEnabled}
+    <SettingsDisclosure title="顶栏外观" summary="独立调节" help="直接调节顶栏透明度和模糊强度；透明度 100%、模糊强度 0 时完全透出壁纸。">
+      <PanelGlassControls label="顶栏"
+        transparency={100 - value.topbarOpacity} blur={value.topbarBlur}
         onTransparency={transparency => onChange({ topbarOpacity: 100 - transparency })}
-        onBlur={topbarBlur => onChange({ topbarBlur })} onBlurEnabled={topbarBlurEnabled => onChange({ topbarBlurEnabled })} />}
+        onBlur={topbarBlur => onChange({ topbarBlur })} />
 
     </SettingsDisclosure>
-    <SettingsDisclosure title="设置侧栏外观" summary={value.sidebarStyle === "shared" ? "跟随公共玻璃" : value.sidebarStyle === "clear" ? "融入壁纸" : "独立玻璃底板"}
-      help="默认跟随公共面板玻璃，也可单独调整侧栏。选择壁纸后预览材质，保存后保留，取消恢复原设置。">
-      <div className="segmented-control" role="group" aria-label="设置侧栏样式">
-        {(["shared", "clear", "glass"] as const).map(sidebarStyle => <button type="button" key={sidebarStyle}
+    <SettingsDisclosure title="侧栏外观" summary={value.sidebarStyle === "shared" ? "跟随公共" : "独立玻璃底板"}
+      help="默认跟随公共面板玻璃，也可独立调节透明度和模糊强度。透明度 100%、模糊强度 0 时完全透出壁纸。保存后保留，取消恢复原设置。">
+      <div className="segmented-control" role="group" aria-label="侧栏样式">
+        {(["shared", "glass"] as const).map(sidebarStyle => <button type="button" key={sidebarStyle}
           aria-pressed={value.sidebarStyle === sidebarStyle} className={value.sidebarStyle === sidebarStyle ? "active" : ""}
-          onClick={() => onChange({ sidebarStyle })}>{sidebarStyle === "shared" ? "跟随公共玻璃" : sidebarStyle === "clear" ? "融入壁纸" : "独立玻璃底板"}</button>)}
+          onClick={() => onChange({ sidebarStyle })}>{sidebarStyle === "shared" ? "跟随公共" : "独立玻璃底板"}</button>)}
       </div>
       {value.sidebarStyle === "glass" && <PanelGlassControls label="侧栏"
-        transparency={value.sidebarTransparency} blur={value.sidebarBlur} blurEnabled={value.sidebarBlurEnabled}
+        transparency={value.sidebarTransparency} blur={value.sidebarBlur}
         onTransparency={sidebarTransparency => onChange({ sidebarTransparency })}
-        onBlur={sidebarBlur => onChange({ sidebarBlur })} onBlurEnabled={sidebarBlurEnabled => onChange({ sidebarBlurEnabled })} />}
+        onBlur={sidebarBlur => onChange({ sidebarBlur })} />}
     </SettingsDisclosure>
   </div>;
 }

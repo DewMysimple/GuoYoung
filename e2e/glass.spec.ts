@@ -183,7 +183,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   const shell = page.locator(".app-shell");
   const card = page.locator(".site-card").first();
   await expect(shell).toHaveClass(/has-wallpaper/);
-  await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").display)).toBe("none");
+  await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("none");
   expect((await shell.boundingBox())!.x).toBe(0);
   const searchBox = (await page.locator(".search-input").boundingBox())!;
   expect(Math.abs(searchBox.x + searchBox.width / 2 - (await page.evaluate(() => innerWidth)) / 2)).toBeLessThan(2);
@@ -206,9 +206,9 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await expectGlassMaterial(card, { blur: 2, refraction: true });
   await expect.poll(() => card.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(initial);
   await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
-  await panel.getByRole("button", { name: "玻璃底板", exact: true }).click();
   await panel.getByRole("slider", { name: "顶栏透明度" }).fill("85");
-  await panel.getByRole("checkbox", { name: /模糊壁纸/ }).uncheck();
+  const topbarControls = panel.locator("details").filter({ has: page.locator("summary").filter({ hasText: /^顶栏外观/ }) });
+  await topbarControls.getByRole("slider", { name: "模糊强度" }).fill("0");
   await expectGlassMaterial(page.locator(".topbar"), { blur: 0 }, true);
   await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toContain("0.15");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper.glassTransparency)).toBe(78);
@@ -312,7 +312,7 @@ test("offers nine reversible presets behind collapsed wallpaper parameters", asy
   await page.reload();
   await expectGlassMaterial(page.locator(".site-card").first(), { blur: 2, saturation: 1, refraction: false });
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toMatchObject({
-    source: original.source, url: original.url, zoom: 110, overlay: 0, topbarStyle: original.topbarStyle, glassHighlight: 78, glassRefraction: false,
+    source: original.source, url: original.url, zoom: 110, overlay: 0, topbarOpacity: original.topbarOpacity, topbarBlur: original.topbarBlur, glassHighlight: 78, glassRefraction: false,
   });
   await page.screenshot({ path: screenshotPath("liquid-preset-saved.png") });
 });

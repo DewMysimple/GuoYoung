@@ -1372,7 +1372,6 @@ describe("App", () => {
     });
 
     await user.click(screen.getByText("顶栏外观"));
-    await user.click(screen.getByRole("button", { name: "玻璃底板" }));
     fireEvent.change(screen.getByRole("slider", { name: "顶栏透明度" }), {
       target: { value: "58" },
     });

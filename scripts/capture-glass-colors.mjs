@@ -44,7 +44,7 @@ async function run(context, url, extension) {
   const first = state.sites[0];
   state.sites = Array.from({ length: 117 }, (_, index) => ({ ...first, id: `visual-${index}`, name: `收藏示例 ${index + 1}`, url: `https://sample.example/${index}`, order: index, globalOrder: index, clickCount: index, iconSource: "custom", customIconUrl: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="12" fill="#408ace"/></svg>') }));
   state.appearance = { ...state.appearance, theme: "dark", cardWidth: 160, cardHeight: 132, textColorMode: "theme", textColorHierarchy: "unified", iconColorMode: "text" };
-  state.wallpaper = { ...state.wallpaper, source: "url", url: "https://glass-check.example/wallpaper", blur: 0, overlay: 0, topbarReadability: "clear" };
+  state.wallpaper = { ...state.wallpaper, source: "url", url: "https://glass-check.example/wallpaper", blur: 0, overlay: 0 };
   await seed(state);
   for (const [name, saturation, strength] of presets) {
     await page.getByRole("button", { name: "打开设置" }).click();

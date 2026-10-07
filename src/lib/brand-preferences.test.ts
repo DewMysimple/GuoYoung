@@ -12,9 +12,9 @@ it("upgrades brand preferences without replacing existing content and keeps new 
   expect(loaded.state.brand).toMatchObject({ name: "旧名称", showName: false, tabTitle: "", logoShape: "original" });
   expect(loaded.state.sites).toEqual(old.sites);
   loaded.state.brand = { ...loaded.state.brand, tabTitle: "我的起点", logoShape: "rectangle" };
-  loaded.state.wallpaper.topbarReadability = "page";
+  loaded.state.wallpaper.topbarOpacity = 25;
   const restored = parseImportFile(serializeExport(loaded.state));
   expect(restored.brand).toEqual(loaded.state.brand);
-  expect(restored.wallpaper.topbarReadability).toBe("page");
+  expect(restored.wallpaper.topbarOpacity).toBe(25);
   expect(parseStoredState(JSON.stringify(restored)).state.brand).toEqual(restored.brand);
 });

@@ -54,33 +54,13 @@ html:has(.app-shell.has-wallpaper) {
   position: absolute;
   z-index: -1;
   inset: 0;
-  border-bottom: 1px solid var(--glass-edge-soft);
+  border-bottom: 1px solid var(--topbar-edge);
   background: var(--topbar-background);
-  box-shadow: inset 0 -1px 0 var(--glass-edge-soft);
+  box-shadow: inset 0 -1px 0 var(--topbar-edge);
   backdrop-filter: var(--topbar-backdrop-filter);
   content: "";
   pointer-events: none;
 }
-
-.has-wallpaper.topbar-clear .topbar::before { display: none; }
-.has-wallpaper.topbar-clear .brand { text-shadow: var(--wallpaper-text-shadow); }
-
-/* A local reading layer keeps navigation legible without modifying wallpaper
-   exposure, saved text colors, or the material used by the rest of the page. */
-.has-wallpaper.topbar-readable .topbar {
-  --text: var(--reading-text);
-  --text-soft: var(--reading-text-secondary);
-  --text-faint: var(--reading-text-secondary);
-}
-.has-wallpaper.topbar-readable .topbar::after {
-  content: "";
-  position: absolute;
-  pointer-events: none;
-  z-index: -1;
-  inset: 0;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--page) 92%, transparent), color-mix(in srgb, var(--page) 84%, transparent));
-}
-:root .has-wallpaper.topbar-readable .topbar :is(.brand, .brand-name, .topbar-history-button) { text-shadow: none; }
 
 .has-wallpaper .topbar-history-button,
 .has-wallpaper .icon-button,
@@ -213,15 +193,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent),
     var(--glass-shadow);
-}
-
-.has-wallpaper.topbar-readable :is(.search-input, .category-tab, .manage-groups-button, .add-group-tab, .view-control-button, .history-range-trigger) {
-  --text: var(--reading-text);
-  --text-soft: var(--reading-text-secondary);
-  --text-faint: var(--reading-text-secondary);
-  --glass-fill-low: color-mix(in srgb, var(--surface) max(82%, var(--glass-control-opacity)), transparent);
-  --glass-fill-high: color-mix(in srgb, var(--glass-fill-low) 92%, var(--surface));
-  text-shadow: none;
 }
 
 .has-wallpaper .site-card,

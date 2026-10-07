@@ -1244,16 +1244,16 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--glass-wide-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-wide"),
     "--glass-search-filter": glassFilter(effectiveWallpaper, "wallpaper-glass-lens-search"),
     "--sidebar-background": effectiveWallpaper.sidebarStyle === "shared" ? "var(--glass-fill-panel)"
-      : effectiveWallpaper.sidebarStyle === "clear" ? "transparent"
       : `color-mix(in srgb, var(--surface) ${100 - effectiveWallpaper.sidebarTransparency}%, transparent)`,
     "--sidebar-filter": effectiveWallpaper.sidebarStyle === "shared" ? "var(--glass-filter)"
-      : effectiveWallpaper.sidebarStyle === "glass" && effectiveWallpaper.sidebarBlurEnabled
+      : effectiveWallpaper.sidebarBlur > 0
       ? `blur(${effectiveWallpaper.sidebarBlur}px) saturate(${effectiveWallpaper.glassSaturation}%)` : "none",
-    "--sidebar-image": effectiveWallpaper.sidebarStyle === "clear" ? "none" : "var(--glass-surface-image)",
+    "--sidebar-image": effectiveWallpaper.sidebarStyle === "glass" && effectiveWallpaper.sidebarTransparency === 100
+      ? "none" : "var(--glass-surface-image)",
     "--topbar-background": `color-mix(in srgb, var(--page) ${effectiveWallpaper.topbarOpacity}%, transparent)`,
-    "--topbar-backdrop-blur": effectiveWallpaper.topbarBlurEnabled
-      ? `${effectiveWallpaper.topbarBlur}px`
-      : "0px",
+    "--topbar-edge": `color-mix(in srgb, var(--glass-edge-soft) ${effectiveWallpaper.topbarOpacity}%, transparent)`,
+    "--topbar-backdrop-filter": effectiveWallpaper.topbarBlur > 0
+      ? `blur(${effectiveWallpaper.topbarBlur}px) saturate(140%)` : "none",
   } as CSSProperties;
 
   useInsertionEffect(() => {
@@ -1287,7 +1287,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       className={`app-shell min-h-[100dvh] ${
         activeDragId || pendingDragId ? "is-site-dragging" : ""
       } ${settingsOpen ? "settings-open" : ""} ${
-        wallpaperUrl ? `has-wallpaper topbar-${effectiveWallpaper.topbarStyle} ${effectiveWallpaper.topbarReadability !== "page" ? "topbar-readable" : ""} ${effectiveWallpaper.glassRefraction && supportsGlassRefraction ? "glass-refraction" : ""}` : ""
+        wallpaperUrl ? `has-wallpaper ${effectiveWallpaper.glassRefraction && supportsGlassRefraction ? "glass-refraction" : ""}` : ""
       }`}
       style={appStyle}
       {...siteClickHandlers}

@@ -69,7 +69,7 @@ async function inspect(context, url, extension) {
     await page.getByRole('button', { name: '打开设置' }).click();
     const panel = page.getByRole('dialog', { name: '设置', exact: true });
     await panel.getByRole('tab', { name: '壁纸', exact: true }).click();
-    const controls = panel.locator('details').filter({ has: page.locator(':scope > summary', { hasText: '设置侧栏外观' }) });
+    const controls = panel.locator('details').filter({ has: page.locator(':scope > summary', { hasText: '侧栏外观' }) });
     if (await controls.getAttribute('open') === null) await controls.locator(':scope > summary').click();
     await controls.getByRole('button', { name: '独立玻璃底板' }).click();
     await controls.getByRole('slider', { name: '侧栏透明度' }).fill('80');
@@ -77,7 +77,8 @@ async function inspect(context, url, extension) {
     await controls.scrollIntoViewIfNeeded();
     await page.waitForTimeout(250);
     await capture(`${name}-sidebar`);
-    await controls.getByRole('button', { name: '融入壁纸', exact: true }).click();
+    await controls.getByRole('slider', { name: '侧栏透明度' }).fill('100');
+    await controls.getByRole('slider', { name: '模糊强度' }).fill('0');
     await capture(`${name}-sidebar-clear`);
     await panel.getByRole('button', { name: '取消', exact: true }).click();
   }

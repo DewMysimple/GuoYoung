@@ -17,16 +17,16 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
 
 New-Item -ItemType Directory -Path $artifactsDirectory -Force | Out-Null
 
-if (Test-Path -LiteralPath $unpackedDirectory -PathType Container) {
-  Remove-Item -LiteralPath $unpackedDirectory -Recurse -Force
+Compress-Archive -Path (Join-Path $extensionDirectory "*") -DestinationPath $archivePath -CompressionLevel Optimal -Force
+# Replace current files from the actual archive, retaining resources used by open tabs.
+Expand-Archive -LiteralPath $archivePath -DestinationPath $unpackedDirectory -Force
+
+Get-ChildItem -LiteralPath $extensionDirectory -File -Recurse | ForEach-Object {
+  $relativePath = $_.FullName.Substring($extensionDirectory.Length + 1)
+  $installedPath = Join-Path $unpackedDirectory $relativePath
+  if ((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $installedPath -Algorithm SHA256).Hash) {
+    throw "Unpacked extension differs from build: $relativePath"
+  }
 }
-
-New-Item -ItemType Directory -Path $unpackedDirectory -Force | Out-Null
-Copy-Item -Path (Join-Path $extensionDirectory "*") -Destination $unpackedDirectory -Recurse -Force
-
-if (Test-Path -LiteralPath $archivePath -PathType Leaf) {
-  Remove-Item -LiteralPath $archivePath -Force
-}
-
-Compress-Archive -Path (Join-Path $extensionDirectory "*") -DestinationPath $archivePath -CompressionLevel Optimal
 Write-Output "Extension package created: $archivePath"
+Write-Output "Extension unpacked and verified: $unpackedDirectory"

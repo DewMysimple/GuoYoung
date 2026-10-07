@@ -318,7 +318,13 @@ export function normalizeBrand(value: unknown): BrandSettings {
 export function normalizeWallpaper(value: unknown): WallpaperSettings {
   const candidate =
     value && typeof value === "object"
-      ? (value as Partial<WallpaperSettings> & { position?: string })
+      ? (value as Omit<Partial<WallpaperSettings>, "sidebarStyle"> & {
+          position?: string;
+          topbarStyle?: unknown;
+          topbarBlurEnabled?: unknown;
+          sidebarBlurEnabled?: unknown;
+          sidebarStyle?: unknown;
+        })
       : {};
   const source = wallpaperSources.includes(candidate.source as WallpaperSource)
     ? (candidate.source as WallpaperSource)
@@ -361,28 +367,17 @@ export function normalizeWallpaper(value: unknown): WallpaperSettings {
     zoom: clamp(candidate.zoom, 50, 300, DEFAULT_WALLPAPER.zoom),
     blur: clamp(candidate.blur, 0, 20, DEFAULT_WALLPAPER.blur),
     overlay: clamp(candidate.overlay, 0, 80, DEFAULT_WALLPAPER.overlay),
-    sidebarStyle: candidate.sidebarStyle === "clear" || candidate.sidebarStyle === "glass" ? candidate.sidebarStyle : "shared",
-    sidebarTransparency: clamp(candidate.sidebarTransparency, 0, 100, DEFAULT_WALLPAPER.sidebarTransparency),
-    sidebarBlurEnabled: typeof candidate.sidebarBlurEnabled === "boolean" ? candidate.sidebarBlurEnabled : DEFAULT_WALLPAPER.sidebarBlurEnabled,
-    sidebarBlur: clamp(candidate.sidebarBlur, 0, 30, DEFAULT_WALLPAPER.sidebarBlur),
-    topbarBlurEnabled:
-      typeof candidate.topbarBlurEnabled === "boolean"
-        ? candidate.topbarBlurEnabled
-        : DEFAULT_WALLPAPER.topbarBlurEnabled,
-    topbarBlur: clamp(
-      candidate.topbarBlur,
-      0,
-      30,
-      DEFAULT_WALLPAPER.topbarBlur,
-    ),
-    topbarOpacity: clamp(
-      candidate.topbarOpacity,
-      0,
-      100,
-      DEFAULT_WALLPAPER.topbarOpacity,
-    ),
-    topbarStyle: candidate.topbarStyle === "glass" ? "glass" : DEFAULT_WALLPAPER.topbarStyle,
-    topbarReadability: candidate.topbarReadability === "page" ? "page" : "clear",
+    // Retired presets and blur switches are consumed only at the storage boundary.
+    // Store their effective values so direct sliders have no hidden overrides.
+    sidebarStyle: candidate.sidebarStyle === "glass" || candidate.sidebarStyle === "clear" ? "glass" : "shared",
+    sidebarTransparency: candidate.sidebarStyle === "clear" ? 100
+      : clamp(candidate.sidebarTransparency, 0, 100, DEFAULT_WALLPAPER.sidebarTransparency),
+    sidebarBlur: candidate.sidebarStyle === "clear" || candidate.sidebarBlurEnabled === false ? 0
+      : clamp(candidate.sidebarBlur, 0, 30, DEFAULT_WALLPAPER.sidebarBlur),
+    topbarBlur: candidate.topbarStyle === "clear" || candidate.topbarBlurEnabled === false ? 0
+      : clamp(candidate.topbarBlur, 0, 30, DEFAULT_WALLPAPER.topbarBlur),
+    topbarOpacity: candidate.topbarStyle === "clear" ? 0
+      : clamp(candidate.topbarOpacity, 0, 100, DEFAULT_WALLPAPER.topbarOpacity),
     glassTransparency: clamp(candidate.glassTransparency, 0, 100, DEFAULT_WALLPAPER.glassTransparency),
     glassControlTransparency: clamp(candidate.glassControlTransparency, 0, 100, DEFAULT_WALLPAPER.glassControlTransparency),
     glassPanelTransparency: clamp(candidate.glassPanelTransparency, 0, 100, DEFAULT_WALLPAPER.glassPanelTransparency),

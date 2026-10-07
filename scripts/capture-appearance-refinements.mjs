@@ -42,7 +42,7 @@ async function inspect(context, url, extension, prefix) {
       const state = JSON.parse(raw);
       state.appearance.theme = theme;
       state.wallpaper = { ...state.wallpaper, source: "url", url: `https://wallpaper-check.example/${index}`, overlay: 0, blur: 0,
-        topbarStyle: "clear", topbarReadability: "clear", glassTransparency: 78, glassControlTransparency: 82, glassPanelTransparency: 60,
+        topbarOpacity: 0, topbarBlur: 0, glassTransparency: 78, glassControlTransparency: 82, glassPanelTransparency: 60,
         glassPopoverTransparency: 55, glassShadow: 35, glassBlur: 12, glassSaturation: 130, glassHighlight: 45, glassRefraction: false, glassRefractionStrength: 24 };
       if (extension) await chrome.storage.local.set({ [key]: JSON.stringify(state) });
       else localStorage.setItem(key, JSON.stringify(state));

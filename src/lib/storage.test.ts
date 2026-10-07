@@ -237,9 +237,8 @@ describe("local storage", () => {
       positionX: 100,
       positionY: 100,
       zoom: 100,
-      topbarBlurEnabled: true,
-      topbarBlur: 16,
-      topbarOpacity: 68,
+      topbarBlur: 0,
+      topbarOpacity: 0,
     });
   });
 

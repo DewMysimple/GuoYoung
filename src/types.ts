@@ -212,15 +212,11 @@ export interface WallpaperSettings {
   zoom: number;
   blur: number;
   overlay: number;
-  topbarBlurEnabled: boolean;
   topbarBlur: number;
-  sidebarStyle: "shared" | "clear" | "glass";
+  sidebarStyle: "shared" | "glass";
   sidebarTransparency: number;
-  sidebarBlurEnabled: boolean;
   sidebarBlur: number;
   topbarOpacity: number;
-  topbarStyle: "clear" | "glass";
-  topbarReadability?: "clear" | "page";
   glassTransparency: number;
   glassControlTransparency: number;
   glassPanelTransparency: number;

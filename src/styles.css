@@ -45,7 +45,7 @@
   --wallpaper-blur: 0px;
   --wallpaper-overlay: 0;
   --topbar-background: color-mix(in srgb, var(--page) 88%, transparent);
-  --topbar-backdrop-blur: 18px;
+  --topbar-backdrop-filter: blur(18px) saturate(140%);
   --settings-panel-width: 440px;
   color: var(--text);
   background: var(--page);
@@ -261,7 +261,6 @@ select:focus-visible {
   height: var(--topbar-height);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   background: var(--topbar-background);
-  --topbar-backdrop-filter: blur(var(--topbar-backdrop-blur)) saturate(140%);
   backdrop-filter: var(--topbar-backdrop-filter);
 }
 

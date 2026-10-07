@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures";
 
-test("keeps wallpaper navigation readable and composite inputs on a single glass layer", async ({ page }, info) => {
+test("keeps custom navigation colors and uses direct topbar controls without a reading layer", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "Desktop wallpaper controls");
   await page.route("https://readability.example/dark.svg", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="1920" height="1080" fill="#082015"/></svg>' }));
   await page.evaluate(() => {
@@ -10,7 +10,8 @@ test("keeps wallpaper navigation readable and composite inputs on a single glass
     localStorage.setItem("site-hub:v1", JSON.stringify(state));
   });
   await page.reload();
-  await expect(page.locator(".app-shell")).toHaveClass(/topbar-readable/);
+  await expect(page.locator(".app-shell")).not.toHaveClass(/topbar-readable/);
+  await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::after").content)).toBe("none");
   await expect(page.locator(".topbar .brand")).toHaveCSS("color", "rgb(136, 136, 136)");
   await expect(page.locator(".category-tab").nth(1)).toHaveCSS("color", "rgb(136, 136, 136)");
   await page.getByRole("button", { name: "新建分组", exact: true }).click();
@@ -25,11 +26,21 @@ test("keeps wallpaper navigation readable and composite inputs on a single glass
   await page.getByRole("button", { name: "打开设置" }).click();
   await page.getByRole("tab", { name: "壁纸", exact: true }).click();
   await page.locator("summary").filter({ hasText: "顶栏外观" }).click();
-  await page.getByRole("checkbox", { name: /顶部清晰阅读/ }).uncheck();
+  const controls = page.locator("details").filter({ has: page.locator("summary").filter({ hasText: /^顶栏外观/ }) });
+  await expect(controls.getByRole("button", { name: /融入壁纸|玻璃底板/, hidden: true })).toHaveCount(0);
+  await expect(controls.getByRole("checkbox", { name: /顶部清晰阅读|模糊壁纸/, hidden: true })).toHaveCount(0);
+  await controls.getByRole("slider", { name: "顶栏透明度" }).fill("65");
+  await controls.getByRole("slider", { name: "模糊强度" }).fill("9");
+  await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(9px) saturate(1.4)");
   await expect(page.locator(".topbar .brand")).toHaveCSS("color", "rgb(136, 136, 136)");
   await page.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
   await expect(page.locator(".app-shell")).not.toHaveClass(/topbar-readable/);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper);
+  expect(saved.topbarOpacity).toBe(35);
+  expect(saved.topbarBlur).toBe(9);
+  for (const retired of ["topbarStyle", "topbarReadability", "topbarBlurEnabled", "sidebarBlurEnabled"]) expect(saved).not.toHaveProperty(retired);
+  await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(9px) saturate(1.4)");
 });
 
 test("remembers settings section, expanded groups and scroll only for this page", async ({ page }, info) => {

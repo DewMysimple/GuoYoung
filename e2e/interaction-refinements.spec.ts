@@ -64,7 +64,7 @@ test('sidebar material previews, cancels and saves independently of shared and t
   async function open() {
     await page.getByRole('button', { name: '打开设置' }).click();
     await panel.getByRole('tab', { name: '壁纸' }).click();
-    const disclosure = panel.locator('details').filter({ has: page.locator('summary').filter({ hasText: /^设置侧栏外观/ }) });
+    const disclosure = panel.locator('details').filter({ has: page.locator('summary').filter({ hasText: /^侧栏外观/ }) });
     if (await disclosure.getAttribute('open') === null) await disclosure.locator('summary').click();
     return disclosure;
   }
@@ -77,19 +77,24 @@ test('sidebar material previews, cancels and saves independently of shared and t
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('site-hub:v1')!).wallpaper)).toEqual(original);
   await panel.getByRole('button', { name: '取消', exact: true }).click();
   controls = await open();
-  await expect(controls.getByRole('button', { name: '跟随公共玻璃' })).toHaveAttribute('aria-pressed', 'true');
-  await controls.getByRole('button', { name: '融入壁纸', exact: true }).click();
-  await expect(panel).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(controls.getByRole('button', { name: '跟随公共' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(controls.getByRole('button', { name: '融入壁纸', hidden: true })).toHaveCount(0);
+  await expect(controls.getByRole('checkbox', { name: '模糊壁纸', hidden: true })).toHaveCount(0);
+  await controls.getByRole('button', { name: '独立玻璃底板', exact: true }).click();
+  await controls.getByRole('slider', { name: '侧栏透明度' }).fill('100');
+  await controls.getByRole('slider', { name: '模糊强度' }).fill('0');
+  await expect.poll(() => panel.evaluate(el => getComputedStyle(el).backgroundColor)).toMatch(/(?:rgba\(0, 0, 0, 0\)|\/ 0\))/);
+  await expect(panel).toHaveCSS('background-image', 'none');
   await expect(panel).toHaveCSS('backdrop-filter', 'none');
   await controls.getByRole('button', { name: '独立玻璃底板', exact: true }).click();
   await controls.getByRole('slider', { name: '侧栏透明度' }).fill('80');
-  await controls.getByRole('checkbox', { name: '模糊壁纸', exact: true }).uncheck();
+  await controls.getByRole('slider', { name: '模糊强度' }).fill('0');
   await expect(panel).toHaveCSS('backdrop-filter', 'none');
   await page.screenshot({ path: screenshotPath('sidebar-independent-glass.png') });
   await panel.getByRole('button', { name: '保存设置' }).click();
   await page.reload();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('site-hub:v1')!).wallpaper);
-  expect(saved).toEqual({ ...original, sidebarStyle: 'glass', sidebarTransparency: 80, sidebarBlurEnabled: false });
+  expect(saved).toEqual({ ...original, sidebarStyle: 'glass', sidebarTransparency: 80, sidebarBlur: 0 });
 });
 
 test('hover and menus preserve glass texture and never activate dashed drag surfaces', async ({ page }, info) => {

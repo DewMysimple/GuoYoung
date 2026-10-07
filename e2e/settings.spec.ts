@@ -318,7 +318,6 @@ test("drags and zooms wallpaper with live preview before saving", async ({
       zoom: 100,
       blur: 0,
       overlay: 22,
-      topbarBlurEnabled: true,
       topbarBlur: 16,
       topbarOpacity: 68,
     };

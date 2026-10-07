@@ -15,8 +15,8 @@ async function prepareMaterial(page: Page, scrollableCollection = false) {
     state.wallpaper = { ...state.wallpaper, source: 'url', url, blur: 6, overlay: 0,
       glassBlur: 24, glassSaturation: 100, glassRefraction: true, glassRefractionStrength: 32,
       glassTransparency: 90, glassControlTransparency: 90, glassPanelTransparency: 90, glassPopoverTransparency: 90,
-      topbarStyle: 'glass', topbarReadability: 'page', topbarBlurEnabled: true, topbarBlur: 4,
-      sidebarStyle: 'glass', sidebarBlurEnabled: true, sidebarBlur: 8 };
+      topbarOpacity: 68, topbarBlur: 4,
+      sidebarStyle: 'glass', sidebarBlur: 8 };
     if (scrollableCollection) {
       const template = state.sites.find((site: { id: string }) => site.id === 'google');
       const timestamp = '2026-10-04T00:00:00.000Z';
