@@ -10,6 +10,7 @@ import {
 } from "../data/defaults";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
 import { normalizeTypography } from "./typography";
+import { WALLPAPER_GLASS_KEYS } from "./wallpaper-presets";
 import type {
   AppearanceSettings,
   BrandLogoSource,
@@ -27,6 +28,8 @@ import type {
   SiteSortMode,
   TrashedSite,
   TrashRetentionDays,
+  CustomWallpaperPresets,
+  WallpaperGlassSettings,
   WallpaperFit,
   WallpaperSettings,
   WallpaperSource,
@@ -315,17 +318,19 @@ export function normalizeBrand(value: unknown): BrandSettings {
   };
 }
 
+type LegacyWallpaperSettings = Omit<Partial<WallpaperSettings>, "topbarStyle" | "sidebarStyle"> & {
+  position?: string;
+  topbarStyle?: unknown;
+  topbarOpacity?: unknown;
+  topbarBlurEnabled?: unknown;
+  sidebarBlurEnabled?: unknown;
+  sidebarStyle?: unknown;
+};
+
 export function normalizeWallpaper(value: unknown): WallpaperSettings {
   const candidate =
     value && typeof value === "object"
-      ? (value as Omit<Partial<WallpaperSettings>, "topbarStyle" | "sidebarStyle"> & {
-          position?: string;
-          topbarStyle?: unknown;
-          topbarOpacity?: unknown;
-          topbarBlurEnabled?: unknown;
-          sidebarBlurEnabled?: unknown;
-          sidebarStyle?: unknown;
-        })
+      ? (value as LegacyWallpaperSettings)
       : {};
   const source = wallpaperSources.includes(candidate.source as WallpaperSource)
     ? (candidate.source as WallpaperSource)
@@ -368,6 +373,15 @@ export function normalizeWallpaper(value: unknown): WallpaperSettings {
     zoom: clamp(candidate.zoom, 50, 300, DEFAULT_WALLPAPER.zoom),
     blur: clamp(candidate.blur, 0, 20, DEFAULT_WALLPAPER.blur),
     overlay: clamp(candidate.overlay, 0, 80, DEFAULT_WALLPAPER.overlay),
+    ...normalizeWallpaperGlass(candidate),
+    presetIncludesPanels: typeof candidate.presetIncludesPanels === "boolean"
+      ? candidate.presetIncludesPanels : DEFAULT_WALLPAPER.presetIncludesPanels,
+    customPresets: normalizeCustomWallpaperPresets(candidate.customPresets),
+  };
+}
+
+function normalizeWallpaperGlass(candidate: LegacyWallpaperSettings): WallpaperGlassSettings {
+  return {
     // Retired presets and blur switches are consumed only at the storage boundary.
     // Store their effective values so direct sliders have no hidden overrides.
     sidebarStyle: candidate.sidebarStyle === "glass" || candidate.sidebarStyle === "clear" ? "glass" : "shared",
@@ -391,6 +405,19 @@ export function normalizeWallpaper(value: unknown): WallpaperSettings {
     glassSaturation: clamp(candidate.glassSaturation, 100, 200, DEFAULT_WALLPAPER.glassSaturation),
     glassHighlight: clamp(candidate.glassHighlight, 0, 100, DEFAULT_WALLPAPER.glassHighlight),
   };
+}
+
+function normalizeCustomWallpaperPresets(value: unknown): CustomWallpaperPresets {
+  const normalizeSlot = (slot: unknown): WallpaperGlassSettings | null => {
+    if (!slot || typeof slot !== "object" || Array.isArray(slot)) return null;
+    const candidate = slot as Record<string, unknown>;
+    // Incomplete or malformed snapshots are empty slots, never invented presets.
+    if (!WALLPAPER_GLASS_KEYS.every(key => key === "topbarStyle" || key === "sidebarStyle"
+      ? candidate[key] === "shared" || candidate[key] === "glass"
+      : typeof candidate[key] === "number" && Number.isFinite(candidate[key]))) return null;
+    return normalizeWallpaperGlass(candidate as LegacyWallpaperSettings);
+  };
+  return Array.isArray(value) ? [normalizeSlot(value[0]), normalizeSlot(value[1])] : [null, null];
 }
 
 function normalizeSearchHistory(value: unknown): SearchHistoryEntry[] {
@@ -600,7 +627,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 24 &&
+    state.version === 25 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -1020,6 +1047,13 @@ function upgradeToVersion24(legacy: Record<string, unknown> | SiteCollectionStat
   return { ...candidate, version: 24, wallpaper: normalizeWallpaper(candidate.wallpaper) };
 }
 
+function upgradeToVersion25(legacy: Record<string, unknown> | SiteCollectionState, sourceAppearance: unknown): SiteCollectionState | undefined {
+  const base = legacy.version === 25 ? legacy : upgradeToVersion24(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return { ...candidate, version: 25, wallpaper: normalizeWallpaper(candidate.wallpaper) };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1134,7 +1168,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
+        candidate.version === 25 || candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
           candidate.version === 18 ||
           candidate.version === 17 ||
           candidate.version === 16 ||
@@ -1150,7 +1184,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion24(baseCandidate, candidate.appearance)
+        ? upgradeToVersion25(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.

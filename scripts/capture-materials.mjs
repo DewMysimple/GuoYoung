@@ -125,7 +125,7 @@ async function inspectPresets(page, mode) {
   await page.emulateMedia({ colorScheme: "light" });
   await page.evaluate(() => scrollTo(0, 0));
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
-  const names = ["液态清透", "水晶棱镜", "柔光薄雾", "细腻磨砂", "轻透无影", "经典玻璃", "雪景柔纱", "夜色凝光", "繁景静读"];
+  const names = ["清透磨砂", "轻盈透景", "柔光薄雾", "凝霜静读"];
   for (const [index, name] of names.entries()) {
     await page.getByRole("button", { name: "打开设置" }).click();
     await panel.getByRole("tab", { name: /壁纸/ }).click();
@@ -133,7 +133,7 @@ async function inspectPresets(page, mode) {
       await openSection(panel, '基础设置');
       await panel.getByRole("slider", { name: "明暗遮罩" }).fill("0");
     }
-    await openSection(panel, '玻璃外观');
+    await openSection(panel, '外观预设');
     await panel.getByRole("button", { name: new RegExp(`^${name}`) }).click();
     await panel.getByRole("button", { name: "保存设置" }).click();
     await page.mouse.move(5, 5);
@@ -148,9 +148,9 @@ async function inspectPresets(page, mode) {
   }
   await expect(panel.getByRole("slider")).toHaveCount(0);
   await page.screenshot({ path: join(output, `liquid-${mode}-collapsed.png`) });
-  await openSection(panel, '玻璃外观');
-  await panel.getByRole("button", { name: /^液态清透/ }).click();
-  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).scrollIntoViewIfNeeded();
+  await openSection(panel, '外观预设');
+  await panel.getByRole("button", { name: /^清透磨砂/ }).click();
+  await panel.locator("summary").filter({ hasText: /^外观预设/ }).scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(output, `liquid-${mode}-presets.png`) });
   await panel.getByRole("button", { name: "保存设置" }).click();

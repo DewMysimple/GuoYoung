@@ -143,7 +143,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(24);
+  expect(saved.version).toBe(25);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -269,8 +269,8 @@ test("unifies wallpaper basics and scopes defaults, preview and saved changes", 
   await expect(basic.getByRole("slider", { name: "明暗遮罩", exact: true })).toHaveValue("35");
   await expect(basic.getByRole("button", { name: "完整显示", exact: true })).toHaveAttribute("aria-pressed", "true");
   await basic.getByRole("slider", { name: "缩放", exact: true }).fill("180");
-  await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.locator('.glass-preset[data-preset="crystal"]').click();
+  await panel.locator("summary").filter({ hasText: /^外观预设/ }).click();
+  await panel.locator('.glass-preset[data-preset="light"]').click();
   await panel.getByRole("button", { name: "保存设置", exact: true }).click();
   await expect(panel).toHaveCount(0);
   const saved = await readWallpaper();

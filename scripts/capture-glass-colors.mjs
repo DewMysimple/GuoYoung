@@ -12,9 +12,7 @@ await mkdir(output, { recursive: true });
 const inventory = JSON.parse(await readFile("artifacts/working/wallpaper-inventory.json", "utf8"));
 const wallpaper = inventory[0];
 const report = { version, browser: "", scene: { screenshotViewport: { width: 1440, height: 1000 }, benchmarkViewport: { width: 2560, height: 1440 }, cards: 117, wallpaper: { width: wallpaper.width, height: wallpaper.height } }, frames: [], colors: [], captures: [], errors: [] };
-const presets = [
-  "液态清透", "水晶棱镜", "柔光薄雾", "轻透无影",
-];
+const presets = ["清透磨砂", "轻盈透景", "柔光薄雾", "凝霜静读"];
 const visualOnly = process.argv.includes("--visual-only");
 async function run(context, url, extension) {
   const prefix = extension ? "extension" : "web";
@@ -48,15 +46,15 @@ async function run(context, url, extension) {
   for (const name of presets) {
     await page.getByRole("button", { name: "打开设置" }).click();
     await page.getByRole("tab", { name: "壁纸", exact: true }).click();
-    const disclosure = page.locator("details").filter({ has: page.locator("summary > span", { hasText: /^玻璃外观$/ }) });
+    const disclosure = page.locator("details").filter({ has: page.locator("summary > span", { hasText: /^外观预设$/ }) });
     if (await disclosure.getAttribute("open") === null) await disclosure.locator(":scope > summary").click();
     await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
-    if (name === "水晶棱镜") {
+    if (name === "轻盈透景") {
       const boxes = await page.locator(".glass-preset").evaluateAll(elements => elements.map(el => ({ x: el.getBoundingClientRect().x, y: el.getBoundingClientRect().y })));
       assert.equal(new Set(boxes.map(box => box.x)).size, 3);
-      assert.equal(new Set(boxes.map(box => box.y)).size, 3);
+      assert.equal(new Set(boxes.map(box => box.y)).size, 2);
       await page.locator(".glass-preset-grid").scrollIntoViewIfNeeded();
-      await capture("presets-3x3");
+      await capture("presets-3x2");
     }
     await page.getByRole("button", { name: "保存设置" }).click();
     const current = await read();
@@ -64,7 +62,7 @@ async function run(context, url, extension) {
     await seed(current);
     await expect(page.locator(".site-card")).toHaveCount(117);
     const filter = await describeGlassMaterial(page.locator(".site-card").first());
-    if (name === "水晶棱镜") assert.equal(filter, "none");
+    if (name === "轻盈透景") assert.equal(filter, "none");
     for (let repeat = 0; repeat < (visualOnly ? 0 : 2); repeat++) {
       const intervals = await page.evaluate(() => new Promise(resolve => {
         const times = []; let started = 0, previous = 0;

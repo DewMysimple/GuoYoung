@@ -13,7 +13,7 @@ const manifest = JSON.parse(await readFile("public/manifest.json", "utf8"));
 const output = resolve(`artifacts/releases/v${manifest.version}/screenshots`);
 await mkdir(output, { recursive: true });
 const captures = [], errors = [], materials = [];
-const presets = ["液态清透", "水晶棱镜", "柔光薄雾", "细腻磨砂", "轻透无影", "经典玻璃", "雪景柔纱", "夜色凝光", "繁景静读"];
+const presets = ["清透磨砂", "轻盈透景", "柔光薄雾", "凝霜静读"];
 async function capture(page, name) {
   await page.evaluate(() => document.fonts.ready);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name}: overflow`);
@@ -68,16 +68,16 @@ async function inspect(context, url, extension, prefix) {
       await capture(page, `${prefix}-wallpaper-${index}-${theme}`);
     }
   }
-  // All nine actual presets over bright, dark and detailed originals.
+  // All four built-in presets over bright, dark and detailed originals.
   if (!extension) for (const index of [1, 2, 3]) {
     await seed(index, "light");
     for (let preset = 0; preset < presets.length; preset++) {
       await page.getByRole("button", { name: "打开设置" }).click();
       await page.getByRole("tab", { name: "壁纸", exact: true }).click();
-      const disclosure = page.locator("details").filter({ has: page.locator("summary > span", { hasText: /^玻璃外观$/ }) });
+      const disclosure = page.locator("details").filter({ has: page.locator("summary > span", { hasText: /^外观预设$/ }) });
       if (!(await disclosure.getAttribute("open")) && (await disclosure.getAttribute("open")) !== "") await disclosure.locator(":scope > summary").click();
       await page.getByRole("button", { name: new RegExp(presets[preset]) }).click();
-      if (preset === 8) await capture(page, `${prefix}-presets-${index}`);
+      if (preset === presets.length - 1) await capture(page, `${prefix}-presets-${index}`);
       await page.getByRole("button", { name: "保存设置" }).click();
       await capture(page, `${prefix}-preset-${index}-${preset}`);
     }

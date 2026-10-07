@@ -51,10 +51,113 @@ async function capture(page, name, sections) {
   await page.screenshot({ path: join(output, `${name}.png`), animations: "disabled" });
   screenshotCount++;
 }
+async function inspectPresets(page, extension, name, enabled) {
+  const read = () => readState(page, extension);
+  const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  const presets = panel.locator(".wallpaper-presets");
+  const topbar = panel.locator(".wallpaper-settings > details").filter({ has: page.locator("summary").filter({ hasText: /^顶栏外观/ }) });
+  const sidebar = panel.locator(".wallpaper-settings > details").filter({ has: page.locator("summary").filter({ hasText: /^侧栏外观/ }) });
+  async function open() {
+    await page.getByRole("button", { name: "打开设置" }).click();
+    await panel.getByRole("tab", { name: "壁纸", exact: true }).click();
+    for (const section of [presets, topbar, sidebar]) if (await section.getAttribute("open") === null) await section.locator(":scope > summary").click();
+  }
+  const original = await read();
+  await open();
+  const order = await panel.locator(".wallpaper-settings > .appearance-card").evaluateAll(nodes => nodes.map(node =>
+    node.querySelector(":scope > summary > span")?.firstChild?.textContent ?? node.getAttribute("aria-label")));
+  assert.deepEqual(order, ["壁纸来源", "外观预设", "基础设置", "玻璃外观", "顶栏外观", "侧栏外观"]);
+  await expect(presets.locator(".glass-preset")).toHaveCount(6);
+  await expect(presets.getByRole("slider")).toHaveCount(0);
+  for (const button of await presets.locator('[data-preset^="custom-"]').all()) await expect(button).toBeDisabled();
+  await capture(page, `${name}-presets`, [presets]);
+  await presets.getByRole("checkbox").uncheck();
+  await presets.locator('[data-preset="clear"]').click();
+  for (const section of [topbar, sidebar]) await expect(section.getByRole("button", { name: "跟随公共" })).toHaveAttribute("aria-pressed", "true");
+  if (enabled) await expect(panel).toHaveCSS("backdrop-filter", "blur(21px)");
+  for (const section of [topbar, sidebar]) await section.getByRole("button", { name: "独立玻璃底板" }).click();
+  await presets.locator('[data-preset="light"]').click();
+  await expect(topbar.getByRole("slider", { name: "顶栏透明度" })).toHaveValue(String(original.wallpaper.topbarTransparency));
+  await expect(topbar.getByRole("slider", { name: "模糊强度" })).toHaveValue(String(original.wallpaper.topbarBlur));
+  await expect(sidebar.getByRole("slider", { name: "侧栏透明度" })).toHaveValue(String(original.wallpaper.sidebarTransparency));
+  await expect(sidebar.getByRole("slider", { name: "模糊强度" })).toHaveValue(String(original.wallpaper.sidebarBlur));
+  await presets.getByRole("checkbox").check();
+  for (const [id, blur, sidebarBlur, saturation] of [["clear", 21, 21, 1], ["light", 0, 0, 1], ["soft", 12, 16, 1.1], ["frost", 26, 28, 1]]) {
+    await presets.locator(`[data-preset="${id}"]`).click();
+    await expect(presets.locator(`[data-preset="${id}"]`)).toHaveAttribute("aria-pressed", "true");
+    for (const section of [topbar, sidebar]) await expect(section.getByRole("button", { name: "独立玻璃底板" })).toHaveAttribute("aria-pressed", "true");
+    await expect(topbar.getByRole("slider", { name: "模糊强度" })).toHaveValue(String(blur));
+    await expect(sidebar.getByRole("slider", { name: "模糊强度" })).toHaveValue(String(sidebarBlur));
+    if (enabled) {
+      const filter = (value) => [value ? `blur(${value}px)` : "", saturation !== 1 ? `saturate(${saturation})` : ""].filter(Boolean).join(" ") || "none";
+      await expect(panel).toHaveCSS("backdrop-filter", filter(sidebarBlur));
+      await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe(filter(blur));
+      await capture(page, `${name}-material-${id}`, [presets]);
+    }
+  }
+  await presets.locator('[data-preset="clear"]').click();
+  await presets.getByRole("button", { name: "保存当前到自定义 1", exact: true }).click();
+  const glass = panel.locator(".wallpaper-settings > details").filter({ has: page.locator("summary").filter({ hasText: /^玻璃外观/ }) });
+  const fine = glass.locator("details");
+  for (const section of [glass, fine]) if (await section.getAttribute("open") === null) await section.locator(":scope > summary").click();
+  await panel.getByRole("slider", { name: "阴影强度" }).fill("17");
+  await topbar.getByRole("slider", { name: "顶栏透明度" }).fill("63");
+  await sidebar.getByRole("slider", { name: "侧栏透明度" }).fill("72");
+  await presets.getByRole("button", { name: "保存当前到自定义 2", exact: true }).click();
+  await presets.locator('[data-preset="custom-1"]').click();
+  await expect(topbar.getByRole("slider", { name: "顶栏透明度" })).toHaveValue("100");
+  await expect(sidebar.getByRole("slider", { name: "侧栏透明度" })).toHaveValue("100");
+  await expect(panel.getByRole("slider", { name: "阴影强度" })).toHaveValue("72");
+  await presets.locator('[data-preset="custom-2"]').click();
+  await expect(topbar.getByRole("slider", { name: "顶栏透明度" })).toHaveValue("63");
+  await expect(sidebar.getByRole("slider", { name: "侧栏透明度" })).toHaveValue("72");
+  await panel.getByRole("slider", { name: "阴影强度" }).fill("29");
+  await presets.getByRole("button", { name: "覆盖自定义 1", exact: true }).click();
+  await presets.locator('[data-preset="custom-2"]').click();
+  await expect(panel.getByRole("slider", { name: "阴影强度" })).toHaveValue("17");
+  await presets.locator('[data-preset="custom-1"]').click();
+  await expect(panel.getByRole("slider", { name: "阴影强度" })).toHaveValue("29");
+  await capture(page, `${name}-custom`, [presets]);
+  assert.deepEqual(await read(), original);
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  await open();
+  for (const button of await presets.locator('[data-preset^="custom-"]').all()) await expect(button).toBeDisabled();
+  await presets.locator('[data-preset="clear"]').click();
+  await presets.getByRole("button", { name: "保存当前到自定义 1", exact: true }).click();
+  await presets.locator('[data-preset="soft"]').click();
+  await presets.getByRole("button", { name: "保存当前到自定义 2", exact: true }).click();
+  await presets.getByRole("checkbox").uncheck();
+  await panel.getByRole("button", { name: "保存设置" }).click();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const saved = await read();
+  assert.equal(saved.wallpaper.presetIncludesPanels, false);
+  assert.equal(saved.wallpaper.customPresets.length, 2);
+  assert.equal(saved.wallpaper.customPresets[0].glassShadow, 72);
+  assert.equal(saved.wallpaper.customPresets[1].glassShadow, 22);
+  assert.equal(Object.keys(saved.wallpaper.customPresets[0]).length, 14);
+  assert.deepEqual(saved.sites, original.sites);
+  assert.deepEqual(saved.groups, original.groups);
+  await open();
+  await expect(presets.getByRole("checkbox")).not.toBeChecked();
+  await presets.locator('[data-preset="custom-1"]').click();
+  await expect(topbar.getByRole("slider", { name: "顶栏透明度" })).toHaveValue("82");
+  await expect(sidebar.getByRole("slider", { name: "侧栏透明度" })).toHaveValue("70");
+  if (enabled) {
+    await panel.getByRole("button", { name: "清除壁纸", exact: true }).click();
+    for (const button of await presets.locator('[data-preset^="custom-"]').all()) await expect(button).toBeEnabled();
+    await panel.getByRole("button", { name: "保存设置" }).click();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const cleared = await read();
+    assert.equal(cleared.wallpaper.source, "none");
+    assert.equal(cleared.wallpaper.presetIncludesPanels, false);
+    assert.deepEqual(cleared.wallpaper.customPresets, saved.wallpaper.customPresets);
+  } else await panel.getByRole("button", { name: "取消", exact: true }).click();
+}
+
 async function inspect(context, extension, theme, enabled) {
   const page = await context.newPage();
   const width = enabled ? 360 : 440;
-  const name = `glass-cleanup-${extension ? "extension" : "web"}-${theme}-${enabled ? "wallpaper" : "empty"}-${width}`;
+  const name = `wallpaper-presets-${extension ? "extension" : "web"}-${theme}-${enabled ? "wallpaper" : "empty"}-${width}`;
   await page.setViewportSize({ width: 1440, height: 1000 });
   await context.route(wallpaperURL, route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
   page.on("pageerror", error => errors.push(error.message));
@@ -63,6 +166,9 @@ async function inspect(context, extension, theme, enabled) {
   const initial = await readState(page, Boolean(extension));
   const state = { ...initial, appearance: { ...initial.appearance, theme }, wallpaper: { ...initial.wallpaper,
     source: enabled ? "url" : "none", url: enabled ? wallpaperURL : undefined,
+    presetIncludesPanels: true, customPresets: [null, null],
+    glassTransparency: 78, glassControlTransparency: 82, glassPanelTransparency: 60, glassPopoverTransparency: 55,
+    glassShadow: 35, glassBlur: 12, glassSaturation: 130, glassHighlight: 45,
     topbarStyle: "shared", topbarTransparency: 68, topbarBlur: 7, sidebarStyle: "shared", sidebarTransparency: 60, sidebarBlur: 12 } };
   await page.evaluate(async ({ state, extension, width }) => {
     localStorage.setItem("site-hub:settings-panel-width", String(width));
@@ -148,7 +254,8 @@ async function inspect(context, extension, theme, enabled) {
   await topbar.getByRole("button", { name: "独立玻璃底板", exact: true }).click();
   await expect(topbar.getByRole("slider", { name: "顶栏透明度" })).toHaveValue("37");
   await panel.getByRole("button", { name: "取消", exact: true }).click();
-  reports.push({ name, width, previewCancelSave: true, zeroBlur: true, overflow: false });
+  await inspectPresets(page, Boolean(extension), name, enabled);
+  reports.push({ name, width, presets: true, customSlots: true, previewCancelSave: true, zeroBlur: true, overflow: false });
   await page.close();
 }
 try {
@@ -158,7 +265,7 @@ try {
     for (const theme of ["light", "dark"]) for (const enabled of [true, false]) await inspect(context, false, theme, enabled);
   } finally { await browser.close(); }
   const extensionDirectory = resolve("dist-extension");
-  const context = await chromium.launchPersistentContext(await mkdtemp(join(tmpdir(), "mysimple-glass-cleanup-")), {
+  const context = await chromium.launchPersistentContext(await mkdtemp(join(tmpdir(), "mysimple-wallpaper-presets-")), {
     channel: "chromium", headless: true, ignoreDefaultArgs: ["--hide-scrollbars"],
     args: [`--disable-extensions-except=${extensionDirectory}`, `--load-extension=${extensionDirectory}`],
   });
@@ -168,6 +275,6 @@ try {
     for (const theme of ["light", "dark"]) for (const enabled of [true, false]) await inspect(context, extensionURL, theme, enabled);
   } finally { await context.close(); }
   assert.deepEqual(errors, []);
-  await writeFile(join(output, "glass-cleanup-report.json"), JSON.stringify({ version, screenshotCount, errors, reports }, null, 2));
+  await writeFile(join(output, "wallpaper-presets-report.json"), JSON.stringify({ version, screenshotCount, errors, reports }, null, 2));
   console.log(JSON.stringify({ version, screenshotCount, errors, scenarios: reports.length }));
 } finally { server.close(); }

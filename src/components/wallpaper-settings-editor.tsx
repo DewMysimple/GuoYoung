@@ -5,7 +5,8 @@ import { DEFAULT_WALLPAPER } from "../data/defaults";
 import type { WallpaperSettings } from "../types";
 import { RangeControl } from "./range-control";
 import { SettingsDisclosure } from "./settings-disclosure";
-import { GLASS_PRESETS, getGlassPreset, pickGlass } from "../lib/glass-presets";
+import { pickGlass } from "../lib/wallpaper-presets";
+import { WallpaperPresets } from "./wallpaper-presets";
 import "./settings-editors.css";
 
 const BASIC_DEFAULTS = {
@@ -29,7 +30,6 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
 }) {
   const file = useRef<HTMLInputElement>(null);
   const enabled = value.source !== "none";
-  const preset = getGlassPreset(value);
   return <div className="settings-section wallpaper-settings">
     <section className="appearance-card wallpaper-source-card" aria-label="壁纸来源">
       <div className="wallpaper-thumbnail">
@@ -41,7 +41,8 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
           <UploadSimple size={17} />{processing ? "正在优化…" : "选择本地图片"}
         </button>
         <button type="button" className="icon-button" aria-label="清除壁纸" title="清除壁纸" disabled={!enabled}
-          onClick={() => onChange({ ...DEFAULT_WALLPAPER })}><Trash size={17} /></button>
+          onClick={() => onChange({ ...DEFAULT_WALLPAPER, presetIncludesPanels: value.presetIncludesPanels,
+            customPresets: value.customPresets })}><Trash size={17} /></button>
       </div>
       <input ref={file} className="visually-hidden" type="file" accept="image/*" onChange={onChoose} aria-label="选择壁纸文件" />
       <label className="settings-field"><span>网络图片地址</span>
@@ -50,6 +51,8 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       </label>
       {error && <p className="field-error" role="alert">{error}</p>}
     </section>
+
+    <WallpaperPresets value={value} onChange={onChange} />
 
     <SettingsDisclosure title="基础设置" summary="构图与画面效果" className="wallpaper-basic-settings"
       help="选择显示方式，再拖动和缩放调整构图。模糊与明暗遮罩默认关闭，可按需增加；恢复默认只重置本组参数。">
@@ -81,14 +84,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
         onClick={() => onChange(BASIC_DEFAULTS)}>恢复基础默认</button>
     </SettingsDisclosure>
 
-    <SettingsDisclosure help="九套预设统一使用原生磨砂、高光和透明填色。选择即刻预览，保存后生效。" title="玻璃外观" summary={preset?.label ?? "已自定义"}>
-      <div className="glass-preset-grid" role="group" aria-label="玻璃外观预设">
-        {GLASS_PRESETS.map(option => <button type="button" className="glass-preset" key={option.id}
-          data-preset={option.id} aria-pressed={preset?.id === option.id} onClick={() => onChange(option.values)}>
-          <span className="glass-preset-sample" aria-hidden="true"><i /></span>
-          <strong>{option.label}</strong><small>{option.description}</small>
-        </button>)}
-      </div>
+    <SettingsDisclosure help="公共玻璃用于卡片、按钮、面板和菜单；顶栏或侧栏选择“跟随公共”时也使用这里的材质。" title="玻璃外观" summary="公共玻璃参数">
       <SettingsDisclosure title="玻璃参数微调" summary="透明度、磨砂与高光" className="glass-fine-tuning" help="透明度越高，越能看见壁纸。卡片、按钮、面板和菜单可分别调整，阴影设为 0 可关闭投影。">
 
       {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
