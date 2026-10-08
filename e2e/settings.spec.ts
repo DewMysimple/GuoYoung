@@ -143,7 +143,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(25);
+  expect(saved.version).toBe(26);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -164,7 +164,9 @@ test("preserves legacy custom geometry while narrow screens keep safe sizes", as
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置" });
   await panel.getByRole("tab", { name: "字体调节" }).click();
-  await expect(panel.getByText("保留自定义字号")).toBeVisible();
+  await expect(panel.getByRole("slider", { name: "整体字号", exact: true })).toHaveValue("100");
+  await panel.locator("summary").filter({ hasText: "分区字号" }).click();
+  await expect(panel.getByRole("slider", { name: "品牌名称字号" })).toHaveValue("150");
   await panel.getByRole("tab", { name: "外观", exact: true }).click();
   await expect(panel.getByRole("slider")).toHaveCount(0);
 
@@ -236,7 +238,7 @@ test("unifies wallpaper basics and scopes defaults, preview and saved changes", 
   await expect(basic).not.toHaveAttribute("open");
   await basic.locator("summary").click();
   await expect(panel.locator("summary").filter({ hasText: /^(位置与构图|阅读与氛围)/ })).toHaveCount(0);
-  await expect(panel.getByRole("button", { name: /^(清晰阅读|柔和背景|突出壁纸)$/, hidden: true })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: /^(清晰阅读|柔和背景|突出壁纸)$/, includeHidden: true })).toHaveCount(0);
   for (const name of ["缩放", "模糊", "明暗遮罩"]) await expect(basic.getByRole("slider", { name, exact: true })).toBeDisabled();
   await expect(basic.getByRole("slider", { name: "模糊", exact: true })).toHaveValue("0");
   await expect(basic.getByRole("slider", { name: "明暗遮罩", exact: true })).toHaveValue("0");
@@ -380,17 +382,17 @@ test("simplifies appearance choices and preserves preview, save, reload and rese
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   const presets = panel.getByRole("group", { name: "布局预设" });
-  const reading = panel.getByRole("group", { name: "文字大小" });
+  const reading = panel.getByRole("slider", { name: "整体字号", exact: true });
   await expect(panel.getByRole("slider")).toHaveCount(0);
   await expect(panel.getByRole("button", { name: "名称与图标" })).toHaveAttribute("aria-expanded", "false");
   await page.screenshot({ path: screenshotPath(`appearance-overview-${testInfo.project.name}.png`), animations: "disabled" });
 
   await panel.getByRole("tab", { name: "字体调节" }).click();
-  await reading.getByRole("button", { name: "较大" }).click();
+  await reading.fill("110");
   await panel.getByRole("tab", { name: "外观", exact: true }).click();
   await presets.getByRole("button", { name: "紧凑" }).click();
   await panel.getByRole("tab", { name: "字体调节" }).click();
-  await expect(reading.getByRole("button", { name: "较大" })).toHaveAttribute("aria-pressed", "true");
+  await expect(reading).toHaveValue("110");
   await panel.getByRole("tab", { name: "外观", exact: true }).click();
   await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();
   await panel.getByRole("button", { name: /布局微调/ }).focus();

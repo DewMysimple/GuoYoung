@@ -150,13 +150,14 @@ export type ThemePreference = "system" | "light" | "dark";
 export interface TypographySettings {
   fontFamily: "default" | "system" | "serif" | "wenkai" | "mono" | "custom";
   customFontFamily: string;
+  customFontAssetId?: string;
   textColorMode: "theme" | "custom";
   textColorHierarchy: "unified" | "split";
   iconColorMode: "text" | "custom";
   iconColor: string;
   textColor: string;
   textSecondaryColor: string;
-  textEffect: "auto" | "none" | "shadow" | "outline" | "glow";
+  textEffect: "auto" | "none" | "glow";
   textEffectColor: string;
   textEffectStrength: number;
 }

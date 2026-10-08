@@ -8,7 +8,6 @@
 }
 
 :root {
-  font-family: "Manrope Variable", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --radius-card: 16px;
@@ -87,12 +86,6 @@ html:root:has(body[data-scroll-locked]) {
 }
 
 button,
-input,
-select {
-  font: inherit;
-}
-
-button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
@@ -126,8 +119,8 @@ select:focus-visible {
     );
   transition:
     padding-right 260ms cubic-bezier(0.16, 1, 0.3, 1),
-    color 220ms ease,
-    background-color 220ms ease;
+    color var(--color-preview-duration, 220ms) ease,
+    background-color var(--color-preview-duration, 220ms) ease;
 }
 
 .app-shell.settings-open {
@@ -216,7 +209,7 @@ select:focus-visible {
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(18px);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -351,11 +344,11 @@ select:focus-visible {
   color: var(--text-soft);
   background: transparent;
   cursor: pointer;
-  font: 650 calc(12px * var(--font-scale))/1 var(--font-sans);
+  font: 650 0.75rem/1 var(--font-sans);
   transition:
-    color 160ms ease,
-    background-color 160ms ease,
-    border-color 160ms ease,
+    color var(--color-preview-duration, 160ms) ease,
+    background-color var(--color-preview-duration, 160ms) ease,
+    border-color var(--color-preview-duration, 160ms) ease,
     transform 160ms ease;
 }
 
@@ -441,12 +434,12 @@ select:focus-visible {
 }
 
 .topbar-add-menu strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .topbar-add-menu small {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .button,
@@ -459,9 +452,9 @@ select:focus-visible {
   cursor: pointer;
   transition:
     transform 160ms ease,
-    color 160ms ease,
-    background-color 160ms ease,
-    border-color 160ms ease,
+    color var(--color-preview-duration, 160ms) ease,
+    background-color var(--color-preview-duration, 160ms) ease,
+    border-color var(--color-preview-duration, 160ms) ease,
     opacity 160ms ease;
 }
 
@@ -480,7 +473,7 @@ select:focus-visible {
   gap: 8px;
   padding: 0 calc(17px * var(--control-scale));
   border-radius: var(--radius-control);
-  font-size: calc(14px * var(--font-scale));
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -569,7 +562,7 @@ select:focus-visible {
   justify-content: space-between;
   padding: 6px 9px 8px;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
 }
 
@@ -579,7 +572,7 @@ select:focus-visible {
   color: var(--ui-accent-text);
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .search-history-item {
@@ -646,7 +639,7 @@ select:focus-visible {
 .history-kicker {
   margin: 0 0 7px;
   color: var(--ui-accent-text);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 760;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -655,7 +648,7 @@ select:focus-visible {
 .history-state-panel h1 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(26px, 3vw, 36px);
+  font-size: clamp(1.625rem, calc(3vw * var(--font-scale, 1)), 2.25rem);
   font-weight: 780;
   letter-spacing: -0.045em;
   line-height: 1.05;
@@ -665,7 +658,7 @@ select:focus-visible {
 .history-summary {
   margin: 0 auto 0 0;
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .history-toolbar {
@@ -701,14 +694,14 @@ select:focus-visible {
   background: color-mix(in srgb, var(--surface-raised) 74%, var(--surface));
   box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 5%, transparent);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   text-align: left;
   white-space: nowrap;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   font-synthesis: none;
-  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition: border-color var(--color-preview-duration, 160ms) ease, background-color var(--color-preview-duration, 160ms) ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .history-range-trigger:hover,
@@ -730,7 +723,7 @@ select:focus-visible {
 .history-range-label {
   flex: 0 0 auto;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 680;
   letter-spacing: 0.01em;
 }
@@ -740,7 +733,7 @@ select:focus-visible {
   overflow: hidden;
   color: var(--text);
   text-overflow: ellipsis;
-  font: 650 13px/1.1 var(--font-sans);
+  font: 650 0.8125rem/1.1 var(--font-sans);
   letter-spacing: 0.01em;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -787,7 +780,7 @@ select:focus-visible {
 .history-range-menu-label {
   padding: 6px 8px;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 680;
 }
 
@@ -803,7 +796,7 @@ select:focus-visible {
   color: var(--text-soft);
   background: transparent;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 620;
   letter-spacing: 0.01em;
   text-rendering: optimizeLegibility;
@@ -848,7 +841,7 @@ select:focus-visible {
 .history-select-all {
   min-width: 0;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -861,7 +854,7 @@ select:focus-visible {
 .history-selection-actions .button {
   min-height: 34px;
   padding-inline: 11px;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .history-danger-action:hover:not(:disabled) {
@@ -881,7 +874,7 @@ select:focus-visible {
   border-radius: 12px;
   color: var(--ui-danger-text);
   background: color-mix(in srgb, var(--danger-soft) 62%, var(--surface));
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .history-error .clear-search {
@@ -941,7 +934,7 @@ select:focus-visible {
 
 .history-detail-site-info span {
   color: var(--text-soft);
-  font: 600 11px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font: 600 0.6875rem/1.2 var(--font-sans);
 }
 
 .history-detail-meta {
@@ -1005,7 +998,7 @@ select:focus-visible {
   border-radius: 999px;
   color: var(--text-soft);
   background: var(--surface-raised);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1055,7 +1048,7 @@ select:focus-visible {
 .history-load-more {
   justify-self: center;
   min-height: 38px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .history-empty,
@@ -1082,7 +1075,7 @@ select:focus-visible {
 
 .history-empty strong {
   color: var(--text);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .history-empty span,
@@ -1090,7 +1083,7 @@ select:focus-visible {
   max-width: 460px;
   margin: 0;
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.65;
 }
 
@@ -1109,7 +1102,7 @@ select:focus-visible {
   min-height: var(--card-min-height);
   place-items: center;
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .history-state-panel {
@@ -1150,7 +1143,7 @@ select:focus-visible {
   background: var(--surface);
   box-shadow: var(--shadow-soft);
   transition:
-    border-color 160ms ease,
+    border-color var(--color-preview-duration, 160ms) ease,
     box-shadow 160ms ease;
 }
 
@@ -1169,7 +1162,7 @@ select:focus-visible {
   outline: 0;
   color: var(--text);
   background: transparent;
-  font-size: calc(14px * var(--font-scale));
+  font-size: 0.875rem;
 }
 
 .search-input input::placeholder {
@@ -1211,9 +1204,9 @@ select:focus-visible {
   background: var(--accent);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 24%, transparent);
   cursor: pointer;
-  font: 720 calc(11px * var(--font-scale))/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font: 720 0.6875rem/1 var(--font-sans);
   transition:
-    background-color 150ms ease,
+    background-color var(--color-preview-duration, 150ms) ease,
     transform 150ms ease,
     opacity 150ms ease;
 }
@@ -1258,12 +1251,12 @@ select:focus-visible {
 }
 
 .recovery-banner strong {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .recovery-banner span {
   color: var(--text-soft);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .github-home-entry {
@@ -1283,9 +1276,9 @@ select:focus-visible {
   box-shadow: 0 16px 34px color-mix(in srgb, var(--accent) 8%, transparent);
   transition:
     transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 220ms ease,
+    border-color var(--color-preview-duration, 220ms) ease,
     box-shadow 220ms ease,
-    background-color 220ms ease;
+    background-color var(--color-preview-duration, 220ms) ease;
 }
 
 .github-home-entry:hover,
@@ -1333,7 +1326,7 @@ select:focus-visible {
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 780;
   letter-spacing: -0.025em;
 }
@@ -1343,7 +1336,7 @@ select:focus-visible {
   color: var(--text-soft);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1451,7 +1444,7 @@ select:focus-visible {
   text-align: left;
   white-space: nowrap;
   font: inherit;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .github-home-entry-menu-popover button:hover,
@@ -1483,7 +1476,7 @@ select:focus-visible {
 
 .github-import-form > label {
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 720;
 }
 
@@ -1505,7 +1498,7 @@ select:focus-visible {
   min-height: 34px;
   margin-right: 5px;
   padding-inline: 11px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .github-import-error {
@@ -1555,7 +1548,7 @@ select:focus-visible {
 
 .github-import-owner strong {
   color: var(--text);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .github-import-owner span,
@@ -1563,7 +1556,7 @@ select:focus-visible {
 .github-import-statuses,
 .github-import-repo-status {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .github-import-count {
@@ -1635,12 +1628,12 @@ select:focus-visible {
 
 .github-import-repo-copy strong {
   color: var(--text);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .github-import-repo-copy small {
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .github-import-repo-status {
@@ -1696,7 +1689,7 @@ select:focus-visible {
 
 .github-refresh-stat strong {
   color: var(--text);
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -1705,7 +1698,7 @@ select:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .github-refresh-stat.is-success strong,
@@ -1777,20 +1770,20 @@ select:focus-visible {
 
 .github-refresh-owner strong {
   color: var(--text);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .github-refresh-owner span,
 .github-refresh-skipped,
 .github-refresh-empty {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .github-refresh-status {
   flex: 0 0 auto;
   gap: 4px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1804,7 +1797,7 @@ select:focus-visible {
 
 .github-refresh-repository-list a {
   color: var(--ui-accent-text);
-  font-size: 12px;
+  font-size: 0.75rem;
   text-decoration: none;
 }
 
@@ -1847,7 +1840,7 @@ select:focus-visible {
   border-radius: 12px;
   color: var(--text-soft);
   background: var(--surface);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .transfer-banner.success {
@@ -2019,7 +2012,7 @@ select:focus-visible {
   border: 0;
   color: var(--text-faint);
   background: transparent;
-  font-size: calc(12px * var(--font-scale));
+  font-size: 0.75rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -2048,7 +2041,7 @@ select:focus-visible {
 
 .collection-heading h2 {
   margin: 0;
-  font-size: calc(24px * var(--font-scale));
+  font-size: 1.5rem;
   font-weight: 740;
   letter-spacing: -0.035em;
 }
@@ -2056,7 +2049,7 @@ select:focus-visible {
 .collection-heading p {
   margin: 5px 0 0;
   color: var(--text-faint);
-  font-size: calc(13px * var(--font-scale));
+  font-size: 0.8125rem;
 }
 
 .site-grid,
@@ -2090,9 +2083,9 @@ select:focus-visible {
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent);
   transition:
     transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 220ms ease,
+    border-color var(--color-preview-duration, 220ms) ease,
     box-shadow 220ms ease,
-    background-color 220ms ease;
+    background-color var(--color-preview-duration, 220ms) ease;
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
@@ -2308,7 +2301,7 @@ select:focus-visible {
   color: var(--ui-danger-text);
   background: var(--surface);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--text) 12%, transparent);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 760;
   pointer-events: none;
   white-space: nowrap;
@@ -2445,9 +2438,9 @@ select:focus-visible {
   font-size: calc(12px * var(--card-font-scale));
   font-weight: 680;
   transition:
-    color 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease,
+    color var(--color-preview-duration, 180ms) ease,
+    border-color var(--color-preview-duration, 180ms) ease,
+    background-color var(--color-preview-duration, 180ms) ease,
     transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -2504,14 +2497,14 @@ select:focus-visible {
 
 .empty-state h3 {
   margin: 0;
-  font-size: 19px;
+  font-size: 1.1875rem;
 }
 
 .empty-state p {
   max-width: 360px;
   margin: 8px 0 22px;
   color: var(--text-soft);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.6;
 }
 
@@ -2522,7 +2515,7 @@ select:focus-visible {
   justify-content: flex-start;
   min-height: 48px;
   color: var(--text-faint);
-  font-size: calc(12px * var(--font-scale));
+  font-size: 0.75rem;
 }
 
 .category-tab > svg,
@@ -2634,8 +2627,8 @@ select:focus-visible {
   color: var(--text-soft);
   background: color-mix(in srgb, var(--surface-raised) 76%, var(--surface));
   cursor: pointer;
-  font: 700 11px/1 var(--font-sans);
-  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+  font: 700 0.6875rem/1 var(--font-sans);
+  transition: border-color var(--color-preview-duration, 160ms) ease, color var(--color-preview-duration, 160ms) ease, background-color var(--color-preview-duration, 160ms) ease;
 }
 
 .panel-back-button:hover {
@@ -2651,7 +2644,7 @@ select:focus-visible {
 
 .dialog-title {
   margin: 0;
-  font-size: 23px;
+  font-size: 1.4375rem;
   font-weight: 760;
   letter-spacing: -0.035em;
 }
@@ -2659,7 +2652,7 @@ select:focus-visible {
 .dialog-description {
   margin: 7px 0 0;
   color: var(--text-soft);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.6;
 }
 
@@ -2688,12 +2681,12 @@ select:focus-visible {
 }
 
 .site-preview strong {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .site-preview span {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .site-form {
@@ -2744,7 +2737,7 @@ select:focus-visible {
 .field-group > label,
 .field-group > legend {
   color: var(--text);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 690;
 }
 
@@ -2781,7 +2774,7 @@ select:focus-visible {
   outline: 0;
   color: var(--text);
   background: transparent;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 /* Composite fields draw a single focus indicator on their actual control. */
@@ -2795,7 +2788,7 @@ select:focus-visible {
 .field-help,
 .field-error {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.4;
 }
 
@@ -2842,11 +2835,11 @@ select:focus-visible {
   border-radius: var(--radius-control);
   color: var(--text-soft);
   background: var(--page);
-  font-size: 12px;
+  font-size: 0.75rem;
   transition:
-    color 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease;
+    color var(--color-preview-duration, 160ms) ease,
+    border-color var(--color-preview-duration, 160ms) ease,
+    background-color var(--color-preview-duration, 160ms) ease;
 }
 
 .category-choice:hover {
@@ -2886,13 +2879,13 @@ select:focus-visible {
 
 .icon-source-heading > span {
   color: var(--text);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 690;
 }
 
 .icon-source-heading small {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 500;
 }
 
@@ -2923,11 +2916,11 @@ select:focus-visible {
   color: var(--text-soft);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   font: inherit;
-  font-size: 11px;
+  font-size: 0.6875rem;
   transition:
-    color 150ms ease,
-    border-color 150ms ease,
-    background-color 150ms ease,
+    color var(--color-preview-duration, 150ms) ease,
+    border-color var(--color-preview-duration, 150ms) ease,
+    background-color var(--color-preview-duration, 150ms) ease,
     transform 150ms ease;
 }
 
@@ -3077,8 +3070,8 @@ select:focus-visible {
   border: 1px solid transparent;
   border-radius: 11px;
   transition:
-    border-color 160ms ease,
-    background-color 160ms ease;
+    border-color var(--color-preview-duration, 160ms) ease,
+    background-color var(--color-preview-duration, 160ms) ease;
   will-change: transform;
 }
 
@@ -3140,12 +3133,12 @@ select:focus-visible {
 }
 
 .group-list-copy strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .group-list-copy small {
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .group-manager-editor {
@@ -3196,20 +3189,20 @@ select:focus-visible {
 }
 
 .group-action-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 650;
   letter-spacing: -0.01em;
 }
 
 .group-editor-summary strong {
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
 .group-editor-summary span {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .group-drag-handle {
@@ -3269,7 +3262,7 @@ select:focus-visible {
 
 .settings-field > span {
   color: var(--text);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -3277,7 +3270,7 @@ select:focus-visible {
   justify-self: end;
   margin-top: -2px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3291,7 +3284,7 @@ select:focus-visible {
   outline: 0;
   color: var(--text);
   background: var(--surface);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .settings-field input:focus {
@@ -3332,7 +3325,7 @@ select:focus-visible {
   border-radius: 10px;
   color: var(--text-soft);
   background: var(--surface);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .group-dialog-error {
@@ -3404,11 +3397,11 @@ select:focus-visible {
   border-radius: 11px;
   color: var(--text-soft);
   background: var(--page);
-  font-size: 11px;
+  font-size: 0.6875rem;
   transition:
-    color 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease;
+    color var(--color-preview-duration, 160ms) ease,
+    border-color var(--color-preview-duration, 160ms) ease,
+    background-color var(--color-preview-duration, 160ms) ease;
 }
 
 .group-icon-choice:hover {
@@ -3463,7 +3456,6 @@ select:focus-visible {
   box-shadow: none;
   backdrop-filter: blur(22px);
   animation: settings-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
-  --font-scale: 1;
   --brand-font-scale: 1;
   --card-font-scale: 1;
   --group-font-scale: 1;
@@ -3508,7 +3500,7 @@ select:focus-visible {
   color: var(--text-soft);
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 680;
 }
 
@@ -3541,7 +3533,7 @@ select:focus-visible {
 .settings-group legend {
   margin-bottom: 9px;
   color: var(--text);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 720;
 }
 
@@ -3583,7 +3575,7 @@ select:focus-visible {
 
 .settings-inline-label {
   color: var(--text);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -3606,7 +3598,7 @@ select:focus-visible {
   color: var(--text-soft);
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 680;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3620,7 +3612,7 @@ select:focus-visible {
 
 .brand-replace-button {
   min-height: 38px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .brand-reset-action {
@@ -3644,7 +3636,7 @@ select:focus-visible {
   color: var(--text-soft);
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 680;
 }
 
@@ -3805,7 +3797,7 @@ select:focus-visible {
   border-radius: 10px;
   color: var(--text-faint);
   background: var(--page);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 720;
 }
 
@@ -3817,7 +3809,7 @@ select:focus-visible {
   outline: 0;
   color: var(--text);
   background: transparent;
-  font: 700 13px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font: 700 0.8125rem/1 var(--font-sans);
   text-transform: uppercase;
 }
 
@@ -3836,7 +3828,7 @@ select:focus-visible {
   color: var(--text-soft);
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 680;
 }
 
@@ -3851,7 +3843,7 @@ select:focus-visible {
   justify-content: space-between;
   gap: 12px;
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -3862,7 +3854,7 @@ select:focus-visible {
 
 .range-control > span small {
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 550;
 }
 
@@ -3895,12 +3887,12 @@ select:focus-visible {
 }
 
 .toggle-row strong {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .toggle-row small {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .toggle-row input {
@@ -3912,7 +3904,7 @@ select:focus-visible {
   border-radius: 999px;
   background: var(--surface);
   cursor: pointer;
-  transition: background-color 160ms ease;
+  transition: background-color var(--color-preview-duration, 160ms) ease;
 }
 
 .toggle-row input::before {
@@ -3923,7 +3915,7 @@ select:focus-visible {
   content: "";
   background: var(--text-faint);
   transition:
-    background-color 160ms ease,
+    background-color var(--color-preview-duration, 160ms) ease,
     transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -3952,13 +3944,13 @@ select:focus-visible {
 }
 
 .settings-data-card strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .settings-data-card p {
   margin: 0;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.5;
 }
 
@@ -3970,7 +3962,7 @@ select:focus-visible {
 .settings-data-card .button {
   min-height: 38px;
   padding-inline: 12px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .trash-settings-card {
@@ -4007,7 +3999,7 @@ select:focus-visible {
   justify-content: space-between;
   gap: 12px;
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .trash-retention-field select {
@@ -4056,7 +4048,7 @@ select:focus-visible {
 
 .trash-item-copy small {
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -4523,11 +4515,11 @@ select:focus-visible {
   }
 
   .github-home-entry-copy strong {
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   .github-home-entry-copy > div > span {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .search-input {
@@ -4536,7 +4528,7 @@ select:focus-visible {
 
   .search-input input {
     height: 52px;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .search-submit {

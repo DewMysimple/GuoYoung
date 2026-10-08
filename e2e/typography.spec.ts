@@ -1,4 +1,5 @@
 import { expect, test, screenshotPath } from "./fixtures";
+import { resolve } from "node:path";
 
 test("previews font choices and color effects, cancels, then persists them across themes and reload", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "Desktop settings scope");
@@ -10,13 +11,12 @@ test("previews font choices and color effects, cancels, then persists them acros
   await expect(panel.getByRole("group", { name: "文字大小" })).toHaveCount(0);
   await panel.getByRole("tab", { name: "字体调节" }).click();
   await panel.getByRole("button", { name: "宋体 / 衬线" }).click();
-  await panel.locator("summary").filter({ hasText: "字号微调" }).click();
   await panel.getByRole("slider", { name: "整体字号", exact: true }).fill("115");
   await panel.locator("summary").filter({ hasText: "文字颜色" }).click();
   await panel.getByRole("checkbox", { name: "主题关联字体颜色" }).uncheck();
   await panel.getByRole("button", { name: "白色文字" }).click();
   await panel.locator("summary").filter({ hasText: "文字增强" }).click();
-  await panel.getByRole("button", { name: "描边", exact: true }).click();
+  await panel.getByRole("button", { name: "柔光", exact: true }).click();
   await expect(name).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(name).toHaveCSS("font-family", /SimSun/);
   await expect(name).not.toHaveCSS("text-shadow", "none");
@@ -28,8 +28,10 @@ test("previews font choices and color effects, cancels, then persists them acros
 
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: "字体调节" }).click();
-  await panel.getByRole("button", { name: "本机字体", exact: true }).click();
-  await panel.getByRole("textbox", { name: "本机字体名称" }).fill("Consolas");
+  await panel.getByRole("button", { name: "本地字体", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "选择已安装字体" })).toBeVisible();
+  await panel.getByLabel("字体文件", { exact: true }).setInputFiles(resolve("public/fonts/LXGWWenKai-Regular.woff2"));
+  await expect(panel.getByText("当前字体：LXGWWenKai-Regular", { exact: true })).toBeVisible();
   await expect(panel.getByRole("checkbox", { name: "主题关联字体颜色" })).toBeVisible();
   await panel.getByRole("checkbox", { name: "主题关联字体颜色" }).uncheck();
   await panel.getByRole("button", { name: "自定义主要文字颜色" }).click();
@@ -50,7 +52,11 @@ test("previews font choices and color effects, cancels, then persists them acros
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
   await expect(name).toHaveCSS("color", "rgb(75, 39, 124)");
-  await expect(name).toHaveCSS("font-family", /Consolas/);
+  const assetId = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance.customFontAssetId as string);
+  expect(assetId).toMatch(/^font-/);
+  const family = `Mysimple_Local_${assetId}`;
+  await expect(name).toHaveCSS("font-family", new RegExp(family));
+  await expect.poll(() => page.evaluate(family => [...document.fonts].some(face => face.family.replaceAll('"', "") === family && face.status === "loaded"), family)).toBe(true);
   await expect(name).not.toHaveCSS("text-shadow", "none");
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("button", { name: "深色", exact: true }).click();
@@ -65,13 +71,13 @@ test("previews font choices and color effects, cancels, then persists them acros
   await expect(name).toHaveCSS("color", "rgb(75, 39, 124)");
 });
 
-test("offers six fonts, collapsed controls and persists the full 70–130 percent size range", async ({ page }, testInfo) => {
+test("offers six fonts, direct overall size and collapsed section sizes across the full 70–130 percent range", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium", "Desktop settings scope");
   for (const size of [70, 130]) {
     await page.getByRole("button", { name: "打开设置" }).click();
     const panel = page.getByRole("dialog", { name: "设置", exact: true });
     await panel.getByRole("tab", { name: "字体调节" }).click();
-    await expect(panel.getByRole("slider")).toHaveCount(0);
+    await expect(panel.getByRole("slider")).toHaveCount(1);
     await expect(panel.getByRole("checkbox", { name: "主题关联字体颜色" })).toHaveCount(0);
     await expect(panel.getByRole("group", { name: "文字效果", exact: true })).toHaveCount(0);
     const fontButtons = panel.getByRole("group", { name: "字体选择" }).getByRole("button");
@@ -87,15 +93,16 @@ test("offers six fonts, collapsed controls and persists the full 70–130 percen
       return faces.length > 0 && faces.every(face => face.status === "loaded");
     });
     expect(loaded).toBe(true);
-    await panel.getByRole("button", { name: "较小" }).click();
-    await panel.locator("summary").filter({ hasText: "字号微调" }).click();
     const slider = panel.getByRole("slider", { name: "整体字号", exact: true });
-    await expect(slider).toHaveValue("85");
+    await expect(slider).toBeVisible();
     await expect(slider).toHaveAttribute("min", "70");
     await expect(slider).toHaveAttribute("max", "130");
     await slider.fill(String(size));
-    await panel.locator("summary").filter({ hasText: "字号微调" }).click();
-    await panel.locator("summary").filter({ hasText: "字号微调" }).click();
+    const sections = panel.locator("summary").filter({ hasText: "分区字号" });
+    await sections.click();
+    await expect(panel.getByRole("slider")).toHaveCount(4);
+    await sections.click();
+    await expect(panel.getByRole("slider")).toHaveCount(1);
     await expect(slider).toHaveValue(String(size));
     await panel.getByRole("button", { name: "保存设置" }).click();
     await page.reload();

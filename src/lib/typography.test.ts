@@ -31,7 +31,7 @@ it("adds v19 reading defaults to v18 without replacing collections or legacy tex
   const raw = JSON.stringify({ ...state, version: 18, appearance });
   const loaded = parseStoredState(raw);
   expect(loaded.recovered).toBe(false);
-  expect(loaded.state.version).toBe(25);
+  expect(loaded.state.version).toBe(26);
   expect(loaded.state.appearance).toEqual({ ...appearance, ...DEFAULT_TYPOGRAPHY, allowTextSelection: true });
   expect(loaded.state.sites).toEqual(state.sites);
   expect(loaded.state.groups).toEqual(state.groups);
@@ -85,11 +85,36 @@ it("preserves WenKai, extended overall sizes and existing local scales through s
 });
 
 it("disables all explicit text effects at zero strength and resets only typography", () => {
-  for (const textEffect of ["shadow", "outline", "glow"] as const) {
+  for (const textEffect of ["glow"] as const) {
     expect(getTextShadow({ ...DEFAULT_TYPOGRAPHY, textEffect, textEffectStrength: 0 })).toBe("none");
     expect(getTextShadow({ ...DEFAULT_TYPOGRAPHY, textEffect })).not.toBe("none");
   }
   const value = { ...DEFAULT_APPEARANCE, textColor: "#ffffff", fontScale: 117, cardFontScale: 140,
     cardWidth: 211, accentColor: "#abcdef", allowTextSelection: false };
   expect(resetTypography(value)).toEqual({ ...value, ...DEFAULT_TYPOGRAPHY, fontScale: 100, cardFontScale: 100 });
+});
+
+it("retires shadow and outline at v25/current reads without changing fonts, colors or collections", () => {
+  for (const version of [25, 26]) for (const textEffect of ["shadow", "outline"]) {
+    const state = createDefaultState();
+    const raw = { ...state, version, appearance: { ...state.appearance, textEffect, fontScale: 117, textColor: "#345678" } };
+    const loaded = parseStoredState(JSON.stringify(raw));
+    expect(loaded.recovered).toBe(false);
+    expect(loaded.state.appearance).toEqual({ ...raw.appearance, textEffect: "none" });
+    expect(loaded.state.sites).toEqual(state.sites);
+    expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
+  }
+});
+
+it("migrates and preserves local font references without keeping invalid asset identifiers", () => {
+  const state = createDefaultState();
+  const appearance = { ...state.appearance, fontFamily: "custom", customFontFamily: "My Font", customFontAssetId: "font-abc-123" };
+  const loaded = parseStoredState(JSON.stringify({ ...state, version: 25, appearance }));
+  expect(loaded.recovered).toBe(false);
+  expect(loaded.state.version).toBe(26);
+  expect(loaded.state.appearance).toEqual(appearance);
+  expect(getFontFamily(loaded.state.appearance)).toContain("font-abc-123");
+  expect(parseImportFile(serializeExport(loaded.state)).appearance).toEqual(appearance);
+  expect(normalizeAppearance({ customFontAssetId: "../invalid" }).customFontAssetId).toBeUndefined();
+  expect(resetTypography(loaded.state.appearance).customFontAssetId).toBeUndefined();
 });

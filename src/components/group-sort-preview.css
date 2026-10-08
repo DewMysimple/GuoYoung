@@ -14,14 +14,14 @@
 .group-sort-preview-heading { display: flex; min-width: 0; align-items: center; gap: 10px; }
 .group-sort-preview-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 10px; color: var(--ui-accent-text); background: var(--accent-soft); }
 .group-sort-preview-copy { display: grid; min-width: 0; gap: 3px; }
-.group-sort-preview-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; }
-.group-sort-preview-count { color: var(--text-soft); font-size: 11px; }
+.group-sort-preview-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; font-weight: 700; }
+.group-sort-preview-count { color: var(--text-soft); font-size: 0.6875rem; }
 .group-sort-preview-grip { margin-left: auto; flex-shrink: 0; color: var(--text-faint); }
 .group-sort-preview-sites { display: flex; min-width: 0; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .group-sort-preview-site { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; }
 .group-sort-preview-site .favicon-frame, .group-sort-preview-site .favicon-fallback { width: 22px; height: 22px; flex: 0 0 22px; border-radius: 6px; }
 .group-sort-preview-site .favicon-frame img, .group-sort-preview-site .favicon-frame svg { width: 18px; height: 18px; }
-.group-sort-preview-site-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
-.group-sort-preview-more { flex-shrink: 0; color: var(--text-faint); font-size: 11px; }
-.group-sort-preview-empty { margin-top: 12px; color: var(--text-faint); font-size: 12px; }
+.group-sort-preview-site-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.6875rem; }
+.group-sort-preview-more { flex-shrink: 0; color: var(--text-faint); font-size: 0.6875rem; }
+.group-sort-preview-empty { margin-top: 12px; color: var(--text-faint); font-size: 0.75rem; }
 .group-sort-tab-preview { cursor: grabbing; pointer-events: none; }

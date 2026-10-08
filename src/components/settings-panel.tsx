@@ -50,6 +50,7 @@ import { AppearanceSettingsEditor } from "./appearance-settings";
 import { BrandSettingsEditor } from "./brand-settings-editor";
 import { SettingsLocationContext } from "./settings-location";
 import { LogoImageEditor } from "./logo-image-editor";
+import { useAppearanceColorPreview } from "../hooks/use-appearance-color-preview";
 
 export interface SettingsDraft {
   brand: BrandSettings;
@@ -76,6 +77,7 @@ interface SettingsPanelProps {
   onTrashRetentionChange: (days: TrashRetentionDays) => void;
   wallpaperLoadError?: string;
   wallpaperPreviewUrl?: string;
+  localFontError?: string;
 }
 
 export type SettingsSection = "appearance" | "typography" | "wallpaper" | "data";
@@ -111,6 +113,7 @@ export function SettingsPanel({
   onTrashRetentionChange,
   wallpaperLoadError,
   wallpaperPreviewUrl,
+  localFontError,
 }: SettingsPanelProps) {
   const titleId = useId();
   const wallpaperDragState = useRef<{
@@ -129,6 +132,7 @@ export function SettingsPanel({
   } | null>(null);
   const initialDraftSnapshot = useRef(JSON.stringify(cloneDraft(state)));
   const [draft, setDraft] = useState<SettingsDraft>(() => cloneDraft(state));
+  const colorPreview = useAppearanceColorPreview(draft.appearance, open);
   const [previousPreset, setPreviousPreset] = useState(state.appearance);
   const [section, setSection] = useState<SettingsSection>("appearance");
   const disclosureMemory = useRef(new Map<string, boolean>());
@@ -195,6 +199,11 @@ export function SettingsPanel({
       ...current,
       brand: { ...current.brand, ...patch },
     }));
+  }
+
+  function updateAppearance(appearance: AppearanceSettings) {
+    colorPreview.commit(appearance);
+    setDraft(current => ({ ...current, appearance }));
   }
 
   function chooseLocalLogo(event: ChangeEvent<HTMLInputElement>) {
@@ -403,6 +412,7 @@ export function SettingsPanel({
   }
 
   function closeWithoutSaving() {
+    colorPreview.preview(null);
     setLogoEditorSource(undefined);
     wallpaperImport.cancel();
     if (wallpaperFrame.current !== null) {
@@ -605,8 +615,9 @@ export function SettingsPanel({
             {section === "appearance" && (
               <div className="settings-section appearance-settings">
                 <AppearanceSettingsEditor value={draft.appearance} previousPreset={previousPreset} onPresetChange={setPreviousPreset}
+                  onColorPreview={colorPreview.preview}
                   panelWidth={panelWidth} panelMaxWidth={panelMaxWidth} onPanelWidthChange={rememberWidth}
-                  onChange={(appearance) => setDraft((current) => ({ ...current, appearance }))} />
+                  onChange={updateAppearance} />
                 <BrandSettingsEditor value={draft.brand}
                   error={logoError}
                   onChange={updateBrand} onChooseLogo={chooseLocalLogo} onError={setLogoError}
@@ -620,7 +631,7 @@ export function SettingsPanel({
             )}
 
             {section === "typography" && <TypographySettingsEditor value={draft.appearance} wallpaperUrl={wallpaperPreviewUrl}
-              onChange={(appearance) => setDraft((current) => ({ ...current, appearance }))} />}
+              localFontError={localFontError} onColorPreview={colorPreview.preview} onChange={updateAppearance} />}
 
             {section === "wallpaper" && <WallpaperSettingsEditor value={previewWallpaper}
               imageUrl={wallpaperPreviewUrl} error={wallpaperError || wallpaperImport.error || wallpaperLoadError}

@@ -6,11 +6,17 @@
   font-display: swap;
 }
 
-/* One palette reaches the page, body portals and extension popup. */
-body { color: var(--text); }
-.app-shell, .site-card-drag-preview, .group-sort-drag-preview, .group-sort-tab-preview {
-  font-family: var(--reading-font);
+/* One inherited font reaches the page, body portals and extension popup.
+   Text sizes use rem; icon and layout dimensions keep their own pixel tokens. */
+:root {
+  --font-sans: var(--reading-font, "Manrope Variable", "PingFang SC", "Microsoft YaHei", sans-serif);
+  font-family: var(--font-sans);
+  font-size: calc(16px * var(--font-scale, 1));
 }
+/* Chromium extension pages inject a body font; inherit the root settings explicitly. */
+body { font-family: inherit; font-size: inherit; color: var(--text); }
+button, input, select, textarea { font: inherit; }
+code, kbd, samp, pre { font-family: inherit; }
 /* Phosphor controls inherit text by default; branded SVGs and image pixels
    retain their original artwork. No fill override is applied to source icons. */
 svg[fill="currentColor"]:not(.brand-mark svg):not(.favicon-frame svg) { color: var(--reading-icon, inherit); }

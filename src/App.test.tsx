@@ -609,7 +609,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":25');
+      expect(stored).toContain('"version":26');
     });
   });
 
@@ -882,7 +882,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(25);
+      expect(stored.version).toBe(26);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -1320,7 +1320,7 @@ describe("App", () => {
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
 
     await user.click(screen.getByRole("tab", { name: "字体调节" }));
-    await user.click(within(screen.getByRole("group", { name: "文字大小" })).getByRole("button", { name: "较大 110%" }));
+    fireEvent.change(screen.getByRole("slider", { name: "整体字号" }), { target: { value: "110" } });
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1.1");
     await user.click(screen.getByRole("tab", { name: "外观" }));
     await user.click(screen.getByRole("button", { name: /布局微调/ }));
@@ -1402,7 +1402,7 @@ describe("App", () => {
     render(<App />);
     await user.click(screen.getByRole("button", { name: "打开设置" }));
     await user.click(screen.getByRole("tab", { name: "字体调节" }));
-    await user.click(screen.getByRole("button", { name: /^较小/ }));
+    fireEvent.change(screen.getByRole("slider", { name: "整体字号" }), { target: { value: "85" } });
     await user.click(screen.getByRole("tab", { name: /数据/ }));
     await user.click(within(screen.getByRole("dialog", { name: "设置" })).getByRole("button", { name: "导入" }));
     expect(screen.getByRole("alertdialog", { name: "放弃未保存的设置？" })).toBeInTheDocument();

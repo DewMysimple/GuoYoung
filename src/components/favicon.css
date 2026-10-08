@@ -16,14 +16,14 @@
 .favicon-normal {
   width: 36px;
   height: 36px;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .favicon-large {
   width: var(--site-icon-size, 38px);
   height: var(--site-icon-size, 38px);
   border-radius: 10px;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 760;
 }
 

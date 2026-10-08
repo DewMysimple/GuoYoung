@@ -2,7 +2,7 @@
 .help-tip-trigger {
   display: inline-grid; place-items: center; width: 20px; height: 20px;
   padding: 0; border: 1px solid var(--border-strong); border-radius: 50%;
-  color: var(--text-soft); background: transparent; font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1;
+  color: var(--text-soft); background: transparent; font-family: inherit; font-size: 0.75rem; font-weight: 600; line-height: 1;
   cursor: help; text-shadow: none;
 }
 .help-tip-trigger:hover, .help-tip-trigger:focus-visible { color: var(--text); border-color: var(--accent); }
@@ -11,7 +11,7 @@
   pointer-events: auto;
   padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
   background: var(--surface); color: var(--text); box-shadow: var(--shadow-soft);
-  font: 12px/1.7 var(--reading-font, sans-serif); text-shadow: none; overflow-wrap: anywhere;
+  font: 0.75rem/1.7 var(--reading-font, sans-serif); text-shadow: none; overflow-wrap: anywhere;
 }
 body:has(.app-shell.has-wallpaper) .help-tip-bubble {
   border-color: var(--glass-edge); background: var(--glass-fill-popover);

@@ -1,7 +1,6 @@
 @import "../theme.css";
 
 :root {
-  font-family: "Manrope Variable", "Microsoft YaHei", sans-serif;
   color: var(--text);
   background: var(--page);
   font-synthesis: none;
@@ -9,7 +8,7 @@
 
 * { box-sizing: border-box; }
 body { width: 440px; min-width: 440px; margin: 0; overflow: hidden; background: var(--page); }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { color: inherit; }
 button { cursor: pointer; }
 
 .popup-shell {
@@ -70,7 +69,7 @@ button { cursor: pointer; }
   border-radius: 9px;
   color: var(--text-soft);
   background: transparent;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 670;
   white-space: nowrap;
   transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease;
@@ -83,7 +82,7 @@ button { cursor: pointer; }
   padding: 9px 11px;
   border: 1px solid transparent;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.5;
 }
 .popup-notice.success { color: var(--ui-success-text); border-color: color-mix(in srgb, var(--success) 20%, transparent); background: var(--success-soft); }
@@ -98,7 +97,7 @@ button { cursor: pointer; }
   margin-block: 0;
 }
 .quick-page .popup-site-identity, .quick-page .duplicate-popup-notice, .quick-page .popup-primary { flex-shrink: 0; }
-.popup-status-chip { flex: 0 0 auto; padding: 4px 6px; border-radius: 6px; color: var(--ui-accent-text); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
+.popup-status-chip { flex: 0 0 auto; padding: 4px 6px; border-radius: 6px; color: var(--ui-accent-text); background: var(--accent-soft); font-size: 0.625rem; font-weight: 700; }
 
 .popup-form-card {
   display: grid;
@@ -115,13 +114,13 @@ button { cursor: pointer; }
 .popup-target-icon .favicon-frame, .popup-target-icon .favicon-fallback { width: 46px; height: 46px; flex-basis: 46px; border-radius: 12px; }
 .popup-target-icon .favicon-frame img, .popup-target-icon .favicon-frame svg { width: 82%; height: 82%; object-fit: contain; transform: none; }
 .popup-site-name { display: block; flex: 1 1 auto; min-width: 0; }
-.popup-site-name input { width: 100%; min-width: 0; min-height: 44px; padding: 0 11px; border: 1px solid var(--border-strong); border-radius: 10px; outline: none; background: var(--surface); font-size: 12px; font-weight: 720; }
+.popup-site-name input { width: 100%; min-width: 0; min-height: 44px; padding: 0 11px; border: 1px solid var(--border-strong); border-radius: 10px; outline: none; background: var(--surface); font-size: 0.75rem; font-weight: 720; }
 .popup-site-name input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
 .popup-site-name input:disabled { opacity: .55; }
 .popup-group-picker { display: grid; flex: 1; min-height: 0; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
-.popup-group-label { color: var(--text-soft); font-size: 11px; font-weight: 750; }
+.popup-group-label { color: var(--text-soft); font-size: 0.6875rem; font-weight: 750; }
 .popup-group-options { display: grid; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 40px; align-content: start; gap: 7px; overflow: auto; padding: 2px; scrollbar-color: color-mix(in srgb, var(--text-soft) 38%, transparent) transparent; scrollbar-width: thin; }
-.popup-group-option { display: flex; min-width: 0; min-height: 38px; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-soft); background: var(--surface); text-align: left; font-size: 11px; font-weight: 680; transition: border-color 150ms ease, color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
+.popup-group-option { display: flex; min-width: 0; min-height: 38px; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-soft); background: var(--surface); text-align: left; font-size: 0.6875rem; font-weight: 680; transition: border-color 150ms ease, color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
 .popup-group-option:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); color: var(--ui-accent-text); }
 .popup-group-option.is-selected { border-color: color-mix(in srgb, var(--accent) 68%, var(--border)); color: var(--ui-accent-text); background: color-mix(in srgb, var(--accent-soft) 68%, var(--surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent); }
 .popup-group-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -130,7 +129,7 @@ button { cursor: pointer; }
 .popup-group-option-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .popup-group-option-check { flex: 0 0 auto; color: var(--ui-accent-text); }
 .popup-field { display: grid; gap: 7px; }
-.popup-field > span { color: var(--text-soft); font-size: 11px; font-weight: 750; }
+.popup-field > span { color: var(--text-soft); font-size: 0.6875rem; font-weight: 750; }
 .popup-field input, .bookmark-search {
   width: 100%;
   min-height: 40px;
@@ -139,12 +138,12 @@ button { cursor: pointer; }
   outline: none;
   background: var(--surface);
 }
-.popup-field input { padding: 0 12px; font-size: 12px; }
+.popup-field input { padding: 0 12px; font-size: 0.75rem; }
 .popup-field input::placeholder { color: var(--text-faint); }
 .popup-field input:focus, .bookmark-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
 .popup-field input:disabled { opacity: .55; }
 .popup-field-heading { display: flex; align-items: center; justify-content: space-between; }
-.popup-field .popup-select-trigger { width: 100%; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--surface); font-size: 12px; }
+.popup-field .popup-select-trigger { width: 100%; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--surface); font-size: 0.75rem; }
 .popup-field .popup-select-trigger:disabled { cursor: default; opacity: .55; }
 .popup-field .popup-select-popover {
   right: auto;
@@ -157,10 +156,10 @@ button { cursor: pointer; }
   scrollbar-width: thin;
 }
 
-.duplicate-popup-notice { display: flex; gap: 8px; padding: 10px; border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border)); border-radius: 10px; color: var(--ui-warning-text); background: var(--warning-soft); font-size: 11px; line-height: 1.5; }
+.duplicate-popup-notice { display: flex; gap: 8px; padding: 10px; border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border)); border-radius: 10px; color: var(--ui-warning-text); background: var(--warning-soft); font-size: 0.6875rem; line-height: 1.5; }
 .duplicate-popup-notice svg { flex: 0 0 auto; margin-top: 1px; }
 .popup-primary, .popup-danger, .popup-confirm button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 10px; font-weight: 740; transition: transform 140ms ease, background 150ms ease, opacity 150ms ease; }
-.popup-primary { color: var(--ui-on-accent-text); background: var(--accent); font-size: 12px; }
+.popup-primary { color: var(--ui-on-accent-text); background: var(--accent); font-size: 0.75rem; }
 .popup-primary:hover:not(:disabled) { background: var(--accent-strong); }
 .popup-primary:active, .popup-danger:active, .popup-confirm button:active { transform: scale(.98); }
 .popup-primary:disabled, .popup-danger:disabled { cursor: default; opacity: .45; }
@@ -170,20 +169,20 @@ button { cursor: pointer; }
 .bookmark-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
 .bookmark-search { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 10px; background: var(--surface); }
 .bookmark-search svg { flex: 0 0 auto; color: var(--text-soft); }
-.bookmark-search input { width: 100%; border: 0; outline: 0; background: transparent; font-size: 11px; }
+.bookmark-search input { width: 100%; border: 0; outline: 0; background: transparent; font-size: 0.6875rem; }
 .bookmark-search input:focus-visible { outline: none; outline-width: 0; outline-offset: 0; box-shadow: none; }
 .bookmark-search input::placeholder { color: var(--text-faint); }
 .bookmark-refresh { width: 38px; height: 38px; }
-.bookmark-list-heading { display: grid; min-height: 28px; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 0 2px 6px; color: var(--text-soft); font-size: 10px; font-weight: 760; }
+.bookmark-list-heading { display: grid; min-height: 28px; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 0 2px 6px; color: var(--text-soft); font-size: 0.625rem; font-weight: 760; }
 .bookmark-location { display: flex; min-width: 0; align-items: center; gap: 5px; }
 .bookmark-location > span { overflow: hidden; color: var(--text-soft); text-overflow: ellipsis; white-space: nowrap; }
 .bookmark-back { display: grid; flex: 0 0 24px; place-items: center; width: 24px; height: 23px; padding: 0; border: 0; border-radius: 7px; color: var(--ui-accent-text); background: transparent; }
 .bookmark-back:hover { background: var(--accent-soft); }
-.bookmark-selection-count { display: inline-flex; min-height: 22px; align-items: center; gap: 3px; padding: 0 8px; border-radius: 7px; color: var(--text-soft); background: color-mix(in srgb, var(--surface-raised) 72%, transparent); font-size: 10px; font-weight: 640; white-space: nowrap; }
-.bookmark-selection-count strong { color: var(--text); font-size: 10px; font-weight: 760; }
+.bookmark-selection-count { display: inline-flex; min-height: 22px; align-items: center; gap: 3px; padding: 0 8px; border-radius: 7px; color: var(--text-soft); background: color-mix(in srgb, var(--surface-raised) 72%, transparent); font-size: 0.625rem; font-weight: 640; white-space: nowrap; }
+.bookmark-selection-count strong { color: var(--text); font-size: 0.625rem; font-weight: 760; }
 .bookmark-selection-count.has-selection { color: var(--ui-accent-text); background: var(--accent-soft); }
 .bookmark-selection-count.has-selection strong { color: var(--ui-accent-text); }
-.select-visible { padding: 2px 0; border: 0; color: var(--ui-accent-text); background: transparent; font-size: 10px; font-weight: 720; }
+.select-visible { padding: 2px 0; border: 0; color: var(--ui-accent-text); background: transparent; font-size: 0.625rem; font-weight: 720; }
 .select-visible:disabled { cursor: default; opacity: .45; }
 
 .bookmark-tree { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--surface-raised) 48%, var(--page)); scrollbar-color: color-mix(in srgb, var(--text-soft) 38%, transparent) transparent; scrollbar-gutter: stable; scrollbar-width: thin; }
@@ -199,7 +198,7 @@ button { cursor: pointer; }
 .bookmark-tile-open { position: absolute; z-index: 1; inset: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
 .bookmark-tile-open:focus-visible { outline-offset: -3px; }
 .bookmark-tile-footer { position: relative; z-index: 2; display: flex; min-width: 0; align-items: center; gap: 3px; pointer-events: none; }
-.bookmark-tile-name { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--text); font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.bookmark-tile-name { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--text); font-size: 0.6875rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .bookmark-tile-caret { flex: 0 0 auto; color: var(--text-faint); }
 .bookmark-check { position: absolute; z-index: 3; top: 3px; right: 3px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; cursor: pointer; }
 .bookmark-check:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
@@ -221,21 +220,21 @@ button { cursor: pointer; }
 .bookmark-destination .popup-select-trigger { width: 100%; min-width: 0; min-height: 37px; justify-content: flex-start; padding-inline: 10px; }
 .bookmark-destination-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bookmark-footer-actions { display: grid; grid-template-columns: minmax(96px, .34fr) minmax(0, 1fr); gap: 8px; }
-.popup-primary.compact, .popup-danger { min-height: 37px; font-size: 11px; }
+.popup-primary.compact, .popup-danger { min-height: 37px; font-size: 0.6875rem; }
 .popup-danger { color: var(--ui-danger-text); background: var(--danger-soft); }
 .popup-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 18%, var(--danger-soft)); }
 .popup-danger.filled { color: var(--ui-on-accent-text); background: #b33a46; }
 
-.popup-empty, .popup-loading { display: grid; flex: 1; place-content: center; gap: 15px; color: var(--text-faint); font-size: 12px; text-align: center; }
+.popup-empty, .popup-loading { display: grid; flex: 1; place-content: center; gap: 15px; color: var(--text-faint); font-size: 0.75rem; text-align: center; }
 .popup-loading { width: 440px; height: 600px; padding: 24px; background: var(--page); }
 .popup-loading .popup-primary { padding: 0 16px; }
 .popup-confirm-backdrop { position: absolute; z-index: 100; display: grid; place-items: center; padding: 24px; inset: 0; background: color-mix(in srgb, var(--page) 76%, transparent); backdrop-filter: blur(8px); }
 .popup-confirm { width: 100%; padding: 22px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow-dialog); }
 .confirm-warning { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: var(--ui-danger-text); background: var(--danger-soft); }
-.popup-confirm h2 { margin: 15px 0 6px; font-size: 17px; }
-.popup-confirm p { margin: 0; color: var(--text-soft); font-size: 11px; line-height: 1.6; }
+.popup-confirm h2 { margin: 15px 0 6px; font-size: 1.0625rem; }
+.popup-confirm p { margin: 0; color: var(--text-soft); font-size: 0.6875rem; line-height: 1.6; }
 .popup-confirm > div { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.popup-confirm button { min-height: 38px; padding: 0 14px; background: var(--surface-raised); font-size: 11px; }
+.popup-confirm button { min-height: 38px; padding: 0 14px; background: var(--surface-raised); font-size: 0.6875rem; }
 .popup-confirm .popup-danger.filled { background: #b33a46; }
 
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

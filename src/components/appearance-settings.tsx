@@ -21,6 +21,7 @@ const THEMES = [
 interface AppearanceSettingsProps {
   value: Appearance;
   onChange: (value: Appearance) => void;
+  onColorPreview: (patch: Partial<Appearance> | null) => void;
   previousPreset: Appearance;
   onPresetChange: (value: Appearance) => void;
   panelWidth: number;
@@ -28,7 +29,7 @@ interface AppearanceSettingsProps {
   onPanelWidthChange: (width: number) => void;
 }
 
-export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange, onChange, panelWidth, panelMaxWidth, onPanelWidthChange }: AppearanceSettingsProps) {
+export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange, onChange, onColorPreview, panelWidth, panelMaxWidth, onPanelWidthChange }: AppearanceSettingsProps) {
   const [detailsOpen, setDetailsOpen] = useSettingsDisclosure("布局微调");
   const [dimensionsOpen, setDimensionsOpen] = useSettingsDisclosure("界面尺寸");
   const detailsId = useId();
@@ -122,6 +123,7 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
             </button>
           ))}
           <CustomColorPicker value={value.accentColor} selected={!ACCENTS.includes(value.accentColor)}
+            onPreview={accentColor => onColorPreview(accentColor === null ? null : { accentColor })}
             onChange={(accentColor) => onChange(patchAppearance(value, { accentColor }))} />
         </div>
       </section>

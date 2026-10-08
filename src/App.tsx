@@ -3,6 +3,7 @@ import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
 import { patchAppearance } from "./lib/appearance-settings";
 import { typographyVariables } from "./lib/typography";
+import { useLocalFont } from "./hooks/use-local-font";
 import { wallpaperGlassStyle } from "./lib/wallpaper-glass";
 import { useTextSelection } from "./hooks/use-text-selection";
 import {
@@ -194,6 +195,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const effectiveBrand = settingsPreview?.brand ?? state.brand;
   const effectiveAppearance =
     settingsPreview?.appearance ?? state.appearance;
+  const localFont = useLocalFont(effectiveAppearance);
   const effectiveWallpaper =
     settingsPreview?.wallpaper ?? state.wallpaper;
   useTheme(effectiveAppearance.theme, effectiveAppearance.accentColor);
@@ -1176,7 +1178,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       : (activeGroup?.name ?? "网站");
   useTextSelection(effectiveAppearance.allowTextSelection);
   const appStyle = {
-    ...typographyVariables(effectiveAppearance),
     "--font-scale": String(effectiveAppearance.fontScale / 100),
     "--ui-icon-scale": String(effectiveAppearance.uiIconScale / 100),
     "--control-scale": String(effectiveAppearance.controlScale / 100),
@@ -1239,7 +1240,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     const root = document.documentElement;
     // Publish shared CSS tokens before child layout effects measure UI. Late tokens made border-color fall back to currentColor, then
     // animated that invalid first style into the saved glass material.
-    for (const [property, value] of Object.entries(appStyle)) {
+    for (const [property, value] of Object.entries({ ...appStyle, ...typographyVariables(effectiveAppearance) })) {
       root.style.setProperty(property, String(value));
     }
     root.dataset.textEffect = effectiveAppearance.textEffect;
@@ -1920,6 +1921,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
           }
         }}
         onPreview={setSettingsPreview}
+        localFontError={localFont.error ?? undefined}
         onSave={(draft) =>
           saveSettings(
             draft.brand,

@@ -8,7 +8,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--border-strong) 48%, transparent);
   box-shadow: 0 0 0 0 transparent;
-  transition: width 160ms ease, height 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  transition: width 160ms ease, height 160ms ease, background-color var(--color-preview-duration, 160ms) ease, box-shadow 160ms ease;
 }
 .resize-handle:hover span, .resize-handle:focus-visible span, .resize-handle.is-resizing span {
   background: var(--accent);

@@ -10,7 +10,7 @@ describe("wallpaper glass migration", () => {
       positionY: 71, zoom: 140, blur: 4, overlay: 18, topbarOpacity: 35, topbarBlur: 7, topbarBlurEnabled: false };
     const loaded = parseStoredState(JSON.stringify({ ...state, version: 16, wallpaper }));
     expect(loaded.recovered).toBe(false);
-    expect(loaded.state.version).toBe(25);
+    expect(loaded.state.version).toBe(26);
     const { topbarBlurEnabled: _enabled, topbarOpacity: _opacity, ...effective } = wallpaper;
     expect(loaded.state.wallpaper).toEqual({ ...DEFAULT_WALLPAPER, ...effective,
       topbarStyle: "glass", topbarTransparency: 65, topbarBlur: 0 });

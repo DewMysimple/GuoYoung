@@ -1,54 +1,13 @@
-const DATABASE_NAME = "site-hub-assets";
-const STORE_NAME = "wallpapers";
-const DATABASE_VERSION = 1;
+import { loadAssetBlob, saveAssetBlob } from "./asset-store";
+
 export const MAX_WALLPAPER_BYTES = 20 * 1024 * 1024;
 
-function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(STORE_NAME)) {
-        database.createObjectStore(STORE_NAME);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () =>
-      reject(request.error ?? new Error("无法打开壁纸存储"));
-  });
+export function saveWallpaperBlob(id: string, blob: Blob): Promise<void> {
+  return saveAssetBlob("wallpapers", id, blob);
 }
 
-export async function saveWallpaperBlob(id: string, blob: Blob): Promise<void> {
-  const database = await openDatabase();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readwrite");
-      transaction.objectStore(STORE_NAME).put(blob, id);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = transaction.onabort = () =>
-        reject(transaction.error ?? new Error("无法保存壁纸"));
-    });
-  } finally {
-    database.close();
-  }
-}
-
-export async function loadWallpaperBlob(id: string): Promise<Blob | undefined> {
-  const database = await openDatabase();
-  try {
-    return await new Promise<Blob | undefined>((resolve, reject) => {
-      const request = database
-        .transaction(STORE_NAME, "readonly")
-        .objectStore(STORE_NAME)
-        .get(id);
-      request.onsuccess = () =>
-        resolve(request.result instanceof Blob ? request.result : undefined);
-      request.onerror = () =>
-        reject(request.error ?? new Error("无法读取壁纸"));
-    });
-  } finally {
-    database.close();
-  }
+export function loadWallpaperBlob(id: string): Promise<Blob | undefined> {
+  return loadAssetBlob("wallpapers", id);
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {

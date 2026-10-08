@@ -208,7 +208,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
   background-image: var(--card-glass-image);
   backdrop-filter: var(--card-glass-filter);
   box-shadow: var(--glass-shadow);
-  transition: border-color 160ms ease;
+  transition: border-color var(--color-preview-duration, 160ms) ease;
 }
 
 .has-wallpaper .add-site-card { border-style: solid; }

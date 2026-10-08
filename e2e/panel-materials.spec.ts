@@ -84,6 +84,6 @@ test("legacy enabled optics are removed while independent topbar and collection 
   await panel.getByRole("button", { name: "保存设置" }).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
   const { topbarOpacity: _opacity, glassRefraction: _optics, glassRefractionStrength: _strength, ...wallpaper } = legacy.wallpaper;
-  expect(saved).toEqual({ ...legacy, version: 25, wallpaper: { ...wallpaper, topbarStyle: "glass", topbarTransparency: 63 } });
+  expect(saved).toEqual({ ...legacy, version: 26, wallpaper: { ...wallpaper, topbarStyle: "glass", topbarTransparency: 63 } });
   await expect(page.locator("filter, feDisplacementMap")).toHaveCount(0);
 });

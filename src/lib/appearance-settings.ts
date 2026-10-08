@@ -7,12 +7,6 @@ export const LAYOUT_OPTIONS = [
   { value: "spacious", label: "宽松", description: "留白更舒展" },
 ] as const;
 
-export const TEXT_SIZE_OPTIONS = [
-  { value: 85, label: "较小" },
-  { value: 100, label: "标准" },
-  { value: 110, label: "较大" },
-] as const;
-
 export const LAYOUT_DETAILS = [
   { key: "contentWidth", label: "页面宽度", min: 960, max: 1920, step: 10 },
   { key: "cardWidth", label: "卡片宽度", min: 132, max: 260, step: 1 },
@@ -49,20 +43,4 @@ export function applyLayoutPreset(
   preset: Exclude<LayoutPreset, "custom">,
 ): AppearanceSettings {
   return patchAppearance(appearance, LAYOUT_PRESETS[preset]);
-}
-
-export function getTextSize(appearance: AppearanceSettings) {
-  if ([appearance.brandFontScale, appearance.cardFontScale, appearance.groupFontScale]
-    .some((scale) => scale !== 100)) return undefined;
-  return TEXT_SIZE_OPTIONS.find(({ value }) => value === appearance.fontScale)?.value;
-}
-
-/** One explicit reading-size choice replaces the old stacked text multipliers. */
-export function applyTextSize(appearance: AppearanceSettings, fontScale: number) {
-  return patchAppearance(appearance, {
-    fontScale,
-    brandFontScale: 100,
-    cardFontScale: 100,
-    groupFontScale: 100,
-  });
 }

@@ -1,12 +1,12 @@
 import { SettingsToggle } from "./settings-toggle";
 import { ArrowCounterClockwise, Check } from "@phosphor-icons/react";
 import type { AppearanceSettings } from "../types";
-import { applyTextSize, getTextSize, patchAppearance, TEXT_SIZE_OPTIONS } from "../lib/appearance-settings";
-import { FONT_OPTIONS, TEXT_EFFECTS, getFontFamily, resetTypography, typographyVariables } from "../lib/typography";
+import { patchAppearance } from "../lib/appearance-settings";
+import { FONT_OPTIONS, TEXT_EFFECTS, getFontFamily, resetTypography } from "../lib/typography";
 import { CustomColorPicker } from "./custom-color-picker";
 import { RangeControl } from "./range-control";
 import { SettingsDisclosure } from "./settings-disclosure";
-import type { CSSProperties } from "react";
+import { LocalFontPicker } from "./local-font-picker";
 import "./typography-settings.css";
 
 const COLORS = [
@@ -16,17 +16,17 @@ const COLORS = [
   { label: "薄荷", main: "#bef8ed", secondary: "#9ed6cd" },
 ];
 
-export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
-  value: AppearanceSettings; onChange: (value: AppearanceSettings) => void; wallpaperUrl?: string;
+export function TypographySettingsEditor({ value, onChange, onColorPreview, wallpaperUrl, localFontError }: {
+  value: AppearanceSettings; onChange: (value: AppearanceSettings) => void; wallpaperUrl?: string; localFontError?: string;
+  onColorPreview: (patch: Partial<AppearanceSettings> | null) => void;
 }) {
   const patch = (next: Partial<AppearanceSettings>) => onChange(patchAppearance(value, next));
-  const textSize = getTextSize(value);
   const hasEffect = !["auto", "none"].includes(value.textEffect);
   const font = FONT_OPTIONS.find(option => option.value === value.fontFamily)!;
   const effect = TEXT_EFFECTS.find(option => option.value === value.textEffect)!;
   return <div className="settings-section typography-settings">
     <section className="typography-preview" aria-label="字体效果预览" data-text-effect={value.textEffect}
-      style={{ ...typographyVariables(value), fontFamily: getFontFamily(value), fontSize: `${14 * value.fontScale / 100}px` } as CSSProperties}>
+      >
       <div className="typography-preview-background" aria-hidden="true"
         style={wallpaperUrl ? { backgroundImage: `url(${JSON.stringify(wallpaperUrl)})` } : undefined} />
       <strong>让每一份收藏，清晰可读。</strong>
@@ -43,30 +43,16 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
           <span className="typography-font-label">{option.label}</span>
         </button>)}
       </div>
-      {value.fontFamily === "custom" && <label className="field-label typography-local-font">
-        本机字体名称
-        <input value={value.customFontFamily} maxLength={80} placeholder="例如：Microsoft YaHei"
-          onChange={event => patch({ customFontFamily: event.target.value })} />
-        <small>使用电脑已安装的字体；找不到时使用默认字体。</small>
-      </label>}
+      {value.fontFamily === "custom" && <LocalFontPicker name={value.customFontFamily} error={localFontError}
+        onChoose={({ assetId, name }) => patch({ customFontFamily: name, customFontAssetId: assetId })} />}
       <div className="typography-size" aria-label="字号调节">
-      <div className="appearance-heading"><h3>字体大小</h3>
-        {textSize === undefined && <span className="appearance-status">保留自定义字号</span>}
-      </div>
-      <div className="segmented-control" role="group" aria-label="文字大小">
-        {TEXT_SIZE_OPTIONS.map(({ value: size, label }) => <button key={size} type="button"
-          className={textSize === size ? "active" : ""} aria-pressed={textSize === size}
-          onClick={() => onChange(applyTextSize(value, size))}>{label}<small>{size}%</small></button>)}
-      </div>
-      </div>
-      <SettingsDisclosure title="字号微调" summary={`${value.fontScale}%`} className="settings-subsection">
       <RangeControl label="整体字号" min={70} max={130} unit="%" value={value.fontScale}
         onChange={fontScale => patch({ fontScale })} />
+      </div>
       <SettingsDisclosure title="分区字号" summary="在整体字号上微调" className="settings-subsection">
         <RangeControl label="网站卡片字号" min={80} max={140} unit="%" value={value.cardFontScale} onChange={cardFontScale => patch({ cardFontScale })} />
         <RangeControl label="分组字号" min={80} max={140} unit="%" value={value.groupFontScale} onChange={groupFontScale => patch({ groupFontScale })} />
         <RangeControl label="品牌名称字号" min={70} max={180} unit="%" value={value.brandFontScale} onChange={brandFontScale => patch({ brandFontScale })} />
-      </SettingsDisclosure>
       </SettingsDisclosure>
     </section>
 
@@ -85,31 +71,35 @@ export function TypographySettingsEditor({ value, onChange, wallpaperUrl }: {
           </button>)}
         </div>
         <div className="typography-color-row"><span>{value.textColorHierarchy === "unified" ? "全部文字" : "主要文字"}</span><code>{value.textColor.toUpperCase()}</code>
-          <CustomColorPicker label="自定义主要文字颜色" value={value.textColor} onChange={textColor => patch({ textColorMode: "custom", textColor })} />
+          <CustomColorPicker label="自定义主要文字颜色" value={value.textColor} onChange={textColor => patch({ textColorMode: "custom", textColor })}
+            onPreview={textColor => onColorPreview(textColor === null ? null : { textColorMode: "custom", textColor })} />
         </div>
         {value.textColorHierarchy === "split" && <div className="typography-color-row"><span>次要文字</span><code>{value.textSecondaryColor.toUpperCase()}</code>
-          <CustomColorPicker label="自定义次要文字颜色" value={value.textSecondaryColor} onChange={textSecondaryColor => patch({ textColorMode: "custom", textSecondaryColor })} />
+          <CustomColorPicker label="自定义次要文字颜色" value={value.textSecondaryColor} onChange={textSecondaryColor => patch({ textColorMode: "custom", textSecondaryColor })}
+            onPreview={textSecondaryColor => onColorPreview(textSecondaryColor === null ? null : { textColorMode: "custom", textSecondaryColor })} />
         </div>}
       <SettingsToggle label="图标跟随文字" help="界面功能图标与文字同色，也可独立调色" checked={value.iconColorMode === "text"}
         onChange={checked => patch({ iconColorMode: checked ? "text" : "custom" })} />
       {value.iconColorMode === "custom" && <div className="typography-color-row"><span>图标颜色</span><code>{value.iconColor.toUpperCase()}</code>
-        <CustomColorPicker label="自定义图标颜色" value={value.iconColor} onChange={iconColor => patch({ iconColor })} />
+        <CustomColorPicker label="自定义图标颜色" value={value.iconColor} onChange={iconColor => patch({ iconColor })}
+          onPreview={iconColor => onColorPreview(iconColor === null ? null : { iconColor })} />
       </div>}
 
     </SettingsDisclosure>
 
-    <SettingsDisclosure help="轻量增强字缘；复杂壁纸可配合明暗遮罩。" title="文字增强" summary={effect.label}>
+    <SettingsDisclosure help="跟随主题：使用当前主题的默认文字效果。无壁纸时不额外增强；有壁纸时，页面标题等文字使用随浅深主题切换的轻微阴影。柔光可单独调节颜色与强度。" title="文字增强" summary={effect.label}>
       <div className="typography-effects" role="group" aria-label="文字效果">
         {TEXT_EFFECTS.map(option => <button type="button" className="settings-choice" key={option.value}
           aria-pressed={value.textEffect === option.value}
           onClick={() => patch({ textEffect: option.value,
-            ...(option.value === "glow" ? { textEffectColor: "#ffffff" } : option.value === "shadow" || option.value === "outline" ? { textEffectColor: "#000000" } : {}) })}>{option.label}</button>)}
+            ...(option.value === "glow" ? { textEffectColor: "#ffffff" } : {}) })}>{option.label}</button>)}
       </div>
       {hasEffect && <SettingsDisclosure title="效果微调" summary={`${value.textEffectStrength}%`} className="settings-subsection">
         <RangeControl label="效果强度" min={0} max={100} unit="%" value={value.textEffectStrength}
           onChange={textEffectStrength => patch({ textEffectStrength })} />
         <div className="typography-color-row"><span>效果颜色</span><code>{value.textEffectColor.toUpperCase()}</code>
-          <CustomColorPicker label="自定义文字效果颜色" value={value.textEffectColor} onChange={textEffectColor => patch({ textEffectColor })} />
+          <CustomColorPicker label="自定义文字效果颜色" value={value.textEffectColor} onChange={textEffectColor => patch({ textEffectColor })}
+            onPreview={textEffectColor => onColorPreview(textEffectColor === null ? null : { textEffectColor })} />
         </div>
       </SettingsDisclosure>}
 

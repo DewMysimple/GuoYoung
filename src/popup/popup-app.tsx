@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useInsertionEffect, useMemo, useState } from "react";
 import { typographyVariables } from "../lib/typography";
+import { useLocalFont } from "../hooks/use-local-font";
 import {
   deleteBookmarkSelection,
   filterBookmarkTree,
@@ -88,8 +89,10 @@ export function PopupApp() {
   const [state, setState] = useState<SiteCollectionState | null>(null);
   useTextSelection(state?.appearance.allowTextSelection ?? true);
   const typography = state?.appearance ?? DEFAULT_APPEARANCE;
+  useLocalFont(typography);
   useInsertionEffect(() => {
     const root = document.documentElement;
+    root.style.setProperty("--font-scale", String(typography.fontScale / 100));
     for (const [property, value] of Object.entries(typographyVariables(typography))) root.style.setProperty(property, value);
   }, [typography]);
   useTheme(state?.appearance.theme ?? DEFAULT_APPEARANCE.theme,
