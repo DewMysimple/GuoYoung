@@ -13,6 +13,7 @@
   --radius-card: 16px;
   --radius-control: 12px;
   --font-scale: 1;
+  --interface-scale: 1;
   --brand-font-scale: 1;
   --card-font-scale: 1;
   --group-font-scale: 1;
@@ -123,7 +124,7 @@ select:focus-visible {
     background-color var(--color-preview-duration, 220ms) ease;
 }
 
-.app-shell.settings-open {
+.app-shell.settings-push {
   padding-right: var(--settings-panel-width);
 }
 
@@ -2056,7 +2057,7 @@ select:focus-visible {
 .grouped-site-track {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(auto-fill, minmax(min(var(--card-min-width), 100%), 1fr));
+  grid-template-columns: repeat(var(--grid-columns, auto-fill), minmax(min(var(--card-grid-min-width, var(--card-min-width)), 100%), 1fr));
   gap: var(--grid-gap);
   justify-content: start;
 }
@@ -2077,7 +2078,7 @@ select:focus-visible {
   min-height: var(--card-min-height);
   flex-direction: column;
   padding: var(--card-padding);
-  border: 1px solid var(--border);
+  border: var(--card-border-width, 1px) solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent);
@@ -2091,6 +2092,12 @@ select:focus-visible {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   touch-action: manipulation;
+}
+
+[data-card-shape="square"] > :is(.site-card, .add-site-card) {
+  min-height: 0;
+  height: var(--grid-card-size);
+  aspect-ratio: 1;
 }
 
 .site-card[data-drag-disabled] {
@@ -2165,6 +2172,8 @@ select:focus-visible {
 
 .site-card.site-card-drag-preview {
   width: 100%;
+  height: 100%;
+  min-height: 0;
   cursor: grabbing;
   pointer-events: none;
   transition: none;
@@ -2190,7 +2199,7 @@ select:focus-visible {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--card-topline-gap, 12px);
 }
 
 .site-selection-toggle {
@@ -2245,7 +2254,7 @@ select:focus-visible {
   position: relative;
   z-index: 2;
   display: flex;
-  gap: 1px;
+  gap: var(--card-actions-gap, 2px);
   opacity: 0;
   transform: translateY(-3px);
   transition:
@@ -2262,8 +2271,8 @@ select:focus-visible {
 
 .card-action,
 .drag-handle {
-  width: calc(26px * var(--control-scale));
-  height: calc(26px * var(--control-scale));
+  width: var(--card-action-size, calc(26px * var(--control-scale)));
+  height: var(--card-action-size, calc(26px * var(--control-scale)));
   border: 0;
   border-radius: 9px;
   background: transparent;
@@ -2326,7 +2335,7 @@ select:focus-visible {
   flex: 1;
   flex-direction: column;
   justify-content: center;
-  padding: 7px 0 5px;
+  padding: var(--card-content-top, 7px) 0 var(--card-content-bottom, 5px);
   color: inherit;
   pointer-events: none;
   text-decoration: none;
@@ -2342,7 +2351,8 @@ select:focus-visible {
 
 .site-name {
   overflow: hidden;
-  font-size: calc(14px * var(--card-font-scale));
+  font-size: calc(var(--card-name-size, 14px) * var(--card-font-scale));
+  line-height: var(--card-text-line-height, 1.5);
   font-weight: 740;
   letter-spacing: -0.025em;
   text-overflow: ellipsis;
@@ -2351,6 +2361,8 @@ select:focus-visible {
 
 .open-arrow {
   flex: 0 0 auto;
+  width: var(--card-open-arrow-size, 18px);
+  height: var(--card-open-arrow-size, 18px);
   color: var(--text-faint);
   opacity: 0;
   transform: translate(-3px, 3px);
@@ -2367,9 +2379,10 @@ select:focus-visible {
 
 .site-domain {
   overflow: hidden;
-  margin-top: 4px;
+  margin-top: var(--card-domain-gap, 4px);
   color: var(--text-faint);
-  font-size: calc(12px * var(--card-font-scale));
+  font-size: calc(var(--card-domain-size, 12px) * var(--card-font-scale));
+  line-height: var(--card-text-line-height, 1.5);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2377,12 +2390,12 @@ select:focus-visible {
 .site-click-count {
   display: block;
   overflow: hidden;
-  margin-top: 5px;
+  margin-top: var(--card-detail-gap, 5px);
   color: var(--ui-accent-text);
-  font-size: calc(11px * var(--card-font-scale));
+  font-size: calc(var(--card-detail-size, 11px) * var(--card-font-scale));
   font-variant-numeric: tabular-nums;
   font-weight: 720;
-  line-height: 1.25;
+  line-height: var(--card-detail-line-height, 1.25);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2394,9 +2407,10 @@ select:focus-visible {
   align-items: center;
   gap: 6px;
   align-self: flex-start;
-  margin-top: 2px;
+  margin-top: var(--card-footer-gap, 2px);
   color: var(--text-soft);
-  font-size: calc(12px * var(--card-font-scale));
+  font-size: calc(var(--card-footer-size, 12px) * var(--card-font-scale));
+  line-height: var(--card-text-line-height, 1.5);
   font-weight: 620;
 }
 
@@ -3446,7 +3460,7 @@ select:focus-visible {
   right: 0;
   display: grid;
   width: var(--settings-panel-width);
-  max-width: calc(100vw - 440px);
+  max-width: calc(100vw - 320px);
   height: 100dvh;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   padding: 22px;
@@ -3459,9 +3473,15 @@ select:focus-visible {
   --brand-font-scale: 1;
   --card-font-scale: 1;
   --group-font-scale: 1;
-  --ui-icon-scale: 1;
-  --control-scale: 1;
-  --radius-control: 12px;
+  --ui-icon-scale: var(--interface-scale);
+  --control-scale: var(--interface-scale);
+  --radius-control: calc(12px * var(--interface-scale));
+}
+
+/* Portal controls use the interface scale; artwork keeps its own size token.
+   The individual scale property preserves existing chevron rotations. */
+:is(.settings-panel, .dialog-content) svg:not(.brand-mark svg, .favicon-frame svg, .icon-source-brand svg) {
+  scale: var(--interface-scale);
 }
 
 .settings-outside-dismiss-layer {
@@ -3830,43 +3850,6 @@ select:focus-visible {
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 680;
-}
-
-.range-control {
-  display: grid;
-  gap: 9px;
-}
-
-.range-control > span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--text-soft);
-  font-size: 0.75rem;
-  font-weight: 650;
-}
-
-.range-control > span > span:first-child {
-  display: grid;
-  gap: 2px;
-}
-
-.range-control > span small {
-  color: var(--text-faint);
-  font-size: 0.625rem;
-  font-weight: 550;
-}
-
-.range-control output {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  font-weight: 720;
-}
-
-.range-control input {
-  width: 100%;
-  accent-color: var(--accent);
 }
 
 .text-action {
@@ -4334,7 +4317,7 @@ select:focus-visible {
     left: auto;
   }
 
-  .site-grid {
+  .site-grid:not([data-card-shape]) {
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: min(var(--grid-gap), 16px);
@@ -4425,7 +4408,7 @@ select:focus-visible {
 }
 
 @media (max-width: 899px) {
-  .app-shell.settings-open {
+  .app-shell.settings-push {
     padding-right: 0;
   }
 
@@ -4449,7 +4432,7 @@ select:focus-visible {
 
 
 /* The settings sidebar changes the header's width without changing the viewport. */
-@container topbar (max-width: 700px) {
+@container topbar (max-width: 43.75rem) {
   .topbar-navigation { gap: 8px; }
   .topbar-actions { flex: 0 0 auto; gap: 4px; }
   .brand { min-width: 0; }
@@ -4492,6 +4475,17 @@ select:focus-visible {
     height: 42px;
   }
 
+}
+
+/* A pushing panel can leave a narrow desktop header at enlarged UI scales. */
+@media (min-width: 900px) {
+  @container topbar (max-width: 440px) {
+    .topbar-inner { padding-inline: 12px; gap: 8px; }
+    .topbar-navigation, .topbar-actions { gap: 4px; }
+    .brand { display: none; }
+    .topbar-history-button { width: 34px; min-height: 34px; }
+    .topbar-actions :is(.settings-button, .add-button) { width: 34px; height: 34px; min-height: 34px; }
+  }
 }
 
 @media (max-width: 480px) {
@@ -4547,7 +4541,7 @@ select:focus-visible {
     clip-path: inset(50%);
   }
 
-  .site-grid {
+  .site-grid:not([data-card-shape]) {
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

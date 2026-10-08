@@ -21,6 +21,7 @@ test("fits topbar actions beside settings at intermediate window sizes", async (
     await page.setViewportSize({ width, height: 900 });
     await page.getByRole("button", { name: "打开设置" }).click();
     await expect(page.getByRole("dialog", { name: "设置" })).toBeVisible();
+    await page.getByRole("checkbox", { name: "设置面板推开页面", exact: true }).check();
     await expect.poll(() => page.evaluate(() => {
       const header = document.querySelector(".topbar")!.getBoundingClientRect();
       const panel = document.querySelector(".settings-panel")!.getBoundingClientRect();
@@ -39,7 +40,7 @@ test("fits topbar actions beside settings at intermediate window sizes", async (
       if (index) expect(button.x).toBeGreaterThanOrEqual(geometry.buttons[index - 1].right - 1);
     }
     await page.screenshot({ path: screenshotPath(`settings-header-${width}-${testInfo.project.name}.png`), animations: "disabled" });
-    await page.getByRole("button", { name: "关闭设置" }).click();
+    await page.getByRole("dialog", { name: "设置", exact: true }).getByRole("button", { name: "取消", exact: true }).click();
   }
 });
 

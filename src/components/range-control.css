@@ -1,0 +1,63 @@
+.range-control {
+  display: grid;
+  gap: 9px;
+}
+
+.range-control > .range-control-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.range-control-heading > label {
+  min-width: 0;
+}
+
+/* Reuse the shared field shell for the sole border, glass fill and focus ring. */
+.range-control-number.input-shell {
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+}
+
+.range-control-number.input-shell input {
+  width: 5ch;
+  min-width: 0;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  text-align: right;
+}
+
+.range-control-unit {
+  color: var(--text-soft);
+  font-size: 0.6875rem;
+  font-weight: 650;
+}
+
+.range-control-number:has(input:disabled) {
+  opacity: .55;
+}
+
+.range-control > input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}

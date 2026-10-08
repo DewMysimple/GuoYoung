@@ -10,6 +10,8 @@ import { CustomColorPicker } from "./custom-color-picker";
 import "./appearance-settings.css";
 import { DEFAULT_APPEARANCE } from "../data/defaults";
 import { RangeControl } from "./range-control";
+import { SettingsToggle } from "./settings-toggle";
+import { LAYOUT_LIMITS } from "../lib/layout";
 
 const ACCENTS = ["#3367d6", "#6750a4", "#00897b", "#d97706", "#dc4f64", "#4f657d"];
 const THEMES = [
@@ -37,6 +39,21 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
 
   return (
     <>
+      <section className="appearance-card appearance-preview-settings" aria-label="预览与缩放">
+        <h3>预览与缩放</h3>
+        <SettingsToggle label="设置面板推开页面" checked={value.settingsPresentation === "push"}
+          help="关闭时，设置面板覆盖在页面右侧，主页面保持原有宽度，方便预览布局。开启时，主页面缩窄，为设置面板留出空间；窗口过窄、无法容纳卡片时自动使用覆盖预览。"
+          onChange={push => onChange(patchAppearance(value, { settingsPresentation: push ? "push" : "overlay" }))} />
+        <RangeControl label="界面缩放" value={value.interfaceScale} min={LAYOUT_LIMITS.interfaceScale.min}
+          max={LAYOUT_LIMITS.interfaceScale.max} unit="%"
+          onChange={interfaceScale => onChange(patchAppearance(value, { interfaceScale }))} />
+        <div className="appearance-scale-options" role="group" aria-label="常用界面缩放">
+          {[75, 100, 125, 150].map(scale => <button key={scale} type="button"
+            aria-label={`界面缩放 ${scale}%`} aria-pressed={value.interfaceScale === scale}
+            onClick={() => onChange(patchAppearance(value, { interfaceScale: scale }))}>{scale}%</button>)}
+        </div>
+        <p className="appearance-description">一起调整卡片、文字、图标与间距。高分辨率屏幕可适当放大；窗口变窄时自动减少列数。浏览器和系统缩放已体现在可用空间中，无需重复补偿。</p>
+      </section>
       <section className="appearance-card" aria-label="主题">
         <h3>主题</h3>
         <p className="appearance-description">选择界面的明暗，或随系统自动切换。</p>
@@ -80,6 +97,23 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
             </button>
           ))}
         </div>
+        <div className="appearance-layout-controls">
+          <LayoutChoice label="页面宽度模式" value={value.contentWidthMode}
+            options={[{ value: "fixed", label: "固定宽度" }, { value: "full", label: "铺满窗口" }]}
+            onChange={contentWidthMode => onChange(patchAppearance(value, { contentWidthMode }))} />
+          <LayoutChoice label="卡片形状" value={value.cardShape}
+            options={[{ value: "free", label: "自由比例" }, { value: "square", label: "正方形" }]}
+            onChange={cardShape => onChange(patchAppearance(value, { cardShape }))} />
+          <LayoutChoice label="卡片排列" value={value.cardLayout}
+            options={[{ value: "adaptive", label: "自动适配" }, { value: "columns", label: "指定每行数量" }]}
+            onChange={cardLayout => onChange(patchAppearance(value, { cardLayout }))} />
+          {value.cardLayout === "columns" && <RangeControl label="每行卡片数量" value={value.cardColumns}
+            min={LAYOUT_LIMITS.cardColumns.min} max={LAYOUT_LIMITS.cardColumns.max} unit="列"
+            onChange={cardColumns => onChange(patchAppearance(value, { cardColumns }))} />}
+          <p className="appearance-description">{value.cardLayout === "columns"
+            ? "按每行数量均分宽度；空间不足时自动减少列数，保持卡片可读。"
+            : "根据卡片最小宽度自动排列，充分利用可用空间。"}{value.cardShape === "square" && " 正方形的高度始终跟随实际宽度。"}</p>
+        </div>
         <button type="button" className="appearance-disclosure" aria-expanded={detailsOpen}
           aria-controls={detailsId} onClick={() => setDetailsOpen((open) => !open)}>
           <span>布局微调</span>
@@ -88,9 +122,12 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
         </button>
         {detailsOpen && (
           <div className="appearance-details" id={detailsId}>
-            <p className="appearance-description">立即预览。窄屏会自动适配可用空间。</p>
+            <p className="appearance-description">尺寸以 100% 缩放为基准，立即预览。自动适配时，卡片宽度为最小宽度；实际宽度随排列均分。</p>
             {LAYOUT_DETAILS.map(({ key, ...field }) => (
               <RangeControl key={key} {...field} value={value[key]}
+                disabled={(key === "contentWidth" && value.contentWidthMode === "full") ||
+                  (key === "cardWidth" && value.cardLayout === "columns") ||
+                  (key === "cardHeight" && value.cardShape === "square")}
                 onChange={(next) => onChange(patchAppearance(value, { [key]: next }))} />
             ))}
             <div className="settings-inline-actions">
@@ -129,4 +166,19 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
       </section>
     </>
   );
+}
+
+function LayoutChoice<T extends string>({ label, value, options, onChange }: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  return <div className="appearance-layout-choice">
+    <strong>{label}</strong>
+    <div role="group" aria-label={label}>
+      {options.map(option => <button key={option.value} type="button" aria-pressed={value === option.value}
+        onClick={() => onChange(option.value)}>{option.label}</button>)}
+    </div>
+  </div>;
 }

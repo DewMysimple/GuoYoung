@@ -5,6 +5,7 @@ import { useSettingsPanelWidth, DEFAULT_PANEL_WIDTH, MIN_PANEL_WIDTH } from "../
 import { ResizeHandle } from "./resize-handle";
 import { TopbarResizeHandle } from "./topbar-resize-handle";
 import { patchAppearance } from "../lib/appearance-settings";
+import { appearanceScale } from "../lib/layout";
 import {
   useEffect,
   useId,
@@ -142,7 +143,8 @@ export function SettingsPanel({
   const [wallpaperError, setWallpaperError] = useState("");
   const wallpaperImport = useImageImport(open);
   const isProcessing = wallpaperImport.pending;
-  const { width: panelWidth, maxWidth: panelMaxWidth, changeWidth, rememberWidth } = useSettingsPanelWidth(open);
+  const interfaceScale = appearanceScale(draft.appearance);
+  const { width: panelWidth, physicalWidth: physicalPanelWidth, maxWidth: panelMaxWidth, changeWidth, rememberWidth } = useSettingsPanelWidth(open, interfaceScale);
   const [wallpaperEditing, setWallpaperEditing] = useState(false);
   const pendingDataAction = useRef<(() => void) | null>(null);
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
@@ -491,7 +493,7 @@ export function SettingsPanel({
         {!wallpaperEditing && (
           <div
             className="settings-outside-dismiss-layer"
-            style={{ right: panelWidth }}
+            style={{ right: physicalPanelWidth }}
             aria-hidden="true"
             data-testid="settings-outside-dismiss-layer"
             onPointerDown={(event) => {
@@ -505,7 +507,7 @@ export function SettingsPanel({
         {wallpaperEditing && draft.wallpaper.source !== "none" && (
           <div
             className="wallpaper-edit-canvas"
-            style={{ right: panelWidth }}
+            style={{ right: physicalPanelWidth }}
             role="application"
             tabIndex={0}
             aria-label="拖动壁纸调整位置，滚轮缩放，方向键微调"
@@ -544,14 +546,15 @@ export function SettingsPanel({
           <Dialog.Content
           className="settings-panel"
           aria-labelledby={titleId}
-          style={{ width: panelWidth }}
+          style={{ width: physicalPanelWidth }}
           onEscapeKeyDown={() => onPreview(null)}
           onInteractOutside={(event) => event.preventDefault()}
         >
           <ResizeHandle label="调整设置栏宽度" axis="x" direction={-1} step={24}
             value={panelWidth} min={MIN_PANEL_WIDTH} max={panelMaxWidth} defaultValue={DEFAULT_PANEL_WIDTH}
-            className="settings-resize-handle" onChange={changeWidth} onCommit={rememberWidth} />
-          {!wallpaperEditing && <TopbarResizeHandle value={draft.appearance.topbarHeight} panelWidth={panelWidth}
+            coordinateScale={interfaceScale} className="settings-resize-handle" onChange={changeWidth} onCommit={rememberWidth} />
+          {!wallpaperEditing && <TopbarResizeHandle value={draft.appearance.topbarHeight} scale={interfaceScale}
+            panelWidth={draft.appearance.settingsPresentation === "push" ? physicalPanelWidth : 0}
             onChange={(topbarHeight) => setDraft((current) => ({ ...current, appearance: patchAppearance(current.appearance, { topbarHeight }) }))} />}
           <div className="settings-header">
             <div>

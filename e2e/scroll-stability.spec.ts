@@ -4,25 +4,44 @@ import { expect, test, screenshotPath } from "./fixtures";
 test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
 
 test("keeps settings card edges fixed when expanded content needs a scrollbar", async ({ page }, info) => {
-  await page.setViewportSize({ width: 1440, height: 1320 });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.evaluate(() => localStorage.setItem("site-hub:settings-panel-width", "580"));
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   const card = panel.getByRole("region", { name: "主题", exact: true });
   const body = panel.locator(".settings-body");
+  const details = panel.getByRole("button", { name: "布局微调" });
   await expect(panel).toHaveCSS("width", "580px");
   // Measure scrollbar geometry after the drawer's 32px entrance has finished.
   await expect(panel).toHaveCSS("transform", "none");
+  await page.evaluate(() => document.fonts.ready);
+  await expect(details).toHaveAttribute("aria-expanded", "false");
+  // Size the viewport to the collapsed content plus the actual drawer chrome.
+  // New appearance sections can grow without making the initial state scroll;
+  // opening the layout controls must still cross the real overflow boundary.
+  const boundary = await body.evaluate(element => {
+    const content = element.firstElementChild!, contentBox = content.getBoundingClientRect();
+    const bodyBox = element.getBoundingClientRect(), panelBox = element.closest(".settings-panel")!.getBoundingClientRect();
+    const contentStyle = getComputedStyle(content), bodyStyle = getComputedStyle(element);
+    const collapsedContentHeight = contentBox.bottom - bodyBox.top + element.scrollTop
+      + parseFloat(contentStyle.marginBottom) + parseFloat(bodyStyle.paddingBottom);
+    const drawerChromeHeight = panelBox.height - element.clientHeight;
+    return { collapsedContentHeight, drawerChromeHeight, viewportHeight: Math.ceil(collapsedContentHeight + drawerChromeHeight) };
+  });
+  await page.setViewportSize({ width: 1440, height: boundary.viewportHeight });
   await expect.poll(() => body.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(false);
   await card.hover();
   const before = (await card.boundingBox())!;
-  await panel.getByRole("button", { name: "布局微调" }).click();
+  await details.click();
   await expect.poll(() => body.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
   const expanded = (await card.boundingBox())!;
   expect(expanded.x).toBeCloseTo(before.x, 1);
   expect(expanded.width).toBeCloseTo(before.width, 1);
   await page.screenshot({ path: screenshotPath(`settings-stable-scroll-${info.project.name}.png`) });
-  await panel.getByRole("button", { name: "布局微调" }).click();
+  await test.info().attach("settings-scroll-boundary", { body: JSON.stringify({ ...boundary,
+    before, expanded, expandedScroll: await body.evaluate(element => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight })) }),
+    contentType: "application/json" });
+  await details.click();
   await expect.poll(() => body.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(false);
   expect((await card.boundingBox())!.width).toBeCloseTo(before.width, 1);
 });

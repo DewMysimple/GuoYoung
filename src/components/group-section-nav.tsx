@@ -1,10 +1,13 @@
-import { useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useContext, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { SlidersHorizontal, CaretDown, ArrowCounterClockwise } from "@phosphor-icons/react";
 import { GROUP_NAVIGATION_GAP } from "../data/defaults";
 import { RangeControl } from "./range-control";
 import type { SiteGroup } from "../types";
 import { CategoryIcon } from "./category-icon";
 import "./group-section-nav.css";
+import { fixedViewportOriginX } from "../lib/viewport-geometry";
+import { getMinimumCardWidth } from "../lib/layout";
+import { LayoutSettingsContext } from "./site-grid-layout";
 
 /** A reading position, independent of the selected group and all sorting state. */
 export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsDisabled, onGapChange }: {
@@ -23,19 +26,28 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
   const listRef = useRef<HTMLOListElement>(null);
   const destination = useRef<{ id: string; top: number } | null>(null);
   const order = JSON.stringify(groups.map(group => group.id));
+  // Text/icon preferences can change the safe width without resizing the grid.
+  const safeCardWidth = getMinimumCardWidth(useContext(LayoutSettingsContext));
 
   useLayoutEffect(() => {
     const container = containerRef.current;
     const nav = navRef.current;
     if (!container || !nav) return;
+    const main = container.closest("main")!;
+    const shell = main.closest<HTMLElement>(".app-shell")!;
     let frame = 0;
     const update = () => {
       frame = 0;
+      const shellStyle = getComputedStyle(shell);
+      const navWidth = parseFloat(getComputedStyle(nav).width);
+      const physicalGap = parseFloat(shellStyle.getPropertyValue("--group-nav-gap")) || gap;
+      const pagePadding = Math.max(12, parseFloat(shellStyle.getPropertyValue("--page-padding")));
+      const minimumCardWidth = parseFloat(shellStyle.getPropertyValue("--card-safe-width"));
+      const availableWidth = shell.clientWidth - parseFloat(shellStyle.paddingRight);
+      const compact = availableWidth < pagePadding * 2 + navWidth + physicalGap + minimumCardWidth;
+      nav.toggleAttribute("data-compact", compact);
       if (!nav.getClientRects().length) return;
-      const main = container.closest("main")!;
-      // Fixed offsets start inside the root scrollbar gutter on Windows.
-      const origin = nav.getBoundingClientRect().left - parseFloat(nav.style.left || "0");
-      const left = `${Math.max(12, main.getBoundingClientRect().left - nav.offsetWidth - gap) - origin}px`;
+      const left = `${Math.max(12, main.getBoundingClientRect().left - navWidth - physicalGap) - fixedViewportOriginX()}px`;
       let nextActiveId: string | undefined;
       if (!disabled) {
         const sections = [...container.querySelectorAll<HTMLElement>("[data-group-sort-section-id]")];
@@ -63,7 +75,8 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
     const layoutChanged = () => { releaseDestination(); schedule(); };
     const observer = new ResizeObserver(layoutChanged);
     observer.observe(container);
-    observer.observe(container.closest("main")!);
+    observer.observe(main);
+    observer.observe(shell);
     const topbar = document.querySelector(".topbar");
     if (topbar) observer.observe(topbar);
     for (const section of container.children) observer.observe(section);
@@ -85,7 +98,7 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
       window.removeEventListener("keydown", releaseDestination);
       destination.current = null;
     };
-  }, [containerRef, order, disabled, gap]);
+  }, [containerRef, order, disabled, gap, safeCardWidth]);
 
   useLayoutEffect(() => {
     const list = listRef.current;

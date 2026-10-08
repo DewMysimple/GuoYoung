@@ -1,7 +1,7 @@
 .group-section-nav { display: none; }
 
 @media (min-width: 900px) {
-  .app-shell { --group-nav-width: 160px; --group-nav-lane: calc(var(--group-nav-width) + var(--group-nav-gap)); }
+  .app-shell { --group-nav-width: calc(160px * var(--interface-scale)); --group-nav-lane: calc(var(--group-nav-width) + var(--group-nav-gap)); }
   /* Reserve a real lane; the navigator must never cover cards or group actions. */
   .main-content:has(.group-section-nav) {
     width: min(100% - max(12px, var(--page-padding)) * 2 - var(--group-nav-lane), var(--content-max-width));
@@ -99,10 +99,10 @@
   .group-section-nav-setting-actions > button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
 }
 
-/* Editing in a narrow desktop window needs the available content width. */
-@media (min-width: 900px) and (max-width: 1199px) {
-  .settings-open .group-section-nav { display: none; }
-  .settings-open .main-content:has(.group-section-nav) {
+/* Reserve navigation only when the measured workspace can still fit a readable card. */
+@media (min-width: 900px) {
+  .group-section-nav[data-compact] { display: none; }
+  .main-content:has(.group-section-nav[data-compact]) {
     width: min(100% - var(--page-padding) * 2, var(--content-max-width));
     margin-inline: auto;
   }

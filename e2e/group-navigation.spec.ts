@@ -70,7 +70,7 @@ test("navigator follows scope and current group order, and stays clear of conten
   await seedGroups(page, 4);
   for (const width of [900, 1280, 1920]) {
     await page.setViewportSize({ width, height: 900 });
-    const nav = page.getByRole("navigation", { name: "分组定位" });
+    const nav = page.getByRole("navigation", { name: "分组定位", includeHidden: true });
     await expect.poll(async () => {
       const rail = (await nav.boundingBox())!;
       const content = (await page.locator(".grouped-site-sections").boundingBox())!;
@@ -79,8 +79,16 @@ test("navigator follows scope and current group order, and stays clear of conten
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width === 900) {
       await page.getByRole("button", { name: "打开设置" }).click();
+      await page.getByRole("checkbox", { name: "设置面板推开页面", exact: true }).check();
+      await expect(nav).toBeVisible();
+      const divider = page.getByRole("separator", { name: "调整设置栏宽度", exact: true });
+      await divider.focus();
+      await divider.press("End");
+      await expect.poll(async () => await divider.getAttribute("aria-valuenow")).toBe(await divider.getAttribute("aria-valuemax"));
+      await expect(page.locator(".app-shell")).toHaveClass(/settings-push/);
+      await expect(nav).toHaveAttribute("data-compact", "");
       await expect(nav).toBeHidden();
-      await page.getByRole("button", { name: "关闭设置" }).click();
+      await page.getByRole("dialog", { name: "设置", exact: true }).getByRole("button", { name: "取消", exact: true }).click();
       await expect(nav).toBeVisible();
     }
   }

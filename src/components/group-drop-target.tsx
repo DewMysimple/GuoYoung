@@ -4,6 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { CategoryIcon } from "./category-icon";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SiteGroup } from "../types";
+import { SiteGridLayout } from "./site-grid-layout";
 
 import { groupZoneDropId, groupSortTabId } from "../lib/collection-drag-ids";
 
@@ -220,7 +221,7 @@ export function GroupDropGrid({
   // Never expose a drop hint outside an active drag session.
   const highlighted = dragActive && (isOver || dragOver);
   return (
-    <div
+    <SiteGridLayout
       ref={setNodeRef}
       className={`${className} ${
         highlighted ? "is-group-drag-over" : ""
@@ -229,6 +230,6 @@ export function GroupDropGrid({
       data-group-drop-target={(dragActive && isOver) || undefined}
     >
       {children}
-    </div>
+    </SiteGridLayout>
   );
 }

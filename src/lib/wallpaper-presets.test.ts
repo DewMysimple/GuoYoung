@@ -56,7 +56,7 @@ describe("wallpaper appearance presets", () => {
     const original = { ...state, version, wallpaper: { ...wallpaper, glassShadow: 17, topbarTransparency: 37 } };
     const loaded = parseStoredState(JSON.stringify(original));
     expect(loaded.recovered).toBe(false);
-    expect(loaded.state).toEqual({ ...original, version: 26,
+    expect(loaded.state).toEqual({ ...original, version: 27,
       wallpaper: { ...original.wallpaper, presetIncludesPanels: true, customPresets: [null, null] } });
     expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
   });

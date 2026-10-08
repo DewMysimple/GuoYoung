@@ -2,6 +2,35 @@
   gap: 14px;
 }
 
+.appearance-preview-settings,
+.appearance-layout-controls { display: grid; gap: 16px; }
+.appearance-preview-settings .appearance-description,
+.appearance-layout-controls .appearance-description { margin: 0; }
+.appearance-layout-controls { margin-top: 18px; }
+.appearance-layout-choice { display: grid; gap: 8px; min-width: 0; }
+.appearance-layout-choice > strong { font-size: .75rem; font-weight: 650; color: var(--text-soft); }
+.appearance-layout-choice > div,
+.appearance-scale-options { display: flex; gap: 6px; }
+.appearance-layout-choice button,
+.appearance-scale-options button {
+  flex: 1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: .6875rem;
+  cursor: pointer;
+}
+.appearance-layout-choice button[aria-pressed="true"],
+.appearance-scale-options button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--ui-accent-text);
+  background: var(--accent-soft);
+}
+
 .appearance-card {
   min-width: 0;
   padding: 16px;

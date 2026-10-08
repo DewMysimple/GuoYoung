@@ -1,4 +1,5 @@
 import { DEFAULT_TYPOGRAPHY } from "../lib/typography";
+import { LAYOUT_LIMITS } from "../lib/layout";
 import type {
   AppearanceSettings,
   BrandSettings,
@@ -166,6 +167,12 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: "system",
   accentColor: "#3367d6",
   layoutPreset: "standard",
+  settingsPresentation: "overlay",
+  interfaceScale: LAYOUT_LIMITS.interfaceScale.default,
+  contentWidthMode: "fixed",
+  cardShape: "free",
+  cardLayout: "adaptive",
+  cardColumns: LAYOUT_LIMITS.cardColumns.default,
   fontScale: 100,
   cardFontScale: 100,
   groupFontScale: 100,
@@ -323,7 +330,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 26,
+    version: 27,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

@@ -15,6 +15,69 @@ function memoryStorage(initial?: string) {
 }
 
 describe("local storage", () => {
+  it("adds version 27 layout defaults without replacing any existing appearance or collection preference", () => {
+    const defaults = createDefaultState();
+    const { settingsPresentation: _presentation, interfaceScale: _scale,
+      contentWidthMode: _widthMode, cardShape: _shape, cardLayout: _layout,
+      cardColumns: _columns, ...oldAppearance } = defaults.appearance;
+    const legacyAppearance = { ...oldAppearance, cardWidth: 213, cardHeight: 189,
+      contentWidth: 1730, gap: 21, fontScale: 115, cardFontScale: 119,
+      brandLogoScale: 88, accentColor: "#00897b", customFontAssetId: "font-preserved" };
+    const legacy = { ...defaults, version: 26, appearance: legacyAppearance,
+      brand: { ...defaults.brand, name: "Saved name" } };
+    const raw = JSON.stringify(legacy);
+    const storage = memoryStorage(raw);
+    const loaded = loadState(storage);
+    expect(loaded.recovered).toBe(false);
+    expect(loaded.state.version).toBe(27);
+    expect(loaded.state.appearance).toEqual({ ...legacyAppearance,
+      settingsPresentation: "overlay", interfaceScale: 100,
+      contentWidthMode: "fixed", cardShape: "free", cardLayout: "adaptive", cardColumns: 6 });
+    expect(loaded.state.sites).toEqual(legacy.sites);
+    expect(loaded.state.groups).toEqual(legacy.groups);
+    expect(loaded.state.brand).toEqual(legacy.brand);
+    expect(loaded.state.wallpaper).toEqual(legacy.wallpaper);
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
+    expect(isSiteCollectionState(loaded.state)).toBe(true);
+    expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
+  });
+
+  it.each([26, 27])("preserves all new version %s layout choices through storage and backup", (version) => {
+    const state = createDefaultState();
+    const appearance = { ...state.appearance, settingsPresentation: "push" as const,
+      interfaceScale: 137.5, contentWidthMode: "full" as const, contentWidth: 3280,
+      cardShape: "square" as const, cardLayout: "columns" as const, cardColumns: 11,
+      cardWidth: 374, cardHeight: 391 };
+    const loaded = parseStoredState(JSON.stringify({ ...state, version, appearance }));
+    expect(loaded.recovered).toBe(false);
+    expect(loaded.state.version).toBe(27);
+    expect(loaded.state.appearance).toEqual(appearance);
+    expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
+    expect(parseImportFile(serializeExport(loaded.state)).appearance).toEqual(appearance);
+  });
+
+  it.each([26, 27])("normalizes missing, invalid and out-of-range version %s layout values", (version) => {
+    const defaults = createDefaultState();
+    for (const [patch, expected] of [
+      [{ interfaceScale: 0, cardColumns: 0, cardWidth: 1, cardHeight: 1, contentWidth: 1 },
+        { interfaceScale: 75, cardColumns: 1, cardWidth: 132, cardHeight: 112, contentWidth: 960 }],
+      [{ interfaceScale: 999, cardColumns: 99, cardWidth: 999, cardHeight: 999, contentWidth: 9999 },
+        { interfaceScale: 150, cardColumns: 12, cardWidth: 400, cardHeight: 400, contentWidth: 3840 }],
+      [{ interfaceScale: "125", cardColumns: "8", settingsPresentation: "invalid",
+        contentWidthMode: "invalid", cardShape: "invalid", cardLayout: "invalid" },
+        { interfaceScale: 100, cardColumns: 6, settingsPresentation: "overlay",
+          contentWidthMode: "fixed", cardShape: "free", cardLayout: "adaptive" }],
+      [{ interfaceScale: null, cardColumns: 5.7 }, { interfaceScale: 100, cardColumns: 6 }],
+    ]) {
+      const loaded = parseStoredState(JSON.stringify({ ...defaults, version,
+        appearance: { ...defaults.appearance, ...patch } }));
+      expect(loaded.recovered).toBe(false);
+      expect(loaded.state.appearance).toMatchObject(expected);
+      expect(loaded.state.sites).toEqual(defaults.sites);
+      expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
+    }
+  });
+
   it("defaults missing wallpaper effects to zero while preserving saved values", () => {
     const defaults = createDefaultState();
     expect(defaults.wallpaper).toMatchObject({ blur: 0, overlay: 0 });
@@ -43,7 +106,7 @@ describe("local storage", () => {
         const loaded = parseStoredState(JSON.stringify({ ...defaults, version,
           appearance: { ...defaults.appearance, groupNavigationGap: input, contentWidth: 1430 } }));
         expect(loaded.recovered).toBe(false);
-        expect(loaded.state.version).toBe(26);
+        expect(loaded.state.version).toBe(27);
         expect(loaded.state.appearance.groupNavigationGap).toBe(expected);
         expect(loaded.state.appearance.contentWidth).toBe(1430);
         expect(loaded.state.sites).toEqual(defaults.sites);
@@ -147,7 +210,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state).not.toHaveProperty("themePreference");
     expect(isSiteCollectionState(result.state)).toBe(true);
   });
@@ -164,7 +227,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.appearance.cardWidth).toBe(160);
     expect(result.state.searchHistory).toEqual([]);
     expect(result.state.groups).toHaveLength(10);
@@ -185,7 +248,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.groups.find((group) => group.id === "other")).toMatchObject({
       id: "other",
       name: "其他",
@@ -205,7 +268,7 @@ describe("local storage", () => {
     };
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(
       result.state.sites
         .slice()
@@ -232,7 +295,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.wallpaper).toMatchObject({
       positionX: 100,
       positionY: 100,
@@ -261,7 +324,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.displayMode).toBe("flat");
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "flat",
@@ -298,7 +361,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.brand.name).toBe("Mysimple");
     expect(result.state.appearance).toMatchObject({
       pagePadding: 20,
@@ -318,7 +381,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.deletedSites).toEqual([]);
     expect(result.state.trashRetentionDays).toBe(30);
   });
@@ -347,7 +410,7 @@ describe("local storage", () => {
     const result = loadState(memoryStorage(JSON.stringify(legacy)));
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.sites.find((site) => site.id === "github")?.clickCount).toBe(7);
     expect(result.state.sites.find((site) => site.id === "google")?.clickCount).toBe(0);
     expect(result.state.deletedSites[0].site.clickCount).toBe(3);
@@ -367,7 +430,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "grouped",
       github: "flat",
@@ -389,7 +452,7 @@ describe("local storage", () => {
     );
 
     expect(result.recovered).toBe(false);
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.displayModeByWorkspace).toEqual({
       main: "flat",
       github: "grouped",
@@ -413,7 +476,7 @@ describe("local storage", () => {
       ),
     );
 
-    expect(result.state.version).toBe(26);
+    expect(result.state.version).toBe(27);
     expect(result.state.sortMode).toBe("manual");
     expect(result.state.sortModeByWorkspace).toEqual({
       main: "manual",

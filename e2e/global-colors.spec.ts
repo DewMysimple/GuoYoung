@@ -45,10 +45,10 @@ test("shares pure theme colors across navigation, menus, settings and group mana
     await page.getByRole("button", { name: "打开设置" }).click();
     const panel = page.getByRole("dialog", { name: "设置", exact: true });
     await panel.getByRole("tab", { name: "字体调节" }).click();
-    for (const selector of [".settings-tabs .active", ".typography-font-label", ".typography-font-sample", ".typography-size .range-control > span", ".typography-size output"]) {
+    for (const selector of [".settings-tabs .active", ".typography-font-label", ".typography-font-sample", ".typography-size .range-control > span", ".typography-size .range-control-number", ".typography-size .range-control-number input"]) {
       await expect(panel.locator(selector).first()).toHaveCSS("color", color);
     }
-    await expect(panel.locator(".typography-size output")).toHaveCSS("opacity", "1");
+    await expect(panel.locator(".typography-size .range-control-number")).toHaveCSS("opacity", "1");
     await expectVisibleTextColor(page, color);
     await panel.getByRole("button", { name: "取消", exact: true }).click();
     await page.getByRole("button", { name: "管理分组", exact: true }).click();

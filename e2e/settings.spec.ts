@@ -143,7 +143,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(26);
+  expect(saved.version).toBe(27);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -168,7 +168,8 @@ test("preserves legacy custom geometry while narrow screens keep safe sizes", as
   await panel.locator("summary").filter({ hasText: "分区字号" }).click();
   await expect(panel.getByRole("slider", { name: "品牌名称字号" })).toHaveValue("150");
   await panel.getByRole("tab", { name: "外观", exact: true }).click();
-  await expect(panel.getByRole("slider")).toHaveCount(0);
+  await expect(panel.getByRole("slider", { name: "界面缩放", exact: true })).toBeVisible();
+  await expect(panel.getByRole("slider", { name: "卡片宽度", exact: true })).toHaveCount(0);
 
   const shellValues = await page.locator(".app-shell").evaluate((element) => ({
     logoFont: element.style.getPropertyValue("--brand-font-scale"),
@@ -383,7 +384,8 @@ test("simplifies appearance choices and preserves preview, save, reload and rese
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   const presets = panel.getByRole("group", { name: "布局预设" });
   const reading = panel.getByRole("slider", { name: "整体字号", exact: true });
-  await expect(panel.getByRole("slider")).toHaveCount(0);
+  await expect(panel.getByRole("slider", { name: "界面缩放", exact: true })).toBeVisible();
+  await expect(panel.getByRole("slider", { name: "卡片宽度", exact: true })).toHaveCount(0);
   await expect(panel.getByRole("button", { name: "名称与图标" })).toHaveAttribute("aria-expanded", "false");
   await page.screenshot({ path: screenshotPath(`appearance-overview-${testInfo.project.name}.png`), animations: "disabled" });
 
@@ -397,7 +399,9 @@ test("simplifies appearance choices and preserves preview, save, reload and rese
   await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();
   await panel.getByRole("button", { name: /布局微调/ }).focus();
   await page.keyboard.press("Enter");
-  await expect(panel.getByRole("slider")).toHaveCount(5);
+  for (const name of ["页面宽度", "卡片宽度", "卡片高度", "卡片间距", "卡片圆角"]) {
+    await expect(panel.getByRole("slider", { name, exact: true })).toBeVisible();
+  }
   await panel.getByRole("slider", { name: "卡片宽度" }).fill("210");
   await panel.getByRole("slider", { name: "卡片间距" }).fill("20");
   await expect(panel.getByText("已自定义", { exact: true })).toBeVisible();
@@ -411,7 +415,8 @@ test("simplifies appearance choices and preserves preview, save, reload and rese
   expect(saved.appearance).toMatchObject({ cardWidth: 210, gap: 20, fontScale: 110, accentColor: "#00897b", layoutPreset: "custom" });
 
   await page.getByRole("button", { name: "打开设置" }).click();
-  await expect(panel.getByRole("slider")).toHaveCount(0);
+  await expect(panel.getByRole("slider", { name: "界面缩放", exact: true })).toBeVisible();
+  await expect(panel.getByRole("slider", { name: "卡片宽度", exact: true })).toHaveCount(0);
   await panel.getByRole("button", { name: "名称与图标" }).click();
   await panel.getByRole("textbox", { name: "品牌名称" }).fill("我的书签");
   await panel.getByRole("button", { name: "恢复默认外观" }).click();

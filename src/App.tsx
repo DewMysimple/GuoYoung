@@ -2,6 +2,9 @@ import { DataWorkspace, type DataWorkspaceContext } from "./components/data-work
 import { WorkspaceSearch } from "./components/workspace-search";
 import { TopbarResizeHandle } from "./components/topbar-resize-handle";
 import { patchAppearance } from "./lib/appearance-settings";
+import { appearanceScale, scaledGeometry, cardLayoutVariables, getMinimumCardWidth } from "./lib/layout";
+import { useSettingsPanelLayout } from "./hooks/use-settings-panel-layout";
+import { LayoutSettingsContext } from "./components/site-grid-layout";
 import { typographyVariables } from "./lib/typography";
 import { useLocalFont } from "./hooks/use-local-font";
 import { wallpaperGlassStyle } from "./lib/wallpaper-glass";
@@ -1177,17 +1180,23 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         : "全部网站"
       : (activeGroup?.name ?? "网站");
   useTextSelection(effectiveAppearance.allowTextSelection);
+  const interfaceScale = appearanceScale(effectiveAppearance);
+  const geometry = scaledGeometry(effectiveAppearance);
+  const canPushSettings = useSettingsPanelLayout(settingsOpen, effectiveAppearance);
   const appStyle = {
-    "--font-scale": String(effectiveAppearance.fontScale / 100),
-    "--ui-icon-scale": String(effectiveAppearance.uiIconScale / 100),
-    "--control-scale": String(effectiveAppearance.controlScale / 100),
-    "--radius-control": `${effectiveAppearance.controlRadius}px`,
-    "--page-padding": `${effectiveAppearance.pagePadding}px`,
+    ...cardLayoutVariables(effectiveAppearance),
+    "--card-safe-width": `${getMinimumCardWidth(effectiveAppearance)}px`,
+    "--interface-scale": String(interfaceScale),
+    "--font-scale": String(effectiveAppearance.fontScale / 100 * interfaceScale),
+    "--ui-icon-scale": String(effectiveAppearance.uiIconScale / 100 * interfaceScale),
+    "--control-scale": String(effectiveAppearance.controlScale / 100 * interfaceScale),
+    "--radius-control": `${geometry.controlRadius}px`,
+    "--page-padding": `${geometry.pagePadding}px`,
     "--brand-font-scale": String(
       Number(
         (
           (effectiveAppearance.fontScale / 100) *
-          (effectiveAppearance.brandFontScale / 100)
+          (effectiveAppearance.brandFontScale / 100) * interfaceScale
         ).toFixed(4),
       ),
     ),
@@ -1195,7 +1204,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       Number(
         (
           (effectiveAppearance.fontScale / 100) *
-          (effectiveAppearance.cardFontScale / 100)
+          (effectiveAppearance.cardFontScale / 100) * interfaceScale
         ).toFixed(4),
       ),
     ),
@@ -1203,29 +1212,29 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       Number(
         (
           (effectiveAppearance.fontScale / 100) *
-          (effectiveAppearance.groupFontScale / 100)
+          (effectiveAppearance.groupFontScale / 100) * interfaceScale
         ).toFixed(4),
       ),
     ),
-    "--brand-logo-size": `${effectiveAppearance.brandLogoSize}px`,
+    "--brand-logo-size": `${geometry.brandLogoSize}px`,
     "--brand-logo-scale": String(effectiveAppearance.brandLogoScale / 100),
-    "--brand-logo-radius": `${effectiveAppearance.brandLogoRadius}px`,
-    "--brand-gap": `${effectiveAppearance.brandGap}px`,
-    "--group-nav-gap": `${effectiveAppearance.groupNavigationGap}px`,
-    "--topbar-height": `${effectiveAppearance.topbarHeight}px`,
-    "--search-width": `${effectiveAppearance.searchWidth}px`,
-    "--search-height": `${effectiveAppearance.searchHeight}px`,
-    "--search-radius": `${effectiveAppearance.searchRadius}px`,
-    "--group-tab-height": `${effectiveAppearance.groupTabHeight}px`,
-    "--group-icon-size": `${effectiveAppearance.groupIconSize}px`,
-    "--group-gap": `${effectiveAppearance.groupGap}px`,
-    "--card-min-width": `${effectiveAppearance.cardWidth}px`,
-    "--card-min-height": `${effectiveAppearance.cardHeight}px`,
-    "--grid-gap": `${effectiveAppearance.gap}px`,
-    "--content-max-width": `${effectiveAppearance.contentWidth}px`,
-    "--radius-card": `${effectiveAppearance.radius}px`,
-    "--card-padding": `${effectiveAppearance.cardPadding}px`,
-    "--site-icon-size": `${effectiveAppearance.siteIconSize}px`,
+    "--brand-logo-radius": `${geometry.brandLogoRadius}px`,
+    "--brand-gap": `${geometry.brandGap}px`,
+    "--group-nav-gap": `${geometry.groupNavigationGap}px`,
+    "--topbar-height": `${geometry.topbarHeight}px`,
+    "--search-width": `${geometry.searchWidth}px`,
+    "--search-height": `${geometry.searchHeight}px`,
+    "--search-radius": `${geometry.searchRadius}px`,
+    "--group-tab-height": `${geometry.groupTabHeight}px`,
+    "--group-icon-size": `${geometry.groupIconSize}px`,
+    "--group-gap": `${geometry.groupGap}px`,
+    "--card-min-width": `${geometry.cardWidth}px`,
+    "--card-min-height": `${geometry.cardHeight}px`,
+    "--grid-gap": `${geometry.gap}px`,
+    "--content-max-width": effectiveAppearance.contentWidthMode === "full" ? "100%" : `${geometry.contentWidth}px`,
+    "--radius-card": `${geometry.radius}px`,
+    "--card-padding": `${geometry.cardPadding}px`,
+    "--site-icon-size": `${geometry.siteIconSize}px`,
     "--site-icon-scale": String(effectiveAppearance.siteIconScale / 100),
     "--wallpaper-fit": effectiveWallpaper.fit,
     "--wallpaper-position-x": `${effectiveWallpaper.positionX}%`,
@@ -1260,12 +1269,13 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }
 
   return (
+    <LayoutSettingsContext value={effectiveAppearance}>
     <div
       data-app-shell
       data-text-effect={effectiveAppearance.textEffect}
       className={`app-shell min-h-[100dvh] ${
         activeDragId || pendingDragId ? "is-site-dragging" : ""
-      } ${settingsOpen ? "settings-open" : ""} ${
+      } ${settingsOpen ? "settings-open" : ""} ${settingsOpen && effectiveAppearance.settingsPresentation === "push" && canPushSettings ? "settings-push" : ""} ${
         wallpaperUrl ? "has-wallpaper" : ""
       }`}
       style={appStyle}
@@ -1899,7 +1909,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         onImportGroup={(id) => openData("import", id)}
       />
 
-      {!settingsOpen && <TopbarResizeHandle value={effectiveAppearance.topbarHeight}
+      {!settingsOpen && <TopbarResizeHandle value={effectiveAppearance.topbarHeight} scale={interfaceScale}
         onChange={(topbarHeight) => setSettingsPreview({ brand: state.brand, wallpaper: state.wallpaper,
           appearance: patchAppearance(state.appearance, { topbarHeight }) })}
         onCancel={() => setSettingsPreview(null)}
@@ -1990,5 +2000,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       />
 
     </div>
+    </LayoutSettingsContext>
   );
 }

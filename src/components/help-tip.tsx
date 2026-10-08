@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import "./help-tip.css";
+import { fixedViewportOriginX } from "../lib/viewport-geometry";
 
 /** Shared, keyboard-accessible help. Portals escape scrolling settings panels. */
 export function HelpTip({ label = "说明", children }: { label?: string; children: ReactNode }) {
@@ -20,8 +21,7 @@ export function HelpTip({ label = "说明", children }: { label?: string; childr
       const anchor = trigger.current?.getBoundingClientRect();
       const panel = bubble.current?.getBoundingClientRect();
       if (!anchor || !panel) return;
-      // Windows' stable root gutter offsets fixed portals from viewport x=0.
-      const origin = panel.left - parseFloat(bubble.current!.style.left || "0");
+      const origin = fixedViewportOriginX();
       setPosition({ left: Math.max(12, Math.min(anchor.left, innerWidth - panel.width - 12)) - origin,
         top: Math.max(12, anchor.bottom + panel.height + 20 > innerHeight ? anchor.top - panel.height - 8 : anchor.bottom + 8) });
     };

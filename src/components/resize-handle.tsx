@@ -9,6 +9,7 @@ interface ResizeHandleProps {
   max: number;
   defaultValue: number;
   direction?: 1 | -1;
+  coordinateScale?: number;
   step?: number;
   className?: string;
   style?: CSSProperties;
@@ -19,7 +20,7 @@ interface ResizeHandleProps {
 
 /** Pointer, keyboard and cancellation semantics shared by both page dividers. */
 export function ResizeHandle({ label, axis, value, min, max, defaultValue, direction = 1,
-  step = 4, className = "", style, onChange, onCommit, onCancel }: ResizeHandleProps) {
+  coordinateScale = 1, step = 4, className = "", style, onChange, onCommit, onCancel }: ResizeHandleProps) {
   const [resizing, setResizing] = useState(false);
   const session = useRef<{ id: number; origin: number; value: number; current: number; target: HTMLDivElement } | null>(null);
   const callbacks = useRef({ onChange, onCommit, onCancel });
@@ -88,7 +89,7 @@ export function ResizeHandle({ label, axis, value, min, max, defaultValue, direc
     onPointerMove={(event) => {
       const active = session.current;
       if (!active || active.id !== event.pointerId) return;
-      active.current = clamp(active.value + ((axis === "x" ? event.clientX : event.clientY) - active.origin) * direction);
+      active.current = clamp(active.value + ((axis === "x" ? event.clientX : event.clientY) - active.origin) * direction / coordinateScale);
       onChange(active.current);
     }}
     onPointerUp={(event) => { if (session.current?.id === event.pointerId) finish(false); }}

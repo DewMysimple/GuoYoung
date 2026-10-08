@@ -167,6 +167,12 @@ export interface AppearanceSettings extends TypographySettings {
   theme: ThemePreference;
   accentColor: string;
   layoutPreset: LayoutPreset;
+  settingsPresentation: "overlay" | "push";
+  interfaceScale: number;
+  contentWidthMode: "fixed" | "full";
+  cardShape: "free" | "square";
+  cardLayout: "adaptive" | "columns";
+  cardColumns: number;
   fontScale: number;
   brandFontScale: number;
   cardFontScale: number;

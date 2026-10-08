@@ -10,6 +10,7 @@ import {
 } from "../data/defaults";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
 import { normalizeTypography } from "./typography";
+import { LAYOUT_LIMITS } from "./layout";
 import { WALLPAPER_GLASS_KEYS } from "./wallpaper-presets";
 import type {
   AppearanceSettings,
@@ -129,6 +130,14 @@ export function normalizeAppearance(value: unknown): AppearanceSettings {
     layoutPreset: layoutPresets.includes(candidate.layoutPreset as LayoutPreset)
       ? (candidate.layoutPreset as LayoutPreset)
       : DEFAULT_APPEARANCE.layoutPreset,
+    settingsPresentation: candidate.settingsPresentation === "push" ? "push" : "overlay",
+    interfaceScale: clamp(candidate.interfaceScale, LAYOUT_LIMITS.interfaceScale.min,
+      LAYOUT_LIMITS.interfaceScale.max, DEFAULT_APPEARANCE.interfaceScale),
+    contentWidthMode: candidate.contentWidthMode === "full" ? "full" : "fixed",
+    cardShape: candidate.cardShape === "square" ? "square" : "free",
+    cardLayout: candidate.cardLayout === "columns" ? "columns" : "adaptive",
+    cardColumns: Math.round(clamp(candidate.cardColumns, LAYOUT_LIMITS.cardColumns.min,
+      LAYOUT_LIMITS.cardColumns.max, DEFAULT_APPEARANCE.cardColumns)),
     fontScale: clamp(candidate.fontScale, 70, 130, DEFAULT_APPEARANCE.fontScale),
     brandFontScale: clamp(
       candidate.brandFontScale,
@@ -240,21 +249,22 @@ export function normalizeAppearance(value: unknown): AppearanceSettings {
       20,
       DEFAULT_APPEARANCE.groupGap,
     ),
-    cardWidth: clamp(candidate.cardWidth, 132, 260, DEFAULT_APPEARANCE.cardWidth),
+    cardWidth: clamp(candidate.cardWidth, LAYOUT_LIMITS.cardWidth.min,
+      LAYOUT_LIMITS.cardWidth.max, DEFAULT_APPEARANCE.cardWidth),
     cardHeight: clamp(
       candidate.cardHeight,
-      112,
-      240,
+      LAYOUT_LIMITS.cardHeight.min,
+      LAYOUT_LIMITS.cardHeight.max,
       DEFAULT_APPEARANCE.cardHeight,
     ),
-    gap: clamp(candidate.gap, 4, 32, DEFAULT_APPEARANCE.gap),
+    gap: clamp(candidate.gap, LAYOUT_LIMITS.gap.min, LAYOUT_LIMITS.gap.max, DEFAULT_APPEARANCE.gap),
     contentWidth: clamp(
       candidate.contentWidth,
-      960,
-      1920,
+      LAYOUT_LIMITS.contentWidth.min,
+      LAYOUT_LIMITS.contentWidth.max,
       DEFAULT_APPEARANCE.contentWidth,
     ),
-    radius: clamp(candidate.radius, 4, 28, DEFAULT_APPEARANCE.radius),
+    radius: clamp(candidate.radius, LAYOUT_LIMITS.radius.min, LAYOUT_LIMITS.radius.max, DEFAULT_APPEARANCE.radius),
     cardPadding: clamp(
       candidate.cardPadding,
       6,
@@ -627,7 +637,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 26 &&
+    state.version === 27 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount),
@@ -1061,6 +1071,13 @@ function upgradeToVersion26(legacy: Record<string, unknown> | SiteCollectionStat
   return { ...candidate, version: 26, appearance: normalizeAppearance(candidate.appearance) };
 }
 
+function upgradeToVersion27(legacy: Record<string, unknown> | SiteCollectionState, sourceAppearance: unknown): SiteCollectionState | undefined {
+  const base = legacy.version === 27 ? legacy : upgradeToVersion26(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return { ...candidate, version: 27, appearance: normalizeAppearance(candidate.appearance) };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1175,7 +1192,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 26 || candidate.version === 25 || candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
+        candidate.version === 27 || candidate.version === 26 || candidate.version === 25 || candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
           candidate.version === 18 ||
           candidate.version === 17 ||
           candidate.version === 16 ||
@@ -1191,7 +1208,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion26(baseCandidate, candidate.appearance)
+        ? upgradeToVersion27(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.

@@ -3,15 +3,15 @@ import { useEffect, useState } from "react";
 const WIDTH_KEY = "site-hub:settings-panel-width";
 export const DEFAULT_PANEL_WIDTH = 440;
 export const MIN_PANEL_WIDTH = 360;
-const maximumWidth = () => Math.min(760, Math.max(MIN_PANEL_WIDTH, window.innerWidth - 440));
+const maximumWidth = (scale: number) => Math.floor(Math.min(760, Math.max(MIN_PANEL_WIDTH, (window.innerWidth - 320) / scale)));
 
-export function useSettingsPanelWidth(open: boolean) {
+export function useSettingsPanelWidth(open: boolean, scale = 1) {
   const [width, setWidth] = useState(DEFAULT_PANEL_WIDTH);
-  const [maxWidth, setMaxWidth] = useState(maximumWidth);
+  const [maxWidth, setMaxWidth] = useState(() => maximumWidth(scale));
   function changeWidth(next: number) {
-    const clamped = Math.min(maximumWidth(), Math.max(MIN_PANEL_WIDTH, next));
+    const clamped = Math.min(maximumWidth(scale), Math.max(MIN_PANEL_WIDTH, next));
     setWidth(clamped);
-    document.documentElement.style.setProperty("--settings-panel-width", `${clamped}px`);
+    document.documentElement.style.setProperty("--settings-panel-width", `${clamped * scale}px`);
   }
   function rememberWidth(next: number) {
     changeWidth(next);
@@ -24,18 +24,18 @@ export function useSettingsPanelWidth(open: boolean) {
       const candidate = Number.parseFloat(window.localStorage.getItem(WIDTH_KEY) ?? "");
       if (Number.isFinite(candidate)) saved = candidate;
     } catch { /* Use the default when storage is unavailable. */ }
-    setMaxWidth(maximumWidth());
+    setMaxWidth(maximumWidth(scale));
     changeWidth(saved);
     const resize = () => {
-      setMaxWidth(maximumWidth());
+      setMaxWidth(maximumWidth(scale));
       setWidth((current) => {
-        const next = Math.min(maximumWidth(), current);
-        document.documentElement.style.setProperty("--settings-panel-width", `${next}px`);
+        const next = Math.min(maximumWidth(scale), current);
+        document.documentElement.style.setProperty("--settings-panel-width", `${next * scale}px`);
         return next;
       });
     };
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
-  }, [open]);
-  return { width, maxWidth, changeWidth, rememberWidth };
+  }, [open, scale]);
+  return { width, physicalWidth: width * scale, maxWidth, changeWidth, rememberWidth };
 }

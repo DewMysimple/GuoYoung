@@ -1,5 +1,6 @@
 import { LAYOUT_PRESETS, type LayoutPresetSettings } from "../data/defaults";
 import type { AppearanceSettings, LayoutPreset } from "../types";
+import { LAYOUT_LIMITS } from "./layout";
 
 export const LAYOUT_OPTIONS = [
   { value: "compact", label: "紧凑", description: "一屏更多收藏" },
@@ -8,23 +9,26 @@ export const LAYOUT_OPTIONS = [
 ] as const;
 
 export const LAYOUT_DETAILS = [
-  { key: "contentWidth", label: "页面宽度", min: 960, max: 1920, step: 10 },
-  { key: "cardWidth", label: "卡片宽度", min: 132, max: 260, step: 1 },
-  { key: "cardHeight", label: "卡片高度", min: 112, max: 240, step: 1 },
-  { key: "gap", label: "卡片间距", min: 4, max: 32, step: 1 },
-  { key: "radius", label: "卡片圆角", min: 4, max: 28, step: 1 },
+  { key: "contentWidth", label: "页面宽度", ...LAYOUT_LIMITS.contentWidth, step: 10 },
+  { key: "cardWidth", label: "卡片宽度", ...LAYOUT_LIMITS.cardWidth, step: 1 },
+  { key: "cardHeight", label: "卡片高度", ...LAYOUT_LIMITS.cardHeight, step: 1 },
+  { key: "gap", label: "卡片间距", ...LAYOUT_LIMITS.gap, step: 1 },
+  { key: "radius", label: "卡片圆角", ...LAYOUT_LIMITS.radius, step: 1 },
 ] as const;
 
 const layoutKeys = Object.keys(LAYOUT_PRESETS.standard) as (keyof LayoutPresetSettings)[];
+const layoutModeKeys = ["contentWidthMode", "cardShape", "cardLayout", "cardColumns"] as const;
 
 /** Restore geometry alone; keep the user's current colors, text and brand. */
 export function restoreLayout(appearance: AppearanceSettings, previous: AppearanceSettings): AppearanceSettings {
-  const patch = Object.fromEntries(layoutKeys.map((key) => [key, previous[key]]));
+  const patch = Object.fromEntries([...layoutKeys, ...layoutModeKeys].map((key) => [key, previous[key]]));
   return patchAppearance(appearance, patch);
 }
 
 /** Infer the selection from actual geometry, including settings saved by older versions. */
 export function getLayoutPreset(appearance: AppearanceSettings): LayoutPreset {
+  if (appearance.contentWidthMode !== "fixed" || appearance.cardShape !== "free" ||
+    appearance.cardLayout !== "adaptive") return "custom";
   return LAYOUT_OPTIONS.find(({ value }) =>
     layoutKeys.every((key) => appearance[key] === LAYOUT_PRESETS[value][key]),
   )?.value ?? "custom";

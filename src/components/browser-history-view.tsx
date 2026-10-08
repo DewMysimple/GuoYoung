@@ -4,6 +4,7 @@ import { HistoryDragPreview, HistoryUrlCard, HistorySiteCard } from "./history-c
 import { HistoryFavicon, formatHistoryTime, readHistoryDragData, type HistoryUrlItem } from "./history-card-content";
 import { CardSelectionToggle as HistorySelectionToggle } from "./card-primitives";
 import { WorkspaceSearch } from "./workspace-search";
+import { SiteGridLayout } from "./site-grid-layout";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
@@ -524,7 +525,7 @@ function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRang
               <span>最近访问 {formatHistoryTime(activeSiteGroup.lastVisitTime)}</span>
             </div>
           </div>
-          <div className="site-grid history-url-grid">
+          <SiteGridLayout className="site-grid history-url-grid">
             {activeSiteGroup.items.map((item) => {
               if (!item.url) return null;
               const url = item.url;
@@ -540,11 +541,11 @@ function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRang
                 />
               );
             })}
-          </div>
+          </SiteGridLayout>
         </div>
       ) : (
         <div className="history-list">
-          <div className="site-grid history-site-grid">
+          <SiteGridLayout className="site-grid history-site-grid">
             {visibleGroups.map((group) => (
               <HistorySiteCard
                 key={group.key}
@@ -561,7 +562,7 @@ function BrowserHistoryContent({ onBack, query, setQuery, timeRange, setTimeRang
                 }
               />
             ))}
-          </div>
+          </SiteGridLayout>
           {visibleGroupLimit < siteGroups.length && (
             <button
               type="button"

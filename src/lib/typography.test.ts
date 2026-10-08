@@ -31,7 +31,7 @@ it("adds v19 reading defaults to v18 without replacing collections or legacy tex
   const raw = JSON.stringify({ ...state, version: 18, appearance });
   const loaded = parseStoredState(raw);
   expect(loaded.recovered).toBe(false);
-  expect(loaded.state.version).toBe(26);
+  expect(loaded.state.version).toBe(27);
   expect(loaded.state.appearance).toEqual({ ...appearance, ...DEFAULT_TYPOGRAPHY, allowTextSelection: true });
   expect(loaded.state.sites).toEqual(state.sites);
   expect(loaded.state.groups).toEqual(state.groups);
@@ -111,7 +111,7 @@ it("migrates and preserves local font references without keeping invalid asset i
   const appearance = { ...state.appearance, fontFamily: "custom", customFontFamily: "My Font", customFontAssetId: "font-abc-123" };
   const loaded = parseStoredState(JSON.stringify({ ...state, version: 25, appearance }));
   expect(loaded.recovered).toBe(false);
-  expect(loaded.state.version).toBe(26);
+  expect(loaded.state.version).toBe(27);
   expect(loaded.state.appearance).toEqual(appearance);
   expect(getFontFamily(loaded.state.appearance)).toContain("font-abc-123");
   expect(parseImportFile(serializeExport(loaded.state)).appearance).toEqual(appearance);

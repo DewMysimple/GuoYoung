@@ -8,7 +8,7 @@ it("upgrades brand preferences without replacing existing content and keeps new 
   const old = { ...state, version: 19, brand: { name: "旧名称", showName: false, showLogo: true, logoSource: "default" } };
   const loaded = parseStoredState(JSON.stringify(old));
   expect(loaded.recovered).toBe(false);
-  expect(loaded.state.version).toBe(26);
+  expect(loaded.state.version).toBe(27);
   expect(loaded.state.brand).toMatchObject({ name: "旧名称", showName: false, tabTitle: "", logoShape: "original" });
   expect(loaded.state.sites).toEqual(old.sites);
   loaded.state.brand = { ...loaded.state.brand, tabTitle: "我的起点", logoShape: "rectangle" };
