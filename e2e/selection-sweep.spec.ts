@@ -36,6 +36,37 @@ for (const view of ["flat", "focused"] as const) {
 }
 
 for (const view of ["flat", "focused", "grouped"] as const) {
+  test(`a sweep toggles mixed selections once per press in ${view} view`, async ({ page }, info) => {
+    test.skip(info.project.name !== "chromium", "Desktop mouse sweep");
+    await enter(page, view);
+    const cards = page.locator("[data-site-dnd-id]");
+    const first = cards.first(), last = cards.nth(view === "grouped" ? 1 : 2);
+    const untouched = cards.nth(view === "grouped" ? 2 : 1);
+    await first.click();
+    await untouched.click();
+    const before = await page.evaluate(() => localStorage.getItem("site-hub:v1"));
+    for (const reverse of [false, true]) {
+      const a = (await (reverse ? last : first).boundingBox())!;
+      const b = (await (reverse ? first : last).boundingBox())!;
+      await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(a.x + a.width / 2, a.y - 4, { steps: 4 });
+      await page.mouse.move(b.x + b.width / 2, b.y - 4, { steps: 4 });
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 });
+      // Returning to the start in this press must not toggle it a second time.
+      await page.mouse.move(b.x + b.width / 2, b.y - 4, { steps: 3 });
+      await page.mouse.move(a.x + a.width / 2, a.y - 4, { steps: 4 });
+      await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2, { steps: 3 });
+      await page.mouse.up();
+      await expect(first).toHaveClass(reverse ? /is-selected/ : /^(?!.*is-selected)/);
+      await expect(last).toHaveClass(reverse ? /^(?!.*is-selected)/ : /is-selected/);
+      await expect(untouched).toHaveClass(/is-selected/);
+      await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
+      await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
+    }
+    expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(before);
+  });
+
   test(`held mouse selects only cards on its path in ${view} view, preserves clicks and never drags`, async ({ page }, info) => {
     test.skip(info.project.name !== "chromium", "Desktop mouse sweep");
     await enter(page, view);

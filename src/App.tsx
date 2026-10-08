@@ -421,7 +421,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     resetOpen ||
     Boolean(dataContext);
   const { armSiteClickSuppression, handlers: siteClickHandlers } = useSiteClickGuard();
-  const sweepSelection = useSiteSweepSelection(multiSelectMode && !anyModalOpen, selection.selectSites);
+  const sweepSelection = useSiteSweepSelection(multiSelectMode && !anyModalOpen, selection.toggleSitesSelection);
   const groupSort = useGroupSorting({ groups, selection, reorderGroups, reorderGroupBlock,
     onStart: () => { clearArmedDelete(); cancelGroupManagementForSort(); },
   });

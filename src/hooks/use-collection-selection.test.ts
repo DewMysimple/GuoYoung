@@ -48,4 +48,17 @@ describe("collection selection lifecycle", () => {
     expect([...result.current.selectedGroupIds]).toEqual(["search", "design"]);
     expect(result.current.selectedSiteIds.size).toBe(0);
   });
+
+  it("toggles swept selections against current state across batched pointer events", () => {
+    const { result } = renderHook(useCollectionSelection, { initialProps: options });
+    act(() => result.current.toggleMultiSelectMode());
+    act(() => {
+      result.current.toggleSitesSelection(["google", "bing"]);
+      result.current.toggleSitesSelection(["bing", "github"]);
+    });
+    expect([...result.current.selectedSiteIds]).toEqual(["google", "github"]);
+    act(() => result.current.toggleSitesSelection(["google", "github"]));
+    expect(result.current.selectedSiteIds.size).toBe(0);
+    expect(result.current.selectionMode).toBe("sites");
+  });
 });

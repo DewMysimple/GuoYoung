@@ -23,7 +23,7 @@ export function useCollectionSelection({
     [groups],
   );
   const cancelSelection = useCallback(() => dispatch({ type: "clear" }), []);
-  const selectSites = useCallback((ids: readonly string[]) => dispatch({ type: "select-sites", ids }), []);
+  const toggleSitesSelection = useCallback((ids: readonly string[]) => dispatch({ type: "toggle-sites", ids }), []);
 
   useEffect(() => {
     if (isSearching) {
@@ -57,7 +57,7 @@ export function useCollectionSelection({
     enterGroupSelectionFromDoubleClick: (id: string) => {
       if (isGroupedView && orderedGroupIds.includes(id)) dispatch({ type: "enter-group", id });
     },
-    selectSites,
+    toggleSitesSelection,
     prepareGroupDrag: (id: string, vertical: boolean) => dispatch({ type: "group-drag", id, vertical }),
   };
 }

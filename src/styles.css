@@ -80,6 +80,12 @@ html body[data-scroll-locked] {
   padding-right: 0 !important;
 }
 
+/* The document root owns page scrolling, including wallpaper mode. Use the
+   existing Radix lock so wheel, keyboard and scrollbar input stop together. */
+html:root:has(body[data-scroll-locked]) {
+  overflow-y: hidden;
+}
+
 button,
 input,
 select {
@@ -3029,6 +3035,7 @@ select:focus-visible {
   gap: 10px;
   margin: 22px 0 16px;
   overflow: hidden;
+  overscroll-behavior-y: contain;
 }
 
 .group-manager-layout {
@@ -3039,13 +3046,20 @@ select:focus-visible {
   gap: 16px;
 }
 
+.group-manager-list,
+.group-manager-editor {
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 35%, transparent) transparent;
+  scrollbar-gutter: stable;
+}
+
 .group-manager-list {
   display: flex;
   min-height: 0;
   flex-direction: column;
   gap: 7px;
   overflow-y: auto;
-  scrollbar-gutter: stable;
   padding: 7px;
   border: 1px solid var(--border);
   border-radius: 15px;
@@ -3141,8 +3155,6 @@ select:focus-visible {
   border: 1px solid var(--border);
   border-radius: 15px;
   background: var(--surface-raised);
-  scrollbar-color: var(--border-strong) transparent;
-  scrollbar-gutter: stable;
 }
 
 .group-editor-summary {

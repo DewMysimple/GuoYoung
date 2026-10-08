@@ -36,7 +36,7 @@ it("intersects the travelled segment without filling its bounding box or extendi
   expect(intersectSelectionPath({ x: 170, y: 50 }, { x: 170, y: 50 }, rect)).toEqual({ x: 170, y: 50 });
 });
 
-it("selects only touched cards, does not toggle revisits and suppresses the release click", () => {
+it("toggles only touched cards once per press and suppresses the release click", () => {
   const { select, cards } = setup();
   pointer(cards[0], "pointerdown", 50, 50);
   pointer(window, "pointermove", 52, 50);

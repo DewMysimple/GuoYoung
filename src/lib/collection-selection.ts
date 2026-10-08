@@ -17,7 +17,7 @@ type SelectionAction =
   | { type: "clear" }
   | { type: "toggle-sites-mode" }
   | { type: "group-sites"; ids: readonly string[] }
-  | { type: "select-sites"; ids: readonly string[] }
+  | { type: "toggle-sites"; ids: readonly string[] }
   | {
       type: "toggle";
       mode: "sites" | "groups";
@@ -76,9 +76,13 @@ export function collectionSelectionReducer(
       return state.mode === "none"
         ? { mode: "groups", ids: new Set([action.id]), anchorId: action.id }
         : state;
-    case "select-sites": {
+    case "toggle-sites": {
       if (state.mode !== "sites" || action.ids.length === 0) return state;
-      const ids = new Set([...state.ids, ...action.ids]);
+      const ids = new Set(state.ids);
+      for (const id of new Set(action.ids)) {
+        if (ids.has(id)) ids.delete(id);
+        else ids.add(id);
+      }
       return { mode: "sites", ids, anchorId: action.ids.at(-1)! };
     }
     case "group-drag":

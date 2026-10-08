@@ -69,15 +69,17 @@ describe("collection selection transitions", () => {
     expect(reduce(state, { type: "enter-group", id: "second" })).toBe(state);
   });
 
-  it("adds only swept IDs once and preserves existing selections and the last touched anchor", () => {
+  it("toggles mixed swept IDs once and preserves untouched selections and the last touched anchor", () => {
     const state = toggle(EMPTY_SELECTION, "b");
-    const next = reduce(state, { type: "select-sites", ids: ["a", "d", "a"] });
-    expect(ids(next)).toEqual(["b", "a", "d"]);
+    const next = reduce(state, { type: "toggle-sites", ids: ["a", "b", "d", "a"] });
+    expect(ids(next)).toEqual(["a", "d"]);
     expect(next).toMatchObject({ mode: "sites", anchorId: "a" });
     expect(ids(state)).toEqual(["b"]);
-    expect(reduce(EMPTY_SELECTION, { type: "select-sites", ids: ["a"] })).toBe(EMPTY_SELECTION);
+    expect(reduce(next, { type: "toggle-sites", ids: ["a", "d"] })).toEqual({ mode: "sites", ids: new Set(), anchorId: "d" });
+    expect(reduce(next, { type: "toggle-sites", ids: [] })).toBe(next);
+    expect(reduce(EMPTY_SELECTION, { type: "toggle-sites", ids: ["a"] })).toBe(EMPTY_SELECTION);
     const groups = toggle(EMPTY_SELECTION, "first", "groups");
-    expect(reduce(groups, { type: "select-sites", ids: ["a"] })).toBe(groups);
+    expect(reduce(groups, { type: "toggle-sites", ids: ["a"] })).toBe(groups);
   });
 
   it("keeps a selected group block and clears it when dragging an unselected row", () => {

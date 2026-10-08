@@ -620,6 +620,7 @@ for (const view of ["grouped", "focused"] as const) {
     const before = await page.evaluate(() => localStorage.getItem("site-hub:v1"));
     await page.getByRole("button", { name: "选择 GitHub", exact: true }).click();
     const github = page.getByTestId("site-card-github");
+    await expect(github).toHaveClass(/is-selected/);
     await expect(github).toHaveAttribute("data-drag-mode", "disabled");
     const start = (await github.boundingBox())!;
     const target = (await page.locator('[data-group-drop-id="media"]').boundingBox())!;
@@ -632,7 +633,7 @@ for (const view of ["grouped", "focused"] as const) {
     await expect(page.locator('[data-group-drop-id="media"]')).toHaveAttribute("aria-selected", "false");
     await page.mouse.up();
     expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(before);
-    await expect(github).toHaveClass(/is-selected/);
+    await expect(github).not.toHaveClass(/is-selected/);
     await expect(github).not.toHaveClass(/is-dragging|is-drag-pending/);
     await expect(github).toHaveCSS("transform", "none");
     await expect(github).toHaveCSS("opacity", "1");

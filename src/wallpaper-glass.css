@@ -477,6 +477,7 @@ body:has(.app-shell.has-wallpaper) :is(.settings-panel, .dialog-content) :is(.se
 }
 
 body:has(.app-shell.has-wallpaper) .dialog-content .button.secondary-button,
+body:has(.app-shell.has-wallpaper) .dialog-content .group-editor-delete:not(.is-delete-armed),
 body:has(.app-shell.has-wallpaper) .confirm-content .button.secondary-button,
 body:has(.app-shell.has-wallpaper) .settings-panel .button.secondary-button,
 body:has(.app-shell.has-wallpaper) .settings-panel .icon-button,
@@ -494,6 +495,7 @@ body:has(.app-shell.has-wallpaper) .dialog-content .group-icon-choice {
 }
 
 body:has(.app-shell.has-wallpaper) .dialog-content .button.secondary-button:hover,
+body:has(.app-shell.has-wallpaper) .dialog-content .group-editor-delete:not(.is-delete-armed):hover,
 body:has(.app-shell.has-wallpaper) .confirm-content .button.secondary-button:hover,
 body:has(.app-shell.has-wallpaper) .settings-panel .button.secondary-button:hover,
 body:has(.app-shell.has-wallpaper) .settings-panel .icon-button:hover,

@@ -1,5 +1,81 @@
 import { expect, test, screenshotPath } from "./fixtures";
 
+for (const theme of ["light", "dark"] as const) for (const wallpaper of [false, true]) {
+  test(`manager uses theme controls and contains scrolling (${theme}, wallpaper ${wallpaper})`, async ({ page }, info) => {
+    test.skip(info.project.name !== "chromium", "Desktop manager scrolling and material");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const wallpaperUrl = "https://manager.example/background.svg";
+    await page.route(wallpaperUrl, route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900"><rect width="1440" height="900" fill="#69839e"/></svg>' }));
+    await page.evaluate(({ theme, wallpaper, wallpaperUrl }) => {
+      const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+      state.appearance.theme = theme;
+      state.wallpaper = { ...state.wallpaper, source: wallpaper ? "url" : "none", url: wallpaperUrl };
+      state.groups.push(...Array.from({ length: 24 }, (_, i) => ({ ...state.groups[0], id: `extra-${i}`, name: `测试分组 ${i}`, icon: "folder", order: i + 10 })));
+      state.sites = Array.from({ length: 12 }, (_, i) => state.sites.map((site: { id: string }) => ({ ...site, id: `${site.id}-${i}` }))).flat();
+      localStorage.setItem("site-hub:v1", JSON.stringify(state));
+    }, { theme, wallpaper, wallpaperUrl });
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    await page.evaluate(() => window.scrollTo(0, 100));
+    await page.getByRole("button", { name: "管理分组", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "管理分组" });
+    const before = await page.evaluate(() => window.scrollY);
+    expect(before).toBe(100);
+    const originalGeometry = await page.locator(".app-shell").boundingBox();
+    for (const selector of [".group-manager-list", ".group-manager-editor"]) {
+      const scroll = dialog.locator(selector);
+      expect(await scroll.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(100);
+      await scroll.hover();
+      await page.mouse.wheel(0, 200);
+      await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+      for (const bottom of [true, false]) {
+        await scroll.evaluate((el, bottom) => { el.scrollTop = bottom ? el.scrollHeight : 0; }, bottom);
+        for (let i = 0; i < 3; i++) await page.mouse.wheel(0, bottom ? 600 : -600);
+        await page.waitForTimeout(150);
+        expect(await page.evaluate(() => window.scrollY)).toBe(before);
+      }
+      // Native text selection must not relax the modal's scrolling boundary.
+      await scroll.evaluate(el => {
+        el.scrollTop = el.scrollHeight;
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+      await page.mouse.wheel(0, 600);
+      await page.waitForTimeout(150);
+      expect(await page.evaluate(() => window.scrollY)).toBe(before);
+      await page.evaluate(() => window.getSelection()?.removeAllRanges());
+      await expect(scroll).toHaveCSS("scrollbar-width", "thin");
+      await expect(scroll).toHaveCSS("overscroll-behavior-y", "contain");
+    }
+    // A modal also locks the actual document scroller, including keyboard scrolling.
+    await expect(page.locator("html")).toHaveCSS("overflow-y", "hidden");
+    await dialog.getByRole("heading", { name: "管理分组" }).focus();
+    await page.keyboard.press("PageDown");
+    await page.waitForTimeout(150);
+    expect(await page.evaluate(() => window.scrollY)).toBe(before);
+    expect((await page.locator(".app-shell").boundingBox())?.x).toBe(originalGeometry?.x);
+    const remove = dialog.locator(".group-editor-delete");
+    if (wallpaper) {
+      const fill = await dialog.getByRole("button", { name: "导入资源" }).evaluate(el => getComputedStyle(el).backgroundColor);
+      await expect(remove).toHaveCSS("background-color", fill);
+    }
+    await remove.click();
+    await expect(remove).toHaveAttribute("aria-label", "再次点击删除这个分组");
+    await expect(remove).toHaveCSS("background-color", "rgb(179, 58, 70)");
+    await dialog.getByLabel("分组名称").click();
+    await expect(remove).toHaveAttribute("aria-label", "删除这个分组");
+    await page.screenshot({ path: screenshotPath(`group-manager-theme-${theme}-${wallpaper}.png`) });
+    await dialog.getByRole("button", { name: "取消", exact: true }).click();
+    await expect(page.locator("body")).not.toHaveAttribute("data-scroll-locked");
+    await page.mouse.move(1410, 800);
+    await page.mouse.wheel(0, 400);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before);
+  });
+}
+
 test("creates a group, selects it, and keeps it after refresh", async ({ page }) => {
   await page.getByRole("button", { name: "新建分组" }).click();
   const dialog = page.getByRole("dialog", { name: "新建分组" });

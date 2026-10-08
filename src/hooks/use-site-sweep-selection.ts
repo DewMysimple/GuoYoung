@@ -33,11 +33,11 @@ export function intersectSelectionPath(from: Point, to: Point, rect: DOMRect): P
 }
 
 /** One pointer session over the collection, sharing the existing selection reducer. */
-export function useSiteSweepSelection(enabled: boolean, selectSites: (ids: readonly string[]) => void) {
+export function useSiteSweepSelection(enabled: boolean, toggleSites: (ids: readonly string[]) => void) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sweep = useRef<Sweep | null>(null);
   const suppressClick = useRef(false);
-  const select = useLatestEvent(selectSites);
+  const toggle = useLatestEvent(toggleSites);
 
   useEffect(() => {
     if (!enabled) return;
@@ -66,7 +66,7 @@ export function useSiteSweepSelection(enabled: boolean, selectSites: (ids: reado
       }
       ids.push(...hits.sort((a, b) => a.distance - b.distance).map(hit => hit.id));
       session.previous = current;
-      if (ids.length) select(ids);
+      if (ids.length) toggle(ids);
       event.preventDefault();
     }
     function finish(event: PointerEvent) {
@@ -93,7 +93,7 @@ export function useSiteSweepSelection(enabled: boolean, selectSites: (ids: reado
       window.removeEventListener("keydown", escape);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [enabled, select]);
+  }, [enabled, toggle]);
 
   const handlers: HTMLAttributes<HTMLDivElement> = {
     onPointerDownCapture(event) {
