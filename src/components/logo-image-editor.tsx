@@ -5,6 +5,7 @@ import { X } from "@phosphor-icons/react";
 import { DEFAULT_LOGO_EDIT, drawLogo, prepareBrandLogo, type LogoEditOptions } from "../lib/brand-logo";
 import { useImageImport } from "../hooks/use-image-import";
 import { RangeControl } from "./range-control";
+import { SettingsChoiceGroup } from "./settings-options";
 import "./logo-image-editor.css";
 
 export const LOGO_SHAPES = [{ value: "original", label: "原图比例" }, { value: "circle", label: "圆形" }, { value: "square", label: "正方形" }, { value: "rectangle", label: "长方形" }] as const;
@@ -46,10 +47,8 @@ export function LogoImageEditor({ source, shape, onCancel, onApply }: {
         <Dialog.Description className="dialog-description">先选择外形和取景，再压缩应用。保存设置后才会保留。</Dialog.Description></div>
         <button type="button" className="icon-button" aria-label="关闭 Logo 编辑" onClick={onCancel}><X size={19} /></button></div>
       <div className="logo-editor-preview"><canvas ref={canvas} data-shape={options.shape} aria-label="Logo 裁切预览" /></div>
-      <div className="segmented-control" role="group" aria-label="Logo 图片外形">
-        {LOGO_SHAPES.map(item => <button key={item.value} type="button" aria-pressed={options.shape === item.value} className={options.shape === item.value ? "active" : ""}
-          onClick={() => setOptions(current => ({ ...current, shape: item.value }))}>{item.label}</button>)}
-      </div>
+      <SettingsChoiceGroup label="Logo 图片外形" className="segmented-control" value={options.shape} options={LOGO_SHAPES}
+        onChange={shape => setOptions(current => ({ ...current, shape }))} />
       <SettingsToggle label="裁切选定区域" help="关闭时保留整张图片，空余区域透明。" checked={options.crop}
         onChange={checked => setOptions(current => ({ ...current, crop: checked }))} />
       {options.crop && <div className="logo-crop-controls">

@@ -431,12 +431,7 @@ body:has(.app-shell.has-wallpaper) .settings-data-card,
 body:has(.app-shell.has-wallpaper) .site-preview,
 body:has(.app-shell.has-wallpaper) .group-list-item,
 body:has(.app-shell.has-wallpaper) .group-editor-summary,
-body:has(.app-shell.has-wallpaper) .settings-tabs,
-body:has(.app-shell.has-wallpaper) .settings-tabs button.active,
-body:has(.app-shell.has-wallpaper) .appearance-option-grid > button,
-body:has(.app-shell.has-wallpaper) .settings-choice,
-body:has(.app-shell.has-wallpaper) .compact-toggle-row,
-body:has(.app-shell.has-wallpaper) .brand-source-options {
+body:has(.app-shell.has-wallpaper) .compact-toggle-row {
   border-color: var(--glass-edge-soft);
   background-color: var(--glass-fill-nested);
   background-image: none;
@@ -464,11 +459,6 @@ body:has(.app-shell.has-wallpaper) .dialog-content .input-shell input {
   background: transparent;
   box-shadow: none;
   border: 0;
-}
-body:has(.app-shell.has-wallpaper) .brand-source-options button.active {
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 14%, var(--glass-fill-control));
-  box-shadow: var(--glass-rim);
 }
 
 body:has(.app-shell.has-wallpaper) :is(.settings-panel, .dialog-content) :is(.settings-field input:focus, .input-shell:focus-within, .color-picker-value label:focus-within) {
@@ -509,13 +499,6 @@ body:has(.app-shell.has-wallpaper) .dialog-content .group-icon-choice:hover {
   background-image: linear-gradient(142deg, var(--glass-reflection), transparent 62%);
 }
 
-body:has(.app-shell.has-wallpaper) .settings-tabs {
-  background-color: var(--glass-fill-low);
-}
-
-body:has(.app-shell.has-wallpaper) .settings-tabs button.active,
-body:has(.app-shell.has-wallpaper) .appearance-option-grid > button[aria-pressed="true"],
-body:has(.app-shell.has-wallpaper) .settings-choice[aria-pressed="true"],
 body:has(.app-shell.has-wallpaper) .dialog-content .group-icon-choice.selected,
 body:has(.app-shell.has-wallpaper) .group-list-item.selected,
 body:has(.app-shell.has-wallpaper) .group-list-item.is-checked {
@@ -531,10 +514,9 @@ body:has(.app-shell.has-wallpaper) .settings-disclosure.settings-subsection {
   background: transparent;
   box-shadow: none;
 }
-body:has(.app-shell.has-wallpaper) .typography-font-label { border-color: var(--glass-edge-soft); }
 
 body:has(.app-shell.has-wallpaper) :is(.group-manager-list, .group-manager-editor,
-  .segmented-control, .data-overview,
+  .data-overview,
   .group-editor-icon, .group-manager-check:not([aria-pressed="true"]):not([data-indeterminate="true"]),
   .icon-source-grid, .icon-source-choice, .category-choice, .protected-note,
   .github-refresh-stat, .github-refresh-detail, .github-import-list,
@@ -554,8 +536,7 @@ body:has(.app-shell.has-wallpaper) .github-import-row:hover {
 
 .has-wallpaper .group-section-nav button[aria-current="location"],
 .has-wallpaper .group-section-nav button:hover:not(:disabled),
-body:has(.app-shell.has-wallpaper) :is(.segmented-control button.active,
-  .category-choice.selected, .icon-source-choice.selected) {
+body:has(.app-shell.has-wallpaper) :is(.category-choice.selected, .icon-source-choice.selected) {
   color: var(--text);
   background: color-mix(in srgb, var(--accent) 14%, var(--glass-fill-nested));
   box-shadow: none;

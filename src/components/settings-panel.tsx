@@ -50,6 +50,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { AppearanceSettingsEditor } from "./appearance-settings";
 import { BrandSettingsEditor } from "./brand-settings-editor";
 import { SettingsLocationContext } from "./settings-location";
+import { SettingsOption, SettingsOptionGroup } from "./settings-options";
 import { LogoImageEditor } from "./logo-image-editor";
 import { useAppearanceColorPreview } from "../hooks/use-appearance-color-preview";
 
@@ -577,39 +578,36 @@ export function SettingsPanel({
             </div>
           </div>
 
-          <div className="settings-tabs" role="tablist" aria-label="设置分类">
-            <button
-              type="button"
+          <SettingsOptionGroup className="settings-tabs" role="tablist" label="设置分类">
+            <SettingsOption
               role="tab"
-              aria-selected={section === "appearance"}
+              selected={section === "appearance"}
               className={section === "appearance" ? "active" : ""}
               onClick={() => setSection("appearance")}
             >
               <PaintBrush size={17} />外观
-            </button>
-            <button type="button" role="tab" aria-selected={section === "typography"}
+            </SettingsOption>
+            <SettingsOption role="tab" selected={section === "typography"}
               className={section === "typography" ? "active" : ""} onClick={() => setSection("typography")}>
               <TextAa size={17} />字体调节
-            </button>
-            <button
-              type="button"
+            </SettingsOption>
+            <SettingsOption
               role="tab"
-              aria-selected={section === "wallpaper"}
+              selected={section === "wallpaper"}
               className={section === "wallpaper" ? "active" : ""}
               onClick={() => setSection("wallpaper")}
             >
               <ImageIcon size={17} />壁纸
-            </button>
-            <button
-              type="button"
+            </SettingsOption>
+            <SettingsOption
               role="tab"
-              aria-selected={section === "data"}
+              selected={section === "data"}
               className={section === "data" ? "active" : ""}
               onClick={() => setSection("data")}
             >
               <SlidersHorizontal size={17} />数据
-            </button>
-          </div>
+            </SettingsOption>
+          </SettingsOptionGroup>
 
           <SettingsLocationContext.Provider value={disclosureMemory.current}>
           <div className="settings-body" key={section}

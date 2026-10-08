@@ -1,6 +1,7 @@
 import type { PanelGlassStyle } from "../types";
 import { RangeControl } from "./range-control";
 import { SettingsDisclosure } from "./settings-disclosure";
+import { SettingsChoiceGroup } from "./settings-options";
 
 const MODES = [
   { value: "shared", label: "跟随公共" },
@@ -19,10 +20,7 @@ export function PanelGlassSettings({ label, style, transparency, blur, onStyle, 
 }) {
   return <SettingsDisclosure title={`${label}外观`} summary={MODES.find(mode => mode.value === style)?.label}
     help="跟随公共时使用公共面板的透明度、磨砂和高光；独立模式可调节透明度和模糊强度。透明度 100%、模糊强度 0 时完全透出壁纸。">
-    <div className="segmented-control" role="group" aria-label={`${label}样式`}>
-      {MODES.map(mode => <button type="button" key={mode.value} aria-pressed={style === mode.value}
-        className={style === mode.value ? "active" : ""} onClick={() => onStyle(mode.value)}>{mode.label}</button>)}
-    </div>
+    <SettingsChoiceGroup label={`${label}样式`} className="segmented-control" value={style} options={MODES} onChange={onStyle} />
     {style === "glass" && <>
       <RangeControl label="模糊强度" min={0} max={30} value={blur} onChange={onBlur} />
       <RangeControl label={`${label}透明度`} min={0} max={100} value={transparency} unit="%" onChange={onTransparency} />

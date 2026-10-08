@@ -7,6 +7,7 @@ import { RangeControl } from "./range-control";
 import { SettingsDisclosure } from "./settings-disclosure";
 import { pickGlass } from "../lib/wallpaper-presets";
 import { WallpaperPresets } from "./wallpaper-presets";
+import { SettingsChoiceGroup, SettingsOption } from "./settings-options";
 import "./settings-editors.css";
 
 const BASIC_DEFAULTS = {
@@ -58,19 +59,16 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
       help="选择显示方式，再拖动和缩放调整构图。模糊与明暗遮罩默认关闭，可按需增加；恢复默认只重置本组参数。">
       <div className="wallpaper-basic-row">
         <span>显示方式</span>
-        <div className="segmented-control" role="group" aria-label="填充方式">
-          {(["cover", "contain"] as const).map((fit) => <button key={fit} type="button" disabled={!enabled}
-            className={value.fit === fit ? "active" : ""} aria-pressed={value.fit === fit}
-            onClick={() => onChange({ fit })}>{fit === "cover" ? "铺满" : "完整显示"}</button>)}
-        </div>
+        <SettingsChoiceGroup label="填充方式" className="segmented-control" value={value.fit}
+          options={[{ value: "cover", label: "铺满" }, { value: "contain", label: "完整显示" }]}
+          disabled={!enabled} onChange={fit => onChange({ fit })} />
       </div>
       <div className="wallpaper-basic-row">
         <span>画面位置</span>
         <div className="wallpaper-position-actions">
-          <button type="button" className={`button secondary-button ${editing ? "active" : ""}`} disabled={!enabled}
-            aria-pressed={editing} onClick={onToggleEditing}>
+          <SettingsOption disabled={!enabled} selected={editing} onClick={onToggleEditing}>
             <ArrowsOutCardinal size={17} />{editing ? "完成调整" : "拖动调整"}
-          </button>
+          </SettingsOption>
           <button type="button" className="icon-button" aria-label="居中复位" title="居中复位" disabled={!enabled}
             onClick={() => onChange({ positionX: DEFAULT_WALLPAPER.positionX, positionY: DEFAULT_WALLPAPER.positionY, zoom: DEFAULT_WALLPAPER.zoom })}><Crosshair size={17} /></button>
         </div>

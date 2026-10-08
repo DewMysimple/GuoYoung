@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Check, EyedropperSample } from "@phosphor-icons/react";
 import { useLatestEvent } from "../hooks/use-latest-event";
+import { SettingsOption } from "./settings-options";
 
 interface CustomColorPickerProps {
   label?: string;
@@ -306,19 +307,17 @@ export function CustomColorPicker({
       cancel();
       setOpen(false);
     }}>
-      <button
-        type="button"
-        className={`accent-swatch custom-accent-swatch ${
-          selected ? "is-selected" : ""
-        }`}
-        style={{ backgroundColor: color }}
+      <SettingsOption
+        variant="swatch"
+        className="accent-swatch custom-accent-swatch"
+        selected={selected || open}
         aria-label={label}
         aria-expanded={open}
-        aria-pressed={selected}
         onClick={() => { if (open) cancel(); setOpen(current => !current); }}
       >
+        <span className="settings-option-color" style={{ backgroundColor: color }} aria-hidden="true" />
         <EyedropperSample size={17} weight="bold" />
-      </button>
+      </SettingsOption>
       {open && (
         <div className="color-picker-popover" role="dialog" aria-label="选择自定义颜色">
           <div

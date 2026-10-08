@@ -3,6 +3,7 @@ import type { WallpaperGlassSettings, WallpaperSettings } from "../types";
 import { applyWallpaperPreset, getWallpaperPreset, saveCustomWallpaperPreset, WALLPAPER_PRESETS } from "../lib/wallpaper-presets";
 import { SettingsDisclosure } from "./settings-disclosure";
 import { SettingsToggle } from "./settings-toggle";
+import { SettingsOption, SettingsOptionGroup } from "./settings-options";
 
 function PresetSample({ value }: { value: WallpaperGlassSettings | null }) {
   return <span className="glass-preset-sample" aria-hidden="true" style={value ? {
@@ -22,27 +23,27 @@ export function WallpaperPresets({ value, onChange }: {
     <SettingsToggle label="预设同时应用顶栏和侧栏" checked={value.presetIncludesPanels}
       onChange={presetIncludesPanels => onChange({ presetIncludesPanels })} />
     <p className="appearance-description preset-scope-help">关闭时保留顶栏和侧栏设置；处于“跟随公共”的部分仍会随公共玻璃变化。</p>
-    <div className="glass-preset-grid" role="group" aria-label="外观预设">
-      {WALLPAPER_PRESETS.map(preset => <button type="button" className="glass-preset" key={preset.id}
-        data-preset={preset.id} aria-pressed={selected?.id === preset.id}
+    <SettingsOptionGroup className="glass-preset-grid" label="外观预设">
+      {WALLPAPER_PRESETS.map(preset => <SettingsOption className="glass-preset" variant="card" key={preset.id}
+        data-preset={preset.id} selected={selected?.id === preset.id}
         onClick={() => onChange(applyWallpaperPreset(value, preset.values))}>
         <PresetSample value={preset.values} /><strong>{preset.label}</strong><small>{preset.description}</small>
-      </button>)}
+      </SettingsOption>)}
       {([0, 1] as const).map(slot => {
         const saved = value.customPresets[slot];
         const label = `自定义 ${slot + 1}`;
         return <div className="custom-preset" key={slot}>
-          <button type="button" className="glass-preset" data-preset={`custom-${slot + 1}`}
-            disabled={!saved} aria-pressed={selected?.id === `custom-${slot + 1}`}
+          <SettingsOption className="glass-preset" variant="card" data-preset={`custom-${slot + 1}`}
+            disabled={!saved} selected={selected?.id === `custom-${slot + 1}`}
             onClick={() => saved && onChange(applyWallpaperPreset(value, saved))}>
             <PresetSample value={saved} /><strong>{label}</strong><small>{saved ? "已保存 · 点击应用" : "尚未保存"}</small>
-          </button>
+          </SettingsOption>
           <button type="button" className="custom-preset-save" aria-label={`${saved ? "覆盖" : "保存当前到"}${label}`}
             onClick={() => onChange({ customPresets: saveCustomWallpaperPreset(value, slot) })}>
             {saved ? "覆盖当前参数" : "保存当前参数"}
           </button>
         </div>;
       })}
-    </div>
+    </SettingsOptionGroup>
   </SettingsDisclosure>;
 }

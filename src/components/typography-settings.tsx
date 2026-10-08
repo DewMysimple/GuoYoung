@@ -7,6 +7,7 @@ import { CustomColorPicker } from "./custom-color-picker";
 import { RangeControl } from "./range-control";
 import { SettingsDisclosure } from "./settings-disclosure";
 import { LocalFontPicker } from "./local-font-picker";
+import { SettingsOption, SettingsOptionGroup } from "./settings-options";
 import "./typography-settings.css";
 
 const COLORS = [
@@ -35,14 +36,14 @@ export function TypographySettingsEditor({ value, onChange, onColorPreview, wall
 
     <section className="appearance-card typography-family" aria-label="字体">
       <div className="appearance-heading"><h3>字体</h3><span className="appearance-status">{font.label}</span></div>
-      <div className="appearance-option-grid typography-fonts" role="group" aria-label="字体选择">
-        {FONT_OPTIONS.map(option => <button type="button" key={option.value}
-          aria-label={option.label} aria-pressed={value.fontFamily === option.value}
+      <SettingsOptionGroup className="appearance-option-grid typography-fonts" label="字体选择">
+        {FONT_OPTIONS.map(option => <SettingsOption key={option.value} variant="card"
+          aria-label={option.label} selected={value.fontFamily === option.value}
           onClick={() => patch({ fontFamily: option.value })}>
           <span className="typography-font-sample" aria-hidden="true" style={{ fontFamily: option.value === "custom" ? getFontFamily({ ...value, fontFamily: "custom" }) : option.family }}>收藏 Aa</span>
           <span className="typography-font-label">{option.label}</span>
-        </button>)}
-      </div>
+        </SettingsOption>)}
+      </SettingsOptionGroup>
       {value.fontFamily === "custom" && <LocalFontPicker name={value.customFontFamily} error={localFontError}
         onChoose={({ assetId, name }) => patch({ customFontFamily: name, customFontAssetId: assetId })} />}
       <div className="typography-size" aria-label="字号调节">
@@ -62,14 +63,14 @@ export function TypographySettingsEditor({ value, onChange, onColorPreview, wall
       <SettingsToggle label="区分主次文字" help="自定义配色下，关闭后所有文字统一使用主要颜色" checked={value.textColorHierarchy === "split"}
         onChange={checked => patch({ textColorHierarchy: checked ? "split" : "unified" })} />
       <p className="typography-note">选择预设或调整调色盘即可使用自定义颜色；开启主题关联可恢复主题配色。</p>
-        <div className="typography-color-presets" role="group" aria-label="文字配色预设">
-          {COLORS.map(color => <button type="button" className="settings-choice" key={color.label} aria-label={`${color.label}文字`}
-            aria-pressed={value.textColorMode === "custom" && value.textColor === color.main && value.textSecondaryColor === color.secondary}
+        <SettingsOptionGroup className="typography-color-presets" label="文字配色预设">
+          {COLORS.map(color => <SettingsOption key={color.label} aria-label={`${color.label}文字`}
+            selected={value.textColorMode === "custom" && value.textColor === color.main && value.textSecondaryColor === color.secondary}
             onClick={() => patch({ textColorMode: "custom", textColor: color.main, textSecondaryColor: color.secondary })}>
             <i style={{ background: color.main }} />{color.label}
             {value.textColorMode === "custom" && value.textColor === color.main && value.textSecondaryColor === color.secondary && <Check size={12} />}
-          </button>)}
-        </div>
+          </SettingsOption>)}
+        </SettingsOptionGroup>
         <div className="typography-color-row"><span>{value.textColorHierarchy === "unified" ? "全部文字" : "主要文字"}</span><code>{value.textColor.toUpperCase()}</code>
           <CustomColorPicker label="自定义主要文字颜色" value={value.textColor} onChange={textColor => patch({ textColorMode: "custom", textColor })}
             onPreview={textColor => onColorPreview(textColor === null ? null : { textColorMode: "custom", textColor })} />
@@ -88,12 +89,12 @@ export function TypographySettingsEditor({ value, onChange, onColorPreview, wall
     </SettingsDisclosure>
 
     <SettingsDisclosure help="跟随主题：使用当前主题的默认文字效果。无壁纸时不额外增强；有壁纸时，页面标题等文字使用随浅深主题切换的轻微阴影。柔光可单独调节颜色与强度。" title="文字增强" summary={effect.label}>
-      <div className="typography-effects" role="group" aria-label="文字效果">
-        {TEXT_EFFECTS.map(option => <button type="button" className="settings-choice" key={option.value}
-          aria-pressed={value.textEffect === option.value}
+      <SettingsOptionGroup className="typography-effects" label="文字效果">
+        {TEXT_EFFECTS.map(option => <SettingsOption key={option.value}
+          selected={value.textEffect === option.value}
           onClick={() => patch({ textEffect: option.value,
-            ...(option.value === "glow" ? { textEffectColor: "#ffffff" } : {}) })}>{option.label}</button>)}
-      </div>
+            ...(option.value === "glow" ? { textEffectColor: "#ffffff" } : {}) })}>{option.label}</SettingsOption>)}
+      </SettingsOptionGroup>
       {hasEffect && <SettingsDisclosure title="效果微调" summary={`${value.textEffectStrength}%`} className="settings-subsection">
         <RangeControl label="效果强度" min={0} max={100} unit="%" value={value.textEffectStrength}
           onChange={textEffectStrength => patch({ textEffectStrength })} />

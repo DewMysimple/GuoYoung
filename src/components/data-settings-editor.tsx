@@ -7,6 +7,7 @@ import type { SiteCollectionState, TrashRetentionDays } from "../types";
 import { Favicon } from "./favicon";
 import { getHostname } from "../lib/site-utils";
 import "./settings-editors.css";
+import { SettingsSelect } from "./settings-options";
 
 interface DataSettingsProps {
   state: SiteCollectionState;
@@ -157,25 +158,22 @@ export function DataSettingsEditor({ state, initialTrashOpen, onExport, onImport
                   </div>
                   {trashOpen && (
                     <div className="trash-settings-content">
-                      <label className="trash-retention-field">
+                      <div className="trash-retention-field">
                         <span>自动清理</span>
-                        <select
-                          aria-label="回收站自动清理期限"
-                          value={state.trashRetentionDays ?? "never"}
-                          onChange={(event) =>
+                        <SettingsSelect
+                          ariaLabel="回收站自动清理期限"
+                          value={String(state.trashRetentionDays ?? "never")}
+                          options={[{ value: "7", label: "7 天后" }, { value: "30", label: "30 天后" },
+                            { value: "90", label: "90 天后" }, { value: "never", label: "永不自动清理" }]}
+                          onChange={(value) =>
                             onTrashRetentionChange(
-                              event.target.value === "never"
+                              value === "never"
                                 ? null
-                                : (Number(event.target.value) as TrashRetentionDays),
+                                : (Number(value) as TrashRetentionDays),
                             )
                           }
-                        >
-                          <option value="7">7 天后</option>
-                          <option value="30">30 天后</option>
-                          <option value="90">90 天后</option>
-                          <option value="never">永不自动清理</option>
-                        </select>
-                      </label>
+                        />
+                      </div>
 
                       {state.deletedSites.length > 0 ? (
                         <>

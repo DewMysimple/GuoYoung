@@ -120,7 +120,7 @@ it.each(["pointercancel", "lostpointercapture", "blur", "pagehide", "hidden", "E
   pointer(window, "pointerup", 90, 10);
   drawFrame();
   expect(changed).not.toHaveBeenCalled();
-  if (reason !== "unmount") expect(screen.getByRole("button", { name: "自定义强调色" })).toHaveStyle({ backgroundColor: "#ff0000" });
+  if (reason !== "unmount") expect(screen.getByRole("button", { name: "自定义强调色" }).querySelector(".settings-option-color")).toHaveStyle({ backgroundColor: "#ff0000" });
 });
 
 it("ignores other pointers and cancels when the active pointer loses its pressed button", () => {

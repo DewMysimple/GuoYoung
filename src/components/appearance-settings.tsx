@@ -12,6 +12,7 @@ import { DEFAULT_APPEARANCE } from "../data/defaults";
 import { RangeControl } from "./range-control";
 import { SettingsToggle } from "./settings-toggle";
 import { LAYOUT_LIMITS } from "../lib/layout";
+import { SettingsOption, SettingsOptionGroup, SettingsChoiceGroup } from "./settings-options";
 
 const ACCENTS = ["#3367d6", "#6750a4", "#00897b", "#d97706", "#dc4f64", "#4f657d"];
 const THEMES = [
@@ -47,20 +48,20 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
         <RangeControl label="界面缩放" value={value.interfaceScale} min={LAYOUT_LIMITS.interfaceScale.min}
           max={LAYOUT_LIMITS.interfaceScale.max} unit="%"
           onChange={interfaceScale => onChange(patchAppearance(value, { interfaceScale }))} />
-        <div className="appearance-scale-options" role="group" aria-label="常用界面缩放">
-          {[75, 100, 125, 150].map(scale => <button key={scale} type="button"
-            aria-label={`界面缩放 ${scale}%`} aria-pressed={value.interfaceScale === scale}
-            onClick={() => onChange(patchAppearance(value, { interfaceScale: scale }))}>{scale}%</button>)}
-        </div>
+        <SettingsOptionGroup className="appearance-scale-options" label="常用界面缩放">
+          {[75, 100, 125, 150].map(scale => <SettingsOption key={scale}
+            aria-label={`界面缩放 ${scale}%`} selected={value.interfaceScale === scale}
+            onClick={() => onChange(patchAppearance(value, { interfaceScale: scale }))}>{scale}%</SettingsOption>)}
+        </SettingsOptionGroup>
         <p className="appearance-description">一起调整卡片、文字、图标与间距。高分辨率屏幕可适当放大；窗口变窄时自动减少列数。浏览器和系统缩放已体现在可用空间中，无需重复补偿。</p>
       </section>
       <section className="appearance-card" aria-label="主题">
         <h3>主题</h3>
         <p className="appearance-description">选择界面的明暗，或随系统自动切换。</p>
-        <div className="appearance-option-grid appearance-theme-options" role="group" aria-label="主题模式">
+        <SettingsOptionGroup className="appearance-option-grid appearance-theme-options" label="主题模式">
           {THEMES.map(({ value: theme, label, description, icon: Icon }) => (
-            <button key={theme} type="button" aria-label={label}
-              aria-pressed={value.theme === theme}
+            <SettingsOption key={theme} aria-label={label} variant="card"
+              selected={value.theme === theme}
               onClick={() => onChange(patchAppearance(value, { theme }))}>
               <span className={`appearance-theme-preview is-${theme}`} aria-hidden="true">
                 <span className="appearance-theme-preview-toolbar" />
@@ -70,9 +71,9 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
               </span>
               <strong className="appearance-theme-label"><Icon size={14} aria-hidden="true" />{label}</strong>
               <small>{description}</small>
-            </button>
+            </SettingsOption>
           ))}
-        </div>
+        </SettingsOptionGroup>
       </section>
       <section className="appearance-card" aria-label="页面布局">
         <div className="appearance-heading">
@@ -80,10 +81,10 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
           {preset === "custom" && <span className="appearance-status">已自定义</span>}
         </div>
         <p className="appearance-description">选择喜欢的疏密，卡片与间距一起调整。</p>
-        <div className="appearance-option-grid appearance-presets" role="group" aria-label="布局预设">
+        <SettingsOptionGroup className="appearance-option-grid appearance-presets" label="布局预设">
           {LAYOUT_OPTIONS.map(({ value: option, label, description }) => (
-            <button key={option} type="button" aria-label={label}
-              aria-pressed={preset === option}
+            <SettingsOption key={option} aria-label={label} variant="card"
+              selected={preset === option}
               onClick={() => {
                 const next = applyLayoutPreset(value, option);
                 onPresetChange(next);
@@ -94,9 +95,9 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
               </span>
               <strong>{label}</strong>
               <small>{description}</small>
-            </button>
+            </SettingsOption>
           ))}
-        </div>
+        </SettingsOptionGroup>
         <div className="appearance-layout-controls">
           <LayoutChoice label="页面宽度模式" value={value.contentWidthMode}
             options={[{ value: "fixed", label: "固定宽度" }, { value: "full", label: "铺满窗口" }]}
@@ -150,19 +151,19 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
 
       <section className="appearance-card" aria-label="主题色">
         <h3>主题色</h3>
-        <div className="accent-grid appearance-accents">
+        <SettingsOptionGroup label="主题色选择" className="accent-grid appearance-accents">
           {ACCENTS.map((color) => (
-            <button key={color} type="button" className="accent-swatch"
-              style={{ backgroundColor: color }} aria-label={`使用颜色 ${color}`}
-              aria-pressed={value.accentColor === color}
+            <SettingsOption key={color} className="accent-swatch" variant="swatch"
+              aria-label={`使用颜色 ${color}`} selected={value.accentColor === color}
               onClick={() => onChange(patchAppearance(value, { accentColor: color }))}>
+              <span className="settings-option-color" style={{ backgroundColor: color }} aria-hidden="true" />
               {value.accentColor === color && <Check size={16} weight="bold" />}
-            </button>
+            </SettingsOption>
           ))}
           <CustomColorPicker value={value.accentColor} selected={!ACCENTS.includes(value.accentColor)}
             onPreview={accentColor => onColorPreview(accentColor === null ? null : { accentColor })}
             onChange={(accentColor) => onChange(patchAppearance(value, { accentColor }))} />
-        </div>
+        </SettingsOptionGroup>
       </section>
     </>
   );
@@ -176,9 +177,6 @@ function LayoutChoice<T extends string>({ label, value, options, onChange }: {
 }) {
   return <div className="appearance-layout-choice">
     <strong>{label}</strong>
-    <div role="group" aria-label={label}>
-      {options.map(option => <button key={option.value} type="button" aria-pressed={value === option.value}
-        onClick={() => onChange(option.value)}>{option.label}</button>)}
-    </div>
+    <SettingsChoiceGroup label={label} value={value} options={options} onChange={onChange} />
   </div>;
 }

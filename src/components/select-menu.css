@@ -21,8 +21,8 @@
   backdrop-filter: blur(12px);
 }
 
-.select-menu-trigger:hover:not(:disabled),
-.select-menu-trigger.is-open,
+.select-menu-trigger:hover:not(:disabled):not(.settings-option),
+.select-menu-trigger.is-open:not(.settings-option),
 .view-control-button:hover {
   color: var(--text);
   border-color: var(--border-strong);

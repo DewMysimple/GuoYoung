@@ -5,6 +5,8 @@ import { ArrowCounterClockwise, CaretDown, UploadSimple } from "@phosphor-icons/
 import type { BrandSettings } from "../types";
 import { BrandMark } from "./brand-mark";
 import { LOGO_SHAPES } from "./logo-image-editor";
+import { SettingsChoiceGroup, SettingsOption, SettingsOptionGroup } from "./settings-options";
+import { SettingsToggle } from "./settings-toggle";
 
 interface BrandSettingsEditorProps {
   value: BrandSettings;
@@ -59,36 +61,18 @@ export function BrandSettingsEditor({
               <input id={`${contentId}-tab-title`} aria-label="标签页名称" value={value.tabTitle ?? ""} maxLength={80} placeholder="留空时使用品牌名称"
                 onChange={event => onChange({ tabTitle: event.target.value })} />
             </div>
-            <label className="toggle-row compact-toggle-row">
-              <span><strong>显示 Logo</strong></span>
-              <input
-                type="checkbox"
-                checked={value.showLogo}
-                onChange={(event) =>
-                  onChange({ showLogo: event.target.checked })
-                }
-              />
-            </label>
-            <label className="toggle-row compact-toggle-row">
-              <span><strong>显示品牌名称</strong></span>
-              <input
-                type="checkbox"
-                checked={value.showName}
-                onChange={(event) =>
-                  onChange({ showName: event.target.checked })
-                }
-              />
-            </label>
+            <SettingsToggle className="compact-toggle-row" label="显示 Logo" checked={value.showLogo}
+              onChange={showLogo => onChange({ showLogo })} />
+            <SettingsToggle className="compact-toggle-row" label="显示品牌名称" checked={value.showName}
+              onChange={showName => onChange({ showName })} />
           </div>
 
           <div className="brand-source-block">
             <span className="settings-inline-label">Logo 来源</span>
-            <div className="brand-source-options" role="radiogroup" aria-label="Logo 来源">
-              <button
-                type="button"
+            <SettingsOptionGroup className="brand-source-options" role="radiogroup" label="Logo 来源">
+              <SettingsOption
                 role="radio"
-                aria-checked={value.logoSource === "default"}
-                className={value.logoSource === "default" ? "active" : ""}
+                selected={value.logoSource === "default"}
                 onClick={() =>
                   onChange({
                     logoSource: "default",
@@ -98,12 +82,10 @@ export function BrandSettingsEditor({
                 }
               >
                 默认方格
-              </button>
-              <button
-                type="button"
+              </SettingsOption>
+              <SettingsOption
                 role="radio"
-                aria-checked={value.logoSource === "local"}
-                className={value.logoSource === "local" ? "active" : ""}
+                selected={value.logoSource === "local"}
                 onClick={() =>
                   value.logoDataUrl
                     ? onChange({ logoSource: "local", logoUrl: undefined })
@@ -111,19 +93,17 @@ export function BrandSettingsEditor({
                 }
               >
                 本地图片
-              </button>
-              <button
-                type="button"
+              </SettingsOption>
+              <SettingsOption
                 role="radio"
-                aria-checked={value.logoSource === "url"}
-                className={value.logoSource === "url" ? "active" : ""}
+                selected={value.logoSource === "url"}
                 onClick={() =>
                   onChange({ logoSource: "url", logoDataUrl: undefined })
                 }
               >
                 网络地址
-              </button>
-            </div>
+              </SettingsOption>
+            </SettingsOptionGroup>
           </div>
 
           <input
@@ -159,11 +139,8 @@ export function BrandSettingsEditor({
           )}
           {value.logoSource !== "default" && <>
             <span className="settings-inline-label">Logo 外形</span>
-            <div className="segmented-control" role="group" aria-label="Logo 外形">
-              {LOGO_SHAPES.map(item => <button key={item.value} type="button" aria-pressed={(value.logoShape ?? "original") === item.value}
-                className={(value.logoShape ?? "original") === item.value ? "active" : ""}
-                onClick={() => onChange({ logoShape: item.value })}>{item.label}</button>)}
-            </div>
+            <SettingsChoiceGroup label="Logo 外形" className="segmented-control" value={value.logoShape ?? "original"} options={LOGO_SHAPES}
+              onChange={logoShape => onChange({ logoShape })} />
             {value.logoSource === "local" && <button type="button" className="button secondary-button" onClick={onEditLogo}>裁切与压缩图片</button>}
             {value.logoSource === "local" && value.logoDataUrl && <small className="appearance-description">已压缩为 WebP · 约 {Math.ceil((value.logoDataUrl.length - value.logoDataUrl.indexOf(",") - 1) * 3 / 4 / 1024)} KB，低于 5MB 限制。</small>}
           </>}

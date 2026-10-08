@@ -8,7 +8,7 @@ export interface SelectMenuOption<Value extends string = string> {
   icon?: ReactNode;
 }
 
-interface SelectMenuProps<Value extends string> {
+export interface SelectMenuProps<Value extends string> {
   value: Value;
   options: SelectMenuOption<Value>[];
   onChange: (value: Value) => void;
@@ -20,6 +20,8 @@ interface SelectMenuProps<Value extends string> {
   className?: string;
   triggerClassName?: string;
   menuClassName?: string;
+  optionClassName?: string;
+  containEscape?: boolean;
   title?: string;
   disabled?: boolean;
   placement?: "top" | "bottom";
@@ -38,6 +40,8 @@ export function SelectMenu<Value extends string>({
   className = "",
   triggerClassName = "",
   menuClassName = "",
+  optionClassName = "",
+  containEscape = false,
   title,
   disabled = false,
   placement = "bottom",
@@ -58,16 +62,17 @@ export function SelectMenu<Value extends string>({
     const handleEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
+      if (containEscape) event.stopPropagation();
       setOpen(false);
       triggerRef.current?.focus();
     };
     window.addEventListener("pointerdown", handleOutsidePointer);
-    window.addEventListener("keydown", handleEscape);
+    window.addEventListener("keydown", handleEscape, containEscape);
     return () => {
       window.removeEventListener("pointerdown", handleOutsidePointer);
-      window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("keydown", handleEscape, containEscape);
     };
-  }, [open]);
+  }, [open, containEscape]);
 
   function focusOption(index: number) {
     window.setTimeout(() => optionRefs.current[index]?.focus(), 0);
@@ -155,7 +160,7 @@ export function SelectMenu<Value extends string>({
               role={optionRole}
               aria-selected={optionRole === "option" ? option.value === value : undefined}
               aria-checked={optionRole === "menuitemradio" ? option.value === value : undefined}
-              className={`select-menu-option ${option.value === value ? "is-selected active" : ""}`}
+              className={`select-menu-option ${optionClassName} ${option.value === value ? "is-selected active" : ""}`.trim()}
               onClick={() => selectOption(option.value)}
               onKeyDown={(event) => handleOptionKeyDown(event, index)}
             >
