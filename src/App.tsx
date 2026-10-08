@@ -96,7 +96,7 @@ import { useSiteClickGuard } from "./hooks/use-site-click-guard";
 import { groupSortTabId, readGroupSortId } from "./lib/collection-drag-ids";
 import { CollectionMouseSensor, CollectionTouchSensor, GROUP_SORT_ACTIVATION_DISTANCE, SITE_DRAG_ACTIVATION_DISTANCE } from "./lib/collection-drag-sensors";
 import { useCollectionSelection } from "./hooks/use-collection-selection";
-import { useSiteSweepSelection } from "./hooks/use-site-sweep-selection";
+import { useSweepSelection } from "./hooks/use-sweep-selection";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
 import { dismissWallpaperStartup } from "./lib/wallpaper-startup";
@@ -421,7 +421,9 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     resetOpen ||
     Boolean(dataContext);
   const { armSiteClickSuppression, handlers: siteClickHandlers } = useSiteClickGuard();
-  const sweepSelection = useSiteSweepSelection(multiSelectMode && !anyModalOpen, selection.toggleSitesSelection);
+  const sweepSelection = useSweepSelection({ enabled: multiSelectMode && !anyModalOpen,
+    itemSelector: "[data-site-dnd-id]", idAttribute: "data-site-dnd-id",
+    ignoreSelector: ".card-actions", onToggle: selection.toggleSitesSelection });
   const groupSort = useGroupSorting({ groups, selection, reorderGroups, reorderGroupBlock,
     onStart: () => { clearArmedDelete(); cancelGroupManagementForSort(); },
   });

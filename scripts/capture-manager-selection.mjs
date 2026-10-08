@@ -39,11 +39,6 @@ async function capture(page, name) {
   await page.screenshot({ path: join(output, `${name}.png`) });
   screenshots++;
 }
-async function moveThroughGap(page, from, to) {
-  await page.mouse.move(from.x + from.width / 2, from.y - 4, { steps: 4 });
-  await page.mouse.move(to.x + to.width / 2, to.y - 4, { steps: 6 });
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 4 });
-}
 async function inspect(context, extensionURL, theme, enabled) {
   const extension = Boolean(extensionURL), name = `manager-selection-${extension ? "extension" : "web"}-${theme}-${enabled ? "wallpaper" : "empty"}`;
   const page = await context.newPage();
@@ -67,24 +62,32 @@ async function inspect(context, extensionURL, theme, enabled) {
     await page.getByRole("button", { name: view === "grouped" ? "多选 搜索 网站" : "多选", exact: true }).click();
     const before = await readState(page, extension);
     const cards = page.locator("[data-site-dnd-id]");
-    const first = cards.first(), last = cards.nth(view === "grouped" ? 1 : 2), untouched = cards.nth(view === "grouped" ? 2 : 1);
-    await first.click(); await untouched.click();
-    for (const reverse of [false, true]) {
-      const a = await (reverse ? last : first).boundingBox(), b = await (reverse ? first : last).boundingBox();
-      await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
-      await page.mouse.down();
-      await moveThroughGap(page, a, b);
-      await moveThroughGap(page, b, a);
-      assert.equal(await first.evaluate(el => el.classList.contains("is-selected")), reverse);
-      assert.equal(await last.evaluate(el => el.classList.contains("is-selected")), !reverse);
-      await expect(untouched).toHaveClass(/is-selected/);
-      await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
+    const abc = ["github", "stackoverflow", "codepen"].map(id => page.getByTestId(`site-card-${id}`));
+    await abc[0].scrollIntoViewIfNeeded();
+    await abc[1].click();
+    const a = await abc[0].boundingBox(), c = await abc[2].boundingBox();
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    for (const [pass, forward] of [true, false, true].entries()) {
+      const end = forward ? c : a;
+      await page.mouse.move(forward ? end.x + end.width + 5 : end.x - 5, end.y + end.height / 2);
+      for (let i = 0; i < 3; i++) assert.equal(await abc[i].evaluate(el => el.classList.contains("is-selected")), (i === 1) !== forward);
+      await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(forward ? 2 : 1);
       await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
       assert.equal(await cards.evaluateAll(els => els.every(el => getComputedStyle(el).transform === "none")), true);
-      await capture(page, `${name}-${view}-${reverse ? "reverse" : "mixed"}-held`);
-      await page.mouse.up();
-      await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
+      if (pass < 2) await capture(page, `${name}-${view}-${forward ? "mixed" : "returned"}-held`);
     }
+    await page.mouse.up();
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
+    await abc[0].click(); await abc[2].click();
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.width + 5, c.y + c.height / 2);
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(3);
+    await page.mouse.move(a.x - 5, a.y + a.height / 2);
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(0);
+    await page.mouse.up();
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(0);
     assert.deepEqual(await readState(page, extension), before);
     await page.keyboard.press("Escape");
   }
@@ -102,9 +105,37 @@ async function inspect(context, extensionURL, theme, enabled) {
   await expect(page.locator("html")).toHaveCSS("overflow-y", "hidden");
   await dialog.evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
   await expect(dialog).toHaveCSS("opacity", "1");
+  await expect(dialog.locator(":scope > .dialog-footer")).toHaveCSS("border-top-width", "0px");
   const remove = dialog.locator(".group-editor-delete");
   if (enabled) await expect(remove).toHaveCSS("background-color", await dialog.getByRole("button", { name: "导入资源" }).evaluate(el => getComputedStyle(el).backgroundColor));
   await capture(page, `${name}-manager-top`);
+  const checks = dialog.locator(".group-manager-list .group-manager-check:not(:disabled)");
+  const editorName = await dialog.getByLabel("分组名称").inputValue();
+  await checks.nth(1).click();
+  const firstCheck = await checks.first().boundingBox(), lastCheck = await checks.nth(2).boundingBox();
+  await page.mouse.move(firstCheck.x + firstCheck.width / 2, firstCheck.y + firstCheck.height / 2);
+  await page.mouse.down();
+  for (const forward of [true, false]) {
+    await page.mouse.move(firstCheck.x + firstCheck.width / 2, forward ? lastCheck.y + lastCheck.height + 5 : firstCheck.y - 5);
+    for (let i = 0; i < 3; i++) await expect(checks.nth(i)).toHaveAttribute("aria-pressed", String((i === 1) !== forward));
+    await expect(checks.nth(3)).toHaveAttribute("aria-pressed", "false");
+    await expect(dialog.getByLabel("分组名称")).toHaveValue(editorName);
+    await expect(page.locator(".group-list-item-drag-preview")).toHaveCount(0);
+    await capture(page, `${name}-manager-${forward ? "mixed" : "returned"}-held`);
+  }
+  await page.mouse.up();
+  await expect(checks.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(checks.nth(2)).toHaveAttribute("aria-pressed", "false");
+  await expect(dialog.locator(".group-manager-check:disabled")).toHaveAttribute("aria-pressed", "false");
+  await checks.nth(1).click();
+  await page.mouse.move(firstCheck.x + firstCheck.width / 2, firstCheck.y + firstCheck.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(firstCheck.x + firstCheck.width / 2, lastCheck.y + lastCheck.height + 5);
+  for (let i = 0; i < 3; i++) await expect(checks.nth(i)).toHaveAttribute("aria-pressed", "true");
+  await page.mouse.move(firstCheck.x + firstCheck.width / 2, firstCheck.y - 5);
+  await expect(dialog.locator(".group-manager-list .group-manager-check[aria-pressed='true']")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(dialog.locator(".group-manager-list .group-manager-check[aria-pressed='true']")).toHaveCount(0);
   await remove.click();
   await expect(remove).toHaveCSS("background-color", "rgb(179, 58, 70)");
   await dialog.getByLabel("分组名称").click();
@@ -138,7 +169,7 @@ async function inspect(context, extensionURL, theme, enabled) {
   await page.mouse.move(1410, 800); await page.mouse.wheel(0, 400);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(pageScroll);
   assert.deepEqual(await readState(page, extension), managerState);
-  reports.push({ name, mixedToggleThreeViews: true, oncePerPress: true, nextPressRetoggles: true, noDragOrWrite: true, themedManager: true, wheelBothEdges: true, selectionWheelLocked: true, pageDownLocked: true, scrollingRestored: true });
+  reports.push({ name, continuousABCThreeViews: true, repeatedPassesWithoutRelease: true, managerCircleReentry: true, noDragOrWrite: true, noManagerFooterLine: true, themedManager: true, wheelBothEdges: true, selectionWheelLocked: true, pageDownLocked: true, scrollingRestored: true });
   // Each theme scenario starts with the original collection, not the previous
   // scenario's enlarged manager fixture (the MV3 context shares storage).
   await seed(page, extension, initial);

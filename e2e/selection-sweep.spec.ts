@@ -36,7 +36,7 @@ for (const view of ["flat", "focused"] as const) {
 }
 
 for (const view of ["flat", "focused", "grouped"] as const) {
-  test(`a sweep toggles mixed selections once per press in ${view} view`, async ({ page }, info) => {
+  test(`a sweep toggles mixed selections on re-entry in ${view} view`, async ({ page }, info) => {
     test.skip(info.project.name !== "chromium", "Desktop mouse sweep");
     await enter(page, view);
     const cards = page.locator("[data-site-dnd-id]");
@@ -53,13 +53,17 @@ for (const view of ["flat", "focused", "grouped"] as const) {
       await page.mouse.move(a.x + a.width / 2, a.y - 4, { steps: 4 });
       await page.mouse.move(b.x + b.width / 2, b.y - 4, { steps: 4 });
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 });
-      // Returning to the start in this press must not toggle it a second time.
+      await expect(first).not.toHaveClass(/is-selected/);
+      await expect(last).toHaveClass(/is-selected/);
+      // Exit and re-enter both endpoints without releasing the mouse.
+      await page.mouse.move(b.x + b.width / 2, b.y - 4, { steps: 3 });
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 3 });
       await page.mouse.move(b.x + b.width / 2, b.y - 4, { steps: 3 });
       await page.mouse.move(a.x + a.width / 2, a.y - 4, { steps: 4 });
       await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2, { steps: 3 });
       await page.mouse.up();
-      await expect(first).toHaveClass(reverse ? /is-selected/ : /^(?!.*is-selected)/);
-      await expect(last).toHaveClass(reverse ? /^(?!.*is-selected)/ : /is-selected/);
+      await expect(first).toHaveClass(/is-selected/);
+      await expect(last).not.toHaveClass(/is-selected/);
       await expect(untouched).toHaveClass(/is-selected/);
       await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
       await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
@@ -86,12 +90,14 @@ for (const view of ["flat", "focused", "grouped"] as const) {
     await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
     await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
     expect(await cards.evaluateAll(els => els.every(el => getComputedStyle(el).transform === "none" && !el.matches(".is-dragging,.is-drag-pending")))).toBe(true);
-    // Revisit through the gap: no toggling and no filling the skipped cards.
+    // Revisit through the gap toggles the start, leaving skipped cards alone.
     await page.mouse.move(b.x + b.width / 2, b.y - 4, { steps: 3 });
     await page.mouse.move(a.x + a.width / 2, a.y - 4, { steps: 5 });
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2, { steps: 3 });
     await page.mouse.up();
-    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
+    await expect(first).not.toHaveClass(/is-selected/);
+    await expect(last).toHaveClass(/is-selected/);
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(1);
     const untouched = cards.nth(view === "grouped" ? 2 : 1);
     await untouched.hover();
     await expect(untouched).not.toHaveClass(/is-selected/);
@@ -104,6 +110,42 @@ for (const view of ["flat", "focused", "grouped"] as const) {
     await page.screenshot({ path: screenshotPath(`selection-sweep-${view}.png`) });
     await page.keyboard.press("Escape");
     await expect(page.locator("[data-site-dnd-id].is-selection-mode")).toHaveCount(0);
+  });
+}
+
+for (const view of ["flat", "focused", "grouped"] as const) {
+  test(`ABC toggles on repeated forward and reverse passes with one mouse press in ${view}`, async ({ page }, info) => {
+    test.skip(info.project.name !== "chromium", "Desktop continuous sweep");
+    await enter(page, view);
+    const cards = ["github", "stackoverflow", "codepen"].map(id => page.getByTestId(`site-card-${id}`));
+    await cards[0].scrollIntoViewIfNeeded();
+    await cards[1].click();
+    const before = await page.evaluate(() => localStorage.getItem("site-hub:v1"));
+    const boxes = await Promise.all(cards.map(async card => (await card.boundingBox())!));
+    const first = boxes[0], last = boxes[2];
+    await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2);
+    await page.mouse.down();
+    for (const forward of [true, false, true]) {
+      const end = forward ? last : first;
+      await page.mouse.move(forward ? end.x + end.width + 5 : end.x - 5, end.y + end.height / 2);
+      for (let i = 0; i < cards.length; i++) {
+        await expect(cards[i]).toHaveClass((i === 1) !== forward ? /is-selected/ : /^(?!.*is-selected)/);
+      }
+      await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
+    }
+    await page.mouse.up();
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
+    await cards[0].click();
+    await cards[2].click();
+    await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(last.x + last.width + 5, last.y + last.height / 2);
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(3);
+    await page.mouse.move(first.x - 5, first.y + first.height / 2);
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(0);
+    await page.mouse.up();
+    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(before);
   });
 }
 

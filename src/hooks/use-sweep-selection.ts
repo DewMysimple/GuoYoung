@@ -8,11 +8,10 @@ type Sweep = {
   previous: Point;
   startId: string;
   active: boolean;
-  visited: Set<string>;
+  insideId: string | null;
 };
 
-// Return a point on the part of the actual pointer segment inside the card.
-// Testing the segment also catches cards crossed between fast pointer events.
+// Testing the segment also catches items crossed between fast pointer events.
 export function intersectSelectionPath(from: Point, to: Point, rect: DOMRect): Point | null {
   let enter = 0, exit = 1;
   for (const [start, delta, min, max] of [
@@ -32,12 +31,18 @@ export function intersectSelectionPath(from: Point, to: Point, rect: DOMRect): P
   return { x: from.x + (to.x - from.x) * middle, y: from.y + (to.y - from.y) * middle };
 }
 
-/** One pointer session over the collection, sharing the existing selection reducer. */
-export function useSiteSweepSelection(enabled: boolean, toggleSites: (ids: readonly string[]) => void) {
+/** Shared pointer gesture; callers retain ownership of their selection state. */
+export function useSweepSelection({ enabled, itemSelector, idAttribute, ignoreSelector, onToggle }: {
+  enabled: boolean;
+  itemSelector: string;
+  idAttribute: string;
+  ignoreSelector?: string;
+  onToggle: (ids: readonly string[]) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sweep = useRef<Sweep | null>(null);
   const suppressClick = useRef(false);
-  const toggle = useLatestEvent(toggleSites);
+  const toggle = useLatestEvent(onToggle);
 
   useEffect(() => {
     if (!enabled) return;
@@ -51,21 +56,22 @@ export function useSiteSweepSelection(enabled: boolean, toggleSites: (ids: reado
       if (!session.active) {
         session.active = true;
         suppressClick.current = true;
-        session.visited.add(session.startId);
         ids.push(session.startId);
       }
       const hits: { id: string; distance: number }[] = [];
-      for (const card of containerRef.current?.querySelectorAll<HTMLElement>("[data-site-dnd-id]") ?? []) {
-        const id = card.dataset.siteDndId!;
-        if (session.visited.has(id)) continue;
-        const point = intersectSelectionPath(session.previous, current, card.getBoundingClientRect());
-        // Occluded cards (for example behind the sticky topbar) are not touched.
-        if (!point || document.elementFromPoint(point.x, point.y)?.closest("[data-site-dnd-id]") !== card) continue;
-        session.visited.add(id);
+      for (const item of containerRef.current?.querySelectorAll<HTMLElement>(itemSelector) ?? []) {
+        const id = item.getAttribute(idAttribute);
+        // Moving within an item or leaving it is one continuous visit.
+        // Once outside, entering it again toggles it in this same press.
+        if (!id || id === session.insideId) continue;
+        const point = intersectSelectionPath(session.previous, current, item.getBoundingClientRect());
+        if (!point || document.elementFromPoint(point.x, point.y)?.closest(itemSelector) !== item) continue;
         hits.push({ id, distance: Math.hypot(point.x - session.previous.x, point.y - session.previous.y) });
       }
       ids.push(...hits.sort((a, b) => a.distance - b.distance).map(hit => hit.id));
       session.previous = current;
+      const inside = document.elementFromPoint(current.x, current.y)?.closest(itemSelector);
+      session.insideId = inside && containerRef.current?.contains(inside) ? inside.getAttribute(idAttribute) : null;
       if (ids.length) toggle(ids);
       event.preventDefault();
     }
@@ -93,7 +99,7 @@ export function useSiteSweepSelection(enabled: boolean, toggleSites: (ids: reado
       window.removeEventListener("keydown", escape);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [enabled, toggle]);
+  }, [enabled, itemSelector, idAttribute, toggle]);
 
   const handlers: HTMLAttributes<HTMLDivElement> = {
     onPointerDownCapture(event) {
@@ -101,11 +107,12 @@ export function useSiteSweepSelection(enabled: boolean, toggleSites: (ids: reado
       sweep.current = null;
       if (!enabled || event.button !== 0 || event.pointerType === "touch" || event.shiftKey) return;
       const target = event.target as Element;
-      const card = target.closest<HTMLElement>("[data-site-dnd-id]");
-      if (!card || target.closest(".card-actions")) return;
+      const item = target.closest<HTMLElement>(itemSelector);
+      const id = item?.getAttribute(idAttribute);
+      if (!item || !id || !containerRef.current?.contains(item) || (ignoreSelector && target.closest(ignoreSelector))) return;
       const point = { x: event.clientX, y: event.clientY };
       sweep.current = { pointerId: event.pointerId, start: point, previous: point,
-        startId: card.dataset.siteDndId!, active: false, visited: new Set() };
+        startId: id, active: false, insideId: id };
     },
     onClickCapture(event) {
       if (!suppressClick.current || event.detail === 0) return;

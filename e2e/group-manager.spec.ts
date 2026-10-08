@@ -19,6 +19,7 @@ for (const theme of ["light", "dark"] as const) for (const wallpaper of [false, 
     await page.evaluate(() => window.scrollTo(0, 100));
     await page.getByRole("button", { name: "管理分组", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "管理分组" });
+    await expect(dialog.locator(":scope > .dialog-footer")).toHaveCSS("border-top-width", "0px");
     const before = await page.evaluate(() => window.scrollY);
     expect(before).toBe(100);
     const originalGeometry = await page.locator(".app-shell").boundingBox();

@@ -34,6 +34,20 @@ it("applies batched inversions to the latest selection", () => {
   expect(result.current.selectedIds).toEqual([]);
 });
 
+it("toggles mixed sweep hits and repeat visits against current state, filtering protected ids", () => {
+  const { result } = renderHook(() => useGroupManagerSelection(true, DEFAULT_GROUPS));
+  act(() => result.current.toggle("develop", false));
+  act(() => result.current.toggleMany(["search", "develop", "design", "other", "missing", "search"]));
+  expect(result.current.selectedIds).toEqual(["search", "design"]);
+  act(() => {
+    result.current.toggleMany(["design", "develop", "search"]);
+    result.current.toggleMany(["search", "develop", "design"]);
+  });
+  expect(result.current.selectedIds).toEqual(["search", "design"]);
+  act(() => result.current.toggle("learn", true));
+  expect(result.current.selectedIds).toEqual(["search", "design", "media", "learn"]);
+});
+
 it("deselects a manager range when its target is selected", () => {
   const { result } = renderHook(() => useGroupManagerSelection(true, DEFAULT_GROUPS));
   act(() => result.current.selectAll());

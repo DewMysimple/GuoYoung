@@ -3012,8 +3012,12 @@ select:focus-visible {
 .group-dialog-content > .dialog-footer {
   margin: 0 -2px;
   padding: 14px 2px 0;
-  border-top: 1px solid var(--border);
   background: var(--surface);
+}
+
+.site-dialog-content .dialog-footer,
+.new-group-dialog .dialog-footer {
+  border-top: 1px solid var(--border);
 }
 
 .group-dialog-content {

@@ -3,6 +3,7 @@ import { DataTransferActions } from "./data-transfer-actions";
 import { CardSelectionToggle } from "./card-primitives";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useGroupManagerSelection } from "../hooks/use-group-manager-selection";
+import { useSweepSelection } from "../hooks/use-sweep-selection";
 import "./group-manager-selection.css";
 import { DialogNavigation } from "./dialog-navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -92,7 +93,7 @@ function SortableGroupItem({
       }`}
     >
       <CardSelectionToggle selected={checked} label={`${checked ? "取消选择" : "选择"} ${group.name} 分组`}
-        disabled={group.isProtected} onToggle={onToggle} className="group-manager-check" />
+        disabled={group.isProtected} onToggle={onToggle} className="group-manager-check" selectionId={group.id} />
       <button
         type="button"
         className="group-list-select"
@@ -188,7 +189,11 @@ export function GroupDialog({
     null,
   );
   const [dndContextKey, setDndContextKey] = useState(0);
-  const groupListRef = useRef<HTMLDivElement | null>(null);
+  const { containerRef: groupListRef, handlers: sweepHandlers } = useSweepSelection({
+    enabled: open && !activeDragGroupId && !deleteRequested && !pendingTransfer,
+    itemSelector: ".group-manager-check:not(:disabled)", idAttribute: "data-selection-id",
+    onToggle: ids => { clearArmedDelete(); selection.toggleMany(ids); },
+  });
   const dragPointerRef = useRef<{ x: number; y: number } | null>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
   const sensors = useSensors(
@@ -521,10 +526,10 @@ export function GroupDialog({
           <div className="dialog-header">
             <div>
               <div className="dialog-heading-with-help"><Dialog.Title ref={titleRef} id={titleId} className="dialog-title" tabIndex={-1}>管理分组</Dialog.Title>
-                <HelpTip label="管理分组说明">点击名称编辑，勾选圆圈可批量删除；拖动手柄调整顺序。</HelpTip>
+                <HelpTip label="管理分组说明">点击名称编辑，点击或按住划过圆圈选择，回划可取消选择；拖动手柄调整顺序。</HelpTip>
               </div>
               <Dialog.Description className="visually-hidden">
-                点击名称编辑，勾选圆圈可批量删除；拖动手柄调整顺序。
+                点击名称编辑，点击或按住划过圆圈选择，回划可取消选择；拖动手柄调整顺序。
               </Dialog.Description>
             </div>
             <DialogNavigation />
@@ -543,6 +548,7 @@ export function GroupDialog({
             <div className="group-manager-layout">
               <div
                 ref={groupListRef}
+                {...sweepHandlers}
                 className="group-manager-list"
                 aria-label="分组列表"
               >

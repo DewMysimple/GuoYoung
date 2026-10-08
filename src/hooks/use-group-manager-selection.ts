@@ -50,6 +50,19 @@ export function useGroupManagerSelection(open: boolean, groups: SiteGroup[]) {
   return {
     selectedIds,
     toggle,
+    toggleMany: (keys: readonly string[]) => {
+      const touched = [...new Set(keys)].filter(id => ids.includes(id));
+      if (!touched.length) return;
+      setSelected(current => {
+        const next = new Set(current);
+        for (const id of touched) {
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+        }
+        return next;
+      });
+      anchor.current = touched[touched.length - 1];
+    },
     allSelected: ids.length > 0 && selectedIds.length === ids.length,
     clear,
     selectAll: () => setSelected(new Set(ids)),

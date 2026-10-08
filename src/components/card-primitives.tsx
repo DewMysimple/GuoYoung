@@ -21,12 +21,12 @@ export function CardContent({ icon, actions, name, domain, detail, footer, exter
   </>;
 }
 
-export function CardSelectionToggle({ selected, indeterminate = false, label, disabled = false, onToggle, className = "" }: {
+export function CardSelectionToggle({ selected, indeterminate = false, label, disabled = false, onToggle, className = "", selectionId }: {
   selected: boolean; indeterminate?: boolean; label: string; disabled?: boolean;
-  onToggle: (shiftKey: boolean) => void; className?: string;
+  onToggle: (shiftKey: boolean) => void; className?: string; selectionId?: string;
 }) {
   return <button type="button" className={`site-selection-toggle ${className}`} aria-label={label}
-    aria-pressed={selected} data-indeterminate={indeterminate || undefined} disabled={disabled}
+    aria-pressed={selected} data-indeterminate={indeterminate || undefined} data-selection-id={selectionId} disabled={disabled}
     onMouseDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()}
     onClick={(event) => { event.stopPropagation(); onToggle(event.shiftKey); }}>
     {indeterminate ? <Minus size={14} weight="bold" /> : selected ? <Check size={14} weight="bold" /> : null}

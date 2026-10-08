@@ -1,20 +1,21 @@
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { intersectSelectionPath, useSiteSweepSelection } from "./use-site-sweep-selection";
+import { intersectSelectionPath, useSweepSelection } from "./use-sweep-selection";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 function Harness({ enabled = true, select = vi.fn() }) {
-  const sweep = useSiteSweepSelection(enabled, select);
+  const sweep = useSweepSelection({ enabled, onToggle: select,
+    itemSelector: "[data-site-dnd-id]", idAttribute: "data-site-dnd-id", ignoreSelector: ".card-actions" });
   return <div ref={sweep.containerRef} {...sweep.handlers}>
     {["a", "b", "c"].map(id => <article key={id} data-site-dnd-id={id}>
       <button onClick={() => select(["click"])}>{id}</button>
     </article>)}
   </div>;
 }
-function pointer(target: Element | Window, type: string, x: number, y: number, extra = {}) {
+function pointer(target: Element | Window, type: string, x: number, y: number, extra: MouseEventInit & { pointerType?: string; pointerId?: number } = {}) {
   const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, ...extra });
-  Object.defineProperties(event, { pointerId: { value: 1 }, pointerType: { value: "mouse" } });
+  Object.defineProperties(event, { pointerId: { value: extra.pointerId ?? 1 }, pointerType: { value: extra.pointerType ?? "mouse" } });
   fireEvent(target, event);
 }
 function setup() {
@@ -36,7 +37,7 @@ it("intersects the travelled segment without filling its bounding box or extendi
   expect(intersectSelectionPath({ x: 170, y: 50 }, { x: 170, y: 50 }, rect)).toEqual({ x: 170, y: 50 });
 });
 
-it("toggles only touched cards once per press and suppresses the release click", () => {
+it("toggles on re-entry in the same press, ignores movement inside and suppresses the release click", () => {
   const { select, cards } = setup();
   pointer(cards[0], "pointerdown", 50, 50);
   pointer(window, "pointermove", 52, 50);
@@ -46,14 +47,41 @@ it("toggles only touched cards once per press and suppresses the release click",
   pointer(window, "pointermove", 290, 50);
   pointer(window, "pointermove", 290, 80);
   expect(select.mock.calls).toEqual([[["a"]], [["c"]]]);
+  pointer(window, "pointermove", 290, -10);
+  pointer(window, "pointermove", 50, -10);
+  pointer(window, "pointermove", 50, 50);
+  pointer(window, "pointermove", 70, 60);
+  expect(select.mock.calls).toEqual([[["a"]], [["c"]], [["a"]]]);
   pointer(window, "pointerup", 290, 80);
   fireEvent.click(cards[2].querySelector("button")!, { detail: 1 });
   pointer(window, "pointermove", 170, 50);
-  expect(select.mock.calls).toEqual([[["a"]], [["c"]]]);
+  expect(select.mock.calls).toEqual([[["a"]], [["c"]], [["a"]]]);
   pointer(cards[1], "pointerdown", 170, 50);
   pointer(window, "pointerup", 170, 50);
   fireEvent.click(cards[1].querySelector("button")!, { detail: 1 });
   expect(select).toHaveBeenLastCalledWith(["click"]);
+});
+
+it("retoggles every item crossed on a fast return path without releasing", () => {
+  const { select, cards } = setup();
+  pointer(cards[0], "pointerdown", 50, 50);
+  pointer(window, "pointermove", 350, 50);
+  pointer(window, "pointermove", -10, 50);
+  pointer(window, "pointermove", 350, 50);
+  expect(select.mock.calls).toEqual([[["a", "b", "c"]], [["c", "b", "a"]], [["a", "b", "c"]]]);
+});
+
+it("only starts on enabled mouse items, preserving actions, touch and secondary clicks", () => {
+  const { select, cards } = setup();
+  const button = cards[0].querySelector("button")!;
+  button.className = "card-actions";
+  pointer(button, "pointerdown", 50, 50);
+  pointer(window, "pointermove", 350, 50);
+  pointer(cards[0], "pointerdown", 50, 50, { button: 2 });
+  pointer(window, "pointermove", 350, 50);
+  pointer(cards[0], "pointerdown", 50, 50, { pointerType: "touch" });
+  pointer(window, "pointermove", 350, 50);
+  expect(select).not.toHaveBeenCalled();
 });
 
 it("catches fast crossings, ignores occluded cards and reads the latest callback", () => {
