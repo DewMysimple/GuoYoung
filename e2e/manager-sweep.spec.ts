@@ -1,4 +1,47 @@
 import { expect, test, screenshotPath } from "./fixtures";
+import { assertHeldRoundTrips } from "./sweep-helpers";
+
+for (const steps of [1, 12, 60]) {
+  test(`manager ABCD center reversal is stable at ${steps} steps`, async ({ page }, info) => {
+    test.skip(info.project.name !== "chromium", "Desktop manager sweep event density");
+    await page.setViewportSize({ width: 1440, height: 1100 });
+    await page.getByRole("button", { name: "管理分组", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "管理分组" });
+    const allChecks = dialog.locator(".group-manager-list .group-manager-check:not(:disabled)");
+    const targets = allChecks.nth(0).or(allChecks.nth(1)).or(allChecks.nth(2)).or(allChecks.nth(3));
+    const before = await page.evaluate(() => localStorage.getItem("site-hub:v1"));
+    const editor = await dialog.getByLabel("分组名称").inputValue();
+    for (const mixed of [false, true]) {
+      if (mixed) {
+        await targets.nth(0).click();
+        await targets.nth(2).click();
+        await allChecks.nth(4).click();
+      }
+      await assertHeldRoundTrips(page, targets, { steps, selected: "aria" });
+      await expect(allChecks.nth(4)).toHaveAttribute("aria-pressed", String(mixed));
+      await expect(dialog.getByLabel("分组名称")).toHaveValue(editor);
+      await expect(page.locator(".group-list-item-drag-preview")).toHaveCount(0);
+      await expect(dialog.locator(".group-manager-check:disabled")).toHaveAttribute("aria-pressed", "false");
+    }
+    expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(before);
+  });
+}
+
+test("manager ABCD edge and gap samples toggle each circle once per pass", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop manager sweep boundary sampling");
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.getByRole("button", { name: "管理分组", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  const allChecks = dialog.locator(".group-manager-list .group-manager-check:not(:disabled)");
+  const targets = allChecks.nth(0).or(allChecks.nth(1)).or(allChecks.nth(2)).or(allChecks.nth(3));
+  const before = await page.evaluate(() => localStorage.getItem("site-hub:v1"));
+  const editor = await dialog.getByLabel("分组名称").inputValue();
+  await assertHeldRoundTrips(page, targets, { steps: 1, selected: "aria", boundaries: true });
+  await expect(allChecks.nth(4)).toHaveAttribute("aria-pressed", "false");
+  await expect(dialog.getByLabel("分组名称")).toHaveValue(editor);
+  await expect(page.locator(".group-list-item-drag-preview")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(before);
+});
 
 test("manager circles toggle ABC on each return without release and preserve editor and storage", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop manager sweep");

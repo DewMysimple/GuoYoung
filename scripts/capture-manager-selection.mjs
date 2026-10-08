@@ -39,6 +39,27 @@ async function capture(page, name) {
   await page.screenshot({ path: join(output, `${name}.png`) });
   screenshots++;
 }
+async function directEndpointSweep(page, targets, steps, verify, screenshotPrefix) {
+  const boxes = await Promise.all(targets.map(target => target.boundingBox()));
+  assert.equal(boxes.every(Boolean), true, "All ABCD targets must be visible");
+  const center = box => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  const first = center(boxes[0]), last = center(boxes[3]);
+  await page.mouse.move(first.x, first.y);
+  await page.mouse.down();
+  const passes = [];
+  for (const [pass, forward] of [true, false, true].entries()) {
+    const end = forward ? last : first;
+    await page.mouse.move(end.x, end.y, { steps });
+    // Keep the same press at the actual endpoint: D never exits its card/circle.
+    await page.waitForTimeout(80);
+    await verify(forward);
+    if (screenshotPrefix && pass < 2) await capture(page, `${screenshotPrefix}-${forward ? "outbound" : "returned"}-held`);
+    passes.push({ endpoint: forward ? "D" : "A", held: true, verified: true });
+  }
+  await page.mouse.up();
+  await verify(true);
+  return { pattern: "ABCD", directEndpointTurn: true, steps, passes, releasePreservesSelection: true };
+}
 async function inspect(context, extensionURL, theme, enabled) {
   const extension = Boolean(extensionURL), name = `manager-selection-${extension ? "extension" : "web"}-${theme}-${enabled ? "wallpaper" : "empty"}`;
   const page = await context.newPage();
@@ -48,7 +69,11 @@ async function inspect(context, extensionURL, theme, enabled) {
   await page.goto(extensionURL || baseURL, { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("button", { name: "打开设置" })).toBeVisible();
   const initial = await readState(page, extension);
+  const fourth = { ...initial.sites.find(site => site.id === "codepen"), id: "sweep-d", name: "Sweep D", url: "https://sweep-d.example/", order: 3, globalOrder: 5 };
+  const speeds = theme === "light" && enabled ? [1, 12, 60] : [12];
+  const sweepResults = [];
   await seed(page, extension, { ...initial, appearance: { ...initial.appearance, theme },
+    sites: [...initial.sites.map(site => ({ ...site, globalOrder: site.globalOrder >= 5 ? site.globalOrder + 1 : site.globalOrder })), fourth],
     displayModeByWorkspace: { ...initial.displayModeByWorkspace, main: "flat" },
     sortModeByWorkspace: { ...initial.sortModeByWorkspace, main: "manual" },
     wallpaper: { ...initial.wallpaper, source: enabled ? "url" : "none", url: wallpaperURL } });
@@ -62,31 +87,27 @@ async function inspect(context, extensionURL, theme, enabled) {
     await page.getByRole("button", { name: view === "grouped" ? "多选 搜索 网站" : "多选", exact: true }).click();
     const before = await readState(page, extension);
     const cards = page.locator("[data-site-dnd-id]");
-    const abc = ["github", "stackoverflow", "codepen"].map(id => page.getByTestId(`site-card-${id}`));
-    await abc[0].scrollIntoViewIfNeeded();
-    await abc[1].click();
-    const a = await abc[0].boundingBox(), c = await abc[2].boundingBox();
-    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
-    await page.mouse.down();
-    for (const [pass, forward] of [true, false, true].entries()) {
-      const end = forward ? c : a;
-      await page.mouse.move(forward ? end.x + end.width + 5 : end.x - 5, end.y + end.height / 2);
-      for (let i = 0; i < 3; i++) assert.equal(await abc[i].evaluate(el => el.classList.contains("is-selected")), (i === 1) !== forward);
-      await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(forward ? 2 : 1);
-      await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
-      assert.equal(await cards.evaluateAll(els => els.every(el => getComputedStyle(el).transform === "none")), true);
-      if (pass < 2) await capture(page, `${name}-${view}-${forward ? "mixed" : "returned"}-held`);
+    const abcd = ["github", "stackoverflow", "codepen", "sweep-d"].map(id => page.getByTestId(`site-card-${id}`));
+    await abcd[0].scrollIntoViewIfNeeded();
+    const boxes = await Promise.all(abcd.map(card => card.boundingBox()));
+    assert.equal(boxes.every(box => box && Math.abs(box.y - boxes[0].y) < 1), true, `${name}-${view}: ABCD share a row`);
+    for (const steps of speeds) for (const mixed of [true, false]) {
+      if (mixed) await abcd[1].click();
+      const verify = async forward => {
+        for (let i = 0; i < 4; i++) {
+          const selected = (mixed && i === 1) !== forward;
+          await expect(abcd[i]).toHaveClass(selected ? /is-selected/ : /^(?!.*is-selected)/);
+        }
+        await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(forward ? (mixed ? 3 : 4) : (mixed ? 1 : 0));
+        await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
+        assert.equal(await cards.evaluateAll(els => els.every(el => getComputedStyle(el).transform === "none")), true);
+      };
+      const selection = mixed ? "mixed" : "unselected";
+      const result = await directEndpointSweep(page, abcd, steps, verify, steps === 12 ? `${name}-${view}-${selection}` : null);
+      sweepResults.push({ view, selection, ...result });
+      for (let i = 0; i < 4; i++) if (!mixed || i !== 1) await abcd[i].click();
+      await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(0);
     }
-    await page.mouse.up();
-    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(2);
-    await abc[0].click(); await abc[2].click();
-    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(c.x + c.width + 5, c.y + c.height / 2);
-    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(3);
-    await page.mouse.move(a.x - 5, a.y + a.height / 2);
-    await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(0);
-    await page.mouse.up();
     await expect(page.locator("[data-site-dnd-id].is-selected")).toHaveCount(0);
     assert.deepEqual(await readState(page, extension), before);
     await page.keyboard.press("Escape");
@@ -111,31 +132,23 @@ async function inspect(context, extensionURL, theme, enabled) {
   await capture(page, `${name}-manager-top`);
   const checks = dialog.locator(".group-manager-list .group-manager-check:not(:disabled)");
   const editorName = await dialog.getByLabel("分组名称").inputValue();
-  await checks.nth(1).click();
-  const firstCheck = await checks.first().boundingBox(), lastCheck = await checks.nth(2).boundingBox();
-  await page.mouse.move(firstCheck.x + firstCheck.width / 2, firstCheck.y + firstCheck.height / 2);
-  await page.mouse.down();
-  for (const forward of [true, false]) {
-    await page.mouse.move(firstCheck.x + firstCheck.width / 2, forward ? lastCheck.y + lastCheck.height + 5 : firstCheck.y - 5);
-    for (let i = 0; i < 3; i++) await expect(checks.nth(i)).toHaveAttribute("aria-pressed", String((i === 1) !== forward));
-    await expect(checks.nth(3)).toHaveAttribute("aria-pressed", "false");
-    await expect(dialog.getByLabel("分组名称")).toHaveValue(editorName);
-    await expect(page.locator(".group-list-item-drag-preview")).toHaveCount(0);
-    await capture(page, `${name}-manager-${forward ? "mixed" : "returned"}-held`);
+  const abcdChecks = Array.from({ length: 4 }, (_, i) => checks.nth(i));
+  for (const steps of speeds) for (const mixed of [true, false]) {
+    if (mixed) await checks.nth(1).click();
+    const verify = async forward => {
+      for (let i = 0; i < 4; i++) await expect(checks.nth(i)).toHaveAttribute("aria-pressed", String((mixed && i === 1) !== forward));
+      await expect(checks.nth(4)).toHaveAttribute("aria-pressed", "false");
+      await expect(dialog.locator(".group-manager-list .group-manager-check[aria-pressed='true']")).toHaveCount(forward ? (mixed ? 3 : 4) : (mixed ? 1 : 0));
+      await expect(dialog.locator(".group-manager-check:disabled")).toHaveAttribute("aria-pressed", "false");
+      await expect(dialog.getByLabel("分组名称")).toHaveValue(editorName);
+      await expect(page.locator(".group-list-item-drag-preview")).toHaveCount(0);
+    };
+    const selection = mixed ? "mixed" : "unselected";
+    const result = await directEndpointSweep(page, abcdChecks, steps, verify, steps === 12 ? `${name}-manager-${selection}` : null);
+    sweepResults.push({ view: "manager", selection, ...result });
+    for (let i = 0; i < 4; i++) if (!mixed || i !== 1) await checks.nth(i).click();
+    await expect(dialog.locator(".group-manager-list .group-manager-check[aria-pressed='true']")).toHaveCount(0);
   }
-  await page.mouse.up();
-  await expect(checks.nth(1)).toHaveAttribute("aria-pressed", "true");
-  await expect(checks.nth(2)).toHaveAttribute("aria-pressed", "false");
-  await expect(dialog.locator(".group-manager-check:disabled")).toHaveAttribute("aria-pressed", "false");
-  await checks.nth(1).click();
-  await page.mouse.move(firstCheck.x + firstCheck.width / 2, firstCheck.y + firstCheck.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(firstCheck.x + firstCheck.width / 2, lastCheck.y + lastCheck.height + 5);
-  for (let i = 0; i < 3; i++) await expect(checks.nth(i)).toHaveAttribute("aria-pressed", "true");
-  await page.mouse.move(firstCheck.x + firstCheck.width / 2, firstCheck.y - 5);
-  await expect(dialog.locator(".group-manager-list .group-manager-check[aria-pressed='true']")).toHaveCount(0);
-  await page.mouse.up();
-  await expect(dialog.locator(".group-manager-list .group-manager-check[aria-pressed='true']")).toHaveCount(0);
   await remove.click();
   await expect(remove).toHaveCSS("background-color", "rgb(179, 58, 70)");
   await dialog.getByLabel("分组名称").click();
@@ -169,7 +182,7 @@ async function inspect(context, extensionURL, theme, enabled) {
   await page.mouse.move(1410, 800); await page.mouse.wheel(0, 400);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(pageScroll);
   assert.deepEqual(await readState(page, extension), managerState);
-  reports.push({ name, continuousABCThreeViews: true, repeatedPassesWithoutRelease: true, managerCircleReentry: true, noDragOrWrite: true, noManagerFooterLine: true, themedManager: true, wheelBothEdges: true, selectionWheelLocked: true, pageDownLocked: true, scrollingRestored: true });
+  reports.push({ name, continuousABCDThreeViews: true, directEndpointTurn: true, steps: speeds, sweepResults, repeatedPassesWithoutRelease: true, managerCircleDirectTurn: true, noDragOrWrite: true, noManagerFooterLine: true, themedManager: true, wheelBothEdges: true, selectionWheelLocked: true, pageDownLocked: true, scrollingRestored: true });
   // Each theme scenario starts with the original collection, not the previous
   // scenario's enlarged manager fixture (the MV3 context shares storage).
   await seed(page, extension, initial);

@@ -1,5 +1,6 @@
 import { expect, test, screenshotPath } from "./fixtures";
 import type { Page } from "@playwright/test";
+import { assertHeldRoundTrips } from "./sweep-helpers";
 
 async function enter(page: Page, view: "flat" | "focused" | "grouped") {
   await page.setViewportSize({ width: 1440, height: 1100 });
@@ -9,6 +10,55 @@ async function enter(page: Page, view: "flat" | "focused" | "grouped") {
     await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
   }
   await page.getByRole("button", { name: view === "grouped" ? "多选 搜索 网站" : "多选", exact: true }).click();
+}
+
+async function seedSweepCards(page: Page, includeUntouched = false) {
+  await page.evaluate(includeUntouched => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    const template = state.sites.find((site: { id: string }) => site.id === "github");
+    const names = includeUntouched ? ["A", "B", "C", "D", "untouched"] : ["A", "B", "C", "D"];
+    state.sites = names.map((name, i) => ({ ...template, id: `sweep-${name}`, name: `Sweep ${name}`, order: i, globalOrder: i }));
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  }, includeUntouched);
+  await page.reload();
+}
+
+for (const view of ["flat", "focused", "grouped"] as const) {
+  for (const steps of [1, 12, 60]) {
+    test(`ABCD center reversal is stable at ${steps} steps in ${view}`, async ({ page }, info) => {
+      test.skip(info.project.name !== "chromium", "Desktop sweep event density");
+      await seedSweepCards(page, true);
+      await enter(page, view);
+      const targets = page.locator('[data-site-dnd-id="sweep-A"], [data-site-dnd-id="sweep-B"], [data-site-dnd-id="sweep-C"], [data-site-dnd-id="sweep-D"]');
+      await expect(targets).toHaveCount(4);
+      const untouched = page.getByTestId("site-card-sweep-untouched");
+      const before = await page.evaluate(() => localStorage.getItem("site-hub:v1"));
+      for (const mixed of [false, true]) {
+        if (mixed) {
+          // The first gesture ends with ABCD selected; retain B/D and clear A/C.
+          await targets.nth(0).click();
+          await targets.nth(2).click();
+          await untouched.click();
+        }
+        await assertHeldRoundTrips(page, targets, { steps, selected: "class" });
+        await expect(untouched).toHaveClass(mixed ? /is-selected/ : /^(?!.*is-selected)/);
+        await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
+        expect(await targets.evaluateAll(elements => elements.every(element => getComputedStyle(element).transform === "none"))).toBe(true);
+      }
+      expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(before);
+    });
+  }
+
+  test(`ABCD edge and gap samples toggle each card once per pass in ${view}`, async ({ page }, info) => {
+    test.skip(info.project.name !== "chromium", "Desktop sweep boundary sampling");
+    await seedSweepCards(page);
+    await enter(page, view);
+    const targets = page.locator('[data-site-dnd-id^="sweep-"]');
+    const before = await page.evaluate(() => localStorage.getItem("site-hub:v1"));
+    await assertHeldRoundTrips(page, targets, { steps: 1, selected: "class", boundaries: true });
+    await expect(page.getByTestId("site-card-drag-preview")).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(before);
+  });
 }
 
 for (const view of ["flat", "focused"] as const) {
