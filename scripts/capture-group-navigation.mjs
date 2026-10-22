@@ -7,12 +7,13 @@ import { chromium, expect } from "@playwright/test";
 const { version } = JSON.parse(await readFile("public/manifest.json", "utf8"));
 const output = resolve(`artifacts/releases/v${version}/screenshots`);
 await mkdir(output, { recursive: true });
-const errors = [], captures = [], measurements = [];
+const errors = [], captures = [], measurements = [], motion = [];
 const wallpaper = '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><defs><linearGradient id="a" x2="1" y2="1"><stop stop-color="#c3e2e6"/><stop offset=".5" stop-color="#247d9e"/><stop offset="1" stop-color="#152847"/></linearGradient></defs><path fill="url(#a)" d="M0 0h1920v1080H0z"/><g fill="none" stroke="#e8f4f2" stroke-opacity=".4" stroke-width="3"><path d="M0 380Q400 0 1000 450T1920 300M0 500Q600 180 1000 500T1920 650M0 900Q650 250 1300 800T1920 600"/></g></svg>';
 
 async function inspect(context, url, extension, prefix) {
   const page = await context.newPage();
   page.on("pageerror", error => errors.push(error.message));
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.route("https://nav-wallpaper.example/background.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
   await page.goto(url);
   await expect(page.getByRole("button", { name: "打开设置" })).toBeVisible();
@@ -73,6 +74,46 @@ async function inspect(context, url, extension, prefix) {
     await page.screenshot({ path: join(output, `${prefix}-${name}.png`), animations: "disabled" });
     captures.push(`${prefix}-${name}`);
   }
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await seed("dark", true, 24);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const trace = await page.evaluate(async () => {
+    const section = document.querySelector('[data-group-sort-section-id="nav-20"]');
+    const target = Math.max(0, Math.min(scrollY + section.getBoundingClientRect().top
+      - document.querySelector(".topbar").getBoundingClientRect().bottom - 24,
+    document.documentElement.scrollHeight - innerHeight));
+    const start = scrollY;
+    const samples = [];
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    let sectionReads = 0;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      if (this.hasAttribute("data-group-sort-section-id")) sectionReads += 1;
+      return originalRect.call(this);
+    };
+    try {
+      document.querySelectorAll(".group-section-nav ol button")[20].click();
+      // The click measures fresh coordinates once. Scrolling should reuse them.
+      const clickReads = sectionReads;
+      const deadline = performance.now() + 5000;
+      let settled = 0;
+      while (settled < 6) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        samples.push({ time: performance.now(), y: scrollY });
+        settled = Math.abs(scrollY - target) < 2 ? settled + 1 : 0;
+        if (performance.now() > deadline) throw new Error("Production smooth navigation did not settle");
+      }
+      return { start, target, samples, clickReads, scrollingReads: sectionReads - clickReads };
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+    }
+  });
+  assert(trace.target - trace.start > 2 * 1080, "Production navigation spans multiple viewports");
+  assert(new Set(trace.samples.filter(sample => sample.y > trace.start + 2 && sample.y < trace.target - 2)
+    .map(sample => sample.y)).size > 2, "Production navigation has multiple intermediate positions");
+  assert.equal(trace.scrollingReads, 0, "Native scrolling reuses document group coordinates");
+  motion.push({ mode: prefix, ...trace });
+  await capture("smooth-long-destination");
+
   for (const theme of ["light", "dark"]) {
     for (const withWallpaper of [false, true]) {
       await page.setViewportSize({ width: 1920, height: 1080 });
@@ -101,7 +142,7 @@ async function inspect(context, url, extension, prefix) {
     for (const key of ["End", "Home"]) {
       await slider.focus();
       await slider.press(key);
-      await capture(`many-${width}-${key === "End" ? "96" : "8"}`);
+      await capture(`many-${width}-${await slider.inputValue()}`);
     }
     await page.getByRole("button", { name: "恢复默认间距" }).click();
     await capture(`many-${width}`);
@@ -136,5 +177,5 @@ if (!process.argv.includes("--web-only")) {
   } finally { await context.close(); }
 }
 assert.deepEqual(errors, []);
-await writeFile(join(output, "group-navigation-report.json"), JSON.stringify({ captures, measurements, errors }, null, 2));
+await writeFile(join(output, "group-navigation-report.json"), JSON.stringify({ captures, measurements, motion, errors }, null, 2));
 console.log(JSON.stringify({ screenshots: captures.length, errors }));

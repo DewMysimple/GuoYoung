@@ -25,6 +25,163 @@ async function seedGroups(page: Page, count = 12) {
   await expect(page.getByRole("navigation", { name: "分组定位" })).toBeVisible();
 }
 
+async function sectionScrollTop(page: Page, id: string) {
+  return page.locator(`[data-group-sort-section-id="${id}"]`).evaluate(node => Math.max(0, Math.min(
+    scrollY + node.getBoundingClientRect().top - document.querySelector(".topbar")!.getBoundingClientRect().bottom - 24,
+    document.documentElement.scrollHeight - innerHeight,
+  )));
+}
+
+async function traceScrollFrames(page: Page) {
+  return page.evaluateHandle(() => {
+    const samples: { time: number; y: number }[] = [{ time: performance.now(), y: scrollY }];
+    let frame = 0;
+    let stopped = false;
+    let wheelEvents = 0;
+    let wheelPosition = 0;
+    const onWheel = () => { wheelEvents += 1; wheelPosition = scrollY; };
+    const sample = (time: number) => {
+      samples.push({ time, y: scrollY });
+      if (!stopped) frame = requestAnimationFrame(sample);
+    };
+    frame = requestAnimationFrame(sample);
+    window.addEventListener("wheel", onWheel, { passive: true });
+    const until = async (condition: () => boolean) => {
+      const deadline = performance.now() + 5000;
+      while (!condition()) {
+        if (performance.now() > deadline) throw new Error("Scroll did not reach its expected state within 5 seconds");
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      }
+    };
+    return {
+      samples,
+      get wheelEvents() { return wheelEvents; },
+      get wheelPosition() { return wheelPosition; },
+      until,
+      async settledAt(top: number) {
+        let stable = 0;
+        await until(() => {
+          stable = Math.abs(scrollY - top) < 2 ? stable + 1 : 0;
+          return stable >= 6;
+        });
+      },
+      async settled() {
+        let previous = scrollY;
+        let stable = 0;
+        await until(() => {
+          stable = Math.abs(scrollY - previous) < 1 ? stable + 1 : 0;
+          previous = scrollY;
+          return stable >= 8;
+        });
+        return scrollY;
+      },
+      stop() {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        window.removeEventListener("wheel", onWheel);
+        return samples;
+      },
+    };
+  });
+}
+
+test("long group navigation scrolls through intermediate frames", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "Desktop smooth group navigation");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await seedGroups(page);
+  const nav = page.getByRole("navigation", { name: "分组定位" });
+  const top = await sectionScrollTop(page, "nav-10");
+  const start = await page.evaluate(() => scrollY);
+  expect(top - start).toBeGreaterThan(await page.evaluate(() => innerHeight * 2));
+  const trace = await traceScrollFrames(page);
+  try {
+    await nav.getByRole("button", { name: "定位到 分组 11", exact: true }).click();
+    await trace.evaluate(async (trace, top) => trace.settledAt(top), top);
+    const samples = await trace.evaluate(trace => trace.stop());
+    const intermediate = samples.filter(sample => sample.y > start + 2 && sample.y < top - 2);
+    expect(new Set(intermediate.map(sample => Math.round(sample.y))).size).toBeGreaterThan(2);
+    expect(samples.every((sample, index) => !index || sample.y >= samples[index - 1].y - 1)).toBe(true);
+    await expect(nav.locator('[aria-current="location"]')).toHaveText("分组 11");
+    await test.info().attach("long-navigation-scroll-frames", { body: JSON.stringify(samples), contentType: "application/json" });
+  } finally {
+    await trace.evaluate(trace => trace.stop());
+    await trace.dispose();
+  }
+});
+
+test("reversing group navigation during a smooth scroll only reaches the latest target", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "Desktop smooth group navigation");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await seedGroups(page);
+  const nav = page.getByRole("navigation", { name: "分组定位" });
+  const farTop = await sectionScrollTop(page, "nav-10");
+  const nearTop = await sectionScrollTop(page, "nav-0");
+  const trace = await traceScrollFrames(page);
+  try {
+    await nav.getByRole("button", { name: "定位到 分组 11", exact: true }).click();
+    const reversal = await trace.evaluate(async (trace, { farTop, nearTop }) => {
+      await trace.until(() => scrollY > nearTop + 160 && scrollY < farTop - 100);
+      const position = scrollY;
+      const sampleIndex = trace.samples.length;
+      // Retarget in the same animation frame so actionability waits cannot let
+      // the original scroll finish before the reverse navigation is delivered.
+      document.querySelector<HTMLButtonElement>('.group-section-nav button[aria-label="定位到 分组 1"]')!.click();
+      return { position, sampleIndex };
+    }, { farTop, nearTop });
+    expect(reversal.position).toBeGreaterThan(nearTop + 160);
+    await trace.evaluate(async (trace, top) => trace.settledAt(top), nearTop);
+    const samples = await trace.evaluate(trace => trace.stop());
+    const redirected = samples.slice(reversal.sampleIndex);
+    expect(redirected.some(sample => sample.y < reversal.position - 2 && sample.y > nearTop + 2)).toBe(true);
+    expect(redirected.every(sample => sample.y < farTop - 2)).toBe(true);
+    await expect(nav.locator('[aria-current="location"]')).toHaveText("分组 1");
+    await test.info().attach("reversed-navigation-scroll-frames", { body: JSON.stringify({ reversal, samples }), contentType: "application/json" });
+  } finally {
+    await trace.evaluate(trace => trace.stop());
+    await trace.dispose();
+  }
+});
+
+test("wheel input stops smooth navigation and restores the actual reading group", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "Desktop smooth group navigation");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await seedGroups(page);
+  const nav = page.getByRole("navigation", { name: "分组定位" });
+  const farTop = await sectionScrollTop(page, "nav-10");
+  const trace = await traceScrollFrames(page);
+  try {
+    await nav.getByRole("button", { name: "定位到 分组 11", exact: true }).click();
+    const beforeWheel = await trace.evaluate(async (trace, farTop) => {
+      await trace.until(() => scrollY > 300 && scrollY < farTop / 2);
+      return scrollY;
+    }, farTop);
+    await page.mouse.move(700, 400);
+    await page.mouse.wheel(0, -200);
+    const interruption = await trace.evaluate(async trace => {
+      await trace.until(() => trace.wheelEvents > 0);
+      const stoppedAt = await trace.settled();
+      return { stoppedAt, wheelPosition: trace.wheelPosition };
+    });
+    const { stoppedAt } = interruption;
+    expect(stoppedAt).toBeLessThan(farTop / 2);
+    expect(stoppedAt).toBeLessThanOrEqual(interruption.wheelPosition + 2);
+    const actualName = await page.evaluate(() => {
+      const sections = [...document.querySelectorAll<HTMLElement>("[data-group-sort-section-id]")];
+      const readingLine = document.querySelector(".topbar")!.getBoundingClientRect().bottom + 25;
+      let current = sections[0];
+      for (const section of sections) if (section.getBoundingClientRect().top <= readingLine) current = section;
+      return current.querySelector("h3")!.textContent!.trim();
+    });
+    await expect(nav.locator('[aria-current="location"]')).toHaveText(actualName);
+    await expect(nav.locator('[aria-current="location"]')).not.toHaveText("分组 11");
+    const samples = await trace.evaluate(trace => trace.stop());
+    await test.info().attach("interrupted-navigation-scroll-frames", { body: JSON.stringify({ beforeWheel, ...interruption, samples }), contentType: "application/json" });
+  } finally {
+    await trace.evaluate(trace => trace.stop());
+    await trace.dispose();
+  }
+});
+
 test("group navigator tracks real scroll and locates sections without switching views", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "Desktop group navigation");
   await seedGroups(page);

@@ -17,6 +17,7 @@ const groups: SiteGroup[] = ["first", "short", "last"].map((id, order) => ({
 const rect = (left = 0, top = 0, width = 140, height = 40) =>
   ({ x: left, y: top, left, top, width, height, right: left + width, bottom: top + height, toJSON() {} } as DOMRect);
 let position = 0, mainLeft = 300, paintedNavLeft: number | undefined;
+let documentHeight = 1200, sectionTops = [0, 900, 950];
 let frames: Map<number, FrameRequestCallback>, resize: ResizeObserverCallback;
 let readOffsets: string[], bounds: ReturnType<typeof vi.spyOn>;
 const windowDescriptors = { scrollY: Object.getOwnPropertyDescriptor(window, "scrollY")!, innerHeight: Object.getOwnPropertyDescriptor(window, "innerHeight")! };
@@ -50,6 +51,7 @@ function flushFrame() {
 
 beforeEach(() => {
   position = 0; mainLeft = 300; paintedNavLeft = undefined; readOffsets = []; frames = new Map();
+  documentHeight = 1200; sectionTops = [0, 900, 950];
   let sequence = 0;
   vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => { frames.set(++sequence, callback); return sequence; }));
   vi.stubGlobal("cancelAnimationFrame", vi.fn((id: number) => frames.delete(id)));
@@ -59,7 +61,7 @@ beforeEach(() => {
   };
   Object.defineProperties(window, { scrollY: { configurable: true, get: () => position }, innerHeight: { configurable: true, value: 600 } });
   vi.spyOn(window, "matchMedia").mockReturnValue({ matches: false } as MediaQueryList);
-  vi.spyOn(document.documentElement, "scrollHeight", "get").mockReturnValue(1200);
+  vi.spyOn(document.documentElement, "scrollHeight", "get").mockImplementation(() => documentHeight);
   vi.spyOn(window, "scrollTo").mockImplementation((options: ScrollToOptions | number) => {
     if (typeof options === "object") position = options.top ?? position;
   });
@@ -76,7 +78,7 @@ beforeEach(() => {
     if (this.matches(".topbar")) return rect(0, 0, 1000, 100);
     if (this.matches(".group-section-nav")) return rect(paintedNavLeft ?? 12 + parseFloat(this.style.left || "0"), 120);
     const index = groups.findIndex(group => group.id === this.dataset.groupSortSectionId);
-    if (index !== -1) return rect(mainLeft, [0, 900, 950][index] - position);
+    if (index !== -1) return rect(mainLeft, sectionTops[index] - position);
     return rect(0, 120, 140, 300);
   });
 });
@@ -104,18 +106,22 @@ describe("group navigation measurement boundaries", () => {
     expect(nav).not.toHaveAttribute("data-compact");
   });
 
-  it("does not measure document groups for input or Portal interactions that do not scroll the document", () => {
+  it("caches document positions across scrolling and ignores unrelated input or Portal interactions", () => {
     render(<Fixture />);
     bounds.mockClear();
+    readOffsets = [];
     fireEvent.keyDown(screen.getByLabelText("Unrelated input"), { key: "a" });
     fireEvent.pointerDown(screen.getByRole("button", { name: "Unrelated action" }));
     fireEvent.wheel(screen.getByTestId("portal"), { deltaY: 120 });
     flushFrame();
     expect(bounds).not.toHaveBeenCalled();
 
-    position = 300;
+    position = 600;
     fireEvent.scroll(window); flushFrame();
-    expect(bounds).toHaveBeenCalled();
+    // Moving the active button may measure the rail's own scrollable list;
+    // document sections and the topbar must still use their cached positions.
+    expect(readOffsets).toEqual([]);
+    expect(screen.getByRole("button", { name: "定位到 last" })).toHaveAttribute("aria-current", "location");
   });
 
   it("reads all document geometry before moving the navigation rail", () => {
@@ -164,6 +170,55 @@ describe("group navigation measurement boundaries", () => {
     expect(screen.getByRole("button", { name: "定位到 last" })).toHaveAttribute("aria-current", "location");
     position = 0; fireEvent.scroll(window); flushFrame();
     expect(screen.getByRole("button", { name: "定位到 first" })).toHaveAttribute("aria-current", "location");
+  });
+
+  it("keeps long navigation smooth and holds the latest target through intermediate scroll and observer notifications", () => {
+    documentHeight = 6000; sectionTops = [0, 900, 5000];
+    render(<Fixture />);
+    const last = screen.getByRole("button", { name: "定位到 last" });
+    fireEvent.click(last);
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 4876, behavior: "smooth" });
+    position = 300;
+    fireEvent.scroll(window); flushFrame();
+    act(() => resize([], {} as ResizeObserver)); flushFrame();
+    expect(last).toHaveAttribute("aria-current", "location");
+    expect(window.scrollTo).toHaveBeenCalledTimes(1);
+
+    const short = screen.getByRole("button", { name: "定位到 short" });
+    fireEvent.click(short);
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 776, behavior: "smooth" });
+    position = 450;
+    fireEvent.scroll(window); flushFrame();
+    expect(short).toHaveAttribute("aria-current", "location");
+  });
+
+  it("retargets a moved destination smoothly after layout changes", () => {
+    documentHeight = 6000; sectionTops = [0, 900, 5000];
+    render(<Fixture />);
+    fireEvent.click(screen.getByRole("button", { name: "定位到 last" }));
+    position = 1200;
+    sectionTops[2] += 200;
+    act(() => resize([], {} as ResizeObserver)); flushFrame();
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 5076, behavior: "smooth" });
+    expect(screen.getByRole("button", { name: "定位到 last" })).toHaveAttribute("aria-current", "location");
+  });
+
+  it("stops native scrolling at the actual position for manual input and unmount", () => {
+    documentHeight = 6000; sectionTops = [0, 900, 5000];
+    const view = render(<Fixture />);
+    fireEvent.click(screen.getByRole("button", { name: "定位到 last" }));
+    position = 1500;
+    fireEvent.wheel(document.body, { deltaY: -120 });
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 1500, behavior: "instant" });
+    flushFrame();
+    expect(screen.getByRole("button", { name: "定位到 short" })).toHaveAttribute("aria-current", "location");
+
+    fireEvent.click(screen.getByRole("button", { name: "定位到 last" }));
+    position = 2000;
+    fireEvent.scroll(window);
+    view.unmount();
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 2000, behavior: "instant" });
+    expect(frames.size).toBe(0);
   });
 
   it("remeasures on observed layout changes and keeps navigation disabled during dragging", () => {

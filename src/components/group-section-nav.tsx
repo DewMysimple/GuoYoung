@@ -24,7 +24,7 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
   const [activeId, setActiveId] = useState<string | undefined>(groups[0]?.id);
   const navRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
-  const destination = useRef<{ id: string; top: number } | null>(null);
+  const navigateTo = useRef<(id: string) => void>(() => {});
   const order = JSON.stringify(groups.map(group => group.id));
   // Text/icon preferences can change the safe width without resizing the grid.
   const safeCardWidth = getMinimumCardWidth(useContext(LayoutSettingsContext));
@@ -36,8 +36,15 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
     const main = container.closest("main")!;
     const shell = main.closest<HTMLElement>(".app-shell")!;
     let frame = 0;
-    const update = () => {
-      frame = 0;
+    let layoutDirty = true;
+    let visible = false;
+    let sectionPositions: { id: string; top: number }[] = [];
+    let readingOffset = 0;
+    let maxScroll = 0;
+    let destination: { id: string; top: number } | null = null;
+    // Absolute positions stay valid while scrolling. Re-read layout only when
+    // it changes, leaving native smooth scrolling free of per-frame DOM work.
+    const measureLayout = () => {
       const shellStyle = getComputedStyle(shell);
       const navWidth = parseFloat(getComputedStyle(nav).width);
       const physicalGap = parseFloat(shellStyle.getPropertyValue("--group-nav-gap")) || gap;
@@ -46,33 +53,74 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
       const availableWidth = shell.clientWidth - parseFloat(shellStyle.paddingRight);
       const compact = availableWidth < pagePadding * 2 + navWidth + physicalGap + minimumCardWidth;
       nav.toggleAttribute("data-compact", compact);
-      if (!nav.getClientRects().length) return;
+      visible = Boolean(nav.getClientRects().length);
+      if (!visible) return;
       const left = `${Math.max(12, main.getBoundingClientRect().left - navWidth - physicalGap) - fixedViewportOriginX()}px`;
-      let nextActiveId: string | undefined;
-      if (!disabled) {
-        const sections = [...container.querySelectorAll<HTMLElement>("[data-group-sort-section-id]")];
-        const offset = (document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0) + 24;
-        let current: HTMLElement | undefined = sections[0];
-        for (const section of sections) {
-          if (section.getBoundingClientRect().top <= offset + 1) current = section;
-        }
-        // The last short section cannot always reach the reading line.
-        const root = document.documentElement;
-        if (window.scrollY > 0 && window.scrollY + window.innerHeight >= root.scrollHeight - 2) {
-          current = sections.at(-1);
-        }
-        const target = destination.current;
-        nextActiveId = target?.id ?? current?.dataset.groupSortSectionId;
-      }
+      const scrollY = window.scrollY;
+      readingOffset = (document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0) + 24;
+      sectionPositions = [...container.querySelectorAll<HTMLElement>("[data-group-sort-section-id]")]
+        .map(section => ({ id: section.dataset.groupSortSectionId!, top: scrollY + section.getBoundingClientRect().top }));
+      maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
       // Finish layout reads before changing the rail's position.
       if (nav.style.left !== left) nav.style.left = left;
-      if (!disabled) setActiveId(nextActiveId);
+    };
+    const targetTop = (section: { top: number }) => Math.max(0, Math.min(section.top - readingOffset, maxScroll));
+    const scrollTo = (top: number) => window.scrollTo({ top,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    const update = () => {
+      frame = 0;
+      if (layoutDirty) {
+        layoutDirty = false;
+        measureLayout();
+        // An observer's first notification must not discard the clicked target.
+        // A real layout change retargets it only if its landing point moved.
+        const target = destination;
+        const section = target && sectionPositions.find(section => section.id === target.id);
+        if (target && section) {
+          const top = targetTop(section);
+          if (Math.abs(top - target.top) > 1) {
+            target.top = top;
+            scrollTo(top);
+          }
+        }
+      }
+      if (disabled || !visible) return;
+      const scrollY = window.scrollY;
+      let current = sectionPositions[0];
+      for (const section of sectionPositions) {
+        if (section.top <= scrollY + readingOffset + 1) current = section;
+      }
+      // The last short section cannot always reach the reading line.
+      if (scrollY > 0 && scrollY >= maxScroll - 2) current = sectionPositions.at(-1)!;
+      setActiveId(destination?.id ?? current?.id);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
-    // Input cancels a clicked destination. Only an actual scroll or layout
-    // change needs a new measurement; typing and Portal input do not move groups.
-    const releaseDestination = () => { destination.current = null; };
-    const layoutChanged = () => { releaseDestination(); schedule(); };
+    const cancelDestination = () => {
+      const target = destination;
+      destination = null;
+      if (target && Math.abs(window.scrollY - target.top) > 1) {
+        // Stop the native animation at its actual position before user input.
+        window.scrollTo({ top: window.scrollY, behavior: "instant" });
+      }
+      return Boolean(target);
+    };
+    const releaseDestination = () => { if (cancelDestination()) schedule(); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " ", "Escape"].includes(event.key)) releaseDestination();
+    };
+    const layoutChanged = () => { layoutDirty = true; schedule(); };
+    navigateTo.current = id => {
+      if (disabled) return;
+      measureLayout();
+      layoutDirty = false;
+      const section = sectionPositions.find(section => section.id === id);
+      if (!section) return;
+      const top = targetTop(section);
+      destination = { id, top };
+      setActiveId(id);
+      // A new native smooth request replaces the preceding destination.
+      scrollTo(top);
+    };
     const observer = new ResizeObserver(layoutChanged);
     observer.observe(container);
     observer.observe(main);
@@ -85,7 +133,7 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
     window.addEventListener("wheel", releaseDestination, { passive: true });
     window.addEventListener("touchstart", releaseDestination, { passive: true });
     window.addEventListener("pointerdown", releaseDestination);
-    window.addEventListener("keydown", releaseDestination);
+    window.addEventListener("keydown", onKeyDown);
     update();
     return () => {
       cancelAnimationFrame(frame);
@@ -95,8 +143,9 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
       window.removeEventListener("wheel", releaseDestination);
       window.removeEventListener("touchstart", releaseDestination);
       window.removeEventListener("pointerdown", releaseDestination);
-      window.removeEventListener("keydown", releaseDestination);
-      destination.current = null;
+      window.removeEventListener("keydown", onKeyDown);
+      cancelDestination();
+      navigateTo.current = () => {};
     };
   }, [containerRef, order, disabled, gap, safeCardWidth]);
 
@@ -110,20 +159,6 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
     else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom + 8;
   }, [activeId, adjusting]);
 
-  function navigate(id: string) {
-    const section = [...(containerRef.current?.querySelectorAll<HTMLElement>("[data-group-sort-section-id]") ?? [])]
-      .find(element => element.dataset.groupSortSectionId === id);
-    if (!section) return;
-    const offset = (document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0) + 24;
-    const top = Math.max(0, Math.min(window.scrollY + section.getBoundingClientRect().top - offset,
-      document.documentElement.scrollHeight - window.innerHeight));
-    destination.current = { id, top };
-    setActiveId(id);
-    const longJump = Math.abs(window.scrollY - top) > window.innerHeight * 1.5;
-    window.scrollTo({ top,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches || longJump ? "instant" : "smooth" });
-  }
-
   if (!groups.length) return null;
   return <nav ref={navRef} className="group-section-nav" aria-label="分组定位" data-selection-surface="group-navigation">
     <div className="group-section-nav-panel">
@@ -132,7 +167,7 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
         {groups.map(group => <li key={group.id}>
           <button type="button" title={group.name} disabled={disabled}
             aria-label={`定位到 ${group.name}`} aria-current={activeId === group.id ? "location" : undefined}
-            onClick={() => navigate(group.id)}>
+            onClick={() => navigateTo.current(group.id)}>
             <span className="group-section-nav-icon"><CategoryIcon name={group.icon} size={17} /></span>
             <span className="group-section-nav-name">{group.name}</span>
           </button>
