@@ -131,7 +131,7 @@ export function GithubRepositoryImportDialog({
               </button>
             </div>
             <div className="field-help"><HelpTip>
-              仅读取公开仓库，不需要登录；默认包括 fork 和归档仓库。
+              仅读取公开仓库，不需要登录；用户账号包含本人拥有和参与的仓库，也包括 fork 与归档仓库。
             </HelpTip></div>
           </form>
 

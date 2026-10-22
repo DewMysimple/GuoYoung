@@ -23,7 +23,7 @@ describe("GitHub repository API", () => {
   });
 
   it("stops cyclic pagination without returning a partial import", async () => {
-    const next = "https://api.github.com/users/acme/repos?per_page=100&sort=full_name&direction=asc";
+    const next = "https://api.github.com/users/acme/repos?per_page=100&sort=full_name&direction=asc&type=all";
     const fetchImpl = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(response({ login: "acme", type: "User" }))
       .mockResolvedValue(response([], 200, `<${next}>; rel="next"`));

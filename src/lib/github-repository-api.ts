@@ -153,9 +153,10 @@ export async function fetchGithubOwnerRepositories(
   };
 
   const repositories: GithubRepositorySummary[] = [];
+  const repositoryType = entityType === "user" ? "&type=all" : "";
   let nextUrl = `https://api.github.com/${
     entityType === "organization" ? "orgs" : "users"
-  }/${encodedLogin}/repos?per_page=100&sort=full_name&direction=asc`;
+  }/${encodedLogin}/repos?per_page=100&sort=full_name&direction=asc${repositoryType}`;
   const visitedPages = new Set<string>();
   while (nextUrl) {
     if (visitedPages.has(nextUrl)) {

@@ -62,7 +62,7 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
           current = sections.at(-1);
         }
         const target = destination.current;
-        nextActiveId = target && Math.abs(window.scrollY - target.top) < 2 ? target.id : current?.dataset.groupSortSectionId;
+        nextActiveId = target?.id ?? current?.dataset.groupSortSectionId;
       }
       // Finish layout reads before changing the rail's position.
       if (nav.style.left !== left) nav.style.left = left;
@@ -118,9 +118,10 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
     const top = Math.max(0, Math.min(window.scrollY + section.getBoundingClientRect().top - offset,
       document.documentElement.scrollHeight - window.innerHeight));
     destination.current = { id, top };
-    if (Math.abs(window.scrollY - top) < 2) setActiveId(id);
+    setActiveId(id);
+    const longJump = Math.abs(window.scrollY - top) > window.innerHeight * 1.5;
     window.scrollTo({ top,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches || longJump ? "instant" : "smooth" });
   }
 
   if (!groups.length) return null;

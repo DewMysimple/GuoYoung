@@ -1817,9 +1817,7 @@ select:focus-visible {
 }
 
 .github-refresh-footer {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  margin-top: 12px;
 }
 
 .spin {

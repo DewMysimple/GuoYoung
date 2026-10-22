@@ -423,6 +423,8 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 }
 
 .has-wallpaper .group-section-nav-icon,
+.has-wallpaper .favicon-frame:not(:has(img.is-loaded)),
+.has-wallpaper .favicon-fallback,
 .has-wallpaper .data-workspace .data-file-drop,
 .has-wallpaper .data-workspace .data-group-choice,
 .has-wallpaper .data-workspace .data-scope-options > button,
