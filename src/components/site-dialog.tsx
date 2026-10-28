@@ -50,6 +50,7 @@ export function SiteDialog({
 }: SiteDialogProps) {
   const [values, setValues] = useState<SiteFormValues>({
     name: "",
+    note: "",
     url: "",
     groupId: "",
     customIconUrl: "",
@@ -76,6 +77,7 @@ export function SiteDialog({
       editingSite
         ? {
             name: editingSite.name,
+            note: editingSite.note ?? "",
             url: editingSite.url,
             groupId: editingGroupId,
             customIconUrl: editingSite.customIconUrl ?? "",
@@ -85,6 +87,7 @@ export function SiteDialog({
           }
         : {
             name: prefillName,
+            note: "",
             url: prefill?.url ?? "",
             groupId: defaultGroupId,
             customIconUrl: "",
@@ -201,6 +204,7 @@ export function SiteDialog({
 
     onSubmit({
       name: values.name.trim(),
+      note: values.note?.trim() ?? "",
       url,
       groupId: values.groupId,
       customIconUrl: customIconUrl ?? "",
@@ -334,6 +338,15 @@ export function SiteDialog({
                   {errors.name}
                 </p>
               )}
+              </div>
+
+              <div className="field-group">
+                <label htmlFor="site-note">网站备注</label>
+                <div className="input-shell site-note-field">
+                  <textarea id="site-note" className="site-note-editor" rows={3} maxLength={2000}
+                    value={values.note ?? ""} onChange={event => update("note", event.target.value)}
+                    placeholder="例如：网页设计参考、项目文档或使用提示" />
+                </div>
               </div>
 
               {hasValidPreviewUrl && iconPickerUrl && (

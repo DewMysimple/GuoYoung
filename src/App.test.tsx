@@ -90,6 +90,28 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "打开 GitHub 收藏" })).toBeInTheDocument();
   });
 
+  it("edits website notes and previews their visibility without changing saved text", async () => {
+    const state = createDefaultState();
+    state.sites[0].note = "原备注";
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const user = userEvent.setup();
+    render(<App />);
+    const card = screen.getByTestId(`site-card-${state.sites[0].id}`);
+    expect(within(card).getByText("原备注")).toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: `编辑 ${state.sites[0].name}` }));
+    expect(screen.getByLabelText("网站备注")).toHaveValue("原备注");
+    await user.clear(screen.getByLabelText("网站备注"));
+    await user.type(screen.getByLabelText("网站备注"), "项目资料");
+    await user.click(screen.getByRole("button", { name: "保存修改" }));
+    expect(within(card).getByText("项目资料")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "打开设置" }));
+    await user.click(screen.getByRole("checkbox", { name: "显示网站备注" }));
+    expect(within(card).queryByText("项目资料")).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).sites[0].note).toBe("项目资料");
+    await user.click(within(screen.getByRole("dialog", { name: "设置" })).getByRole("button", { name: /^取消$/ }));
+    expect(within(card).getByText("项目资料")).toBeInTheDocument();
+  });
+
   it("returns to the collection without navigating when the brand is clicked", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -609,7 +631,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":27');
+      expect(stored).toContain('"version":28');
     });
   });
 
@@ -882,7 +904,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(27);
+      expect(stored.version).toBe(28);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -1323,6 +1345,7 @@ describe("App", () => {
     fireEvent.change(screen.getByRole("slider", { name: "整体字号" }), { target: { value: "110" } });
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1.1");
     await user.click(screen.getByRole("tab", { name: "外观" }));
+    await user.click(screen.getByRole("button", { name: /^页面布局$/ }));
     await user.click(screen.getByRole("button", { name: /布局微调/ }));
     expect(within(document.querySelector(".appearance-details") as HTMLElement).getAllByRole("slider")).toHaveLength(5);
     fireEvent.change(screen.getByRole("slider", { name: "卡片宽度" }), {

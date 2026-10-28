@@ -19,7 +19,10 @@ async function seed(page: Page, theme: "light" | "dark", withWallpaper: boolean)
 
 async function openSettings(page: Page) {
   await page.getByRole("button", { name: "打开设置", exact: true }).click();
-  return page.getByRole("dialog", { name: "设置", exact: true });
+  const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  const layout = panel.getByRole("button", { name: "页面布局", exact: true });
+  if (await layout.count() && await layout.getAttribute("aria-expanded") !== "true") await layout.click();
+  return panel;
 }
 
 async function expand(panel: Locator, title: string) {

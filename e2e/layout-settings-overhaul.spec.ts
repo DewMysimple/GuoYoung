@@ -44,6 +44,8 @@ async function openAppearance(page: Page) {
   await page.getByRole("button", { name: "打开设置", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: "外观", exact: true }).click();
+  const layout = panel.getByRole("button", { name: "页面布局", exact: true });
+  if (await layout.getAttribute("aria-expanded") !== "true") await layout.click();
   return panel;
 }
 
@@ -193,7 +195,7 @@ test("keeps rendered cards square and honors a saved row count in flat, focused 
   await page.reload();
   await expectSquareGrid(page.locator(".site-grid"), 6);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
-  expect(saved.version).toBe(27);
+  expect(saved.version).toBe(28);
   expect(saved.appearance).toMatchObject({ cardShape: "square", cardLayout: "columns", cardColumns: 6 });
   expect(saved.appearance).toMatchObject({ cardWidth: 132, cardHeight: 160 });
 

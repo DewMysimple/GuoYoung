@@ -10,6 +10,7 @@ import {
 } from "../data/defaults";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
 import { normalizeTypography } from "./typography";
+import { normalizeSiteNote } from "./site-notes";
 import { LAYOUT_LIMITS } from "./layout";
 import { WALLPAPER_GLASS_KEYS } from "./wallpaper-presets";
 import type {
@@ -122,6 +123,7 @@ export function normalizeAppearance(value: unknown): AppearanceSettings {
   return {
     ...normalizeTypography(candidate),
     allowTextSelection: typeof candidate.allowTextSelection === "boolean" ? candidate.allowTextSelection : true,
+    showSiteNotes: typeof candidate.showSiteNotes === "boolean" ? candidate.showSiteNotes : true,
     theme: candidate.theme === "light" || candidate.theme === "dark" || candidate.theme === "system"
       ? candidate.theme : DEFAULT_APPEARANCE.theme,
     accentColor: isHexColor(candidate.accentColor)
@@ -552,6 +554,7 @@ function normalizeDeletedSites(value: unknown): TrashedSite[] {
     .map((entry) => ({
       site: {
         ...entry.site,
+        note: normalizeSiteNote(entry.site.note),
         clickCount: normalizeClickCount(
           (entry.site as unknown as Record<string, unknown>).clickCount,
         ),
@@ -637,17 +640,18 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 27 &&
+    state.version === 28 &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
-      hasValidClickCount(site.clickCount),
+      hasValidClickCount(site.clickCount) && (site.note === undefined || typeof site.note === "string"),
     ) &&
     Array.isArray(state.deletedSites) &&
     (state.deletedSites as Array<Record<string, unknown>>).every((entry) =>
       Boolean(entry) &&
       typeof entry.site === "object" &&
       entry.site !== null &&
-      hasValidClickCount((entry.site as Record<string, unknown>).clickCount),
+      hasValidClickCount((entry.site as Record<string, unknown>).clickCount) &&
+      ((entry.site as Record<string, unknown>).note === undefined || typeof (entry.site as Record<string, unknown>).note === "string"),
     ) &&
     trashRetentionOptions.includes(
       state.trashRetentionDays as TrashRetentionDays,
@@ -1078,6 +1082,13 @@ function upgradeToVersion27(legacy: Record<string, unknown> | SiteCollectionStat
   return { ...candidate, version: 27, appearance: normalizeAppearance(candidate.appearance) };
 }
 
+function upgradeToVersion28(legacy: Record<string, unknown> | SiteCollectionState, sourceAppearance: unknown): SiteCollectionState | undefined {
+  const base = legacy.version === 28 ? legacy : upgradeToVersion27(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  const candidate = base as SiteCollectionState;
+  return { ...candidate, version: 28, appearance: normalizeAppearance(candidate.appearance) };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1192,7 +1203,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 27 || candidate.version === 26 || candidate.version === 25 || candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
+        candidate.version === 28 || candidate.version === 27 || candidate.version === 26 || candidate.version === 25 || candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
           candidate.version === 18 ||
           candidate.version === 17 ||
           candidate.version === 16 ||
@@ -1208,7 +1219,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion27(baseCandidate, candidate.appearance)
+        ? upgradeToVersion28(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.
@@ -1229,6 +1240,7 @@ export function parseStoredState(raw: string | null): LoadedState {
               })),
               sites: migrated.sites.map((site) => ({
                 ...site,
+                note: normalizeSiteNote(site.note),
                 clickCount: normalizeClickCount(site.clickCount),
               })),
               deletedSites: normalizeDeletedSites(migrated.deletedSites),

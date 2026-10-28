@@ -233,7 +233,7 @@ export function filterSites(
     ;
   if (!normalizedQuery) return eligible;
   return eligible.map(site => ({ site, score: collectionSearchScore(site.name, site.url,
-    groupNames.get(site.groupId) ?? "", normalizedQuery) }))
+    groupNames.get(site.groupId) ?? "", normalizedQuery, site.note) }))
     .filter(result => result.score > 0).sort((a, b) => b.score - a.score).map(result => result.site);
 }
 

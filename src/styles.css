@@ -2398,6 +2398,42 @@ select:focus-visible {
   white-space: nowrap;
 }
 
+.site-note {
+  display: block;
+  overflow: hidden;
+  margin-top: var(--card-detail-gap, 5px);
+  color: var(--text-soft);
+  font-size: calc(var(--card-detail-size, 11px) * var(--card-font-scale));
+  line-height: var(--card-detail-line-height, 1.25);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input-shell.site-note-field {
+  grid-template-columns: minmax(0, 1fr);
+  height: auto;
+  padding: 0;
+}
+
+.site-note-editor {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 82px;
+  resize: vertical;
+  padding: 10px;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.site-note-editor:focus-visible { outline: none; box-shadow: none; }
+.site-note-editor::placeholder { color: var(--text-faint); }
+
 .site-category {
   display: flex;
   width: 100%;

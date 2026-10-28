@@ -91,6 +91,7 @@ export type SiteIconSource =
 export interface SiteItem {
   id: string;
   name: string;
+  note?: string;
   url: string;
   groupId: string;
   customIconUrl?: string;
@@ -164,6 +165,7 @@ export interface TypographySettings {
 
 export interface AppearanceSettings extends TypographySettings {
   allowTextSelection: boolean;
+  showSiteNotes: boolean;
   theme: ThemePreference;
   accentColor: string;
   layoutPreset: LayoutPreset;
@@ -267,6 +269,7 @@ export interface SiteCollectionState {
 
 export interface SiteFormValues {
   name: string;
+  note?: string;
   url: string;
   groupId: string;
   customIconUrl: string;

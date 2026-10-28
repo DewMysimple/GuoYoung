@@ -47,9 +47,9 @@ async function traceScrollFrames(page: Page) {
     frame = requestAnimationFrame(sample);
     window.addEventListener("wheel", onWheel, { passive: true });
     const until = async (condition: () => boolean) => {
-      const deadline = performance.now() + 5000;
+      const deadline = performance.now() + 15000;
       while (!condition()) {
-        if (performance.now() > deadline) throw new Error("Scroll did not reach its expected state within 5 seconds");
+        if (performance.now() > deadline) throw new Error("Scroll did not reach its expected state within 15 seconds");
         await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
       }
     };
@@ -85,14 +85,19 @@ async function traceScrollFrames(page: Page) {
   });
 }
 
-test("long group navigation scrolls through intermediate frames", async ({ page }, info) => {
+test("long group navigation passes every intermediate group at a readable speed", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "Desktop smooth group navigation");
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await seedGroups(page);
   const nav = page.getByRole("navigation", { name: "分组定位" });
   const top = await sectionScrollTop(page, "nav-10");
   const start = await page.evaluate(() => scrollY);
-  expect(top - start).toBeGreaterThan(await page.evaluate(() => innerHeight * 2));
+  const viewport = await page.evaluate(() => innerHeight);
+  expect(top - start).toBeGreaterThan(viewport * 2);
+  const groupPositions = await page.locator("[data-group-sort-section-id]").evaluateAll(sections => {
+    const offset = document.querySelector(".topbar")!.getBoundingClientRect().bottom + 24;
+    return sections.map(section => scrollY + section.getBoundingClientRect().top - offset);
+  });
   const trace = await traceScrollFrames(page);
   try {
     await nav.getByRole("button", { name: "定位到 分组 11", exact: true }).click();
@@ -101,9 +106,61 @@ test("long group navigation scrolls through intermediate frames", async ({ page 
     const intermediate = samples.filter(sample => sample.y > start + 2 && sample.y < top - 2);
     expect(new Set(intermediate.map(sample => Math.round(sample.y))).size).toBeGreaterThan(2);
     expect(samples.every((sample, index) => !index || sample.y >= samples[index - 1].y - 1)).toBe(true);
+    const departure = samples.find(sample => sample.y > start + 2)!;
+    const arrival = samples.find(sample => sample.y >= top - 2)!;
+    // Assert the actual speed contract, without requiring a fixed frame rate.
+    expect(arrival.time - departure.time).toBeGreaterThan((top - start) / (viewport * 1.8) * 1000 * 0.9);
+    for (const groupTop of groupPositions.filter(value => value > start && value < top)) {
+      expect(samples.some(sample => Math.abs(sample.y - groupTop) < viewport / 4)).toBe(true);
+    }
     await expect(nav.locator('[aria-current="location"]')).toHaveText("分组 11");
     await test.info().attach("long-navigation-scroll-frames", { body: JSON.stringify(samples), contentType: "application/json" });
   } finally {
+    await trace.evaluate(trace => trace.stop());
+    await trace.dispose();
+  }
+});
+
+test("short tail navigation does not flash the last group between pointerdown and click", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "Desktop pointer navigation");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await seedGroups(page, 3);
+  const nav = page.getByRole("navigation", { name: "分组定位" });
+  const tailName = "设计灵感与交互参考资料收藏";
+  const tailTop = await sectionScrollTop(page, "nav-2");
+  const trace = await traceScrollFrames(page);
+  const changes = await nav.evaluateHandle(node => {
+    const seen: string[] = [];
+    const observer = new MutationObserver(() => {
+      const current = node.querySelector('[aria-current="location"]');
+      if (current) seen.push(current.textContent!.trim());
+    });
+    observer.observe(node, { subtree: true, attributes: true, attributeFilter: ["aria-current"] });
+    return { seen, stop: () => observer.disconnect() };
+  });
+  try {
+    await nav.getByRole("button", { name: `定位到 ${tailName}`, exact: true }).click();
+    await trace.evaluate(async (trace, top) => trace.settledAt(top), tailTop);
+    await expect(nav.locator('[aria-current="location"]')).toHaveText(tailName);
+    await changes.evaluate(changes => { changes.seen.length = 0; });
+    const first = nav.getByRole("button", { name: "定位到 分组 1", exact: true });
+    await first.hover();
+    await page.mouse.down();
+    // Hold the real pointer across paints, reproducing the video's down/click
+    // gap rather than sending a synthetic click that hides the interim state.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(nav.locator('[aria-current="location"]')).toHaveText(tailName);
+    await page.mouse.up();
+    await expect(nav.locator('[aria-current="location"]')).toHaveText("分组 1");
+    await trace.evaluate(async (trace, top) => trace.settledAt(top), await sectionScrollTop(page, "nav-0"));
+    const seen = await changes.evaluate(changes => changes.seen);
+    expect(seen).not.toContain("其他");
+    expect(seen.every(name => name === "分组 1")).toBe(true);
+    await test.info().attach("pointer-target-highlights", { body: JSON.stringify(seen), contentType: "application/json" });
+  } finally {
+    await page.mouse.up();
+    await changes.evaluate(changes => changes.stop());
+    await changes.dispose();
     await trace.evaluate(trace => trace.stop());
     await trace.dispose();
   }

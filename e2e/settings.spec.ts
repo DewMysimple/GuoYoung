@@ -143,7 +143,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(27);
+  expect(saved.version).toBe(28);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -397,6 +397,7 @@ test("simplifies appearance choices and preserves preview, save, reload and rese
   await expect(reading).toHaveValue("110");
   await panel.getByRole("tab", { name: "外观", exact: true }).click();
   await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();
+  await panel.getByRole("button", { name: "页面布局", exact: true }).click();
   await panel.getByRole("button", { name: /布局微调/ }).focus();
   await page.keyboard.press("Enter");
   for (const name of ["页面宽度", "卡片宽度", "卡片高度", "卡片间距", "卡片圆角"]) {

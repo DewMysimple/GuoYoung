@@ -22,6 +22,7 @@ import {
   isGithubUrl,
 } from "./github-workspace";
 import { normalizeUrl, reindexSites } from "./site-utils";
+import { normalizeSiteNote } from "./site-notes";
 
 export type SavedSiteValues = SiteFormValues & {
   url: string;
@@ -347,6 +348,7 @@ export function addSiteToState(
   const site: SiteItem = {
     id,
     name: values.name.trim(),
+    note: normalizeSiteNote(values.note),
     url: values.url,
     groupId,
     customIconUrl: values.customIconUrl || undefined,
@@ -410,6 +412,7 @@ export function mergeGroupImportIntoState(
     imported.push({
       id: crypto.randomUUID(),
       name: entry.name.trim(),
+      note: normalizeSiteNote(entry.note),
       url: entry.url,
       groupId,
       ...(entry.customIconUrl ? { customIconUrl: entry.customIconUrl } : {}),
@@ -453,6 +456,7 @@ export function updateSiteInState(
       ? {
           ...site,
           name: values.name.trim(),
+          note: values.note === undefined ? site.note : normalizeSiteNote(values.note),
           url: values.url,
           groupId,
           customIconUrl: values.customIconUrl || undefined,

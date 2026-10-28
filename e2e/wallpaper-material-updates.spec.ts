@@ -49,6 +49,7 @@ test('scrolling a body portal does not resample the stationary collection', asyn
   await page.getByRole('button', { name: '打开设置' }).click();
   const panel = page.getByRole('dialog', { name: '设置', exact: true });
   await expect(panel).toHaveCSS('transform', 'none');
+  await panel.getByRole('button', { name: '页面布局', exact: true }).click();
   await panel.getByRole('button', { name: '布局微调' }).click();
   await expect.poll(() => panel.locator('.settings-body').evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
   await page.waitForTimeout(400);

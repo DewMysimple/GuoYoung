@@ -118,7 +118,19 @@ button { cursor: pointer; }
 .popup-site-name input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
 .popup-site-name input:disabled { opacity: .55; }
 .popup-group-picker { display: grid; flex: 1; min-height: 0; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
+.popup-group-picker.is-creating { grid-template-rows: auto auto minmax(0, 1fr); }
+.popup-group-heading { display: flex; min-height: 20px; align-items: center; justify-content: space-between; gap: 8px; }
 .popup-group-label { color: var(--text-soft); font-size: 0.6875rem; font-weight: 750; }
+.popup-new-group-trigger { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 3px; padding: 0; border: 0; color: var(--ui-accent-text); background: transparent; font-size: 0.6875rem; line-height: 1.5; }
+.popup-new-group-trigger:hover:not(:disabled) { color: var(--accent-strong); }
+.popup-new-group-trigger:disabled, .popup-new-group-cancel:disabled { cursor: default; opacity: .52; }
+.popup-new-group { display: grid; gap: 6px; min-width: 0; }
+.popup-new-group-row { display: flex; gap: 8px; min-width: 0; }
+.popup-new-group-row .popup-field { flex: 1; min-width: 0; }
+.popup-new-group-row input { min-width: 0; }
+.popup-new-group-cancel { padding: 0 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: .6875rem; }
+.popup-new-group-cancel:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.popup-group-error { margin: 0; color: var(--ui-danger-text); font-size: .6875rem; line-height: 1.5; }
 .popup-group-options { display: grid; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 40px; align-content: start; gap: 7px; overflow: auto; padding: 2px; scrollbar-color: color-mix(in srgb, var(--text-soft) 38%, transparent) transparent; scrollbar-width: thin; }
 .popup-group-option { display: flex; min-width: 0; min-height: 38px; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-soft); background: var(--surface); text-align: left; font-size: 0.6875rem; font-weight: 680; transition: border-color 150ms ease, color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
 .popup-group-option:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); color: var(--ui-accent-text); }

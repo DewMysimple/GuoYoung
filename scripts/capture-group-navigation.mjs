@@ -94,7 +94,7 @@ async function inspect(context, url, extension, prefix) {
       document.querySelectorAll(".group-section-nav ol button")[20].click();
       // The click measures fresh coordinates once. Scrolling should reuse them.
       const clickReads = sectionReads;
-      const deadline = performance.now() + 5000;
+      const deadline = performance.now() + 15000;
       let settled = 0;
       while (settled < 6) {
         await new Promise(resolve => requestAnimationFrame(resolve));
@@ -110,7 +110,7 @@ async function inspect(context, url, extension, prefix) {
   assert(trace.target - trace.start > 2 * 1080, "Production navigation spans multiple viewports");
   assert(new Set(trace.samples.filter(sample => sample.y > trace.start + 2 && sample.y < trace.target - 2)
     .map(sample => sample.y)).size > 2, "Production navigation has multiple intermediate positions");
-  assert.equal(trace.scrollingReads, 0, "Native scrolling reuses document group coordinates");
+  assert.equal(trace.scrollingReads, 0, "Paced navigation reuses document group coordinates between layout changes");
   motion.push({ mode: prefix, ...trace });
   await capture("smooth-long-destination");
 
@@ -136,7 +136,7 @@ async function inspect(context, url, extension, prefix) {
     await expect(page.locator('.group-section-nav [aria-current="location"]')).toHaveText("素材资源 20");
     await expect.poll(() => page.locator('[data-group-sort-section-id="nav-19"]').evaluate(node =>
       Math.abs(node.getBoundingClientRect().top - document.querySelector(".topbar").getBoundingClientRect().bottom - 24)
-    )).toBeLessThan(2);
+    ), { timeout: 15000 }).toBeLessThan(2);
     await page.getByRole("button", { name: "间距调节" }).click();
     const slider = page.getByRole("slider", { name: "内容间距" });
     for (const key of ["End", "Home"]) {

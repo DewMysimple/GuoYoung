@@ -28,6 +28,7 @@ export function CollectionSiteGrid({ group, sites, grouped, drag, dropEnabled, r
   return (
     <SortableContext items={drag.reorder ? sites.map(site => site.id) : []} strategy={rectSortingStrategy}>
       <GroupDropGrid groupId={group.id} dragActive={dropEnabled}
+        hasNotes={sites.some(site => Boolean(site.note))}
         dragOver={drag.overId === groupZoneDropId(group.id)} className={grouped ? "grouped-site-track" : "site-grid"}>
         {sites.map(site => (
           <Fragment key={site.id}>

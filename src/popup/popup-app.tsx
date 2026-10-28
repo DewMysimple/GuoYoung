@@ -10,7 +10,7 @@ import {
   Trash,
   Warning,
 } from "@phosphor-icons/react";
-import { useEffect, useInsertionEffect, useMemo, useState } from "react";
+import { useEffect, useId, useInsertionEffect, useMemo, useRef, useState } from "react";
 import { typographyVariables } from "../lib/typography";
 import { useLocalFont } from "../hooks/use-local-font";
 import {
@@ -38,6 +38,8 @@ import {
   findSiteByUrl,
   updateSiteInState,
   addSiteToState,
+  addGroupToState,
+  findGroupByName,
 } from "../lib/site-state";
 import { inferSiteName, normalizeUrl } from "../lib/site-utils";
 import type { SiteCollectionState, SiteWorkspace } from "../types";
@@ -101,6 +103,13 @@ export function PopupApp() {
   const [quickWorkspace, setQuickWorkspace] = useState<SiteWorkspace>("main");
   const [quickName, setQuickName] = useState("");
   const [quickGroupId, setQuickGroupId] = useState("");
+  const [creatingQuickGroup, setCreatingQuickGroup] = useState(false);
+  const [quickGroupName, setQuickGroupName] = useState("");
+  const [quickGroupError, setQuickGroupError] = useState("");
+  const quickGroupNameId = useId();
+  const quickGroupInput = useRef<HTMLInputElement>(null);
+  const quickGroupTrigger = useRef<HTMLButtonElement>(null);
+  const quickSaving = useRef(false);
   const [bookmarkGroupId, setBookmarkGroupId] = useState("");
   const [quickDuplicateId, setQuickDuplicateId] = useState<string>();
   const [bookmarkRoots, setBookmarkRoots] = useState<BrowserBookmarkTreeNode[]>([]);
@@ -112,6 +121,10 @@ export function PopupApp() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadVersion, setLoadVersion] = useState(0);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string }>();
+
+  useEffect(() => {
+    if (creatingQuickGroup && tab === "quick") quickGroupInput.current?.focus({ preventScroll: true });
+  }, [creatingQuickGroup, tab]);
 
   useEffect(() => {
     if (!notice) return;
@@ -262,49 +275,74 @@ export function PopupApp() {
     setState(next);
   }
 
+  function cancelQuickGroup(restoreFocus = false) {
+    setCreatingQuickGroup(false);
+    setQuickGroupName("");
+    setQuickGroupError("");
+    setQuickDuplicateId(undefined);
+    if (restoreFocus) quickGroupTrigger.current?.focus({ preventScroll: true });
+  }
+
   async function handleQuickAdd() {
-    if (!state || !quickUrl || !quickGroupId || !quickName.trim()) return;
-    if (duplicate && quickDuplicateId !== duplicate.id) {
-      setQuickDuplicateId(duplicate.id);
-      return;
-    }
+    if (!state || !quickUrl || !quickName.trim() || quickSaving.current) return;
+    const newGroupName = creatingQuickGroup ? quickGroupName.trim() : undefined;
+    if (creatingQuickGroup ? !newGroupName : !quickGroupId) return;
+    quickSaving.current = true;
     setBusy(true);
     try {
       const loaded = await store.load();
       if (loaded.recovered) throw new Error("Invalid stored collection");
       const freshGroups = getWorkspaceGroups(loaded.state.groups, quickWorkspace);
-      const targetGroup = freshGroups.find((group) => group.id === quickGroupId)
-        ?? (quickWorkspace === "github"
-          ? freshGroups.find((group) => group.id === getGithubOtherGroupId(loaded.state))
-          : undefined)
-        ?? freshGroups.find((group) => !group.isProtected)
-        ?? freshGroups[0];
-      if (!targetGroup) throw new Error("No destination group available");
+      if (newGroupName && findGroupByName(freshGroups, newGroupName)) {
+        setState(loaded.state);
+        setQuickGroupError("已经有同名分组，请选择现有分组。");
+        setQuickDuplicateId(undefined);
+        return;
+      }
       const existing = findSiteByUrl(loaded.state.sites, quickUrl);
       if (existing && quickDuplicateId !== existing.id) {
         setState(loaded.state);
         setQuickDuplicateId(existing.id);
         return;
       }
+      // Stage both changes against the latest collection, then persist once.
+      // Confirmation, cancellation and failed writes cannot leave an empty group.
+      const newGroupId = newGroupName ? crypto.randomUUID() : undefined;
+      const base = newGroupName && newGroupId
+        ? addGroupToState(loaded.state, newGroupName, "folder", newGroupId,
+          new Date().toISOString(), undefined, quickWorkspace)
+        : loaded.state;
+      const targetGroup = newGroupId
+        ? base.groups.find((group) => group.id === newGroupId)
+        : freshGroups.find((group) => group.id === quickGroupId)
+        ?? (quickWorkspace === "github"
+          ? freshGroups.find((group) => group.id === getGithubOtherGroupId(loaded.state))
+          : undefined)
+        ?? freshGroups.find((group) => !group.isProtected)
+        ?? freshGroups[0];
+      if (!targetGroup) throw new Error("No destination group available");
       const values = {
         name: quickName.trim(),
         url: quickUrl,
         groupId: targetGroup.id,
+        note: existing?.note,
         customIconUrl: "",
         iconSource: "auto" as const,
       };
       const next = existing
-        ? updateSiteInState(loaded.state, existing.id, values)
-        : addSiteToState(loaded.state, values);
+        ? updateSiteInState(base, existing.id, values)
+        : addSiteToState(base, values);
       await saveNextState(next);
       setQuickGroupId(targetGroup.id);
       if (quickWorkspace === "github") {
         savePopupPreferences({ lastGithubGroupId: targetGroup.id });
       }
-      setQuickDuplicateId(undefined);
+      cancelQuickGroup();
       setNotice({
         kind: "success",
-        text: existing
+        text: newGroupName
+          ? existing ? `已新建“${newGroupName}”，并移动更新现有收藏。` : `已新建“${newGroupName}”，并添加当前网站。`
+          : existing
           ? quickWorkspace === "github"
             ? "已移动并更新 GitHub 收藏。"
             : "已移动并更新现有收藏。"
@@ -317,6 +355,7 @@ export function PopupApp() {
     } catch {
       setNotice({ kind: "error", text: "保存失败，请稍后重试。" });
     } finally {
+      quickSaving.current = false;
       setBusy(false);
     }
   }
@@ -450,7 +489,7 @@ export function PopupApp() {
               <input
                 value={quickName}
                 aria-label="网站名称"
-                disabled={!quickUrl}
+                disabled={!quickUrl || busy}
                 maxLength={120}
                 placeholder={quickUrl ? "输入网站名称" : "此页面不可收藏"}
                 onChange={(event) => {
@@ -461,15 +500,51 @@ export function PopupApp() {
               </label>
               {duplicate && <small className="popup-status-chip">已收藏</small>}
             </div>
-            <div className="popup-group-picker">
-              <span className="popup-group-label">{quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}</span>
+            <div className={`popup-group-picker ${creatingQuickGroup ? "is-creating" : ""}`}>
+              <div className="popup-group-heading">
+                <span className="popup-group-label">{quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}</span>
+                <button type="button" ref={quickGroupTrigger} className="popup-new-group-trigger"
+                  disabled={!quickUrl || busy} aria-expanded={creatingQuickGroup} aria-controls={quickGroupNameId}
+                  onClick={() => {
+                    if (creatingQuickGroup) cancelQuickGroup();
+                    else {
+                      setCreatingQuickGroup(true);
+                      setQuickGroupError("");
+                      setQuickDuplicateId(undefined);
+                    }
+                  }}>
+                  <Plus size={13} weight="bold" />新建分组
+                </button>
+              </div>
+              {creatingQuickGroup && <div className="popup-new-group" id={quickGroupNameId}>
+                <div className="popup-new-group-row">
+                  <label className="popup-field">
+                    <input ref={quickGroupInput} aria-label="新分组名称" placeholder="输入新分组名称"
+                      value={quickGroupName} disabled={busy} aria-invalid={Boolean(quickGroupError)}
+                      aria-describedby={quickGroupError ? `${quickGroupNameId}-error` : undefined}
+                      onChange={event => {
+                        setQuickGroupName(event.target.value);
+                        setQuickGroupError("");
+                        setQuickDuplicateId(undefined);
+                      }}
+                      onKeyDown={event => {
+                        if (event.nativeEvent.isComposing || busy) return;
+                        if (event.key === "Escape") { event.preventDefault(); cancelQuickGroup(true); }
+                        else if (event.key === "Enter") { event.preventDefault(); void handleQuickAdd(); }
+                      }} />
+                  </label>
+                  <button type="button" className="popup-new-group-cancel" disabled={busy}
+                    aria-label="取消新建分组" onClick={() => cancelQuickGroup(true)}>取消</button>
+                </div>
+                {quickGroupError && <p id={`${quickGroupNameId}-error`} className="popup-group-error" role="alert">{quickGroupError}</p>}
+              </div>}
               <div
                 className="popup-group-options"
                 role="radiogroup"
                 aria-label={quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}
               >
                 {groups.map((group) => {
-                  const selected = quickGroupId === group.id;
+                  const selected = !creatingQuickGroup && quickGroupId === group.id;
                   return (
                     <button
                       key={group.id}
@@ -479,6 +554,7 @@ export function PopupApp() {
                       className={`popup-group-option ${selected ? "is-selected" : ""}`}
                       disabled={!quickUrl || busy}
                       onClick={() => {
+                        cancelQuickGroup();
                         setQuickGroupId(group.id);
                         setQuickDuplicateId(undefined);
                       }}
@@ -494,17 +570,21 @@ export function PopupApp() {
             {duplicate && quickDuplicateId && (
               <div className="duplicate-popup-notice">
                 <Warning size={18} />
-                <span>已收藏在“{state.groups.find((group) => group.id === duplicate.groupId)?.name ?? "其他"}”。再次确认会移动到当前分组并更新名称。</span>
+                <span>已收藏在“{state.groups.find((group) => group.id === duplicate.groupId)?.name ?? "其他"}”。{creatingQuickGroup
+                  ? `再次确认会新建“${quickGroupName.trim()}”并移动网站、更新名称。`
+                  : "再次确认会移动到当前分组并更新名称。"}</span>
               </div>
             )}
             <button
               type="button"
               className="popup-primary"
-              disabled={!quickUrl || !quickName.trim() || busy}
+              disabled={!quickUrl || !quickName.trim() || (creatingQuickGroup ? !quickGroupName.trim() : !quickGroupId) || busy}
               onClick={handleQuickAdd}
             >
               <Plus size={18} weight="bold" />
-              {duplicate && quickDuplicateId
+              {creatingQuickGroup
+                ? duplicate && quickDuplicateId ? "确认新建并移动" : "新建分组并添加"
+                : duplicate && quickDuplicateId
                 ? "确认移动并更新"
                 : duplicate
                   ? "更新已收藏网站"

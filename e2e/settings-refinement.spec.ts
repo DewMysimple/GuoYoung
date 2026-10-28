@@ -4,6 +4,7 @@ test("restores layout defaults and the last chosen preset across settings tabs",
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("button", { name: "宽松", exact: true }).click();
+  await panel.getByRole("button", { name: "页面布局", exact: true }).click();
   await panel.getByRole("button", { name: /布局微调/ }).click();
   await panel.getByRole("slider", { name: "卡片高度" }).fill("220");
   await panel.getByRole("button", { name: "使用颜色 #00897b" }).click();

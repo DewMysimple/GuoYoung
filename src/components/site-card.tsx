@@ -21,6 +21,7 @@ interface SiteCardProps {
   group: SiteGroup;
   workspaceLabel?: string;
   showClickCount?: boolean;
+  showNotes?: boolean;
   dragMode: SiteDragMode;
   dragDisabledReason?: string;
   dragPending: boolean;
@@ -94,6 +95,7 @@ function SiteCardFrame({
   group,
   workspaceLabel,
   showClickCount = false,
+  showNotes = true,
   dragMode,
   dragDisabledReason = "当前视图无法手动排序",
   dragPending,
@@ -168,6 +170,7 @@ function SiteCardFrame({
       }}
     >
       <CardOpenAction href={site.url} label={`${linkInteractionDisabled && selectionEntryEnabled ? "选择" : "打开"} ${site.name}`}
+        title={showNotes && site.note ? `${site.name}\n${site.note}` : undefined}
         disabled={(linkInteractionDisabled && !selectionEntryEnabled) || (selectionMode && !selectionEntryEnabled)}
         onSelect={selectionEntryEnabled && onToggleSelected ? (shiftKey) => onToggleSelected(site, shiftKey) : undefined}
         onOpen={() => onVisit(site)} />
@@ -228,7 +231,7 @@ function SiteCardFrame({
           >
             {site.clickCount}
           </span>
-        )}</>} footer={<div className="site-category">
+        )}{showNotes && site.note && <span className="site-note" title={site.note}>{site.note}</span>}</>} footer={<div className="site-category">
         <span className="site-category-group">
           <CategoryIcon name={group.icon} size={15} />
           <span>{group.name}</span>
@@ -247,6 +250,7 @@ interface SiteCardDragPreviewProps {
   group: SiteGroup;
   overGroupTab?: boolean;
   showClickCount?: boolean;
+  showNotes?: boolean;
 }
 
 export function SiteCardDragPreview({
@@ -254,6 +258,7 @@ export function SiteCardDragPreview({
   group,
   overGroupTab = false,
   showClickCount = false,
+  showNotes = true,
 }: SiteCardDragPreviewProps) {
   return (
     <CardSurface
@@ -270,7 +275,7 @@ export function SiteCardDragPreview({
           <span className="site-click-count" aria-label={`访问次数 ${site.clickCount}`}>
             {site.clickCount}
           </span>
-        )}</>} footer={<div className="site-category">
+        )}{showNotes && site.note && <span className="site-note">{site.note}</span>}</>} footer={<div className="site-category">
         <span className="site-category-group">
           <CategoryIcon name={group.icon} size={15} />
           <span>{group.name}</span>

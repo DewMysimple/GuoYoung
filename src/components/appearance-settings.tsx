@@ -13,6 +13,7 @@ import { RangeControl } from "./range-control";
 import { SettingsToggle } from "./settings-toggle";
 import { LAYOUT_LIMITS } from "../lib/layout";
 import { SettingsOption, SettingsOptionGroup, SettingsChoiceGroup } from "./settings-options";
+import { HelpTip } from "./help-tip";
 
 const ACCENTS = ["#3367d6", "#6750a4", "#00897b", "#d97706", "#dc4f64", "#4f657d"];
 const THEMES = [
@@ -33,15 +34,19 @@ interface AppearanceSettingsProps {
 }
 
 export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange, onChange, onColorPreview, panelWidth, panelMaxWidth, onPanelWidthChange }: AppearanceSettingsProps) {
+  const [layoutOpen, setLayoutOpen] = useSettingsDisclosure("页面布局");
   const [detailsOpen, setDetailsOpen] = useSettingsDisclosure("布局微调");
   const [dimensionsOpen, setDimensionsOpen] = useSettingsDisclosure("界面尺寸");
+  const layoutId = useId();
   const detailsId = useId();
   const preset = getLayoutPreset(value);
 
   return (
     <>
       <section className="appearance-card appearance-preview-settings" aria-label="预览与缩放">
-        <h3>预览与缩放</h3>
+        <h3 className="appearance-heading-with-help">预览与缩放
+          <HelpTip label="界面缩放说明">一起调整卡片、文字、图标与间距。高分辨率屏幕可适当放大；窗口变窄时自动减少列数。浏览器和系统缩放已体现在可用空间中，无需重复补偿。</HelpTip>
+        </h3>
         <SettingsToggle label="设置面板推开页面" checked={value.settingsPresentation === "push"}
           help="关闭时，设置面板覆盖在页面右侧，主页面保持原有宽度，方便预览布局。开启时，主页面缩窄，为设置面板留出空间；窗口过窄、无法容纳卡片时自动使用覆盖预览。"
           onChange={push => onChange(patchAppearance(value, { settingsPresentation: push ? "push" : "overlay" }))} />
@@ -53,11 +58,11 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
             aria-label={`界面缩放 ${scale}%`} selected={value.interfaceScale === scale}
             onClick={() => onChange(patchAppearance(value, { interfaceScale: scale }))}>{scale}%</SettingsOption>)}
         </SettingsOptionGroup>
-        <p className="appearance-description">一起调整卡片、文字、图标与间距。高分辨率屏幕可适当放大；窗口变窄时自动减少列数。浏览器和系统缩放已体现在可用空间中，无需重复补偿。</p>
       </section>
       <section className="appearance-card" aria-label="主题">
-        <h3>主题</h3>
-        <p className="appearance-description">选择界面的明暗，或随系统自动切换。</p>
+        <h3 className="appearance-heading-with-help">主题
+          <HelpTip label="主题说明">选择界面的明暗，或随系统自动切换。</HelpTip>
+        </h3>
         <SettingsOptionGroup className="appearance-option-grid appearance-theme-options" label="主题模式">
           {THEMES.map(({ value: theme, label, description, icon: Icon }) => (
             <SettingsOption key={theme} aria-label={label} variant="card"
@@ -77,10 +82,15 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
       </section>
       <section className="appearance-card" aria-label="页面布局">
         <div className="appearance-heading">
-          <h3>页面布局</h3>
+          <h3 className="appearance-heading-with-help">
+            <button type="button" className="appearance-layout-toggle" aria-expanded={layoutOpen}
+              aria-controls={layoutId} onClick={() => setLayoutOpen(open => !open)}>
+              页面布局<CaretDown size={15} aria-hidden="true" />
+            </button>
+            <HelpTip label="页面布局说明">选择喜欢的疏密，卡片与间距一起调整。折叠后仍可直接选择紧凑、标准或宽松；展开后可调整页面宽度、卡片形状与排列。</HelpTip>
+          </h3>
           {preset === "custom" && <span className="appearance-status">已自定义</span>}
         </div>
-        <p className="appearance-description">选择喜欢的疏密，卡片与间距一起调整。</p>
         <SettingsOptionGroup className="appearance-option-grid appearance-presets" label="布局预设">
           {LAYOUT_OPTIONS.map(({ value: option, label, description }) => (
             <SettingsOption key={option} aria-label={label} variant="card"
@@ -98,6 +108,7 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
             </SettingsOption>
           ))}
         </SettingsOptionGroup>
+        <div className="appearance-layout-body" id={layoutId} hidden={!layoutOpen}>
         <div className="appearance-layout-controls">
           <LayoutChoice label="页面宽度模式" value={value.contentWidthMode}
             options={[{ value: "fixed", label: "固定宽度" }, { value: "full", label: "铺满窗口" }]}
@@ -107,13 +118,13 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
             onChange={cardShape => onChange(patchAppearance(value, { cardShape }))} />
           <LayoutChoice label="卡片排列" value={value.cardLayout}
             options={[{ value: "adaptive", label: "自动适配" }, { value: "columns", label: "指定每行数量" }]}
+            help={`${value.cardLayout === "columns"
+              ? "按每行数量均分宽度；空间不足时自动减少列数，保持卡片可读。"
+              : "根据卡片最小宽度自动排列，充分利用可用空间。"}${value.cardShape === "square" ? " 正方形的高度始终跟随实际宽度。" : ""}`}
             onChange={cardLayout => onChange(patchAppearance(value, { cardLayout }))} />
           {value.cardLayout === "columns" && <RangeControl label="每行卡片数量" value={value.cardColumns}
             min={LAYOUT_LIMITS.cardColumns.min} max={LAYOUT_LIMITS.cardColumns.max} unit="列"
             onChange={cardColumns => onChange(patchAppearance(value, { cardColumns }))} />}
-          <p className="appearance-description">{value.cardLayout === "columns"
-            ? "按每行数量均分宽度；空间不足时自动减少列数，保持卡片可读。"
-            : "根据卡片最小宽度自动排列，充分利用可用空间。"}{value.cardShape === "square" && " 正方形的高度始终跟随实际宽度。"}</p>
         </div>
         <button type="button" className="appearance-disclosure" aria-expanded={detailsOpen}
           aria-controls={detailsId} onClick={() => setDetailsOpen((open) => !open)}>
@@ -138,6 +149,13 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
             <p className="appearance-description">上次预设为本次选择的布局；尚未选择时，恢复进入设置前的布局。</p>
           </div>
         )}
+        </div>
+      </section>
+
+      <section className="appearance-card" aria-label="网站备注">
+        <SettingsToggle label="显示网站备注" checked={value.showSiteNotes}
+          help="在卡片的访问次数与网站分类之间显示备注，不受排列方式影响。可在编辑网站中修改；关闭显示不会删除已保存的备注。"
+          onChange={showSiteNotes => onChange(patchAppearance(value, { showSiteNotes }))} />
       </section>
 
       <details className="appearance-card interface-dimensions" open={dimensionsOpen} onToggle={event => setDimensionsOpen(event.currentTarget.open)}>
@@ -169,14 +187,17 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
   );
 }
 
-function LayoutChoice<T extends string>({ label, value, options, onChange }: {
+function LayoutChoice<T extends string>({ label, value, options, onChange, help }: {
   label: string;
   value: T;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
+  help?: string;
 }) {
   return <div className="appearance-layout-choice">
-    <strong>{label}</strong>
+    <div className="appearance-layout-choice-heading"><strong>{label}</strong>
+      {help && <HelpTip label={`${label}说明`}>{help}</HelpTip>}
+    </div>
     <SettingsChoiceGroup label={label} value={value} options={options} onChange={onChange} />
   </div>;
 }

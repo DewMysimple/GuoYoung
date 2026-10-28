@@ -6,6 +6,7 @@ import type {
   SiteIconSource,
 } from "../types";
 import { parseStoredState } from "./storage";
+import { normalizeSiteNote } from "./site-notes";
 
 export const SITE_HUB_EXPORT_FORMAT = "site-hub-export";
 export const SITE_HUB_EXPORT_VERSION = 1;
@@ -24,6 +25,7 @@ const SITE_ICON_SOURCES: SiteIconSource[] = [
 
 export interface GroupExportSite {
   name: string;
+  note?: string;
   url: string;
   customIconUrl?: string;
   iconSource?: SiteIconSource;
@@ -163,6 +165,7 @@ export function createGroupExportPayload(
       .sort((a, b) => a.order - b.order)
       .map((site, order) => ({
         name: site.name,
+        ...(site.note ? { note: site.note } : {}),
         url: site.url,
         ...(site.customIconUrl ? { customIconUrl: site.customIconUrl } : {}),
         ...(site.iconSource ? { iconSource: site.iconSource } : {}),
@@ -252,6 +255,7 @@ export function parseGroupImportFile(text: string): GroupExportPayload {
     }
     return {
       name: site.name.trim(),
+      ...(normalizeSiteNote(site.note) ? { note: normalizeSiteNote(site.note) } : {}),
       url,
       ...(customIconUrl ? { customIconUrl } : {}),
       ...(site.iconSource

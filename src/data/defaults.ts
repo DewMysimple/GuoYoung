@@ -163,6 +163,7 @@ export const GROUP_NAVIGATION_GAP = { min: 8, max: 128, default: 20 } as const;
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   ...DEFAULT_TYPOGRAPHY,
   allowTextSelection: true,
+  showSiteNotes: true,
   groupNavigationGap: GROUP_NAVIGATION_GAP.default,
   theme: "system",
   accentColor: "#3367d6",
@@ -330,7 +331,7 @@ export const DEFAULT_SITES: SiteItem[] = [
 
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 27,
+    version: 28,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

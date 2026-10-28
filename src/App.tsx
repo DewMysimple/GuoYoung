@@ -609,6 +609,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         site={site}
         group={group}
         showClickCount={sortMode === "heat"}
+        showNotes={effectiveAppearance.showSiteNotes}
         workspaceLabel={
           isGlobalCollectionSearch
             ? getGroupWorkspace(group) === "github" ? "GitHub" : "收藏主页"
@@ -1182,10 +1183,11 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   useTextSelection(effectiveAppearance.allowTextSelection);
   const interfaceScale = appearanceScale(effectiveAppearance);
   const geometry = scaledGeometry(effectiveAppearance);
-  const canPushSettings = useSettingsPanelLayout(settingsOpen, effectiveAppearance);
+  const hasSiteNotes = state.sites.some(site => Boolean(site.note));
+  const canPushSettings = useSettingsPanelLayout(settingsOpen, effectiveAppearance, hasSiteNotes);
   const appStyle = {
     ...cardLayoutVariables(effectiveAppearance),
-    "--card-safe-width": `${getMinimumCardWidth(effectiveAppearance)}px`,
+    "--card-safe-width": `${getMinimumCardWidth(effectiveAppearance, hasSiteNotes)}px`,
     "--interface-scale": String(interfaceScale),
     "--font-scale": String(effectiveAppearance.fontScale / 100 * interfaceScale),
     "--ui-icon-scale": String(effectiveAppearance.uiIconScale / 100 * interfaceScale),
@@ -1763,6 +1765,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                 >
                   {isGroupedView ? (
                     <GroupedCollection navigationGap={effectiveAppearance.groupNavigationGap}
+                      hasNotes={hasSiteNotes}
                       navigationSettingsDisabled={settingsOpen}
                       onNavigationGapChange={groupNavigationGap => saveSettings(state.brand,
                         patchAppearance(state.appearance, { groupNavigationGap }), state.wallpaper)}
@@ -1810,6 +1813,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                         site={activeDraggedSite}
                         group={activeDraggedGroup}
                         showClickCount={sortMode === "heat"}
+                        showNotes={effectiveAppearance.showSiteNotes}
                         overGroupTab={Boolean(dragHoverGroupId)}
                       />
                     ) : null}

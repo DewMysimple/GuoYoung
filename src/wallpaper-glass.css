@@ -443,10 +443,10 @@ body:has(.app-shell.has-wallpaper) .compact-toggle-row {
 .has-wallpaper .data-workspace .data-field > input,
 .has-wallpaper .data-workspace .data-field .select-menu-trigger,
 body:has(.app-shell.has-wallpaper) .settings-panel :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.input-shell input):not(.color-picker-value input)),
-body:has(.app-shell.has-wallpaper) .settings-panel textarea,
+body:has(.app-shell.has-wallpaper) .settings-panel textarea:not(.input-shell textarea),
 body:has(.app-shell.has-wallpaper) .settings-panel select,
 body:has(.app-shell.has-wallpaper) .dialog-content :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not(.input-shell input):not(.color-picker-value input)),
-body:has(.app-shell.has-wallpaper) .dialog-content textarea,
+body:has(.app-shell.has-wallpaper) .dialog-content textarea:not(.input-shell textarea),
 body:has(.app-shell.has-wallpaper) .dialog-content select,
 body:has(.app-shell.has-wallpaper) .input-shell {
   border-color: var(--glass-edge-soft);

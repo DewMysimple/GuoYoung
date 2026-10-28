@@ -198,6 +198,7 @@ export function GroupDropTab({
 }
 
 interface GroupDropGridProps {
+  hasNotes?: boolean;
   groupId: string;
   dragActive: boolean;
   dragOver?: boolean;
@@ -206,6 +207,7 @@ interface GroupDropGridProps {
 }
 
 export function GroupDropGrid({
+  hasNotes,
   groupId,
   dragActive,
   dragOver = false,
@@ -222,6 +224,7 @@ export function GroupDropGrid({
   const highlighted = dragActive && (isOver || dragOver);
   return (
     <SiteGridLayout
+      hasNotes={hasNotes}
       ref={setNodeRef}
       className={`${className} ${
         highlighted ? "is-group-drag-over" : ""

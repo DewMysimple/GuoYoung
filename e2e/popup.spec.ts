@@ -1,4 +1,118 @@
 import { expect, test, screenshotPath } from "./fixtures";
+import type { Page } from "@playwright/test";
+
+const newGroupCollectionKey = "popup-new-group-collection";
+
+async function openQuickGroupPopup(page: Page, url: string, theme: "light" | "dark") {
+  await page.evaluate(({ key, theme }) => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.appearance.theme = theme;
+    state.sites.find((site: { id: string }) => site.id === "google").note = "保留现有备注";
+    state.groups.push(...Array.from({ length: 24 }, (_, index) => ({
+      ...state.groups[0], id: `popup-extra-${index}`, name: `常用资料 ${index + 1}`, order: index + 10,
+    })));
+    localStorage.setItem(key, JSON.stringify(state));
+    localStorage.setItem(`${key}:writes`, "0");
+  }, { key: newGroupCollectionKey, theme });
+  await page.addInitScript(({ key, url }) => {
+    Object.defineProperty(window, "chrome", { configurable: true, value: {
+      runtime: { id: "popup-new-group", getURL: (path: string) => `chrome-extension://popup-new-group/${path}` },
+      storage: { local: {
+        get: async (storageKey: string) => ({ [storageKey]: localStorage.getItem(key) }),
+        set: async (values: Record<string, string>) => {
+          localStorage.setItem(key, values["site-hub:v1"]);
+          localStorage.setItem(`${key}:writes`, String(Number(localStorage.getItem(`${key}:writes`)) + 1));
+        },
+      } },
+      tabs: { query: async () => [{ id: 1, title: "弹窗当前网站", url }] },
+      bookmarks: { getTree: async () => [] },
+    } });
+  }, { key: newGroupCollectionKey, url });
+  await page.setViewportSize({ width: 440, height: 600 });
+  await page.goto("/popup.html");
+  await expect(page.getByRole("button", { name: "新建分组", exact: true })).toBeVisible();
+}
+
+for (const theme of ["light", "dark"] as const) for (const workspace of ["main", "github"] as const) {
+  test(`popup creates a group with the current site in one write (${workspace}, ${theme})`, async ({ page }, info) => {
+    test.skip(info.project.name !== "chromium", "Desktop extension popup group creation");
+    const url = workspace === "github" ? "https://github.com/acme/popup-group" : "https://example.org/popup-group";
+    await openQuickGroupPopup(page, url, theme);
+    const before = await page.evaluate(key => localStorage.getItem(key), newGroupCollectionKey);
+    await page.getByRole("button", { name: "新建分组", exact: true }).click();
+    const name = page.getByRole("textbox", { name: "新分组名称", exact: true });
+    await expect(name).toBeFocused();
+    await name.fill("放弃的草稿");
+    await page.getByRole("button", { name: "取消新建分组" }).click();
+    expect(await page.evaluate(key => localStorage.getItem(key), newGroupCollectionKey)).toBe(before);
+    await page.getByRole("button", { name: "新建分组", exact: true }).click();
+    await expect(name).toHaveValue("");
+    const submit = page.getByRole("button", { name: "新建分组并添加", exact: true });
+    await expect(submit).toBeDisabled();
+    const groupName = workspace === "github" ? "开发" : "弹窗新分组";
+    await name.fill(groupName);
+    const geometry = await page.locator(".popup-shell").evaluate(shell => {
+      const button = shell.querySelector(".quick-page .popup-primary")!.getBoundingClientRect();
+      const input = shell.querySelector(".popup-new-group input")!.getBoundingClientRect();
+      return { buttonTop: button.top, buttonBottom: button.bottom, inputWidth: input.width,
+        viewportHeight: innerHeight, overflow: document.documentElement.scrollWidth > innerWidth };
+    });
+    expect(geometry.buttonTop).toBeGreaterThan(0);
+    expect(geometry.buttonBottom).toBeLessThanOrEqual(geometry.viewportHeight);
+    expect(geometry.inputWidth).toBeGreaterThan(200);
+    expect(geometry.overflow).toBe(false);
+    await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-new-group-${workspace}-${theme}.png`), animations: "disabled" });
+    await submit.click();
+    await expect(page.getByRole("status")).toContainText(`已新建“${groupName}”，并添加当前网站。`);
+    const result = await page.evaluate(({ key, groupName, workspace, url }) => {
+      const state = JSON.parse(localStorage.getItem(key)!);
+      const group = state.groups.find((group: { name: string; workspace: string }) => group.name === groupName && group.workspace === workspace);
+      const site = state.sites.find((site: { url: string }) => site.url === url);
+      return { group, site, writes: Number(localStorage.getItem(`${key}:writes`)), groups: state.groups.length,
+        sites: state.sites.length, existingNote: state.sites.find((site: { id: string }) => site.id === "google").note };
+    }, { key: newGroupCollectionKey, groupName, workspace, url });
+    expect(result.group).toMatchObject({ workspace, icon: "folder", isProtected: false });
+    expect(result.site.groupId).toBe(result.group.id);
+    expect(result.writes).toBe(1);
+    expect(result.groups).toBe(JSON.parse(before!).groups.length + 1);
+    expect(result.sites).toBe(JSON.parse(before!).sites.length + 1);
+    expect(result.existingNote).toBe("保留现有备注");
+    await page.reload();
+    await expect(page.getByRole("radio", { name: groupName, exact: true })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "更新已收藏网站", exact: true })).toBeVisible();
+  });
+}
+
+test("popup duplicate confirmation creates no empty group and retains the existing site note", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop extension popup duplicate confirmation");
+  await openQuickGroupPopup(page, "https://www.google.com", "light");
+  const before = await page.evaluate(key => localStorage.getItem(key), newGroupCollectionKey);
+  await page.getByRole("button", { name: "新建分组", exact: true }).click();
+  const name = page.getByRole("textbox", { name: "新分组名称" });
+  await name.fill("重复网站迁移");
+  await page.getByRole("button", { name: "新建分组并添加", exact: true }).click();
+  await expect(page.getByText(/再次确认会新建“重复网站迁移”/)).toBeVisible();
+  expect(await page.evaluate(key => localStorage.getItem(key), newGroupCollectionKey)).toBe(before);
+  await name.fill("确认后的分组");
+  await expect(page.getByRole("button", { name: "确认新建并移动", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "新建分组并添加", exact: true }).click();
+  const confirm = page.getByRole("button", { name: "确认新建并移动", exact: true });
+  await expect(confirm).toBeVisible();
+  const bounds = await confirm.boundingBox();
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(600);
+  await page.locator(".popup-shell").screenshot({ path: screenshotPath("popup-new-group-duplicate-confirm.png"), animations: "disabled" });
+  await confirm.click();
+  await expect(page.getByRole("status")).toContainText("已新建“确认后的分组”，并移动更新现有收藏。");
+  const result = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), newGroupCollectionKey);
+  const group = result.groups.find((group: { name: string }) => group.name === "确认后的分组");
+  expect(result.groups).toHaveLength(JSON.parse(before!).groups.length + 1);
+  expect(result.sites).toHaveLength(JSON.parse(before!).sites.length);
+  expect(result.groups.some((group: { name: string }) => group.name === "重复网站迁移")).toBe(false);
+  expect(result.sites.find((site: { id: string }) => site.id === "google")).toMatchObject({
+    groupId: group.id, note: "保留现有备注", name: "弹窗当前网站",
+  });
+  expect(await page.evaluate(key => localStorage.getItem(`${key}:writes`), newGroupCollectionKey)).toBe("1");
+});
 
 test("saves a current page and imports browser bookmarks from the popup", async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: "light" });

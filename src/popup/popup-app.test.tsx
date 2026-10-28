@@ -3,13 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "../data/defaults";
 import { STORAGE_KEY } from "../lib/storage";
+import type { SiteCollectionState } from "../types";
 import { PopupApp } from "./popup-app";
 
 function installChromeMock(options: {
   tab?: { id?: number; title: string; url: string; favIconUrl?: string };
   withoutGithubHome?: boolean;
+  state?: SiteCollectionState;
 } = {}) {
-  const baseState = createDefaultState();
+  const baseState = options.state ?? createDefaultState();
   const state = options.withoutGithubHome
     ? {
         ...baseState,
@@ -74,6 +76,174 @@ afterEach(() => {
 });
 
 describe("toolbar popup", () => {
+  it("creates a group and adds the current page in one write based on the latest collection", async () => {
+    const state = createDefaultState();
+    state.sites[0].note = "保留已有备注";
+    const { get, set } = installChromeMock({ state });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "新建分组" }));
+    const input = screen.getByRole("textbox", { name: "新分组名称" });
+    expect(input).toHaveFocus();
+    expect(screen.getByRole("button", { name: "新建分组并添加" })).toBeDisabled();
+    await user.type(input, "  工作资料  ");
+    expect(set).not.toHaveBeenCalled();
+    const fresh = {
+      ...state,
+      groups: [...state.groups, { ...state.groups[0], id: "concurrent", name: "其他窗口新增", order: 99 }],
+      appearance: { ...state.appearance, fontScale: 105 },
+    };
+    get.mockResolvedValue({ [STORAGE_KEY]: JSON.stringify(fresh) });
+    await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
+    expect(await screen.findByText("已新建“工作资料”，并添加当前网站。")).toBeInTheDocument();
+    expect(set).toHaveBeenCalledTimes(1);
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    const group = saved.groups.find(group => group.name === "工作资料");
+    expect(group).toMatchObject({ workspace: "main", icon: "folder", isProtected: false });
+    expect(saved.groups).toHaveLength(fresh.groups.length + 1);
+    expect(saved.groups.some(group => group.id === "concurrent")).toBe(true);
+    expect(saved.sites.find(site => site.url === "https://platform.openai.com/docs")?.groupId).toBe(group?.id);
+    expect(saved.sites).toHaveLength(fresh.sites.length + 1);
+    expect(saved.sites.find(site => site.id === state.sites[0].id)?.note).toBe("保留已有备注");
+    expect(saved.appearance.fontScale).toBe(105);
+    expect(screen.queryByRole("textbox", { name: "新分组名称" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "工作资料" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("cancels group drafts by button, Escape or selecting an existing group without writing", async () => {
+    const { set } = installChromeMock();
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    const trigger = await screen.findByRole("button", { name: "新建分组" });
+    await user.click(trigger);
+    await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "不保存");
+    await user.click(screen.getByRole("button", { name: "取消新建分组" }));
+    expect(trigger).toHaveFocus();
+    await user.click(trigger);
+    expect(screen.getByRole("textbox", { name: "新分组名称" })).toHaveValue("");
+    await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "也不保存{Escape}");
+    expect(screen.queryByRole("textbox", { name: "新分组名称" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    await user.click(trigger);
+    await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "临时分组");
+    await user.click(screen.getByRole("radio", { name: "开发" }));
+    expect(screen.queryByRole("textbox", { name: "新分组名称" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "开发" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "添加到主页" })).toBeEnabled();
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("rejects a same-workspace group created after opening the popup", async () => {
+    const state = createDefaultState();
+    const { get, set } = installChromeMock({ state });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "新建分组" }));
+    await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "  MY TEAM  ");
+    const fresh = { ...state, groups: [...state.groups, {
+      ...state.groups[0], id: "latest-team", name: "My Team", order: 99,
+    }] };
+    get.mockResolvedValue({ [STORAGE_KEY]: JSON.stringify(fresh) });
+    await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("已经有同名分组");
+    expect(screen.getByRole("textbox", { name: "新分组名称" })).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("radio", { name: "My Team" })).toBeInTheDocument();
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it("creates GitHub groups in the detected workspace even when the homepage has the same group name", async () => {
+    const { set } = installChromeMock({ tab: { title: "仓库", url: "https://github.com/acme/repo" } });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "新建分组" }));
+    await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "开发{Enter}");
+    expect(await screen.findByText("已新建“开发”，并添加当前网站。")).toBeInTheDocument();
+    expect(set).toHaveBeenCalledTimes(1);
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    const group = saved.groups.find(group => group.workspace === "github" && group.name === "开发");
+    expect(group).toBeDefined();
+    expect(group?.id).not.toBe("develop");
+    expect(saved.sites.find(site => site.url === "https://github.com/acme/repo")?.groupId).toBe(group?.id);
+    expect(JSON.parse(localStorage.getItem("site-hub:popup-preferences")!).lastGithubGroupId).toBe(group?.id);
+  });
+
+  it("only creates the destination after confirming a duplicate and preserves its note and identity", async () => {
+    const state = createDefaultState();
+    const existing = state.sites.find(site => site.id === "google")!;
+    existing.note = "已有网站的备注";
+    existing.clickCount = 9;
+    const { set } = installChromeMock({ state, tab: { title: "新的 Google 名称", url: existing.url } });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "新建分组" }));
+    await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "新的搜索组");
+    await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
+    expect(await screen.findByText(/再次确认会新建“新的搜索组”/)).toBeInTheDocument();
+    expect(set).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "确认新建并移动" }));
+    expect(await screen.findByText("已新建“新的搜索组”，并移动更新现有收藏。")).toBeInTheDocument();
+    expect(set).toHaveBeenCalledTimes(1);
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    const group = saved.groups.find(group => group.name === "新的搜索组");
+    expect(saved.sites).toHaveLength(state.sites.length);
+    expect(saved.groups).toHaveLength(state.groups.length + 1);
+    expect(saved.sites.find(site => site.id === existing.id)).toMatchObject({
+      name: "新的 Google 名称", groupId: group?.id, note: existing.note, clickCount: 9, createdAt: existing.createdAt,
+    });
+  });
+
+  it("requires confirmation when another window saves the current page before group creation", async () => {
+    const state = createDefaultState();
+    const { get, set } = installChromeMock({ state });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "新建分组" }));
+    await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "资料");
+    get.mockResolvedValue({ [STORAGE_KEY]: JSON.stringify({ ...state, sites: [...state.sites, {
+      ...state.sites[0], id: "concurrent-site", url: "https://platform.openai.com/docs", note: "别处新增的备注",
+    }] }) });
+    await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
+    expect(await screen.findByRole("button", { name: "确认新建并移动" })).toBeEnabled();
+    expect(set).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "确认新建并移动" }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    expect(saved.sites.filter(site => site.url === "https://platform.openai.com/docs")).toHaveLength(1);
+    expect(saved.sites.find(site => site.id === "concurrent-site")?.note).toBe("别处新增的备注");
+    expect(saved.groups).toHaveLength(state.groups.length + 1);
+  });
+
+  it("keeps a failed group-and-site write retryable without first saving an empty group", async () => {
+    const { set } = installChromeMock();
+    set.mockRejectedValueOnce(new Error("write failed"));
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    await user.click(await screen.findByRole("button", { name: "新建分组" }));
+    await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "稍后重试");
+    await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
+    expect(await screen.findByText("保存失败，请稍后重试。")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "新分组名称" })).toHaveValue("稍后重试");
+    expect(screen.queryByRole("radio", { name: "稍后重试" })).not.toBeInTheDocument();
+    expect(set).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
+    expect(await screen.findByText("已新建“稍后重试”，并添加当前网站。")).toBeInTheDocument();
+    expect(set).toHaveBeenCalledTimes(2);
+    for (const call of set.mock.calls) {
+      const candidate: SiteCollectionState = JSON.parse(call[0][STORAGE_KEY]);
+      const matchingGroups = candidate.groups.filter(group => group.name === "稍后重试");
+      expect(matchingGroups).toHaveLength(1);
+      expect(candidate.sites.some(site => site.groupId === matchingGroups[0].id)).toBe(true);
+    }
+  });
+
+  it("disables new groups for browser pages that cannot be bookmarked", async () => {
+    const { set } = installChromeMock({ tab: { title: "扩展", url: "chrome://extensions" } });
+    render(<PopupApp />);
+    expect(await screen.findByRole("button", { name: "新建分组" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "添加到主页" })).toBeDisabled();
+    expect(set).not.toHaveBeenCalled();
+  });
+
   it("keeps an unsaved addition retryable when storage rejects the write", async () => {
     const { set } = installChromeMock();
     set.mockRejectedValueOnce(new Error("write failed"));

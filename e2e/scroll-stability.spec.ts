@@ -8,6 +8,7 @@ test("keeps settings card edges fixed when expanded content needs a scrollbar", 
   await page.evaluate(() => localStorage.setItem("site-hub:settings-panel-width", "580"));
   await page.getByRole("button", { name: "打开设置" }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  await panel.getByRole("button", { name: "页面布局", exact: true }).click();
   const card = panel.getByRole("region", { name: "主题", exact: true });
   const body = panel.locator(".settings-body");
   const details = panel.getByRole("button", { name: "布局微调" });

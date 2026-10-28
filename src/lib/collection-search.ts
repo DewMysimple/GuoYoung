@@ -64,10 +64,10 @@ function textScore(value: string, query: string): number {
 }
 
 /** Local relevance only. No remote suggestions or persisted search index. */
-export function collectionSearchScore(name: string, url: string, group: string, input: string): number {
+export function collectionSearchScore(name: string, url: string, group: string, input: string, note = ""): number {
   const query = normalize(input);
   if (!query) return 0;
-  const scoreTerm = (term: string) => Math.max(textScore(name, term),
+  const scoreTerm = (term: string) => Math.max(textScore(name, term), Math.max(0, textScore(note, term) - 20),
     Math.max(0, textScore(url, term) - 30), Math.max(0, textScore(group, term) - 40));
   const whole = scoreTerm(query);
   const terms = query.split(/\s+/).filter(Boolean);

@@ -8,15 +8,17 @@ import "./group-section-nav.css";
 import { fixedViewportOriginX } from "../lib/viewport-geometry";
 import { getMinimumCardWidth } from "../lib/layout";
 import { LayoutSettingsContext } from "./site-grid-layout";
+import { createGroupNavigationScroll } from "../lib/group-navigation-scroll";
 
 /** A reading position, independent of the selected group and all sorting state. */
-export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsDisabled, onGapChange }: {
+export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsDisabled, onGapChange, hasNotes = false }: {
   groups: SiteGroup[];
   containerRef: RefObject<HTMLDivElement | null>;
   disabled: boolean;
   gap: number;
   settingsDisabled: boolean;
   onGapChange: (gap: number) => void;
+  hasNotes?: boolean;
 }) {
   const [adjusting, setAdjusting] = useState(false);
   const adjustmentId = useId();
@@ -27,7 +29,7 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
   const navigateTo = useRef<(id: string) => void>(() => {});
   const order = JSON.stringify(groups.map(group => group.id));
   // Text/icon preferences can change the safe width without resizing the grid.
-  const safeCardWidth = getMinimumCardWidth(useContext(LayoutSettingsContext));
+  const safeCardWidth = getMinimumCardWidth(useContext(LayoutSettingsContext), hasNotes);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -42,8 +44,9 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
     let readingOffset = 0;
     let maxScroll = 0;
     let destination: { id: string; top: number } | null = null;
+    const motion = createGroupNavigationScroll();
     // Absolute positions stay valid while scrolling. Re-read layout only when
-    // it changes, leaving native smooth scrolling free of per-frame DOM work.
+    // it changes, keeping animation frames free of document geometry reads.
     const measureLayout = () => {
       const shellStyle = getComputedStyle(shell);
       const navWidth = parseFloat(getComputedStyle(nav).width);
@@ -65,8 +68,8 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
       if (nav.style.left !== left) nav.style.left = left;
     };
     const targetTop = (section: { top: number }) => Math.max(0, Math.min(section.top - readingOffset, maxScroll));
-    const scrollTo = (top: number) => window.scrollTo({ top,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    const scrollTo = (top: number) => motion.to(top,
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     const update = () => {
       frame = 0;
       if (layoutDirty) {
@@ -84,7 +87,11 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
           }
         }
       }
-      if (disabled || !visible) return;
+      if (disabled || !visible) {
+        motion.cancel();
+        destination = null;
+        return;
+      }
       const scrollY = window.scrollY;
       let current = sectionPositions[0];
       for (const section of sectionPositions) {
@@ -98,16 +105,22 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
     const cancelDestination = () => {
       const target = destination;
       destination = null;
-      if (target && Math.abs(window.scrollY - target.top) > 1) {
-        // Stop the native animation at its actual position before user input.
-        window.scrollTo({ top: window.scrollY, behavior: "instant" });
-      }
+      motion.cancel();
       return Boolean(target);
     };
     const releaseDestination = () => { if (cancelDestination()) schedule(); };
+    const isNavigationButton = (target: EventTarget | null) => target instanceof Element
+      && Boolean(target.closest(".group-section-nav ol button"));
+    const onPointerDown = (event: PointerEvent) => {
+      // The following click replaces the target. Releasing here briefly shows
+      // the reading group (often the last short group) between down and click.
+      if (!isNavigationButton(event.target)) releaseDestination();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
+      if (isNavigationButton(event.target) && ["Enter", " "].includes(event.key)) return;
       if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " ", "Escape"].includes(event.key)) releaseDestination();
     };
+    const onVisibilityChange = () => { if (document.hidden) releaseDestination(); };
     const layoutChanged = () => { layoutDirty = true; schedule(); };
     navigateTo.current = id => {
       if (disabled) return;
@@ -118,7 +131,7 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
       const top = targetTop(section);
       destination = { id, top };
       setActiveId(id);
-      // A new native smooth request replaces the preceding destination.
+      // Start at the actual position; a new request cancels the previous frame.
       scrollTo(top);
     };
     const observer = new ResizeObserver(layoutChanged);
@@ -132,8 +145,10 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
     window.addEventListener("resize", layoutChanged);
     window.addEventListener("wheel", releaseDestination, { passive: true });
     window.addEventListener("touchstart", releaseDestination, { passive: true });
-    window.addEventListener("pointerdown", releaseDestination);
+    window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("blur", releaseDestination);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     update();
     return () => {
       cancelAnimationFrame(frame);
@@ -142,8 +157,10 @@ export function GroupSectionNav({ groups, containerRef, disabled, gap, settingsD
       window.removeEventListener("resize", layoutChanged);
       window.removeEventListener("wheel", releaseDestination);
       window.removeEventListener("touchstart", releaseDestination);
-      window.removeEventListener("pointerdown", releaseDestination);
+      window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("blur", releaseDestination);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       cancelDestination();
       navigateTo.current = () => {};
     };

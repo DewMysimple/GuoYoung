@@ -55,7 +55,7 @@ export function scaledGeometry(appearance: AppearanceSettings): ScaledGeometry {
   return Object.fromEntries(GEOMETRY_KEYS.map(key => [key, appearance[key] * scale])) as ScaledGeometry;
 }
 
-export function getMinimumCardWidth(appearance: AppearanceSettings): number {
+export function getMinimumCardWidth(appearance: AppearanceSettings, hasNotes = false): number {
   const scale = appearanceScale(appearance);
   const { actionSize, actionsGap, toplineGap, actionCount, border } = CARD_LAYOUT_METRICS;
   const topline = appearance.siteIconSize + toplineGap +
@@ -70,7 +70,8 @@ export function getMinimumCardWidth(appearance: AppearanceSettings): number {
   const textHeight = Math.max(nameSize * textLineHeight * fontRatio, openArrowSize) +
     domainSize * textLineHeight * fontRatio + detailSize * detailLineHeight * fontRatio +
     Math.max(footerSize * textLineHeight * fontRatio, appearance.groupIconSize);
-  const vertical = (Math.max(appearance.siteIconSize, actionSize * appearance.controlScale / 100) +
+  const noteHeight = hasNotes && appearance.showSiteNotes ? detailSize * detailLineHeight * fontRatio + detailGap : 0;
+  const vertical = (Math.max(appearance.siteIconSize, actionSize * appearance.controlScale / 100) + noteHeight +
     textHeight + contentTop + contentBottom + domainGap + detailGap + footerGap +
     2 * appearance.cardPadding) * scale + 2 * border;
   return Math.max(horizontal, vertical);
@@ -114,10 +115,10 @@ export interface GridLayout {
  * Content width, page padding and a pushing settings panel are already reflected
  * in that measurement. Stored dimensions must not be scaled before calling.
  */
-export function getGridLayout(appearance: AppearanceSettings, availableWidth: number): GridLayout {
+export function getGridLayout(appearance: AppearanceSettings, availableWidth: number, hasNotes = false): GridLayout {
   const width = Number.isFinite(availableWidth) ? Math.max(0, availableWidth) : 0;
   const { cardWidth: adaptiveWidth, cardHeight: freeHeight, gap } = scaledGeometry(appearance);
-  const safeWidth = getMinimumCardWidth(appearance);
+  const safeWidth = getMinimumCardWidth(appearance, hasNotes);
   const minCardWidth = appearance.cardLayout === "columns"
     ? safeWidth : Math.max(adaptiveWidth, safeWidth);
   const fittingRatio = (width + gap) / (minCardWidth + gap);

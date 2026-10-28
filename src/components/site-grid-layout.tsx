@@ -5,7 +5,7 @@ import { getGridLayout } from "../lib/layout";
 /** React context shares the settings draft with collection and history grids, including portals. */
 export const LayoutSettingsContext = createContext(DEFAULT_APPEARANCE);
 
-export function SiteGridLayout({ ref, style, ...props }: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> }) {
+export function SiteGridLayout({ ref, style, hasNotes = false, ...props }: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement>; hasNotes?: boolean }) {
   const appearance = useContext(LayoutSettingsContext);
   const element = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -22,7 +22,7 @@ export function SiteGridLayout({ ref, style, ...props }: HTMLAttributes<HTMLDivE
     observer.observe(grid);
     return () => observer.disconnect();
   }, []);
-  const layout = getGridLayout(appearance, width);
+  const layout = getGridLayout(appearance, width, hasNotes);
   return <div {...props} ref={setElement} data-card-shape={appearance.cardShape} style={{
     ...style,
     ...(width > 0 ? { "--grid-columns": layout.columns, "--grid-card-size": `${layout.cardWidth}px`, "--card-grid-min-width": `${layout.minCardWidth}px` } : {}),
