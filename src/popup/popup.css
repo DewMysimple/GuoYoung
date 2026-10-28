@@ -96,7 +96,7 @@ button { cursor: pointer; }
   flex-direction: column;
   margin-block: 0;
 }
-.quick-page .popup-site-identity, .quick-page .duplicate-popup-notice, .quick-page .popup-primary { flex-shrink: 0; }
+.quick-page .popup-site-identity, .quick-page .popup-note-field, .quick-page .duplicate-popup-notice, .quick-page .popup-primary { flex-shrink: 0; }
 .popup-status-chip { flex: 0 0 auto; padding: 4px 6px; border-radius: 6px; color: var(--ui-accent-text); background: var(--accent-soft); font-size: 0.625rem; font-weight: 700; }
 
 .popup-form-card {
@@ -154,6 +154,12 @@ button { cursor: pointer; }
 .popup-field input::placeholder { color: var(--text-faint); }
 .popup-field input:focus, .bookmark-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
 .popup-field input:disabled { opacity: .55; }
+.popup-note-field { display: grid; flex: 0 0 auto; gap: 6px; min-width: 0; }
+.popup-note-field > span { color: var(--text-soft); font-size: 0.6875rem; font-weight: 750; }
+.popup-note-field textarea { width: 100%; min-height: 48px; max-height: 78px; padding: 8px 11px; border: 1px solid var(--border-strong); border-radius: 10px; outline: none; background: var(--surface); font-size: 0.6875rem; line-height: 1.45; resize: vertical; }
+.popup-note-field textarea::placeholder { color: var(--text-faint); }
+.popup-note-field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
+.popup-note-field textarea:disabled { cursor: default; opacity: .55; }
 .popup-field-heading { display: flex; align-items: center; justify-content: space-between; }
 .popup-field .popup-select-trigger { width: 100%; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--surface); font-size: 0.75rem; }
 .popup-field .popup-select-trigger:disabled { cursor: default; opacity: .55; }
@@ -249,4 +255,4 @@ button { cursor: pointer; }
 .popup-confirm button { min-height: 38px; padding: 0 14px; background: var(--surface-raised); font-size: 0.6875rem; }
 .popup-confirm .popup-danger.filled { background: #b33a46; }
 
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

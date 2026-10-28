@@ -179,24 +179,38 @@ test("saves a current page and imports browser bookmarks from the popup", async 
     const pageBounds = quickPage.getBoundingClientRect();
     const cardBounds = quickPage.querySelector(".popup-form-card")!.getBoundingClientRect();
     const options = quickPage.querySelector(".popup-group-options")!;
+    const noteField = quickPage.querySelector(".popup-note-field")!;
+    const noteInput = noteField.querySelector("textarea")!;
+    const primary = quickPage.querySelector(".popup-primary")!;
     return {
       topGap: cardBounds.top - pageBounds.top,
       bottomGap: pageBounds.bottom - cardBounds.bottom,
       groupHeight: options.getBoundingClientRect().height,
+      noteField: noteField.getBoundingClientRect().toJSON(),
+      noteInput: noteInput.getBoundingClientRect().toJSON(),
+      primary: primary.getBoundingClientRect().toJSON(),
     };
   });
   expect(quickLayout.topGap).toBeLessThanOrEqual(1);
   expect(quickLayout.bottomGap).toBeGreaterThanOrEqual(15);
   expect(quickLayout.bottomGap).toBeLessThanOrEqual(17);
-  expect(quickLayout.groupHeight).toBeGreaterThan(330);
+  expect(quickLayout.groupHeight).toBeGreaterThan(250);
+  expect(quickLayout.noteInput.height).toBeGreaterThanOrEqual(48);
+  expect(quickLayout.noteInput.left).toBeGreaterThanOrEqual(quickLayout.noteField.left);
+  expect(quickLayout.noteInput.right).toBeLessThanOrEqual(quickLayout.noteField.right);
+  expect(quickLayout.noteInput.bottom).toBeLessThanOrEqual(quickLayout.noteField.bottom);
+  expect(quickLayout.noteField.bottom).toBeLessThanOrEqual(quickLayout.primary.top);
   await expect(groupOptions).toHaveCSS("align-content", "start");
   await expect(groupOptions.getByRole("radio").first()).toHaveCSS("height", "40px");
   const secondGroup = groupOptions.getByRole("radio").nth(1);
   await secondGroup.click();
   await expect(secondGroup).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("textbox", { name: "网站备注", exact: true }).fill("当前页的补充说明");
   await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-groups-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: "添加到主页", exact: true }).click();
   await expect(page.getByText("已添加到主页。")).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("popup-test-collection")!).sites
+    .find((site: { url: string }) => site.url === "https://example.com/maintenance").note)).toBe("当前页的补充说明");
   await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-${testInfo.project.name}.png`), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
   await expect(page.locator(".popup-shell.is-bookmarks")).toHaveCSS("width", "440px");

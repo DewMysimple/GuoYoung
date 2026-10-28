@@ -9,7 +9,7 @@ import { chromium, expect } from "@playwright/test";
 const manifest = JSON.parse(await readFile("public/manifest.json", "utf8"));
 const output = resolve(`artifacts/releases/v${manifest.version}/screenshots`);
 await mkdir(output, { recursive: true });
-const report = { version: manifest.version, matrix: [], settings: [], drag: [], boundaries: [], numericEdits: [], screenshots: [], errors: [] };
+const report = { version: manifest.version, matrix: [], settings: [], scaleDrag: [], drag: [], boundaries: [], numericEdits: [], screenshots: [], errors: [] };
 const wallpaperURL = "https://layout-visual.example/wallpaper.svg";
 const wallpaper = '<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#9ebcc8"/><stop offset=".5" stop-color="#516f8d"/><stop offset="1" stop-color="#263d59"/></linearGradient></defs><rect width="2560" height="1440" fill="url(#g)"/><circle cx="1950" cy="440" r="300" fill="#d9b887"/></svg>';
 let server;
@@ -209,6 +209,46 @@ async function inspectSettingsAndPortals(page, native, base, platform) {
   await capture(page, `layout-${platform}-data-scaled`);
   report.settings.push({ platform, interfaceScale: 125, overlayPreservesWidth: true, pushReservesWidth: true,
     groupedSquare: true, groupNavigationClear: true, helpInViewport: true, managerInViewport: true, dataNoOverflow: true, status: "passed" });
+}
+
+async function inspectScaleDrag(page, native, base, platform) {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await seed(page, native, syntheticState(base, { interfaceScale: 100 }));
+  await page.getByRole("button", { name: "打开设置", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "设置", exact: true });
+  const slider = panel.getByRole("slider", { name: "界面缩放", exact: true });
+  const startPanel = await panel.boundingBox();
+  const preview = panel.locator(".appearance-preview-settings");
+  const startPreview = await preview.boundingBox();
+  const startFontScale = await page.evaluate(() => document.documentElement.style.getPropertyValue("--font-scale"));
+  const sliderBox = await slider.boundingBox();
+  assert.ok(startPanel && startPreview && sliderBox, "Settings scale controls and preview should be visible");
+  const y = sliderBox.y + sliderBox.height / 2;
+  await page.mouse.move(sliderBox.x + sliderBox.width / 3, y);
+  await page.mouse.down();
+  await page.mouse.move(sliderBox.x + sliderBox.width - 2, y, { steps: 12 });
+  await expect.poll(async () => Number(await slider.inputValue())).toBeGreaterThan(130);
+  await expect.poll(() => panel.evaluate(element => getComputedStyle(element).getPropertyValue("--interface-scale").trim())).toBe("1");
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--font-scale"))).toBe(startFontScale);
+  const duringPanel = await panel.boundingBox();
+  const duringPreview = await preview.boundingBox();
+  assert.ok(duringPanel && duringPreview);
+  assert.ok(Math.abs(duringPanel.width - startPanel.width) < 1 && Math.abs(duringPanel.height - startPanel.height) < 1,
+    "The production settings panel geometry stays fixed while dragging its scale control");
+  assert.ok(Math.abs(duringPreview.width - startPreview.width) < 1 && Math.abs(duringPreview.height - startPreview.height) < 1,
+    "The production settings preview geometry stays fixed while dragging its scale control");
+  await capture(page, `layout-${platform}-settings-scale-drag-stays-fixed`);
+  await page.mouse.up();
+  const finalPercent = Number(await slider.inputValue());
+  const finalScale = finalPercent / 100;
+  await expect.poll(async () => Number(await panel.evaluate(element => getComputedStyle(element).getPropertyValue("--interface-scale"))))
+    .toBeCloseTo(finalScale, 2);
+  await expect.poll(async () => Number(await page.evaluate(() => document.documentElement.style.getPropertyValue("--font-scale"))))
+    .toBeCloseTo(finalScale, 2);
+  await expect.poll(async () => (await panel.boundingBox()).width).toBeCloseTo(startPanel.width * finalScale, 0);
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  report.scaleDrag.push({ platform, startScale: 100, finalScale: finalPercent,
+    panelAndPreviewFrozen: true, finalScaleAppliedOnRelease: true, status: "passed" });
 }
 
 async function inspectDrag(page, native, base, platform, scale) {
@@ -423,11 +463,12 @@ async function inspectContext(context, native, url, platform, dpr) {
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("button", { name: "打开设置", exact: true })).toBeVisible();
   const base = await readState(page, native);
-  assert.equal(base.version, 27, "Production state uses the layout migration");
+  assert.equal(base.version, 28, "Production state uses the current storage migration");
   if (native) assert.equal(await page.evaluate(() => chrome.runtime.getManifest().version), manifest.version);
   await inspectMatrix(page, native, base, platform, dpr);
   if (dpr === 1.5) {
     await inspectSettingsAndPortals(page, native, base, platform);
+    await inspectScaleDrag(page, native, base, platform);
     for (const scale of [125, 150]) await inspectDrag(page, native, base, platform, scale);
     await inspectDesktopBoundaries(page, native, base, platform, dpr);
     await inspectNumericEditing(page, native, base, platform, dpr);
@@ -469,6 +510,6 @@ try {
   if (server) await new Promise(resolve => server.close(resolve));
   await writeFile(join(output, "layout-settings-metrics.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ status: report.status, matrix: report.matrix.length, settings: report.settings,
-    drag: report.drag, boundaries: report.boundaries, numericEdits: report.numericEdits,
+    scaleDrag: report.scaleDrag, drag: report.drag, boundaries: report.boundaries, numericEdits: report.numericEdits,
     screenshots: report.screenshots.length, errors: report.errors, failure: report.failure }, null, 2));
 }

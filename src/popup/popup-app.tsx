@@ -102,6 +102,8 @@ export function PopupApp() {
   const [activeBrowserTab, setActiveBrowserTab] = useState<BrowserTab | null>(null);
   const [quickWorkspace, setQuickWorkspace] = useState<SiteWorkspace>("main");
   const [quickName, setQuickName] = useState("");
+  const [quickNote, setQuickNote] = useState("");
+  const quickNoteEdited = useRef(false);
   const [quickGroupId, setQuickGroupId] = useState("");
   const [creatingQuickGroup, setCreatingQuickGroup] = useState(false);
   const [quickGroupName, setQuickGroupName] = useState("");
@@ -196,6 +198,10 @@ export function PopupApp() {
         detectedGroups.find((group) => !group.isProtected) ??
         detectedGroups[0];
       setQuickGroupId(initialGroup?.id ?? "");
+      quickNoteEdited.current = false;
+      setQuickNote(normalizedCurrentUrl
+        ? findSiteByUrl(loaded.state.sites, normalizedCurrentUrl)?.note ?? ""
+        : "");
       const mainGroups = getWorkspaceGroups(loaded.state.groups, "main");
       setBookmarkGroupId((current) => mainGroups.some((group) => group.id === current)
         ? current
@@ -303,6 +309,7 @@ export function PopupApp() {
       if (existing && quickDuplicateId !== existing.id) {
         setState(loaded.state);
         setQuickDuplicateId(existing.id);
+        if (!quickNoteEdited.current) setQuickNote(existing.note ?? "");
         return;
       }
       // Stage both changes against the latest collection, then persist once.
@@ -325,7 +332,7 @@ export function PopupApp() {
         name: quickName.trim(),
         url: quickUrl,
         groupId: targetGroup.id,
-        note: existing?.note,
+        note: quickNote.trim(),
         customIconUrl: "",
         iconSource: "auto" as const,
       };
@@ -333,6 +340,7 @@ export function PopupApp() {
         ? updateSiteInState(base, existing.id, values)
         : addSiteToState(base, values);
       await saveNextState(next);
+      quickNoteEdited.current = false;
       setQuickGroupId(targetGroup.id);
       if (quickWorkspace === "github") {
         savePopupPreferences({ lastGithubGroupId: targetGroup.id });
@@ -567,6 +575,15 @@ export function PopupApp() {
                 })}
               </div>
             </div>
+            <label className="popup-note-field">
+              <span>网站备注</span>
+              <textarea aria-label="网站备注" value={quickNote} disabled={!quickUrl || busy}
+                rows={2} maxLength={2000} placeholder="添加备注（可选）"
+                onChange={event => {
+                  quickNoteEdited.current = true;
+                  setQuickNote(event.target.value);
+                }} />
+            </label>
             {duplicate && quickDuplicateId && (
               <div className="duplicate-popup-notice">
                 <Warning size={18} />

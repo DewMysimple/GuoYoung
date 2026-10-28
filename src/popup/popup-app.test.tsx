@@ -300,6 +300,38 @@ describe("toolbar popup", () => {
     expect(saved.sites.find((site: { url: string }) => site.url === "https://platform.openai.com/docs")?.groupId).toBe("develop");
   });
 
+  it("adds a note to the current website directly from quick add", async () => {
+    const { set } = installChromeMock({ tab: { title: "设计文档", url: "https://example.com/design-notes" } });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    const note = await screen.findByRole("textbox", { name: "网站备注" });
+    expect(note).toHaveValue("");
+    await user.type(note, "项目资料{Enter}第二行");
+    await user.click(screen.getByRole("button", { name: "添加到主页" }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    expect(saved.sites.find(site => site.url === "https://example.com/design-notes")?.note).toBe("项目资料\n第二行");
+  });
+
+  it("loads and updates an existing website note in quick add", async () => {
+    const state = createDefaultState();
+    const existing = state.sites[0];
+    existing.note = "原备注";
+    const { set } = installChromeMock({ state, tab: { title: "更新后的名称", url: existing.url } });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    const note = await screen.findByRole("textbox", { name: "网站备注" });
+    expect(note).toHaveValue("原备注");
+    await user.clear(note);
+    await user.type(note, "弹窗里更新的备注");
+    await user.click(screen.getByRole("button", { name: "更新已收藏网站" }));
+    expect(await screen.findByText(/再次确认会移动到当前分组并更新名称/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "确认移动并更新" }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    expect(saved.sites.find(site => site.id === existing.id)?.note).toBe("弹窗里更新的备注");
+  });
+
   it("opens bookmark folders as separate card views and uses the browser favicon", async () => {
     installChromeMock();
     const user = userEvent.setup();

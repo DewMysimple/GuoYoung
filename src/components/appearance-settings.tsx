@@ -31,9 +31,10 @@ interface AppearanceSettingsProps {
   panelWidth: number;
   panelMaxWidth: number;
   onPanelWidthChange: (width: number) => void;
+  onInterfaceScaleInteraction?: (active: boolean) => void;
 }
 
-export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange, onChange, onColorPreview, panelWidth, panelMaxWidth, onPanelWidthChange }: AppearanceSettingsProps) {
+export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange, onChange, onColorPreview, panelWidth, panelMaxWidth, onPanelWidthChange, onInterfaceScaleInteraction }: AppearanceSettingsProps) {
   const [layoutOpen, setLayoutOpen] = useSettingsDisclosure("页面布局");
   const [detailsOpen, setDetailsOpen] = useSettingsDisclosure("布局微调");
   const [dimensionsOpen, setDimensionsOpen] = useSettingsDisclosure("界面尺寸");
@@ -52,6 +53,7 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
           onChange={push => onChange(patchAppearance(value, { settingsPresentation: push ? "push" : "overlay" }))} />
         <RangeControl label="界面缩放" value={value.interfaceScale} min={LAYOUT_LIMITS.interfaceScale.min}
           max={LAYOUT_LIMITS.interfaceScale.max} unit="%"
+          onInteractionChange={onInterfaceScaleInteraction}
           onChange={interfaceScale => onChange(patchAppearance(value, { interfaceScale }))} />
         <SettingsOptionGroup className="appearance-scale-options" label="常用界面缩放">
           {[75, 100, 125, 150].map(scale => <SettingsOption key={scale}

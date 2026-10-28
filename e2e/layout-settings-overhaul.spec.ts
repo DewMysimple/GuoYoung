@@ -452,6 +452,44 @@ test("scales interface geometry and text once while keeping portals and settings
   await page.screenshot({ path: screenshotPath("layout-settings-scaled-manager-portal.png"), animations: "disabled" });
 });
 
+test("keeps the settings panel at its starting scale during interface-scale dragging", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop settings scale drag");
+  const panel = await openAppearance(page);
+  const slider = panel.getByRole("slider", { name: "界面缩放", exact: true });
+  const startBounds = await panel.boundingBox();
+  const sliderBounds = await slider.boundingBox();
+  expect(startBounds).not.toBeNull();
+  expect(sliderBounds).not.toBeNull();
+  const startFontScale = await page.evaluate(() => document.documentElement.style.getPropertyValue("--font-scale"));
+  const previewCard = panel.locator(".appearance-preview-settings");
+  const startCardBounds = await previewCard.boundingBox();
+  const y = sliderBounds!.y + sliderBounds!.height / 2;
+  await page.mouse.move(sliderBounds!.x + sliderBounds!.width / 3, y);
+  await page.mouse.down();
+  await page.mouse.move(sliderBounds!.x + sliderBounds!.width - 2, y, { steps: 12 });
+
+  await expect.poll(async () => Number(await slider.inputValue())).toBeGreaterThan(130);
+  await expect.poll(async () => Number(await page.evaluate(() => document.documentElement.style.getPropertyValue("--interface-scale"))))
+    .toBeCloseTo(Number(await slider.inputValue()) / 100, 2);
+  await expect.poll(() => panel.evaluate(element => getComputedStyle(element).getPropertyValue("--interface-scale").trim())).toBe("1");
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--font-scale"))).toBe(startFontScale);
+  const duringDrag = await panel.boundingBox();
+  const duringCardBounds = await previewCard.boundingBox();
+  expect(Math.abs(duringDrag!.width - startBounds!.width)).toBeLessThan(1);
+  expect(Math.abs(duringDrag!.height - startBounds!.height)).toBeLessThan(1);
+  expect(Math.abs(duringCardBounds!.width - startCardBounds!.width)).toBeLessThan(1);
+  expect(Math.abs(duringCardBounds!.height - startCardBounds!.height)).toBeLessThan(1);
+  await page.screenshot({ path: screenshotPath("layout-settings-scale-drag-panel-stays-fixed.png"), animations: "disabled" });
+
+  await page.mouse.up();
+  const finalScale = Number(await slider.inputValue()) / 100;
+  await expect.poll(async () => Number(await panel.evaluate(element => getComputedStyle(element).getPropertyValue("--interface-scale")))).toBeCloseTo(finalScale, 2);
+  await expect.poll(async () => Number(await page.evaluate(() => document.documentElement.style.getPropertyValue("--font-scale"))))
+    .toBeCloseTo(finalScale, 2);
+  await expect.poll(async () => (await panel.boundingBox())!.width).toBeCloseTo(startBounds!.width * finalScale, 0);
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+});
+
 test("shares scaled square columns with history overview and detail and keeps the data page usable", async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(window, "chrome", { configurable: true, value: {
     runtime: { id: "layout-history-test" },

@@ -84,18 +84,30 @@ try {
     const pageBounds = quickPage.getBoundingClientRect();
     const cardBounds = quickPage.querySelector(".popup-form-card").getBoundingClientRect();
     const groupOptions = quickPage.querySelector(".popup-group-options");
+    const noteField = quickPage.querySelector(".popup-note-field");
+    const noteInput = noteField.querySelector("textarea");
+    const primary = quickPage.querySelector(".popup-primary");
     return {
       topGap: cardBounds.top - pageBounds.top,
       bottomGap: pageBounds.bottom - cardBounds.bottom,
       groupHeight: groupOptions.getBoundingClientRect().height,
       groupScrollHeight: groupOptions.scrollHeight,
+      noteField: noteField.getBoundingClientRect().toJSON(),
+      noteInput: noteInput.getBoundingClientRect().toJSON(),
+      primary: primary.getBoundingClientRect().toJSON(),
     };
   });
   assert.ok(quickLayout.topGap <= 1, "The quick-add card should begin at the top of the available page area");
   assert.ok(quickLayout.bottomGap >= 15 && quickLayout.bottomGap <= 17,
     "The quick-add card should use the available height and leave only page padding below it");
-  assert.ok(quickLayout.groupHeight > 330, "The group picker should use the remaining popup height");
+  assert.ok(quickLayout.groupHeight > 250, "The group picker should use the remaining popup height after reserving the note field");
+  assert.ok(quickLayout.noteInput.height >= 48 && quickLayout.noteInput.left >= quickLayout.noteField.left
+    && quickLayout.noteInput.right <= quickLayout.noteField.right && quickLayout.noteInput.bottom <= quickLayout.noteField.bottom,
+  "The multiline note input should fit its field and remain visible");
+  assert.ok(quickLayout.noteField.bottom <= quickLayout.primary.top,
+    "The note field should not overlap the fixed quick-add button");
   assert.equal(await page.locator(".popup-group-options").evaluate((options) => getComputedStyle(options).alignContent), "start");
+  await page.getByRole("textbox", { name: "网站备注" }).fill("记录这个网站的用途\n以及常用入口");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-light.png"), animations: "disabled" });
   await page.getByRole("button", { name: "浏览器书签" }).click();
   const bookmarksHeaderCenterOffset = await page.locator(".popup-header").evaluate((header) => {
@@ -223,11 +235,18 @@ try {
   });
   assert.equal(siteCardSize.height, 76, "Website bookmark cards should use the compact tile height");
   assert.ok(siteCardSize.width >= 85 && siteCardSize.width <= 95, "Website bookmark cards should use four columns");
-  const firstRowY = await page.locator('[data-bookmark-kind="site"]').evaluateAll((cards) =>
-    cards.slice(0, 4).map((card) => Math.round(card.getBoundingClientRect().top)),
+  await expect.poll(() => page.locator('[data-bookmark-kind="site"]').evaluateAll((cards) =>
+    new Set(cards.slice(0, 4).map((card) => Math.round(card.getBoundingClientRect().top))).size,
+  )).toBe(1);
+  const firstRowCards = await page.locator('[data-bookmark-kind="site"]').evaluateAll((cards) =>
+    cards.slice(0, 4).map((card) => {
+      const bounds = card.getBoundingClientRect();
+      return { top: bounds.top, left: bounds.left, width: bounds.width, height: bounds.height };
+    }),
   );
+  const firstRowY = firstRowCards.map((card) => Math.round(card.top));
   assert.equal(firstRowY.length, 4);
-  assert.equal(new Set(firstRowY).size, 1, "Four bookmark cards should share a row");
+  assert.equal(new Set(firstRowY).size, 1, `Four bookmark cards should share a row: ${JSON.stringify(firstRowCards)}`);
   assert.equal(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).borderTopStyle), "solid",
     "Website bookmark tiles should share the folder card frame");
   assert.notEqual(await page.locator('[data-bookmark-kind="site"]').first().evaluate((card) => getComputedStyle(card).backgroundColor), "rgba(0, 0, 0, 0)",
@@ -286,7 +305,7 @@ try {
   }));
   assert.ok(manyGroupLayout.scrollHeight > manyGroupLayout.height, "Overflow should remain inside the group list");
   assert.ok(manyGroupLayout.firstTop <= 3, "Group choices should begin at the top without distributed blank space");
-  assert.ok(manyGroupLayout.fullyVisible >= 14, "At least seven rows should fit before scrolling");
+  assert.ok(manyGroupLayout.fullyVisible >= 10, "At least five rows should fit before scrolling");
   await page.locator(".popup-shell").screenshot({ path: join(output, "popup-production-quick-many-groups.png"), animations: "disabled" });
   await page.locator(".popup-group-option").last().click();
   await expect(page.locator(".popup-group-option").last()).toHaveAttribute("aria-checked", "true");

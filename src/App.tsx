@@ -17,6 +17,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
   type CSSProperties,
   type FocusEvent,
   type FormEvent,
@@ -195,6 +196,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   } = useSiteHub(store);
   const [settingsPreview, setSettingsPreview] =
     useState<SettingsDraft | null>(null);
+  const [interfaceScaleAtDragStart, setInterfaceScaleAtDragStart] = useState<number | null>(null);
   const effectiveBrand = settingsPreview?.brand ?? state.brand;
   const effectiveAppearance =
     settingsPreview?.appearance ?? state.appearance;
@@ -1182,6 +1184,13 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       : (activeGroup?.name ?? "网站");
   useTextSelection(effectiveAppearance.allowTextSelection);
   const interfaceScale = appearanceScale(effectiveAppearance);
+  const currentInterfaceScale = useRef(interfaceScale);
+  currentInterfaceScale.current = interfaceScale;
+  const handleInterfaceScaleInteraction = useCallback((active: boolean) => {
+    if (active) setInterfaceScaleAtDragStart(current => current ?? currentInterfaceScale.current);
+    else setInterfaceScaleAtDragStart(null);
+  }, []);
+  const interfaceTextScale = interfaceScaleAtDragStart ?? interfaceScale;
   const geometry = scaledGeometry(effectiveAppearance);
   const hasSiteNotes = state.sites.some(site => Boolean(site.note));
   const canPushSettings = useSettingsPanelLayout(settingsOpen, effectiveAppearance, hasSiteNotes);
@@ -1189,7 +1198,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     ...cardLayoutVariables(effectiveAppearance),
     "--card-safe-width": `${getMinimumCardWidth(effectiveAppearance, hasSiteNotes)}px`,
     "--interface-scale": String(interfaceScale),
-    "--font-scale": String(effectiveAppearance.fontScale / 100 * interfaceScale),
+    "--font-scale": String(effectiveAppearance.fontScale / 100 * interfaceTextScale),
     "--ui-icon-scale": String(effectiveAppearance.uiIconScale / 100 * interfaceScale),
     "--control-scale": String(effectiveAppearance.controlScale / 100 * interfaceScale),
     "--radius-control": `${geometry.controlRadius}px`,
@@ -1258,6 +1267,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     return () => { delete root.dataset.textEffect; };
   }, [
     effectiveAppearance,
+    interfaceTextScale,
     effectiveWallpaper,
     wallpaperUrl,
   ]);
@@ -1923,6 +1933,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         }} />}
       <SettingsPanel
         wallpaperPreviewUrl={wallpaperUrl}
+        onInterfaceScaleInteraction={handleInterfaceScaleInteraction}
         open={settingsOpen}
         state={state}
         initialSection={settingsInitialSection}

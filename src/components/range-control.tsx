@@ -9,6 +9,7 @@ interface RangeControlProps {
   step?: number;
   unit?: string;
   disabled?: boolean;
+  onInteractionChange?: (active: boolean) => void;
   onChange: (value: number) => void;
 }
 
@@ -37,13 +38,36 @@ function snapValue(number: number, min: number, max: number, step: number) {
 }
 
 /** One controlled value, an immediate slider and an editable numeric draft. */
-export function RangeControl({ label, value, min, max, step = 1, unit = "px", disabled, onChange }: RangeControlProps) {
+export function RangeControl({ label, value, min, max, step = 1, unit = "px", disabled, onInteractionChange, onChange }: RangeControlProps) {
   const id = useId();
   const numberInput = useRef<HTMLInputElement>(null);
+  const interactionCallback = useRef(onInteractionChange);
+  const activePointer = useRef<number | null>(null);
   const edited = useRef(false);
   const [draft, setDraft] = useState(() => formatNumber(value));
   const [focused, setFocused] = useState(false);
   const parsed = parseNumber(draft);
+
+  useEffect(() => { interactionCallback.current = onInteractionChange; }, [onInteractionChange]);
+
+  useEffect(() => {
+    if (!onInteractionChange) return;
+    const finishPointerInteraction = (event: PointerEvent) => {
+      if (activePointer.current === null || activePointer.current !== (event.pointerId ?? -1)) return;
+      activePointer.current = null;
+      interactionCallback.current?.(false);
+    };
+    window.addEventListener("pointerup", finishPointerInteraction);
+    window.addEventListener("pointercancel", finishPointerInteraction);
+    return () => {
+      window.removeEventListener("pointerup", finishPointerInteraction);
+      window.removeEventListener("pointercancel", finishPointerInteraction);
+      if (activePointer.current !== null) {
+        activePointer.current = null;
+        interactionCallback.current?.(false);
+      }
+    };
+  }, [onInteractionChange]);
 
   useEffect(() => {
     edited.current = false;
@@ -111,7 +135,13 @@ export function RangeControl({ label, value, min, max, step = 1, unit = "px", di
         </span>
       </span>
       <input id={id} type="range" aria-label={label} min={min} max={max} step={step}
-        value={value} disabled={disabled} onChange={event => apply(Number(event.target.value))} />
+        value={value} disabled={disabled}
+        onPointerDown={event => {
+          if (disabled || !interactionCallback.current || activePointer.current !== null || event.button > 0) return;
+          activePointer.current = event.pointerId ?? -1;
+          interactionCallback.current(true);
+        }}
+        onChange={event => apply(Number(event.target.value))} />
       <small id={`${id}-hint`} className="visually-hidden">输入后按 Enter 或离开输入框应用，Esc 取消。</small>
     </div>
   );

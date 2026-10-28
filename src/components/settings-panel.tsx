@@ -11,7 +11,9 @@ import {
   useId,
   useRef,
   useState,
+  useCallback,
   type ChangeEvent,
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
   type WheelEvent,
@@ -63,6 +65,7 @@ export interface SettingsDraft {
 interface SettingsPanelProps {
   open: boolean;
   state: SiteCollectionState;
+  onInterfaceScaleInteraction: (active: boolean) => void;
   initialSection?: SettingsSection;
   initialTrashOpen?: boolean;
   onOpenChange: (open: boolean) => void;
@@ -99,6 +102,7 @@ function clamp(value: number, minimum: number, maximum: number) {
 export function SettingsPanel({
   open,
   state,
+  onInterfaceScaleInteraction,
   initialSection,
   initialTrashOpen = false,
   onOpenChange,
@@ -145,7 +149,16 @@ export function SettingsPanel({
   const wallpaperImport = useImageImport(open);
   const isProcessing = wallpaperImport.pending;
   const interfaceScale = appearanceScale(draft.appearance);
-  const { width: panelWidth, physicalWidth: physicalPanelWidth, maxWidth: panelMaxWidth, changeWidth, rememberWidth } = useSettingsPanelWidth(open, interfaceScale);
+  const [interfaceScaleAtDragStart, setInterfaceScaleAtDragStart] = useState<number | null>(null);
+  const currentInterfaceScale = useRef(interfaceScale);
+  currentInterfaceScale.current = interfaceScale;
+  const handleInterfaceScaleInteraction = useCallback((active: boolean) => {
+    if (active) setInterfaceScaleAtDragStart(current => current ?? currentInterfaceScale.current);
+    else setInterfaceScaleAtDragStart(null);
+    onInterfaceScaleInteraction(active);
+  }, [onInterfaceScaleInteraction]);
+  const panelInterfaceScale = interfaceScaleAtDragStart ?? interfaceScale;
+  const { width: panelWidth, physicalWidth: physicalPanelWidth, maxWidth: panelMaxWidth, changeWidth, rememberWidth } = useSettingsPanelWidth(open, panelInterfaceScale);
   const [wallpaperEditing, setWallpaperEditing] = useState(false);
   const pendingDataAction = useRef<(() => void) | null>(null);
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
@@ -547,13 +560,13 @@ export function SettingsPanel({
           <Dialog.Content
           className="settings-panel"
           aria-labelledby={titleId}
-          style={{ width: physicalPanelWidth }}
+          style={{ width: physicalPanelWidth, "--interface-scale": String(panelInterfaceScale) } as CSSProperties}
           onEscapeKeyDown={() => onPreview(null)}
           onInteractOutside={(event) => event.preventDefault()}
         >
           <ResizeHandle label="调整设置栏宽度" axis="x" direction={-1} step={24}
             value={panelWidth} min={MIN_PANEL_WIDTH} max={panelMaxWidth} defaultValue={DEFAULT_PANEL_WIDTH}
-            coordinateScale={interfaceScale} className="settings-resize-handle" onChange={changeWidth} onCommit={rememberWidth} />
+            coordinateScale={panelInterfaceScale} className="settings-resize-handle" onChange={changeWidth} onCommit={rememberWidth} />
           {!wallpaperEditing && <TopbarResizeHandle value={draft.appearance.topbarHeight} scale={interfaceScale}
             panelWidth={draft.appearance.settingsPresentation === "push" ? physicalPanelWidth : 0}
             onChange={(topbarHeight) => setDraft((current) => ({ ...current, appearance: patchAppearance(current.appearance, { topbarHeight }) }))} />}
@@ -618,6 +631,7 @@ export function SettingsPanel({
                 <AppearanceSettingsEditor value={draft.appearance} previousPreset={previousPreset} onPresetChange={setPreviousPreset}
                   onColorPreview={colorPreview.preview}
                   panelWidth={panelWidth} panelMaxWidth={panelMaxWidth} onPanelWidthChange={rememberWidth}
+                  onInterfaceScaleInteraction={handleInterfaceScaleInteraction}
                   onChange={updateAppearance} />
                 <BrandSettingsEditor value={draft.brand}
                   error={logoError}

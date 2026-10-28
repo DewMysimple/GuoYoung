@@ -120,6 +120,16 @@ it("keeps native slider changes immediate and discards a superseded numeric draf
   expect(changed).toHaveBeenCalledTimes(1);
 });
 
+it("reports pointer interaction across a slider drag, including release outside the control", () => {
+  const interaction = vi.fn();
+  const { slider } = mount({ onInteractionChange: interaction });
+  fireEvent.pointerDown(slider, { pointerId: 12, button: 0 });
+  expect(interaction).toHaveBeenCalledExactlyOnceWith(true);
+  fireEvent.pointerUp(window, { pointerId: 12 });
+  expect(interaction).toHaveBeenLastCalledWith(false);
+  expect(interaction).toHaveBeenCalledTimes(2);
+});
+
 it("refreshes external values and limits without applying stale edits", () => {
   const changed = vi.fn();
   const props = { label: "尺寸", value: 20, min: 0, max: 100, onChange: changed };
