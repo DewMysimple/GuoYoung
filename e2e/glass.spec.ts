@@ -94,6 +94,7 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(tab).toHaveCSS("opacity", "1");
+  await expect(page.getByRole("tab", { name: /^全部/ })).toHaveAttribute("aria-selected", "true");
 
   const heading = page.locator('.grouped-site-section[data-group-sort-section-id="search"] .grouped-site-header-main');
   const headingBox = await heading.boundingBox();
@@ -169,6 +170,41 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.screenshot({ path: screenshotPath("glass-manager-portal-drag.png") });
   await page.keyboard.press("Escape");
   await page.mouse.up();
+});
+
+test("cancelling a long tab drag keeps the grouped view after a delayed pointer release", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop cancelled-drag click regression");
+  await page.getByRole("button", { name: "显示", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+  const order = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).groups.map((group: { id: string }) => group.id));
+  const allTab = page.getByRole("tab", { name: /^全部/ });
+  const tab = page.locator('[data-group-sort-tab-id="search"]');
+  const box = await tab.boundingBox();
+  if (!box) throw new Error("Search tab is missing");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 9, box.y + box.height / 2);
+  const preview = page.getByTestId("group-sort-horizontal-drag-preview");
+  await expect(preview).toBeVisible();
+  // Cross the former 700ms-from-start expiry while holding the real pointer.
+  await page.evaluate(async () => {
+    const start = performance.now();
+    while (performance.now() - start < 900) await new Promise(requestAnimationFrame);
+  });
+  await page.keyboard.press("Escape");
+  await expect(preview).toHaveCount(0);
+  await expect(allTab).toHaveAttribute("aria-selected", "true");
+  // Release after dnd-kit's 50ms document click guard has detached.
+  await page.evaluate(async () => {
+    const start = performance.now();
+    while (performance.now() - start < 120) await new Promise(requestAnimationFrame);
+  });
+  await page.mouse.up();
+  await expect(allTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator('.grouped-site-section[data-group-sort-section-id="search"]')).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).groups.map((group: { id: string }) => group.id))).toEqual(order);
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
 });
 
 test("previews glass, restores cancelled drafts and persists material controls", async ({ page }, info) => {

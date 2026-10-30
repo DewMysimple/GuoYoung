@@ -50,7 +50,8 @@ export function GroupDropTab({
     startY: number;
   } | null>(null);
   const suppressClickRef = useRef(false);
-  const suppressClickTimerRef = useRef<number | null>(null);
+  const pointerReleaseClickRef = useRef(false);
+  const pointerReleaseTaskRef = useRef<number | null>(null);
   const onSortIntentRef = useRef(onSortIntent);
 
   function clearLongPressTimer() {
@@ -68,20 +69,36 @@ export function GroupDropTab({
 
   function suppressNextClick() {
     suppressClickRef.current = true;
-    if (suppressClickTimerRef.current !== null) {
-      window.clearTimeout(suppressClickTimerRef.current);
+  }
+
+  function clearClickSuppression() {
+    suppressClickRef.current = false;
+    pointerReleaseClickRef.current = false;
+    if (pointerReleaseTaskRef.current !== null) {
+      window.clearTimeout(pointerReleaseTaskRef.current);
+      pointerReleaseTaskRef.current = null;
     }
-    suppressClickTimerRef.current = window.setTimeout(() => {
-      suppressClickRef.current = false;
-      suppressClickTimerRef.current = null;
-    }, 700);
+  }
+
+  function releasePointerGesture() {
+    finishPointerGesture();
+    if (!suppressClickRef.current) return;
+    pointerReleaseClickRef.current = true;
+    // A click dispatched with this release still belongs to the gesture, even
+    // when it has no click count. Later count-zero assistive activation is
+    // independent. The pointer-click latch itself has no time limit.
+    if (pointerReleaseTaskRef.current !== null) window.clearTimeout(pointerReleaseTaskRef.current);
+    pointerReleaseTaskRef.current = window.setTimeout(() => {
+      pointerReleaseClickRef.current = false;
+      pointerReleaseTaskRef.current = null;
+    }, 0);
   }
 
   useEffect(
     () => () => {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-      if (suppressClickTimerRef.current !== null) {
-        window.clearTimeout(suppressClickTimerRef.current);
+      if (pointerReleaseTaskRef.current !== null) {
+        window.clearTimeout(pointerReleaseTaskRef.current);
       }
     },
     [],
@@ -111,6 +128,8 @@ export function GroupDropTab({
     onSortIntentRef.current();
   }, [sortable.isDragging]);
 
+  const { onKeyDown: onSortKeyDown, ...sortListeners } = sortable.listeners ?? {};
+
   return (
     <button
       ref={sortable.setNodeRef}
@@ -136,6 +155,7 @@ export function GroupDropTab({
       title={`${group.name}：点击查看，长按管理`}
       onPointerDown={(event) => {
         if (event.button !== 0 || dragActive || managementDisabled) return;
+        clearClickSuppression();
         finishPointerGesture();
         gestureRef.current = {
           pointerId: event.pointerId,
@@ -167,7 +187,7 @@ export function GroupDropTab({
           }
         }
       }}
-      onPointerUp={finishPointerGesture}
+      onPointerUp={releasePointerGesture}
       onPointerCancel={finishPointerGesture}
       onLostPointerCapture={finishPointerGesture}
       onContextMenu={(event) => {
@@ -176,19 +196,23 @@ export function GroupDropTab({
         }
       }}
       onClick={(event) => {
-        if (suppressClickRef.current) {
-          suppressClickRef.current = false;
-          if (suppressClickTimerRef.current !== null) {
-            window.clearTimeout(suppressClickTimerRef.current);
-            suppressClickTimerRef.current = null;
-          }
+        const belongsToGesture = sortable.isDragging || event.detail > 0 || pointerReleaseClickRef.current;
+        if (suppressClickRef.current && belongsToGesture) {
+          clearClickSuppression();
           event.preventDefault();
           event.stopPropagation();
           return;
         }
+        clearClickSuppression();
         onSelect();
       }}
-      {...sortable.listeners}
+      {...sortListeners}
+      onKeyDown={(event) => {
+        if (!sortable.isDragging && (event.key === "Enter" || event.key === " ")) {
+          clearClickSuppression();
+        }
+        onSortKeyDown?.(event);
+      }}
     >
       <CategoryIcon name={group.icon} size={16} />
       {group.name}

@@ -706,10 +706,35 @@ test("auto-scrolls overflowing group tabs during a site transfer", async ({
       ),
     )
     .toBeTruthy();
-  await page.waitForTimeout(520);
-  const targetGroupId = await page
-    .locator('.category-tab.is-drag-over[data-group-drop-id]')
-    .getAttribute("data-group-drop-id");
+  // Stop edge scrolling before choosing a destination. A hover sampled while
+  // the tabs are still moving can change again before mouseup is dispatched.
+  await page.mouse.move(tabsBox.x + tabsBox.width / 2, tabsBox.y + tabsBox.height / 2);
+  const stoppedScroll = await tabs.evaluate(async (element) => {
+    const before = element.scrollLeft;
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+    return { before, after: element.scrollLeft };
+  });
+  expect(stoppedScroll.after).toBe(stoppedScroll.before);
+  const target = await tabs.evaluate((element) => {
+    const viewport = element.getBoundingClientRect();
+    const middle = (viewport.left + viewport.right) / 2;
+    return Array.from(element.querySelectorAll<HTMLElement>('[data-group-drop-id^="edge-"]'))
+      .map((tab) => {
+        const rect = tab.getBoundingClientRect();
+        return { id: tab.dataset.groupDropId!, x: (rect.left + rect.right) / 2,
+          y: (rect.top + rect.bottom) / 2, left: rect.left, right: rect.right };
+      })
+      .filter((tab) => tab.left >= viewport.left && tab.right <= viewport.right &&
+        tab.x > viewport.left + 56 && tab.x < viewport.right - 56)
+      .sort((first, second) => Math.abs(first.x - middle) - Math.abs(second.x - middle))[0];
+  });
+  if (!target) throw new Error("No fully visible edge group outside the auto-scroll zone");
+  const targetGroupId = target.id;
+  const targetTab = page.locator(`[data-group-drop-id="${targetGroupId}"]`);
+  await page.mouse.move(target.x, target.y, { steps: 4 });
+  await expect(targetTab).toHaveClass(/is-drag-over/);
+  await expect(targetTab).toHaveAttribute("aria-selected", "true");
   await page.mouse.up();
 
   await expect.poll(() =>
