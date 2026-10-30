@@ -1378,29 +1378,30 @@ describe("App", () => {
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
 
     await user.click(screen.getByRole("button", { name: "打开设置" }));
-    expect(screen.getByRole("button", { name: "跟随系统" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "浅色" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "深色" }));
+    const settings = within(screen.getByRole("dialog", { name: "设置" }));
+    expect(settings.getByRole("button", { name: "跟随系统" })).toHaveAttribute("aria-pressed", "true");
+    expect(settings.getByRole("button", { name: "浅色" })).toBeInTheDocument();
+    await user.click(settings.getByRole("button", { name: "深色" }));
     expect(document.documentElement.dataset.theme).toBe("dark");
-    await user.click(screen.getByRole("button", { name: "紧凑" }));
+    await user.click(settings.getByRole("button", { name: "紧凑" }));
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("140px");
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
 
-    await user.click(screen.getByRole("tab", { name: "字体调节" }));
-    fireEvent.change(screen.getByRole("slider", { name: "整体字号" }), { target: { value: "110" } });
+    await user.click(settings.getByRole("tab", { name: "字体调节" }));
+    fireEvent.change(settings.getByRole("slider", { name: "整体字号" }), { target: { value: "110" } });
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1.1");
-    await user.click(screen.getByRole("tab", { name: "外观" }));
-    await user.click(screen.getByRole("button", { name: /^页面布局$/ }));
-    await user.click(screen.getByRole("button", { name: /布局微调/ }));
+    await user.click(settings.getByRole("tab", { name: "外观" }));
+    await user.click(settings.getByRole("button", { name: /^页面布局$/ }));
+    await user.click(settings.getByRole("button", { name: /布局微调/ }));
     expect(within(document.querySelector(".appearance-details") as HTMLElement).getAllByRole("slider")).toHaveLength(5);
-    fireEvent.change(screen.getByRole("slider", { name: "卡片宽度" }), {
+    fireEvent.change(settings.getByRole("slider", { name: "卡片宽度" }), {
       target: { value: "210" },
     });
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("210px");
     expect(shell.style.getPropertyValue("--brand-font-scale")).toBe("1.1");
     expect(shell.style.getPropertyValue("--card-font-scale")).toBe("1.1");
 
-    await user.click(screen.getByRole("button", { name: "取消" }));
+    await user.click(settings.getByRole("button", { name: "取消" }));
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(shell.style.getPropertyValue("--card-min-width")).toBe("160px");
     expect(shell.style.getPropertyValue("--font-scale")).toBe("1");
@@ -1408,8 +1409,9 @@ describe("App", () => {
     expect(shell.style.getPropertyValue("--card-font-scale")).toBe("1");
 
     await user.click(screen.getByRole("button", { name: "打开设置" }));
-    await user.click(screen.getByRole("button", { name: "紧凑" }));
-    await user.click(screen.getByRole("button", { name: "保存设置" }));
+    const reopenedSettings = within(screen.getByRole("dialog", { name: "设置" }));
+    await user.click(reopenedSettings.getByRole("button", { name: "紧凑" }));
+    await user.click(reopenedSettings.getByRole("button", { name: "保存设置" }));
     await waitFor(() => {
       expect(localStorage.getItem(STORAGE_KEY)).toContain('"cardWidth":140');
     });
