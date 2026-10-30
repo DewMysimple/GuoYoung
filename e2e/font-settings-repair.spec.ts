@@ -151,6 +151,9 @@ test("applies font families and 100→130→70 overall size to page text, settin
     await editor.getByRole("button", { name: "关闭", exact: true }).click();
     await page.getByRole("button", { name: "打开历史记录" }).click();
     await expect(page.locator(".history-site-card")).toHaveCount(1);
+    // The local image fixture is still asynchronous. Sample each scale after
+    // its favicon replaces the temporary letter, so the text sets match.
+    await expect(page.locator(".history-site-card .favicon-frame img")).toHaveClass("is-loaded");
     await audit("history", page.locator(".browser-history"), scale);
     await page.getByRole("button", { name: "历史记录时间范围", exact: true }).click();
     await audit("history-menu", page.getByRole("listbox", { name: "历史记录时间范围选项" }), scale);
