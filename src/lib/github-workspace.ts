@@ -10,20 +10,9 @@ import type {
   SiteItem,
   SiteWorkspace,
 } from "../types";
-import { reindexSites } from "./site-utils";
+import { isGithubHomeUrl, reindexSites } from "./site-utils";
 
-export function isGithubHomeUrl(input: string): boolean {
-  try {
-    const url = new URL(input);
-    const hostname = url.hostname.toLocaleLowerCase("en-US");
-    return (
-      (hostname === "github.com" || hostname === "www.github.com") &&
-      (url.pathname === "" || url.pathname === "/")
-    );
-  } catch {
-    return false;
-  }
-}
+export { isGithubHomeUrl } from "./site-utils";
 
 export function findGithubHomeSite(
   sites: SiteItem[],

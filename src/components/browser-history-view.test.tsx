@@ -54,7 +54,7 @@ function createHistoryApi(items: BrowserHistoryItem[] = []): {
 
 describe("BrowserHistoryView", () => {
   beforeEach(() => { vi.spyOn(window, "scrollTo").mockImplementation(() => {}); });
-  afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
   it("preserves failed URL selections so a partial deletion can be retried", async () => {
     const user = userEvent.setup();
@@ -118,7 +118,14 @@ describe("BrowserHistoryView", () => {
       "noopener noreferrer",
     );
 
-    await user.type(screen.getByRole("searchbox", { name: "搜索浏览历史" }), "GitHub");
+    const searchWeb = vi.fn();
+    history.api.search = { query: searchWeb };
+    vi.stubGlobal("chrome", history.api);
+    const historySearch = screen.getByRole("searchbox", { name: "搜索浏览历史" });
+    await user.type(historySearch, "GitHub{Enter}");
+    expect(screen.queryByRole("button", { name: "搜索网页" })).not.toBeInTheDocument();
+    expect(historySearch).not.toHaveAttribute("aria-describedby");
+    expect(searchWeb).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(history.api.history!.search).toHaveBeenLastCalledWith(
         expect.objectContaining({ text: "GitHub" }),

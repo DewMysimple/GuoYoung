@@ -4,8 +4,35 @@ import type { ChromiumExtensionApi } from "./browser-runtime";
 import { createSiteHubStore } from "./state-store";
 import { STORAGE_KEY } from "./storage";
 import { WALLPAPER_STARTUP_KEY } from "./wallpaper-startup";
+import { importSelectedBookmarks } from "./bookmark-manager";
 
 describe("site hub store", () => {
+  it.each(["web", "extension"])("restores a newly added anchored bookmark after a fresh %s store is created", async (mode) => {
+    const state = createDefaultState();
+    const url = "https://example.com/docs?next=/Guide/#installation/";
+    const next = importSelectedBookmarks(state,
+      [{ id: "anchored-bookmark", title: "Anchored document", url }],
+      new Set(["anchored-bookmark"]), "search").state;
+    let persisted = JSON.stringify(state);
+    const api: ChromiumExtensionApi = mode === "extension" ? {
+      runtime: { id: "test-extension" },
+      storage: { local: {
+        get: vi.fn(async () => ({ [STORAGE_KEY]: persisted })),
+        set: vi.fn(async (values) => { persisted = values[STORAGE_KEY] as string; }),
+      } },
+    } : {};
+    if (mode === "web") localStorage.setItem(STORAGE_KEY, persisted);
+    try {
+      await createSiteHubStore(api, localStorage).save(next);
+      const refreshed = await createSiteHubStore(api, localStorage).load();
+      expect(refreshed.recovered).toBe(false);
+      expect(refreshed.state.sites.find((site) => site.name === "Anchored document")?.url).toBe(url);
+      expect(refreshed.state.sites).toHaveLength(state.sites.length + 1);
+    } finally {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  });
+
   it("consumes the early authoritative read once and reads fresh storage thereafter", async () => {
     const state = createDefaultState();
     const get = vi.fn().mockResolvedValue({ [STORAGE_KEY]: JSON.stringify({ ...state, sites: [] }) });

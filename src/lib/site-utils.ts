@@ -62,11 +62,40 @@ export function normalizeUrl(input: string): string {
     throw new Error("网站地址需要使用 http 或 https");
   }
 
-  url.hash = "";
-  if (url.pathname === "/") {
-    url.pathname = "";
+  const serialized = url.toString();
+  // Preserve every navigation component. Only keep the existing display
+  // convention for a bare root, never trim a path, query or fragment slash.
+  return url.pathname === "/" && serialized.endsWith("/") && !url.search && !url.hash
+    ? serialized.slice(0, -1)
+    : serialized;
+}
+
+/** Only the bare official root shares the special GitHub homepage entry. */
+export function isGithubHomeUrl(input: string): boolean {
+  try {
+    const url = new URL(input);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      (url.hostname === "github.com" || url.hostname === "www.github.com") &&
+      !url.port &&
+      url.href === `${url.origin}/`
+    );
+  } catch {
+    return false;
   }
-  return url.toString().replace(/\/$/, "");
+}
+
+/** A comparison key only; never save this value as a site's navigation URL. */
+export function comparableSiteUrl(input: string): string {
+  let normalized: string;
+  try {
+    normalized = normalizeUrl(input);
+  } catch {
+    // Invalid legacy values remain readable without guessing equivalences.
+    return input.trim();
+  }
+  if (isGithubHomeUrl(normalized)) return "https://github.com";
+  return normalized;
 }
 
 export function normalizeOptionalIconUrl(input: string): string | undefined {
@@ -204,9 +233,9 @@ export function isDuplicateUrl(
   url: string,
   ignoreId?: string,
 ): boolean {
-  const target = normalizeUrl(url).toLowerCase();
+  const target = comparableSiteUrl(url);
   return sites.some(
-    (site) => site.id !== ignoreId && normalizeUrl(site.url).toLowerCase() === target,
+    (site) => site.id !== ignoreId && comparableSiteUrl(site.url) === target,
   );
 }
 

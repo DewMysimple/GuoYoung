@@ -9,6 +9,40 @@ function sharedFile() {
   return parseTransferFile(JSON.stringify(payload));
 }
 describe("data workspace transactions", () => {
+  it("round-trips a group package and conservatively merges its navigation targets", () => {
+    const state = createDefaultState();
+    const urls = [
+      "https://example.com/docs#installation",
+      "https://example.com/Guide",
+      "https://example.com/guide",
+      "https://example.com/docs",
+      "https://example.com/docs/",
+      "https://example.com/?next=/docs/",
+      "https://example.com/#/dashboard/",
+    ];
+    const source = createDefaultState();
+    source.sites = urls.map((url, index) => ({
+      ...source.sites[0], id: `source-${index}`, name: `Target ${index}`,
+      groupId: "design", url, order: index, globalOrder: index,
+    }));
+    state.sites.push({ ...source.sites[0], id: "existing-anchor", groupId: "search" });
+    const originalSites = JSON.stringify(state.sites);
+    const file = parseTransferFile(JSON.stringify(createSelectedGroupsExport(source, ["design"])));
+    expect(file.groups[0].payload.sites.map((site) => site.url)).toEqual(urls);
+
+    const result = applyDataImport(state, {
+      file, keys: ["0"], destination: { kind: "existing", groupId: "search" },
+    });
+    expect(result).toMatchObject({ added: 6, skipped: 1, created: 0 });
+    expect(result.state.sites.filter((site) => site.name.startsWith("Target "))
+      .map((site) => site.url)).toEqual(urls);
+    expect(JSON.stringify(state.sites)).toBe(originalSites);
+    const repeated = applyDataImport(result.state, {
+      file, keys: ["0"], destination: { kind: "existing", groupId: "search" },
+    });
+    expect(repeated).toMatchObject({ added: 0, skipped: 7 });
+  });
+
   it("creates a uniquely named group and preserves all existing data without mutating the snapshot", () => {
     const state = createDefaultState();
     const before = JSON.stringify(state);

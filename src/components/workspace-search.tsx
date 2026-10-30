@@ -1,5 +1,5 @@
 import { ArrowBendDownLeft, MagnifyingGlass, X } from "@phosphor-icons/react";
-import { useRef, type ComponentProps, type ReactNode } from "react";
+import { useId, useRef, type ComponentProps, type ReactNode } from "react";
 
 interface WorkspaceSearchProps {
   value: string;
@@ -7,6 +7,7 @@ interface WorkspaceSearchProps {
   label: string;
   placeholder?: string;
   clearLabel?: string;
+  description?: string;
   inputProps?: Pick<ComponentProps<"input">, "id" | "onFocus" | "onBlur" | "onKeyDown">;
   onSubmit?: ComponentProps<"form">["onSubmit"];
   children?: ReactNode;
@@ -14,8 +15,9 @@ interface WorkspaceSearchProps {
 
 /** A stable shell across workspaces; the background filter must never sit below
  * an entering opacity layer. Input and IME behavior stay shared. */
-export function WorkspaceSearch({ value, onChange, label, placeholder = label, clearLabel = "清空搜索", inputProps, onSubmit, children }: WorkspaceSearchProps) {
+export function WorkspaceSearch({ value, onChange, label, placeholder = label, clearLabel = "清空搜索", description, inputProps, onSubmit, children }: WorkspaceSearchProps) {
   const composing = useRef(false);
+  const descriptionId = useId();
   return <section className="workspace-intro">
     <div className="search-panel">
       <form className="search-input" role="search" onSubmit={event => { if (composing.current || !onSubmit) event.preventDefault(); else onSubmit(event); }}>
@@ -31,13 +33,14 @@ export function WorkspaceSearch({ value, onChange, label, placeholder = label, c
             }
             inputProps?.onKeyDown?.(event);
           }}
-          aria-label={label} placeholder={placeholder} autoComplete="off" />
+          aria-label={label} aria-describedby={description ? descriptionId : undefined} placeholder={placeholder} autoComplete="off" />
         <div className="search-trailing-actions">
           {value && <button type="button" className="clear-search" aria-label={clearLabel} onClick={() => onChange("")}><X size={17} /></button>}
           {onSubmit && <button type="submit" className="search-submit" disabled={!value.trim()}
-            aria-label="使用默认搜索引擎搜索" title="使用默认搜索引擎搜索"><ArrowBendDownLeft size={15} weight="bold" /><span>Enter</span></button>}
+            aria-label="搜索网页"><ArrowBendDownLeft size={15} weight="bold" aria-hidden="true" /><span className="search-submit-label">搜索网页</span><span className="search-submit-key" aria-hidden="true">Enter</span></button>}
         </div>
       </form>
+      {description && <p className="search-description" id={descriptionId}>{description}</p>}
       {children}
     </div>
   </section>;

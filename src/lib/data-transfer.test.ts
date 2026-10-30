@@ -38,6 +38,24 @@ describe("JSON downloads", () => {
 });
 
 describe("data transfer", () => {
+  it("preserves navigation URLs through complete backup export and import", () => {
+    const state = createDefaultState();
+    const urls = [
+      "https://example.com/docs#installation",
+      "https://example.com/#/dashboard",
+      "https://example.com/?id=AbC&id=abc&next=/docs/#end/",
+      "https://example.com/%E6%96%87%E6%A1%A3?q=%2f&q=%2F#%E7%AB%A0%E8%8A%82",
+    ];
+    state.sites = urls.map((url, index) => ({
+      ...state.sites[0], id: `portable-${index}`, url,
+      order: index, globalOrder: index,
+    }));
+
+    const serialized = serializeExport(state);
+    expect(JSON.parse(serialized).state.sites.map((site: { url: string }) => site.url)).toEqual(urls);
+    expect(parseImportFile(serialized).sites.map((site) => site.url)).toEqual(urls);
+  });
+
   it("exports a versioned envelope and restores the state", () => {
     const state = createDefaultState();
     const payload = createExportPayload(state, "2026-07-29T00:00:00.000Z");

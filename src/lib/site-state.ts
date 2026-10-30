@@ -21,7 +21,7 @@ import {
   isGithubHomeUrl,
   isGithubUrl,
 } from "./github-workspace";
-import { normalizeUrl, reindexSites } from "./site-utils";
+import { comparableSiteUrl, normalizeUrl, reindexSites } from "./site-utils";
 import { normalizeSiteNote } from "./site-notes";
 
 export type SavedSiteValues = SiteFormValues & {
@@ -305,15 +305,6 @@ export function importGithubRepositoryBatchToState(
     skippedDeleted,
     details,
   };
-}
-
-function comparableSiteUrl(url: string): string {
-  try {
-    const normalized = normalizeUrl(url).toLocaleLowerCase("en-US");
-    return isGithubHomeUrl(normalized) ? "https://github.com" : normalized;
-  } catch {
-    return url.trim().toLocaleLowerCase("en-US");
-  }
 }
 
 function resolveSiteGroupId(

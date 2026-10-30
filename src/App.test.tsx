@@ -962,44 +962,51 @@ describe("App", () => {
       screen.getByRole("menuitemradio", { name: "按分组显示" }),
     );
 
+    // Scope repeated role/name queries to the group under test. Scanning every
+    // card for each assertion dominated this multi-step jsdom scenario.
+    const searchGroup = within(screen.getByRole("region", { name: "搜索" }));
+    const designGroup = within(screen.getByRole("region", { name: "设计" }));
+    const developmentGroup = within(screen.getByRole("region", { name: "开发" }));
+    const googleCard = within(screen.getByTestId("site-card-google"));
+
     expect(screen.queryByRole("button", { name: "多选" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /多选 .+ 网站/ })).toHaveLength(6);
 
     expect(document.querySelectorAll(".grouped-site-select-group")).toHaveLength(0);
-    await user.click(screen.getByRole("button", { name: "多选 搜索 网站" }));
-    expect(screen.getByRole("button", { name: "全选 搜索 网站" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "选择 Google" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "管理 搜索 分组" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "编辑 Google" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "删除 Google" })).toBeDisabled();
+    await user.click(searchGroup.getByRole("button", { name: "多选 搜索 网站" }));
+    expect(searchGroup.getByRole("button", { name: "全选 搜索 网站" })).toHaveAttribute("aria-pressed", "false");
+    expect(googleCard.getByRole("button", { name: "选择 Google" })).toBeInTheDocument();
+    expect(searchGroup.queryByRole("button", { name: "管理 搜索 分组" })).not.toBeInTheDocument();
+    expect(googleCard.getByRole("button", { name: "编辑 Google" })).toBeDisabled();
+    expect(googleCard.getByRole("button", { name: "删除 Google" })).toBeDisabled();
     expect(document.querySelectorAll(".group-selection-trigger")).toHaveLength(6);
 
-    await user.click(screen.getByRole("button", { name: "全选 搜索 网站" }));
-    expect(screen.getByRole("button", { name: "取消全选 搜索 网站" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "取消选择 Google" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "取消选择 Bing" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "全选 设计 网站" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "选择 Figma" })).toBeInTheDocument();
+    await user.click(searchGroup.getByRole("button", { name: "全选 搜索 网站" }));
+    expect(searchGroup.getByRole("button", { name: "取消全选 搜索 网站" })).toHaveAttribute("aria-pressed", "true");
+    expect(googleCard.getByRole("button", { name: "取消选择 Google" })).toBeInTheDocument();
+    expect(searchGroup.getByRole("button", { name: "取消选择 Bing" })).toBeInTheDocument();
+    expect(designGroup.getByRole("button", { name: "全选 设计 网站" })).toBeInTheDocument();
+    expect(designGroup.getByRole("button", { name: "选择 Figma" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "取消全选 搜索 网站" }));
-    expect(screen.getByRole("button", { name: "全选 搜索 网站" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "选择 Google" })).toBeInTheDocument();
+    await user.click(searchGroup.getByRole("button", { name: "取消全选 搜索 网站" }));
+    expect(searchGroup.getByRole("button", { name: "全选 搜索 网站" })).toBeInTheDocument();
+    expect(googleCard.getByRole("button", { name: "选择 Google" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "选择 Google" }));
-    await user.click(screen.getByRole("heading", { level: 3, name: "搜索" }));
-    expect(screen.queryByRole("button", { name: "取消选择 Google" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "取消选择 搜索 分组" })).toHaveClass(
+    await user.click(googleCard.getByRole("button", { name: "选择 Google" }));
+    await user.click(searchGroup.getByRole("heading", { level: 3, name: "搜索" }));
+    expect(googleCard.queryByRole("button", { name: "取消选择 Google" })).not.toBeInTheDocument();
+    expect(searchGroup.getByRole("button", { name: "取消选择 搜索 分组" })).toHaveClass(
       "group-selection-trigger",
     );
     expect(
-      screen.getByRole("button", { name: "取消选择 搜索 分组" }).querySelector("svg"),
+      searchGroup.getByRole("button", { name: "取消选择 搜索 分组" }).querySelector("svg"),
     ).toBeInTheDocument();
-    const designGroupCheckbox = screen.getByRole("button", { name: "选择 设计 分组" });
+    const designGroupCheckbox = designGroup.getByRole("button", { name: "选择 设计 分组" });
     expect(designGroupCheckbox).toBeInTheDocument();
     expect(designGroupCheckbox.querySelector("svg")).toBeNull();
-    expect(screen.queryByRole("button", { name: "管理 搜索 分组" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "全选 搜索 网站" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "全选 开发 网站" })).toHaveAttribute("aria-pressed", "false");
+    expect(searchGroup.queryByRole("button", { name: "管理 搜索 分组" })).not.toBeInTheDocument();
+    expect(searchGroup.getByRole("button", { name: "全选 搜索 网站" })).toHaveAttribute("aria-pressed", "false");
+    expect(developmentGroup.getByRole("button", { name: "全选 开发 网站" })).toHaveAttribute("aria-pressed", "false");
     expect(
       screen.getByTestId("site-card-google").querySelector(".site-card-full-link"),
     ).toHaveAttribute("aria-label", "选择 Google");
@@ -1008,23 +1015,23 @@ describe("App", () => {
     ).not.toHaveAttribute("aria-disabled");
 
     fireEvent.click(screen.getByTestId("site-card-google"));
-    expect(screen.getByRole("button", { name: "取消选择 Google" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "取消选择 搜索 分组" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "编辑 Google" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "删除 Google" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "管理 搜索 分组" })).not.toBeInTheDocument();
+    expect(googleCard.getByRole("button", { name: "取消选择 Google" })).toBeInTheDocument();
+    expect(searchGroup.queryByRole("button", { name: "取消选择 搜索 分组" })).not.toBeInTheDocument();
+    expect(googleCard.getByRole("button", { name: "编辑 Google" })).toBeDisabled();
+    expect(googleCard.getByRole("button", { name: "删除 Google" })).toBeDisabled();
+    expect(searchGroup.queryByRole("button", { name: "管理 搜索 分组" })).not.toBeInTheDocument();
     expect(document.querySelectorAll(".group-selection-trigger")).toHaveLength(6);
-    expect(screen.getByRole("button", { name: "选择 搜索 分组" })).toBeEnabled();
+    expect(searchGroup.getByRole("button", { name: "选择 搜索 分组" })).toBeEnabled();
 
-    await user.click(screen.getByRole("heading", { level: 3, name: "设计" }));
-    expect(screen.queryByRole("button", { name: "取消选择 Google" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "取消选择 设计 分组" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "全选 设计 网站" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(designGroup.getByRole("heading", { level: 3, name: "设计" }));
+    expect(googleCard.queryByRole("button", { name: "取消选择 Google" })).not.toBeInTheDocument();
+    expect(designGroup.getByRole("button", { name: "取消选择 设计 分组" })).toBeInTheDocument();
+    expect(designGroup.getByRole("button", { name: "全选 设计 网站" })).toHaveAttribute("aria-pressed", "false");
 
-    await user.click(screen.getByRole("button", { name: "全选 设计 网站" }));
-    expect(screen.queryByRole("button", { name: "取消选择 设计 分组" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "取消全选 设计 网站" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "取消选择 Figma" })).toBeInTheDocument();
+    await user.click(designGroup.getByRole("button", { name: "全选 设计 网站" }));
+    expect(designGroup.queryByRole("button", { name: "取消选择 设计 分组" })).not.toBeInTheDocument();
+    expect(designGroup.getByRole("button", { name: "取消全选 设计 网站" })).toBeInTheDocument();
+    expect(designGroup.getByRole("button", { name: "取消选择 Figma" })).toBeInTheDocument();
 
     await user.click(document.querySelector(".page-container")!);
     expect(screen.getAllByRole("button", { name: /多选 .+ 网站/ })).toHaveLength(6);
@@ -1200,7 +1207,7 @@ describe("App", () => {
     expect(screen.getByRole("tab", { name: /数据库/ })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("uses the browser default search provider when Enter is pressed", async () => {
+  it.each(["Enter", "button"])("searches the web once through the browser default provider using %s", async (method) => {
     const query = vi.fn().mockResolvedValue(undefined);
     (
       globalThis as typeof globalThis & {
@@ -1210,13 +1217,19 @@ describe("App", () => {
       runtime: { id: "test-extension" },
       search: { query },
     };
+    const user = userEvent.setup();
     render(<App />);
 
     const search = screen.getByRole("searchbox", {
       name: "搜索网页或筛选收藏",
     });
     fireEvent.change(search, { target: { value: "React 拖拽" } });
-    fireEvent.submit(screen.getByRole("search"));
+    if (method === "Enter") {
+      await user.click(search);
+      await user.keyboard("{Enter}");
+    } else {
+      await user.click(screen.getByRole("button", { name: "搜索网页" }));
+    }
 
     await waitFor(() => {
       expect(query).toHaveBeenCalledWith({
@@ -1224,6 +1237,35 @@ describe("App", () => {
         disposition: "CURRENT_TAB",
       });
     });
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores empty text and IME candidate Enter before accepting an ordinary Enter", async () => {
+    const query = vi.fn().mockResolvedValue(undefined);
+    (globalThis as typeof globalThis & { chrome?: unknown }).chrome = {
+      runtime: { id: "test-extension" }, search: { query },
+    };
+    const user = userEvent.setup();
+    render(<App />);
+    const search = screen.getByRole("searchbox", { name: "搜索网页或筛选收藏" });
+    await user.click(search);
+    await user.keyboard("{Enter}");
+    fireEvent.change(search, { target: { value: "   " } });
+    await user.keyboard("{Enter}");
+    fireEvent.submit(screen.getByRole("search"));
+    expect(query).not.toHaveBeenCalled();
+
+    fireEvent.compositionStart(search);
+    fireEvent.change(search, { target: { value: "React 教程" } });
+    fireEvent.keyDown(search, { key: "Enter", isComposing: true });
+    fireEvent.submit(screen.getByRole("search"));
+    expect(query).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).searchHistory).toEqual([]);
+
+    fireEvent.compositionEnd(search, { target: { value: "React 教程" } });
+    await user.keyboard("{Enter}");
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledWith({ text: "React 教程", disposition: "CURRENT_TAB" });
   });
 
   it("shows saved search history and lets one item be removed", async () => {
@@ -1314,11 +1356,14 @@ describe("App", () => {
       expect(screen.queryByRole("listbox", { name: "最近搜索" })).not.toBeInTheDocument();
       act(() => search.blur());
       await user.click(search);
-      await user.keyboard("{ArrowDown}{Enter}");
+      await user.keyboard("{ArrowDown}");
+      expect(search).toHaveValue("");
+      await user.keyboard("{Enter}");
     } else {
       await user.click(screen.getByRole("button", { name: "history query" }));
     }
     expect(query).toHaveBeenCalledWith({ text: "history query", disposition: "CURRENT_TAB" });
+    expect(query).toHaveBeenCalledTimes(1);
     expect(search).toHaveValue("history query");
     expect(screen.queryByRole("listbox", { name: "最近搜索" })).not.toBeInTheDocument();
   });

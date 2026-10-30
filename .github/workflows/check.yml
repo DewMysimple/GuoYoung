@@ -16,7 +16,9 @@ concurrency:
 jobs:
   validate:
     runs-on: windows-latest
-    timeout-minutes: 25
+    # Full single-worker E2E alone takes about 27 minutes on Windows.
+    # Keep time for install, unit tests, both builds and memory validation.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

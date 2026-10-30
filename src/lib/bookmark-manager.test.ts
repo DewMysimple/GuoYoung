@@ -30,6 +30,28 @@ const roots: BrowserBookmarkTreeNode[] = [
 ];
 
 describe("bookmark manager", () => {
+  it("imports distinct navigation targets intact and skips only exact bookmark duplicates", () => {
+    const urls = [
+      "https://example.com/docs#installation",
+      "https://example.com/#/dashboard",
+      "https://example.com/Guide",
+      "https://example.com/guide",
+      "https://example.com/docs/",
+      "https://example.com/docs#installation",
+    ];
+    const bookmarks = urls.map((url, index) => ({
+      id: `target-${index}`, title: `Target ${index}`, url,
+    }));
+    const result = importSelectedBookmarks(
+      createDefaultState(), bookmarks,
+      new Set(bookmarks.map((bookmark) => bookmark.id)), "search",
+    );
+
+    expect(result).toMatchObject({ added: 5, skipped: 1, failed: 0 });
+    expect(result.state.sites.filter((site) => site.name.startsWith("Target "))
+      .map((site) => site.url)).toEqual(urls.slice(0, 5));
+  });
+
   it("maps nested bookmarks to their top-level folder and skips duplicates", () => {
     const selected = new Set(["work", "docs", "notion", "github-bookmark", "loose"]);
     const result = importSelectedBookmarks(

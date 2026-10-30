@@ -113,6 +113,36 @@ describe("site state operations", () => {
     expect(findSiteByUrl(state.sites, "https://www.github.com/")?.id).toBe("github");
   });
 
+  it("finds exact duplicates across groups, excludes the edited item, and preserves navigation URLs", () => {
+    const url = "https://example.com/Guide?id=AbC#Installation/";
+    const initial = createDefaultState();
+    const added = addSiteToState(initial, {
+      name: "Guide", url, groupId: "develop", iconSource: "auto", customIconUrl: "",
+    }, "guide");
+    expect(findSiteByUrl(added.sites, url)?.id).toBe("guide");
+    expect(findSiteByUrl(added.sites, url, "guide")).toBeUndefined();
+    expect(findSiteByUrl(added.sites, url.replace("Guide", "guide"))).toBeUndefined();
+    expect(findSiteByUrl(added.sites, url.replace("AbC", "abc"))).toBeUndefined();
+    const moved = updateSiteInState(added, "guide", {
+      name: "Guide updated", url, groupId: "design", iconSource: "auto", customIconUrl: "",
+    });
+    expect(moved.sites.find((site) => site.id === "guide"))
+      .toMatchObject({ url, groupId: "design" });
+    expect(added.sites.find((site) => site.id === "guide")?.url).toBe(url);
+  });
+
+  it("keeps GitHub navigation case and fragments distinct outside the bare-homepage exception", () => {
+    const url = "https://github.com/Owner/Repo#Readme";
+    const state = addSiteToState(createDefaultState(), {
+      name: "Repo", url, groupId: "github-other", iconSource: "auto", customIconUrl: "",
+    }, "repo");
+    expect(findSiteByUrl(state.sites, url)?.id).toBe("repo");
+    expect(findSiteByUrl(state.sites, "https://github.com/owner/repo#Readme")).toBeUndefined();
+    expect(findSiteByUrl(state.sites, "https://github.com/owner/repo#readme")).toBeUndefined();
+    expect(state.sites.find((site) => site.id === "repo")?.url).toBe(url);
+    expect(findSiteByUrl(state.sites, "https://github.com/#/dashboard")).toBeUndefined();
+  });
+
   it("inserts a group before an existing group without moving Other", () => {
     const result = addGroupToState(
       createDefaultState(),

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createDefaultState, DEFAULT_GROUPS, DEFAULT_SITES } from "../data/defaults";
 import {
   filterSites,
+  comparableSiteUrl,
   getFaviconCandidates,
   getFaviconUrl,
   getKnownNativeFaviconUrl,
@@ -29,6 +30,67 @@ describe("site utilities", () => {
       "网站地址需要使用 http 或 https",
     );
     expect(() => normalizeUrl("localhost")).toThrow();
+    for (const url of ["data:text/plain,hello", "file:///C:/example", "ftp://example.com"]) {
+      expect(() => normalizeUrl(url)).toThrow();
+    }
+  });
+
+  it.each([
+    "https://example.com/docs#installation",
+    "https://example.com/#/dashboard",
+    "https://example.com/Guide",
+    "https://example.com/guide",
+    "https://example.com/?id=AbC",
+    "https://example.com/docs/",
+    "https://example.com/?next=/docs/",
+    "https://example.com/docs#section/",
+    "https://example.com/?x=1&x=2&B=AbC&a=%2f#Part%2F",
+    "https://example.com/#:~:text=Hello%20World",
+    "https://example.com/?",
+    "https://example.com/#",
+  ])("preserves navigation components and is idempotent: %s", (url) => {
+    expect(normalizeUrl(` ${url} `)).toBe(url);
+    expect(normalizeUrl(normalizeUrl(url))).toBe(url);
+  });
+
+  it("uses standard host/default-port and Unicode serialization without decoding existing escapes", () => {
+    expect(normalizeUrl("HTTPS://EXAMPLE.COM:443/Guide?ID=AbC#安装"))
+      .toBe("https://example.com/Guide?ID=AbC#%E5%AE%89%E8%A3%85");
+    expect(normalizeUrl("https://example.com/文档/%2f?q=%2F#章节%2f"))
+      .toBe("https://example.com/%E6%96%87%E6%A1%A3/%2f?q=%2F#%E7%AB%A0%E8%8A%82%2f");
+  });
+
+  it.each([
+    ["https://example.com/Guide", "https://example.com/guide"],
+    ["https://example.com/?id=AbC", "https://example.com/?id=abc"],
+    ["https://example.com/?ID=abc", "https://example.com/?id=abc"],
+    ["https://example.com/docs#Part", "https://example.com/docs#part"],
+    ["https://example.com/docs", "https://example.com/docs/"],
+    ["https://example.com/?a=1&b=2", "https://example.com/?b=2&a=1"],
+    ["https://example.com/?a=1&a=2", "https://example.com/?a=2&a=1"],
+    ["http://example.com", "https://example.com"],
+    ["https://www.example.com", "https://example.com"],
+    ["https://example.com:444", "https://example.com"],
+    ["https://example.com/%2F", "https://example.com//"],
+    ["https://github.com/#Part", "https://github.com"],
+    ["https://github.com/?q=AbC", "https://github.com/?q=abc"],
+    ["https://github.com/Owner/Repo#Readme", "https://github.com/owner/repo#readme"],
+    ["https://github.com/Owner/Repo", "https://github.com/owner/repo"],
+    ["https://github.com/Owner/Repo/", "https://github.com/owner/repo"],
+    ["https://github.com/owner/repo/blob/main/File", "https://github.com/owner/repo/blob/main/file"],
+    ["https://docs.github.com/Guide", "https://docs.github.com/guide"],
+  ])("does not merge distinct navigation URLs: %s and %s", (first, second) => {
+    expect(comparableSiteUrl(first)).not.toBe(comparableSiteUrl(second));
+    const sites = [{ ...DEFAULT_SITES[0], url: first }];
+    expect(isDuplicateUrl(sites, second)).toBe(false);
+  });
+
+  it.each([
+    ["HTTPS://EXAMPLE.COM:443/", "https://example.com"],
+    ["http://EXAMPLE.COM:80", "http://example.com/"],
+    ["https://www.github.com/", "http://github.com"],
+  ])("compares only supported equivalents: %s and %s", (first, second) => {
+    expect(comparableSiteUrl(first)).toBe(comparableSiteUrl(second));
   });
 
   it("detects duplicate normalized URLs while allowing an edited item", () => {

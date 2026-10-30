@@ -272,6 +272,25 @@ describe("toolbar popup", () => {
     await user.click(await screen.findByRole("button", { name: "添加到主页" }));
     await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
   });
+  it("saves the current tab URL intact without mistaking a case variant for an existing bookmark", async () => {
+    const state = createDefaultState();
+    const existing = { ...state.sites[0], id: "case-variant", name: "Lowercase document",
+      url: "https://example.com/guide?ID=AbC#installation/" };
+    state.sites.push(existing);
+    const url = "https://example.com/Guide?ID=AbC#installation/";
+    const { set } = installChromeMock({ state, tab: { title: "Anchored document", url } });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+
+    await user.click(await screen.findByRole("button", { name: "添加到主页" }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    expect(saved.sites.find((site) => site.name === "Anchored document")?.url).toBe(url);
+    expect(saved.sites.find((site) => site.id === existing.id)?.url).toBe(existing.url);
+    expect(saved.sites).toHaveLength(state.sites.length + 1);
+    expect(screen.queryByRole("button", { name: "确认移动并更新" })).not.toBeInTheDocument();
+  });
+
   it("reads the active tab and adds it to the shared homepage state", async () => {
     const { set } = installChromeMock({
       tab: {

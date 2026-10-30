@@ -1454,7 +1454,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
           />
         {!dataContext && !browserHistoryOpen && (
           <>
-        <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏" placeholder="搜索收藏，支持拼音、首字母缩写"
+        <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏" placeholder="筛选收藏，支持拼音、首字母缩写"
+          description="输入筛选收藏，按 Enter 搜索网页"
           onSubmit={handleSearchSubmit} inputProps={{ id: "site-search", onFocus: () => { setHistoryOpen(true); setHistoryIndex(-1); },
             onBlur: handleSearchBlur, onKeyDown: handleSearchKeyDown }}>
             {historyOpen && !query.trim() && state.searchHistory.length > 0 && (

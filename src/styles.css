@@ -542,6 +542,13 @@ select:focus-visible {
   width: min(100%, var(--search-width));
 }
 
+.search-description {
+  margin: 9px 4px 0;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 .search-history {
   position: absolute;
   z-index: 25;
@@ -1198,6 +1205,7 @@ select:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  white-space: nowrap;
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
   border-radius: 9px;
@@ -1210,6 +1218,14 @@ select:focus-visible {
     background-color var(--color-preview-duration, 150ms) ease,
     transform 150ms ease,
     opacity 150ms ease;
+}
+
+.search-submit-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.625rem;
+  opacity: 0.8;
 }
 
 .search-submit:hover:not(:disabled) {

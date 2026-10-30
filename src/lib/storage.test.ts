@@ -15,6 +15,32 @@ function memoryStorage(initial?: string) {
 }
 
 describe("local storage", () => {
+  it.each([10, 28])("reads version %s URL details without rewriting or deduplicating existing records", (version) => {
+    const state = createDefaultState();
+    const urls = [
+      "https://EXAMPLE.com:443/docs#installation",
+      "https://example.com/#/dashboard",
+      "https://example.com/Guide",
+      "https://example.com/guide",
+      "https://example.com/docs/",
+      "https://example.com/?next=/docs/",
+      "https://EXAMPLE.com:443/docs#installation",
+    ];
+    state.sites = urls.map((url, index) => ({
+      ...state.sites[0], id: `saved-${index}`, url,
+      groupId: "search", order: index, globalOrder: index,
+    }));
+    const raw = JSON.stringify({ ...state, version });
+    const storage = memoryStorage(raw);
+
+    const loaded = loadState(storage);
+    expect(loaded.recovered).toBe(false);
+    expect(loaded.state.sites.map((site) => site.url)).toEqual(urls);
+    expect(loaded.state.sites.map((site) => site.id)).toEqual(state.sites.map((site) => site.id));
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
+    expect(parseStoredState(JSON.stringify(loaded.state)).state.sites).toEqual(loaded.state.sites);
+  });
+
   it("adds version 27 layout defaults without replacing any existing appearance or collection preference", () => {
     const defaults = createDefaultState();
     const { settingsPresentation: _presentation, interfaceScale: _scale,
