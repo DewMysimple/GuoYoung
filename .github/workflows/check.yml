@@ -37,6 +37,8 @@ jobs:
         run: npm.cmd run build
       - name: Build extension
         run: npm.cmd run build:extension
+      - name: Memory tool regression tests
+        run: npm.cmd run test:memory
       - name: Validate project memory
         run: npm.cmd run lint:wiki
       - name: Save browser diagnostics

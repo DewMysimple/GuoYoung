@@ -81,8 +81,10 @@ npm run dev
 | `npm run package:extension` | 构建扩展并生成 `artifacts/site-hub-extension.zip`，需要 PowerShell |
 | `npm run capture` | 对运行在 4173 端口的页面做浏览器截图巡检 |
 | `npm run lint:wiki` | 校验工程记忆的格式、链接与索引 |
+| `npm run memory:index` | 导航条目变化后更新记忆索引 |
+| `npm run test:memory` | 验证项目记忆工具与历史格式兼容 |
 
-E2E 和截图使用 Chrome：未安装时运行 `npx playwright install chrome`。E2E 会启动 4173 端口的测试服务器；截图前可运行 `npm run preview -- --host 127.0.0.1 --port 4173`。详细验证记录见[测试与验证基线](./Wiki/测试与验证基线.md)。
+E2E 和截图使用 Chrome：未安装时运行 `npx playwright install chrome`。E2E 会启动 4173 端口的测试服务器；截图前可运行 `npm run preview -- --host 127.0.0.1 --port 4173`。详细验证记录见[测试与验证基线](./wiki_memory/知识/测试与验证基线.md)。
 
 网页版可将 `dist/` 部署到静态服务器的站点根路径；不要直接双击其中的 HTML。部署到子路径时需相应调整 Vite 的 `base`。本地打包扩展也可双击 `buildStart.cmd`，再按安装指南加载生成目录。
 
@@ -103,17 +105,17 @@ public/            静态资源与扩展 manifest
 e2e/               浏览器回归测试
 scripts/           打包、截图与 Wiki 校验脚本
 docs/images/       README 展示图片
-Wiki/              架构、契约、决策与工作日志
+wiki_memory/       当前状态、知识、决策与工作日志
 artifacts/         本地交付与验收资料（产物不入 Git）
 .github/workflows/ 自动验证与扩展 Release 发布
 ```
 
-单元测试就近放在被测源码旁。`dist/`、`dist-extension/`、测试报告和依赖目录均为生成物，不提交到源码仓库。目录维护和后续拆分建议见[工程维护清单](./Wiki/工程维护清单.md)。
+单元测试就近放在被测源码旁。`dist/`、`dist-extension/`、测试报告和依赖目录均为生成物，不提交到源码仓库。目录维护和后续拆分建议见[工程维护清单](./wiki_memory/知识/工程维护清单.md)。
 
 扩展版本以 `public/manifest.json` 为准；npm 包名 `site-hub` 和存储键 `site-hub:v1` 是内部兼容标识。发布工作流由版本标签触发，构建 ZIP 并上传 GitHub Release；源码最新状态可能领先于已发布安装包。
 
 ## 参与开发
 
-提交问题时，请说明浏览器、网页 / 扩展形态、复现步骤，以及实际和预期表现。[AGENTS.md](./AGENTS.md) 记录协作规则，[项目知识入口](./Wiki/MOC_项目知识.md) 和[当前状态](./Wiki/当前状态.md) 记录项目约束与已知问题。
+提交问题时，请说明浏览器、网页 / 扩展形态、复现步骤，以及实际和预期表现。[AGENTS.md](./AGENTS.md) 记录协作规则，[项目知识入口](./wiki_memory/README.md) 和[当前状态](./wiki_memory/当前状态/项目概览.md) 记录项目约束与已知问题。记忆维护工具需要 Python 3.10+；迁移完整验收使用 `npm.cmd run lint:wiki -- --require-ready`。
 
 项目目前没有附带开源许可证；代码使用和再分发授权需与作者确认。

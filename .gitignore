@@ -8,3 +8,5 @@ test-results
 artifacts/*
 !artifacts/README.md
 .codex-video-review/
+__pycache__/
+*.pyc

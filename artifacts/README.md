@@ -4,7 +4,7 @@
 
 ## 正式开发目录
 
-唯一正式工程根目录为 `E:/Software Development/WebPage`。按用户要求直接安全迁移，27项过渡链接和C盘临时数据副本已移除；原 `C:/Users/Administrator/Desktop/WebPage` 仅剩0子项的普通空目录，无链接、源码或缓存，不再作为工程入口。删除该空目录被自动审核拒绝，未返回理由，未继续重试。编辑、运行命令和新工作区使用E盘。浏览器原C路径登记的扩展需从 `E:/Software Development/WebPage/artifacts/site-hub-extension` 加载已解压扩展，浏览器配置文件保持。新路径已通过完整回归、双构建及真实浏览器截图，开发区约0.30GiB；详见本轮日志。
+工程位置以当前 Git 根目录为准，本轮核实见[项目概览](../wiki_memory/当前状态/项目概览.md)。下文生成目录均相对工程根解析，不绑定旧机器盘符。2026-10-04 迁往 E 盘、移除临时链接、核验安装包与截图的过程属于[工程维护·第019次](../wiki_memory/日志/工程维护/第019次.md)历史；旧C盘空目录及外部D盘归档未在本轮重验。
 
 ## 固定交付路径
 
@@ -47,17 +47,17 @@ releases/
 
 归档根目录为 `D:/Mysimple-diagnostics/2026-10-04/workspace-migration/archive`，保留工程内原相对路径。例如旧 `artifacts/releases/v1.2.32/site-hub-extension.zip` 位于归档根目录下同一路径。逐文件清单为其父目录的 `archive-manifest.json`；迁移前盘点、复制核验和迁移中临时链接记录也位于该诊断目录，临时链接记录不代表长期开发入口。更早第017次 working 归档仍在原诊断目录，按该轮日志映射定位，不重复搬移。
 
-开发区继续保留当前 `releases/v1.2.34`、固定解压目录/ZIP 和有用途的 working 工具。详见 [工程维护·第019次](../Wiki/日志/工程维护/第019次.md)。
+当时开发区保留 `releases/v1.2.34`、固定解压目录/ZIP 和有用途的 working 工具；这是历史迁移范围，不是当前版本清单。详见 [工程维护·第019次](../wiki_memory/日志/工程维护/第019次.md)。
 
 ### 清理 working
 
 清理前先确认运行依赖与归档用途。原始录屏、失败证据、报告和复现脚本先在工作目录外归档，核对文件数量、大小与 SHA-256 后再移除原件；可重新生成的热力图、缓存和过期构建可以删除。目录链接和文件链接只移除入口，不递归操作链接目标。
 
-2026-10-04第017次清理结束时，working仅保留审核服务native-backdrop-review与两项巡检工具使用的wallpaper-inventory.json。之后第046次新增native-flash-current复现脚本12文件/25,333bytes，已逐文件SHA256一致归档至D:/Mysimple-diagnostics/2026-10-04/native-flash/final-helpers，清单为同诊断根目录final-helper-manifest.json；递归及明确12个LiteralPath文件删除均被自动审核拒绝，未返回理由，原件保留且不再重试。第019次迁移继续保留这约25KB脚本，working当前为审核服务、壁纸索引及native-flash-current三项。旧相对路径归档映射见 [工程维护·第017次](../Wiki/日志/工程维护/第017次.md)，复现资料见 [Bug处理·第046次](../Wiki/日志/Bug处理/第046次.md)，旧版本资料本轮归档见上节。
+2026-10-04第017次清理结束时，working仅保留审核服务native-backdrop-review与两项巡检工具使用的wallpaper-inventory.json。之后第046次新增native-flash-current复现脚本12文件/25,333bytes，已逐文件SHA256一致归档至D:/Mysimple-diagnostics/2026-10-04/native-flash/final-helpers，清单为同诊断根目录final-helper-manifest.json；递归及明确12个LiteralPath文件删除均被自动审核拒绝，未返回理由，原件保留且不再重试。第019次迁移继续保留这约25KB脚本，当时working为审核服务、壁纸索引及native-flash-current三项。旧相对路径归档映射见 [工程维护·第017次](../wiki_memory/日志/工程维护/第017次.md)，复现资料见 [Bug处理·第046次](../wiki_memory/日志/Bug处理/第046次.md)，旧版本资料本轮归档见上节。
 
 ## 玻璃交互的整屏逐帧诊断
 
-1.2.34保留卡片宿主原生背景模糊，以根中性filter、有限小前景提示与普通来源堆叠顺序处理远端变化；拖拽来源/目标/浮层沿用普通卡片材质，网站归位来源保持可见。授权的同机已录场景与工程回归通过，继续同配置开发审核，后续已补交1.2.34安装包，见 [工程维护·第018次](../Wiki/日志/工程维护/第018次.md)；实测口径见 [测试与验证基线](../Wiki/测试与验证基线.md)，候选与最后生产结果分别记录于 [Bug处理·第046次](../Wiki/日志/Bug处理/第046次.md)。
+1.2.34保留卡片宿主原生背景模糊，以根中性filter、有限小前景提示与普通来源堆叠顺序处理远端变化；拖拽来源/目标/浮层沿用普通卡片材质，网站归位来源保持可见。授权的同机已录场景与工程回归通过，继续同配置开发审核，后续已补交1.2.34安装包，见 [工程维护·第018次](../wiki_memory/日志/工程维护/第018次.md)；实测口径见 [测试与验证基线](../wiki_memory/知识/测试与验证基线.md)，候选与最后生产结果分别记录于 [Bug处理·第046次](../wiki_memory/日志/Bug处理/第046次.md)。
 
 `page.screenshot()` 和浏览器录屏会触发画面回读，不能单独作为远端闪线的验收证据。Windows 上可使用真实鼠标、桌面无损录制与每帧双热力图：
 

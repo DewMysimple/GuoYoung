@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "tool_version": "3.2.1",
+  "mode": "standard",
+  "navigation": "README.md",
+  "project_adapter": "mysimple-legacy-v1",
+  "read_budget": {
+    "startup_chars": 16000,
+    "page_chars": 6000,
+    "todo_items": 20
+  }
+}

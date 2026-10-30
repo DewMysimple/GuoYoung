@@ -1,346 +1,179 @@
 #!/usr/bin/env node
-/*
- * WebPage Wiki 校验器（Node 版，移植自 ChatAgent/wiki_lint.py）
- * 规则：19 条移植 + 4 条 WebPage 新增 = 23 条。
- * 运行：npm run lint:wiki  （cwd 应为项目根，脚本以自身位置推导 rootDir）
- */
+/* Project-specific checks. Generic schema, references and readiness: memory.py check. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const wikiDir = path.join(rootDir, 'Wiki');
 const CATS = ['功能添加', 'UI修改', 'Bug处理', '工程讨论', '测试验证', '工程维护'];
-
-const errors = [];
-const err = (m) => errors.push(m);
-const rel = (p) => path.relative(rootDir, p);
+const HEADINGS = ['已确认的决策', '检查与操作', '文件变更', '测试与验证', '问题、结果与下一步'];
+const field = (content, label) => content.match(new RegExp(`^(?:- )?${label}：(.*)$`, 'm'))?.[1].trim();
+const stripCode = (text) => text.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, '').replace(/`[^`]*`/g, '');
 
 function walk(dir) {
-  const out = [];
-  if (!fs.existsSync(dir)) return out;
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) out.push(...walk(p));
-    else if (e.name.endsWith('.md')) out.push(p);
-  }
-  return out;
-}
-
-const stripCode = (t) => t.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '');
-
-function field(content, label) {
-  const m = content.match(new RegExp(`^(?:- )?${label}：(.*)$`, 'm'));
-  return m ? m[1].trim() : null;
-}
-
-function linkTarget(inner) {
-  let s = inner;
-  const i = s.indexOf('|');
-  if (i >= 0) s = s.slice(0, i);
-  s = s.replace(/\\$/, '').trim();
-  return s;
-}
-
-function resolveLink(target) {
-  return fs.existsSync(path.join(rootDir, target + '.md'));
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const target = path.join(dir, entry.name);
+    if (entry.isSymbolicLink()) return [];
+    return entry.isDirectory() ? walk(target) : entry.name.endsWith('.md') ? [target] : [];
+  });
 }
 
 function parseFM(content) {
-  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!m) return {};
-  const obj = {};
-  for (const line of m[1].split(/\r?\n/)) {
-    const mm = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
-    if (mm) obj[mm[1]] = mm[2].trim();
-  }
-  return obj;
+  const yaml = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
+  return Object.fromEntries([...yaml.matchAll(/^([\w-]+):\s*(.*)$/gm)].map((m) => [m[1], m[2].trim()]));
 }
 
-function fileLinks(absFile) {
-  const txt = stripCode(fs.readFileSync(absFile, 'utf8'));
-  const out = [];
-  for (const m of txt.matchAll(/\[\[([^\]]+)\]\]/g)) out.push(m[1]);
-  return out;
-}
-
-// ---------------------------------------------------------------------------
-// 结构检查（规则 1、2、20）
-// ---------------------------------------------------------------------------
-if (!fs.existsSync(wikiDir)) {
-  console.error('未找到 Wiki 目录：' + wikiDir);
-  process.exit(1);
-}
-
-const required = [
-  path.join(wikiDir, 'MOC_项目知识.md'),
-  path.join(wikiDir, '日志', 'MOC_工作日志.md'),
-  path.join(wikiDir, '决策', 'MOC_决策.md'),
-  ...CATS.map((c) => path.join(wikiDir, '日志', c, `MOC_${c}.md`)),
-];
-for (const f of required) if (!fs.existsSync(f)) err(`缺少必需文件：${rel(f)}`);
-
-const logDir = path.join(wikiDir, '日志');
-if (fs.existsSync(logDir)) {
-  const subdirs = fs.readdirSync(logDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory()).map((e) => e.name);
-  for (const d of subdirs) if (!CATS.includes(d)) err(`日志下存在非约定分类目录：${d}`);
-  // 规则 2：日志只能出现在 6 个约定分类目录内
-  for (const f of walk(logDir)) {
-    const r = path.relative(logDir, f);
-    const parts = r.split(path.sep);
-    const base = path.basename(f);
-    if (base === 'README.md') continue;
-    if (base === 'MOC_工作日志.md') continue;
-    if (parts.length >= 2 && CATS.includes(parts[0])) continue;
-    err(`日志出现在非约定位置：${r}`);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 收集日志文件
-// ---------------------------------------------------------------------------
-const logFiles = [];
-for (const c of CATS) {
-  const dir = path.join(logDir, c);
-  if (!fs.existsSync(dir)) continue;
-  for (const f of fs.readdirSync(dir)) {
-    const m = f.match(/^第(\d{3})次\.md$/);
-    if (m) logFiles.push({ cat: c, file: path.join(dir, f), name: f, num: parseInt(m[1], 10) });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 链接检查（规则 3、4、5）
-// ---------------------------------------------------------------------------
-const allMd = walk(wikiDir);
-for (const f of allMd) {
-  for (const inner of fileLinks(f)) {
-    const t = linkTarget(inner);
-    if (!resolveLink(t)) err(`断链：${rel(f)} -> [[${inner}]]`);
-  }
-}
-
-// BFS 可达性（规则 5）
-{
-  const start = path.join(wikiDir, 'MOC_项目知识.md');
-  const visited = new Set();
-  const queue = [start];
-  while (queue.length) {
-    const cur = queue.shift();
-    if (visited.has(cur) || !fs.existsSync(cur)) continue;
-    visited.add(cur);
-    for (const inner of fileLinks(cur)) {
-      const abs = path.join(rootDir, linkTarget(inner) + '.md');
-      if (fs.existsSync(abs) && !visited.has(abs)) queue.push(abs);
-    }
-  }
-  const logPaths = new Set(logFiles.map((l) => l.file));
-  const knowledgePages = allMd.filter((f) => !logPaths.has(f));
-  for (const kp of knowledgePages) if (!visited.has(kp)) err(`知识页不可达（无法从 MOC_项目知识 经 BFS 到达）：${rel(kp)}`);
-}
-
-// ---------------------------------------------------------------------------
-// 知识页检查（规则 6、7、8、9、10）
-// ---------------------------------------------------------------------------
-const knowledgePages = allMd.filter((f) => !logFiles.some((l) => l.file === f));
-for (const f of knowledgePages) {
-  const base = path.basename(f);
-  const isMoc = base.startsWith('MOC_');
-  const isReadme = base === 'README.md';
-  const content = fs.readFileSync(f, 'utf8');
-  if (!content.startsWith('---')) { err(`知识页缺少 frontmatter：${rel(f)}`); continue; }
-  const fm = parseFM(content);
-  if (!fm.type || !fm.status || !fm.created || !fm.updated) err(`frontmatter 缺字段(type/status/created/updated)：${rel(f)}`);
-  if (!isMoc && !isReadme) {
-    if (!/## 依据/.test(content)) err(`缺少 ## 依据：${rel(f)}`);
-    if (!/## 相关页面/.test(content)) err(`缺少 ## 相关页面：${rel(f)}`);
-  }
-}
-
-const decisionDir = path.join(wikiDir, '决策');
-for (const f of walk(decisionDir)) {
-  const base = path.basename(f);
-  if (/^ADR-\d+\.md$/.test(base)) {
-    const fm = parseFM(fs.readFileSync(f, 'utf8'));
-    if (fm.status === 'superseded' && !fm.superseded_by) err(`ADR 标记 superseded 但缺 superseded_by：${base}`);
-  }
-}
-
-const decMoc = path.join(decisionDir, 'MOC_决策.md');
-if (fs.existsSync(decMoc)) {
-  const txt = fs.readFileSync(decMoc, 'utf8');
-  const adrs = walk(decisionDir).filter((f) => /^ADR-\d+\.md$/.test(path.basename(f)));
-  for (const a of adrs) {
-    const id = path.basename(a).replace(/\.md$/, '');
-    if (!txt.includes(id)) err(`决策 MOC 漏记 ${id}`);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 日志检查（规则 11、12、13、14、15、16、22、23）
-// ---------------------------------------------------------------------------
-for (const l of logFiles) {
-  const content = fs.readFileSync(l.file, 'utf8');
-  const r = rel(l.file);
-  if (content.startsWith('---')) err(`日志不得有 frontmatter：${r}`);
-
-  const hm = content.match(/^# 第(\d{3})次/m);
-  if (!hm) err(`日志首行非 '# 第NNN次'：${r}`);
-  else if (hm[1] !== String(l.num).padStart(3, '0')) err(`编号不一致：${r} 文件名 ${l.num} vs 标题 ${hm[1]}`);
-
-  for (const h of ['已确认的决策', '检查与操作', '文件变更', '测试与验证', '问题、结果与下一步'])
-    if (!content.includes(`## ${h}`)) err(`日志缺章节 ## ${h}：${r}`);
-
-  const type = field(content, '对话类型');
-  if (type !== l.cat) err(`对话类型不符目录：日志 ${r} 写「${type}」但位于 ${l.cat}`);
-
-  const tags = field(content, '主题标签');
-  if (!tags) err(`主题标签为空：${r}`);
-
-  if (!content.includes('MOC_工作日志')) err(`日志未链接总 MOC：${r}`);
-  if (!content.includes(`MOC_${l.cat}`)) err(`日志未链接分类 MOC：${r}`);
-
-  const time = field(content, '时间');
-  if (time) {
-    const tm = time.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
-    if (!tm) err(`时间格式非法：${r} -> ${time}`);
-  } else err(`日志缺时间：${r}`);
-}
-
-// 规则 12：编号连续
-for (const c of CATS) {
-  const nums = logFiles.filter((l) => l.cat === c).map((l) => l.num).sort((a, b) => a - b);
-  for (let i = 0; i < nums.length; i++) if (nums[i] !== i + 1) { err(`分类 ${c} 编号不连续，缺 ${i + 1}`); break; }
-}
-
-// 规则 23：时间戳唯一
-{
-  const seen = new Map();
-  for (const l of logFiles) {
-    const time = field(fs.readFileSync(l.file, 'utf8'), '时间');
-    if (!time) continue;
-    const tm = time.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
-    if (!tm) continue;
-    const ts = tm[1];
-    if (!seen.has(ts)) seen.set(ts, []);
-    seen.get(ts).push(rel(l.file));
-  }
-  for (const [ts, files] of seen) if (files.length > 1) err(`时间戳重复 ${ts}：${files.join('、')}`);
-}
-
-// 规则 21：源轮次覆盖率审计
-{
-  const counts = {};
-  for (const l of logFiles) {
-    const src = field(fs.readFileSync(l.file, 'utf8'), '源自原轮次');
-    if (!src || src === '无') continue;
-    for (const part of src.split(/[、,，\s]+/)) {
-      const m = part.match(/^(\d{1,3})(?:-(\d{1,3}))?$/);
-      if (!m) { err(`源自原轮次 格式异常：${rel(l.file)} -> ${part}`); continue; }
-      const a = parseInt(m[1], 10), b = m[2] ? parseInt(m[2], 10) : a;
-      for (let i = a; i <= b; i++) counts[i] = (counts[i] || 0) + 1;
-    }
-  }
-  for (let i = 1; i <= 45; i++) {
-    if (!counts[i]) err(`源轮次 ${i} 未被任何日志覆盖`);
-    else if (counts[i] > 1) err(`源轮次 ${i} 被 ${counts[i]} 篇日志重复覆盖`);
-  }
-  const maxCovered = Math.max(0, ...Object.keys(counts).map(Number));
-  if (maxCovered > 45) err(`源轮次覆盖存在越界（>45）：最大 ${maxCovered}`);
-}
-
-// ---------------------------------------------------------------------------
-// MOC 与表格检查（规则 17、18、19）
-// ---------------------------------------------------------------------------
-function tableLogLinks(absFile) {
-  if (!fs.existsSync(absFile)) return [];
-  const links = [];
-  for (const line of fs.readFileSync(absFile, 'utf8').split('\n')) {
+function tableLogLinks(content, moc, memoryDir) {
+  const targets = [];
+  for (const line of content.split(/\r?\n/)) {
     if (!line.trim().startsWith('|')) continue;
-    if (/^\s*\|[\s:-]+\|\s*$/.test(line)) continue;
-    const m = line.match(/\[\[([^\]]+)\]\]/);
-    if (m) links.push(path.join(rootDir, linkTarget(m[1]) + '.md'));
-  }
-  return links;
-}
-
-const totalMoc = path.join(logDir, 'MOC_工作日志.md');
-const totalLinks = tableLogLinks(totalMoc);
-{
-  const cnt = {};
-  for (const p of totalLinks) cnt[p] = (cnt[p] || 0) + 1;
-  for (const l of logFiles) {
-    const n = cnt[l.file] || 0;
-    if (n !== 1) err(`总 MOC 中日志出现 ${n} 次（应为1）：${rel(l.file)}`);
-  }
-}
-
-for (const c of CATS) {
-  const cm = path.join(logDir, c, `MOC_${c}.md`);
-  if (!fs.existsSync(cm)) continue;
-  const links = tableLogLinks(cm);
-  const cc = {};
-  for (const p of links) cc[p] = (cc[p] || 0) + 1;
-  for (const l of logFiles.filter((x) => x.cat === c)) {
-    const n = cc[l.file] || 0;
-    if (n !== 1) err(`分类 MOC ${c} 中日志出现 ${n} 次（应为1）：${rel(l.file)}`);
-  }
-  for (const p of links) {
-    if (!logFiles.some((l) => l.cat === c && l.file === p)) err(`分类 MOC ${c} 出现越界日志链接：${rel(p)}`);
-  }
-}
-
-// 规则 18：排序
-function cells(line) { return line.split('|').slice(1, -1).map((s) => s.trim()); }
-if (fs.existsSync(totalMoc)) {
-  const times = [];
-  for (const line of fs.readFileSync(totalMoc, 'utf8').split('\n')) {
-    if (!line.trim().startsWith('|') || /^\s*\|[\s:-]+\|\s*$/.test(line)) continue;
-    const cs = cells(line);
-    const tm = (cs[1] || '').match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
-    if (tm) times.push(tm[1]);
-  }
-  for (let i = 0; i < times.length - 1; i++)
-    if (times[i] < times[i + 1]) err(`总 MOC 时间非倒序：行${i + 1} ${times[i]} < 行${i + 2} ${times[i + 1]}`);
-}
-for (const c of CATS) {
-  const cm = path.join(logDir, c, `MOC_${c}.md`);
-  if (!fs.existsSync(cm)) continue;
-  const nums = [];
-  for (const line of fs.readFileSync(cm, 'utf8').split('\n')) {
-    if (!line.trim().startsWith('|') || /^\s*\|[\s:-]+\|\s*$/.test(line)) continue;
-    const m = line.match(/第(\d{3})次/);
-    if (m) nums.push(parseInt(m[1], 10));
-  }
-  for (let i = 0; i < nums.length - 1; i++)
-    if (nums[i] < nums[i + 1]) err(`分类 MOC ${c} 编号非倒序：行${i + 1} ${nums[i]} < 行${i + 2} ${nums[i + 1]}`);
-}
-
-// 规则 19：表格内别名转义
-for (const f of allMd) {
-  for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
-    if (!line.trim().startsWith('|')) continue;
-    for (const m of line.matchAll(/\[\[([^\]]+)\]\]/g)) {
-      const inner = m[1];
-      if (inner.includes('|') && !inner.includes('\\|'))
-        err(`表格内 wiki-link 别名未转义（应写作 \\|）：${rel(f)} -> ${line.trim().slice(0, 60)}`);
+    for (const match of line.matchAll(/\[\[([^\]]+)\]\]|(?<!!)\[[^\]]*\]\(([^)]+)\)/g)) {
+      let target;
+      if (match[1]) {
+        target = match[1].split('|')[0].replace(/\\$/, '').split('#')[0].trim();
+        if (!target.endsWith('.md')) target += '.md';
+        targets.push(path.resolve(memoryDir, target));
+      } else {
+        try { target = decodeURIComponent(match[2].split('#')[0]); }
+        catch { continue; } // memory.py reports malformed references.
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(target)) targets.push(path.resolve(path.dirname(moc), target));
+      }
     }
   }
+  return targets;
 }
 
-// ---------------------------------------------------------------------------
-// 结果输出
-// ---------------------------------------------------------------------------
-const logPaths = new Set(logFiles.map((l) => l.file));
-const kpCount = allMd.filter((f) => !logPaths.has(f)).length;
-let linkCount = 0;
-for (const f of allMd) linkCount += fileLinks(f).length;
+export function lintWiki(rootDir) {
+  const memoryDir = path.join(rootDir, 'wiki_memory');
+  const logDir = path.join(memoryDir, '日志');
+  const errors = [];
+  const err = (message) => errors.push(message);
+  const rel = (target) => path.relative(rootDir, target);
+  if (!fs.existsSync(memoryDir)) return { errors: [`未找到 wiki_memory 目录：${memoryDir}`], logs: 0 };
+  if (fs.existsSync(path.join(rootDir, 'Wiki'))) err('旧 Wiki 目录仍存在；工程只能保留一个有效记忆根');
 
-if (errors.length) {
-  console.error(`\nWiki 校验失败，共 ${errors.length} 项：\n`);
-  for (const e of errors) console.error('  ✗ ' + e);
-  process.exit(1);
-} else {
-  console.log(`Wiki 校验通过：知识页 ${kpCount} 个，日志 ${logFiles.length} 篇，链接 ${linkCount} 条`);
+  for (const category of CATS) {
+    if (!fs.existsSync(path.join(logDir, category))) err(`缺少日志分类目录：${category}`);
+  }
+  const logs = [];
+  for (const target of walk(logDir)) {
+    const parts = path.relative(logDir, target).split(path.sep);
+    if (parts.length === 1 && parts[0] === 'MOC_工作日志.md') continue;
+    if (parts.length !== 2 || !CATS.includes(parts[0])) {
+      err(`日志出现在非约定位置：${rel(target)}`);
+      continue;
+    }
+    if (/^(?:MOC_|README\.md$)/.test(parts[1])) {
+      err(`分类目录不再维护独立导航：${rel(target)}`);
+      continue;
+    }
+    const content = fs.readFileSync(target, 'utf8');
+    const title = content.match(/^# 第(\d{3})次(?:\r?\n|$)/);
+    const numberedName = parts[1].match(/^第(\d{3})次\.md$/);
+    if (!numberedName) err(`日志文件名非法：${rel(target)}`);
+    if (content.startsWith('---')) err(`日志不得有 frontmatter：${rel(target)}`);
+    if (!title) err(`日志首行非 '# 第NNN次'：${rel(target)}`);
+    else if (numberedName && title[1] !== numberedName[1]) err(`日志编号与文件名不一致：${rel(target)}`);
+    for (const heading of HEADINGS) {
+      if (!new RegExp(`^## ${heading}\\s*$`, 'm').test(content)) err(`日志缺章节 ## ${heading}：${rel(target)}`);
+    }
+    const category = parts[0];
+    if (field(content, '对话类型') !== category) err(`对话类型不符目录：${rel(target)}`);
+    for (const label of ['主题标签', '源自原轮次', '本轮目标', '日志索引', '分类索引', '相关知识']) {
+      if (!field(content, label)) err(`日志缺少 ${label}：${rel(target)}`);
+    }
+    if (!field(content, '日志索引')?.includes('MOC_工作日志')) err(`日志未链接总 MOC：${rel(target)}`);
+    if (!field(content, '分类索引')?.includes('MOC_工作日志')) err(`分类索引须链接唯一总 MOC 的分类锚点：${rel(target)}`);
+    const time = field(content, '时间')?.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/)?.[1];
+    if (!time) err(`时间格式非法或缺失：${rel(target)}`);
+    logs.push({ path: target, content, category, number: title ? Number(title[1]) : null, time });
+  }
+
+  // Historical category identities and reconstructed source rounds must survive migration.
+  for (const category of CATS) {
+    const numbers = logs.filter((log) => log.category === category && log.number !== null)
+      .map((log) => log.number).sort((a, b) => a - b);
+    for (let i = 0; i < numbers.length; i++) {
+      if (numbers[i] !== i + 1) { err(`分类 ${category} 编号不连续或重复，预期 ${i + 1}`); break; }
+    }
+  }
+  const seenTimes = new Map();
+  const rounds = new Map();
+  for (const log of logs) {
+    if (log.time) {
+      if (seenTimes.has(log.time)) err(`时间戳重复 ${log.time}：${rel(seenTimes.get(log.time))}、${rel(log.path)}`);
+      seenTimes.set(log.time, log.path);
+    }
+    const source = field(log.content, '源自原轮次');
+    if (!source || source === '无') continue;
+    for (const part of source.split(/[、,，\s]+/)) {
+      const match = part.match(/^(\d{1,3})(?:-(\d{1,3}))?$/);
+      if (!match) { err(`源自原轮次格式异常：${rel(log.path)} -> ${part}`); continue; }
+      const first = Number(match[1]), last = Number(match[2] ?? match[1]);
+      if (first < 1 || last > 45 || last < first) { err(`源自原轮次越界：${rel(log.path)} -> ${part}`); continue; }
+      for (let round = first; round <= last; round++) rounds.set(round, (rounds.get(round) ?? 0) + 1);
+    }
+  }
+  for (let round = 1; round <= 45; round++) {
+    const count = rounds.get(round) ?? 0;
+    if (count !== 1) err(`源轮次 ${round} 被 ${count} 篇日志覆盖（应为1）`);
+  }
+
+  const totalMoc = path.join(logDir, 'MOC_工作日志.md');
+  if (!fs.existsSync(totalMoc)) err('缺少日志/MOC_工作日志.md');
+  else {
+    const targets = tableLogLinks(fs.readFileSync(totalMoc, 'utf8'), totalMoc, memoryDir);
+    const logByPath = new Map(logs.map((log) => [log.path, log]));
+    for (const log of logs) {
+      const count = targets.filter((target) => target === log.path).length;
+      if (count !== 1) err(`总 MOC 中日志出现 ${count} 次（应为1）：${rel(log.path)}`);
+    }
+    const registeredLogs = targets.map((target) => logByPath.get(target)).filter(Boolean);
+    for (let i = 0; i + 1 < registeredLogs.length; i++) {
+      const current = registeredLogs[i], next = registeredLogs[i + 1];
+      if (current.time && next.time && current.time < next.time) err(`总 MOC 时间非倒序：${rel(current.path)} < ${rel(next.path)}`);
+    }
+  }
+
+  for (const target of walk(path.join(memoryDir, '决策'))) {
+    if (!/^ADR-\d+(?:-.+)?\.md$/.test(path.basename(target))) continue;
+    const fm = parseFM(fs.readFileSync(target, 'utf8'));
+    if (fm.status === 'superseded' && !fm.superseded_by) err(`ADR 标记 superseded 但缺 superseded_by：${rel(target)}`);
+  }
+  for (const target of walk(memoryDir)) {
+    for (const line of stripCode(fs.readFileSync(target, 'utf8')).split(/\r?\n/)) {
+      if (!line.trim().startsWith('|')) continue;
+      for (const match of line.matchAll(/\[\[([^\]]+)\]\]/g)) {
+        if (/(?<!\\)\|/.test(match[1])) err(`表格内 wiki-link 别名未转义（应写作 \\|）：${rel(target)}`);
+      }
+    }
+  }
+  return { errors, logs: logs.length };
+}
+
+const thisFile = fileURLToPath(import.meta.url);
+if (process.argv[1] && path.resolve(process.argv[1]) === thisFile) {
+  const rootDir = path.resolve(path.dirname(thisFile), '..');
+  const flags = process.argv.slice(2);
+  if (flags.some((flag) => flag !== '--require-ready')) {
+    console.error('用法：npm.cmd run lint:wiki [-- --require-ready]');
+    process.exitCode = 2;
+  } else {
+    const check = spawnSync('python', [path.join(rootDir, 'wiki_memory', '工具', 'memory.py'),
+      'check', '--project', rootDir, ...(flags.includes('--require-ready') ? ['--require-ready'] : [])],
+    { stdio: 'inherit', windowsHide: true });
+    if (check.error) {
+      console.error(`无法运行记忆检查（需要 Python 3.10+）：${check.error.message}`);
+      process.exitCode = 1;
+    } else if (check.status !== 0) process.exitCode = check.status ?? 1;
+    else {
+      const result = lintWiki(rootDir);
+      if (result.errors.length) {
+        console.error(`Wiki 项目校验失败，共 ${result.errors.length} 项：`);
+        for (const error of result.errors) console.error('  ✗ ' + error);
+        process.exitCode = 1;
+      } else console.log(`Wiki 项目校验通过：日志 ${result.logs} 篇，历史覆盖 1–45，单一日志索引`);
+    }
+  }
 }
