@@ -1361,7 +1361,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
               title="回收站"
             >
               <Trash size={19} weight="regular" />
-              <span>删除</span>
+              <span>回收站</span>
             </button>
             <button
               type="button"
@@ -1445,7 +1445,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         )}
 
 
-        {dataContext && <DataWorkspace key={`${dataContext.mode}-${dataContext.groupId ?? "all"}`} state={state} context={dataContext} onBack={openCollectionHome} onImport={importData} importOperation={dataImport} onRetrySave={retrySave} />}
+        {dataContext && <DataWorkspace key={`${dataContext.mode}-${dataContext.groupId ?? "all"}`} state={state} context={dataContext} onBack={openCollectionHome} onImport={importData} importOperation={dataImport} onRetrySave={retrySave}
+          localFont={settingsPreview ? undefined : localFont} onOpenFontSettings={() => openSettingsPanel("typography")} />}
           <BrowserHistoryView
             active={browserHistoryOpen}
             onBack={closeBrowserHistory}

@@ -212,6 +212,7 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
         if (active && active.id === current.importId && importLineage.current
           && current.sequence === importSaveSequence.current
           && (active.status === "saving" || active.status === "failed")) {
+          if (status === "saved") importLineage.current = null;
           setDataImport({ ...active, status });
         }
       };

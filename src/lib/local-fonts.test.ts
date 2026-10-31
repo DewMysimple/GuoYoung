@@ -55,12 +55,14 @@ it("does not report a selected font when persistence fails", async () => {
 it("shares successful in-flight reads while retrying missing or failed assets", async () => {
   const blob = new Blob(["font"]);
   assets.load.mockResolvedValueOnce(blob).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("read failed")).mockResolvedValueOnce(blob);
-  const { loadLocalFontBlob } = await import("./local-fonts");
+  const { loadLocalFontBlob, MissingLocalFontError } = await import("./local-fonts");
   const first = loadLocalFontBlob("font-good");
   expect(loadLocalFontBlob("font-good")).toBe(first);
   expect(await first).toBe(blob);
   expect(await loadLocalFontBlob("font-good")).toBe(blob);
-  await expect(loadLocalFontBlob("font-retry")).rejects.toThrow("已丢失");
+  const missing = await loadLocalFontBlob("font-retry").catch(error => error);
+  expect(missing).toBeInstanceOf(MissingLocalFontError);
+  expect(missing.message).toContain("当前设备未找到");
   await expect(loadLocalFontBlob("font-retry")).rejects.toThrow("read failed");
   expect(await loadLocalFontBlob("font-retry")).toBe(blob);
   expect(assets.load).toHaveBeenCalledTimes(4);

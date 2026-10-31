@@ -4,6 +4,13 @@ export const MAX_LOCAL_FONT_BYTES = 50 * 1024 * 1024;
 export const LOCAL_FONT_ACCEPT = ".ttf,.otf,.ttc,.woff,.woff2";
 const loadedBlobs = new Map<string, Promise<Blob>>();
 
+export class MissingLocalFontError extends Error {
+  constructor() {
+    super("当前设备未找到所选本地字体文件，请重新选择字体文件。");
+    this.name = "MissingLocalFontError";
+  }
+}
+
 /** Asset IDs are opaque keys, never CSS supplied by a file or imported state. */
 export function getLocalFontFamily(assetId: string): string {
   if (!/^[a-zA-Z0-9_-]{1,80}$/.test(assetId)) throw new Error("本机字体记录无效，请重新选择字体文件");
@@ -40,7 +47,7 @@ export function loadLocalFontBlob(assetId: string): Promise<Blob> {
   const cached = loadedBlobs.get(assetId);
   if (cached) return cached;
   const promise = loadAssetBlob("fonts", assetId).then(blob => {
-    if (!blob) throw new Error("所选本机字体已丢失，请重新选择字体文件");
+    if (!blob) throw new MissingLocalFontError();
     return blob;
   }).catch(error => {
     if (loadedBlobs.get(assetId) === promise) loadedBlobs.delete(assetId);

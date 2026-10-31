@@ -93,7 +93,7 @@ describe("data transfer", () => {
     );
   });
 
-  it("keeps search history and local wallpaper files out of exports", () => {
+  it("keeps local font references while omitting search history and local wallpaper resources from JSON", () => {
     const state = createDefaultState();
     state.searchHistory = [
       { query: "private query", searchedAt: "2026-07-29T00:00:00.000Z" },
@@ -103,11 +103,34 @@ describe("data transfer", () => {
       source: "local",
       localAssetId: "local-secret",
     };
+    state.appearance = { ...state.appearance, fontFamily: "custom", customFontFamily: "Synthetic local font", customFontAssetId: "font-synthetic" };
 
     const payload = createExportPayload(state);
     expect(payload.state.searchHistory).toEqual([]);
     expect(payload.state.wallpaper.source).toBe("none");
     expect(payload.state.wallpaper.localAssetId).toBeUndefined();
+    expect(payload.state.appearance.customFontAssetId).toBe("font-synthetic");
+    const serialized = serializeExport(state);
+    expect(serialized).toContain("font-synthetic");
+    expect(serialized).not.toContain("local-secret");
+    const restored = parseImportFile(serialized);
+    expect(restored.appearance).toEqual(state.appearance);
+    expect(restored.wallpaper.source).toBe("none");
+    expect(restored.wallpaper.localAssetId).toBeUndefined();
+    // Exporting does not modify the current environment's usable references.
+    expect(state.wallpaper).toMatchObject({ source: "local", localAssetId: "local-secret" });
+  });
+
+  it("reads a legacy local-wallpaper backup without inventing a portable resource or changing its local font reference", () => {
+    const state = createDefaultState();
+    state.wallpaper = { ...state.wallpaper, source: "local", localAssetId: "legacy-wallpaper" };
+    state.appearance = { ...state.appearance, fontFamily: "custom", customFontFamily: "Synthetic local font", customFontAssetId: "font-legacy" };
+    const restored = parseImportFile(JSON.stringify(state));
+    expect(restored.wallpaper.source).toBe("none");
+    expect(restored.wallpaper.localAssetId).toBeUndefined();
+    expect(restored.appearance.customFontAssetId).toBe("font-legacy");
+    expect(restored.sites).toEqual(state.sites);
+    expect(restored.groups).toEqual(state.groups);
   });
 
   it("keeps the temporary GitHub migration undo record local", () => {

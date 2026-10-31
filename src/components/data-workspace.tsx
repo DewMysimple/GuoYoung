@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Database, DownloadSimple, FileArrowUp, FolderSimple, UploadSimple } from "@phosphor-icons/react";
 import type { SiteCollectionState, SiteWorkspace } from "../types";
 import type { DataImportOperation } from "../hooks/use-site-hub";
+import type { LocalFontState } from "../hooks/use-local-font";
 import { applyDataImport, collectionTransferGroups, createSelectedGroupsExport, parseTransferFile, type ImportRequest, type TransferFile, type TransferGroup } from "../lib/data-workspace";
 import { downloadExport, downloadJson } from "../lib/data-transfer";
 import { getGroupWorkspace } from "../lib/github-workspace";
@@ -16,6 +17,8 @@ interface Props {
   onImport: (request: ImportRequest) => DataImportOperation;
   importOperation: DataImportOperation | null;
   onRetrySave: () => Promise<boolean>;
+  localFont?: LocalFontState;
+  onOpenFontSettings?: () => void;
 }
 
 function GroupChoices({ groups, selected, onChange, disabled = false }: { groups: TransferGroup[]; selected: string[]; onChange: (ids: string[]) => void; disabled?: boolean }) {
@@ -31,7 +34,7 @@ function GroupChoices({ groups, selected, onChange, disabled = false }: { groups
   </div>;
 }
 
-export function DataWorkspace({ state, context, onBack, onImport, importOperation, onRetrySave }: Props) {
+export function DataWorkspace({ state, context, onBack, onImport, importOperation, onRetrySave, localFont, onOpenFontSettings }: Props) {
   const [mode, setMode] = useState(context.mode);
   const [exportScope, setExportScope] = useState(context.groupId ? "groups" : "all");
   const [exportIds, setExportIds] = useState<string[]>(context.groupId ? [context.groupId] : []);
@@ -49,7 +52,8 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
   const heading = useRef<HTMLHeadingElement>(null);
   const generation = useRef(0);
   const submitted = useRef(false);
-  const [attempt, setAttempt] = useState<{ operation: DataImportOperation; generation: number } | null>(null);
+  const [attempt, setAttempt] = useState<{ operation: DataImportOperation; generation: number; restoresAppearance: boolean } | null>(null);
+  const [restoredFont, setRestoredFont] = useState<{ operationId: number; generation: number; assetId: string } | null>(null);
   const activeImport = attempt && attempt.generation === generation.current
     ? (importOperation?.id === attempt.operation.id ? importOperation : attempt.operation) : null;
   const saving = activeImport?.status === "saving";
@@ -65,6 +69,9 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
       if (activeImport.status === "saved") {
         const imported = activeImport.result;
         setNotice({ text: `已导入 ${imported.added} 个网站，跳过 ${imported.skipped} 个链接，新建 ${imported.created} 个分组。` });
+        const appearance = imported.state.appearance;
+        setRestoredFont(attempt.restoresAppearance && appearance.fontFamily === "custom" && appearance.customFontAssetId
+          ? { operationId: activeImport.id, generation: generation.current, assetId: appearance.customFontAssetId } : null);
         setFile(null); setFilename("");
       } else {
         setNotice({ error: true, text: "本次导入结果已被后续数据替换，未确认本次导入保存成功。请重新预览。" });
@@ -72,7 +79,7 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
       submitted.current = false;
       setAttempt(null);
     }
-  }, [activeImport, attempt?.generation]);
+  }, [activeImport, attempt?.generation, attempt?.restoresAppearance]);
   const groups = useMemo(() => collectionTransferGroups(state), [state]);
   const request = useMemo<ImportRequest | null>(() => file ? ({ file, keys: sourceIds, destination: destination === "existing" ? { kind: "existing", groupId: targetId }
     : destination === "replace" ? { kind: "replace" } : { kind: "new", name, workspace: workspace === "source" ? undefined : workspace } }) : null,
@@ -85,7 +92,7 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
 
   async function readFile(value: File) {
     const token = ++generation.current;
-    submitted.current = false; setAttempt(null);
+    submitted.current = false; setAttempt(null); setRestoredFont(null);
     setReading(true); setNotice(null); setFile(null); setFilename(""); setConfirming(false);
     try {
       const parsed = parseTransferFile(await value.text());
@@ -99,16 +106,17 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
   }
   function switchMode(next: "import" | "export") {
     if (next === mode) return;
-    generation.current++; submitted.current = false; setAttempt(null);
+    generation.current++; submitted.current = false; setAttempt(null); setRestoredFont(null);
     setMode(next); setNotice(null); setFile(null); setFilename(""); setReading(false); setConfirming(false);
   }
   function confirmImport() {
     if (!request || submitted.current) return;
     submitted.current = true;
+    setRestoredFont(null);
     setConfirming(false);
     try {
       const operation = onImport(request);
-      setAttempt({ operation, generation: generation.current });
+      setAttempt({ operation, generation: generation.current, restoresAppearance: request.destination.kind === "replace" });
       setNotice({ text: "正在保存导入结果…" });
     } catch (error) {
       submitted.current = false;
@@ -123,6 +131,10 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
     } catch (error) { setNotice({ error: true, text: error instanceof Error ? error.message : "导出失败，请检查下载权限。" }); }
   }
   const result = activeImport?.result ?? preview?.result;
+  const fontRecovery = restoredFont && restoredFont.generation === generation.current
+    && importOperation?.id === restoredFont.operationId && importOperation.status === "saved"
+    && state.appearance.fontFamily === "custom" && state.appearance.customFontAssetId === restoredFont.assetId
+    && localFont?.assetId === restoredFont.assetId && !localFont.loading ? localFont.error : null;
   return <section className="data-workspace" aria-label="数据页面">
     <header className="data-page-heading">
       <button type="button" className="icon-button" aria-label="返回收藏" onClick={onBack}><ArrowLeft size={20} /></button>
@@ -135,6 +147,9 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
     </div>
     {notice && <div className={`data-notice ${notice.error ? "is-error" : ""}`} role={notice.error ? "alert" : "status"}>{notice.text}
       {activeImport?.status === "failed" && <button type="button" className="button secondary-button" onClick={() => void onRetrySave()}>重试保存导入结果</button>}
+    </div>}
+    {fontRecovery && <div className="data-notice" role="status" aria-label="字体恢复提示">收藏已保存。{fontRecovery}
+      {onOpenFontSettings && <button type="button" className="button secondary-button" onClick={onOpenFontSettings}>打开字体设置</button>}
     </div>}
     <div className="data-page-grid"><div className="data-card">
       {mode === "import" ? <>
@@ -156,7 +171,7 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
       </> : <>
         <div className="data-section-heading"><span>01</span><div><h2>选择导出范围</h2><p>用于迁移备份，或只分享你挑选的收藏。</p></div></div>
         <div className="data-scope-options">
-          <button type="button" aria-pressed={exportScope === "all"} onClick={() => setExportScope("all")}><Database size={25} /><strong>全局备份</strong><span>全部链接、分组与外观设置</span></button>
+          <button type="button" aria-pressed={exportScope === "all"} onClick={() => setExportScope("all")}><Database size={25} /><strong>全局备份</strong><span>活动收藏、分组与可导出设置</span></button>
           <button type="button" aria-pressed={exportScope === "groups"} onClick={() => setExportScope("groups")}><FolderSimple size={25} /><strong>指定分组</strong><span>自由选择一个或多个分组</span></button>
         </div>
         {exportScope === "groups" && <GroupChoices groups={groups} selected={exportIds} onChange={setExportIds} />}
@@ -174,7 +189,10 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
         <dl><div><dt>导出分组</dt><dd>{exportScope === "all" ? state.groups.length : groups.filter(group => exportIds.includes(group.key)).length}</dd></div><div><dt>导出链接</dt><dd>{exportScope === "all" ? state.sites.length : groups.filter(group => exportIds.includes(group.key)).reduce((sum, group) => sum + group.payload.sites.length, 0)}</dd></div><div><dt>外观设置</dt><dd>{exportScope === "all" ? "包含" : "不包含"}</dd></div></dl>
         <button type="button" className="button primary-button" disabled={exportScope === "groups" && !groups.some(group => exportIds.includes(group.key))} onClick={exportData}><DownloadSimple size={18} />导出 JSON</button>
       </>}
-      <div className="data-footnote"><strong>关于数据</strong><HelpTip label="备份范围说明">备份不包含回收站、搜索历史、浏览器历史与本地壁纸文件。</HelpTip>{mode === "import" && <p>具体 GitHub 链接会按工作区规则归类；GitHub 组不接收普通网址和 GitHub 根入口，不符合的链接计入跳过。</p>}</div>
+      <div className="data-footnote"><strong>关于数据</strong><HelpTip label="备份范围说明">JSON 备份包含活动收藏、分组和可导出的设置，不包含回收站、搜索历史、浏览器历史，以及本地壁纸和字体文件。</HelpTip>
+        <p>本地壁纸和字体文件不随 JSON 备份迁移，在其他设备或配置文件中需重新选择。</p>
+        {mode === "export" && exportScope === "groups" && <p>分组资源包仅包含所选分组和链接，不包含外观设置。</p>}
+        {mode === "import" && <p>具体 GitHub 链接会按工作区规则归类；GitHub 组不接收普通网址和 GitHub 根入口，不符合的链接计入跳过。</p>}</div>
     </aside></div>
     <ConfirmDialog destructive={destination === "replace"} open={confirming} title={destination === "replace" ? "导入并替换收藏？" : "导入分组资源？"} description={destination === "replace" ? `将替换当前 ${state.sites.length} 个收藏及外观设置，导入 ${result?.added ?? 0} 个网站。建议先导出全局备份。` : `新增 ${result?.added ?? 0} 个网站，跳过 ${result?.skipped ?? 0} 个重复或不符合工作区的链接，新建 ${result?.created ?? 0} 个分组。`} confirmLabel="确认导入" onOpenChange={setConfirming} onConfirm={() => {
       confirmImport();

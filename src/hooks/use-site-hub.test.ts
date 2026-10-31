@@ -240,6 +240,101 @@ describe("import persistence acknowledgements", () => {
     expect(result.current.state.groups.some(group => group.name === "Second import")).toBe(true);
   });
 
+  it.each(["success", "failure"])("keeps the second import's entity protection after the first import's late %s", async firstReceipt => {
+    const store = setupStore();
+    const { result } = renderHook(() => useSiteHub());
+    await act(async () => {});
+    const disk = controlledWrites(store);
+    act(() => { result.current.importData(importRequest("First import")); });
+    const secondRequest = importRequest("Second import");
+    secondRequest.file.groups[0].payload.sites[0] = { name: "Second report", url: "https://second.example/Report", order: 0 };
+    act(() => { result.current.importData(secondRequest); });
+    const second = result.current.dataImport!;
+    const secondSite = result.current.state.sites.find(site => site.name === "Second report")!;
+    await act(async () => {
+      if (firstReceipt === "success") disk.writes[0].resolve();
+      else disk.writes[0].reject(new Error("older import failed"));
+    });
+    expect(result.current.dataImport).toMatchObject({ id: second.id, status: "saving" });
+    expect(disk.writes).toHaveLength(2);
+    act(() => { result.current.deleteSite(secondSite.id); });
+    expect(result.current.dataImport).toMatchObject({ id: second.id, status: "superseded" });
+    await act(async () => { disk.writes[1].resolve(); });
+    await act(async () => { disk.writes[2].resolve(); });
+    expect(result.current.dataImport).toMatchObject({ id: second.id, status: "superseded" });
+    expect(disk.persisted().sites.some(site => site.id === secondSite.id)).toBe(false);
+    expect(disk.persisted().deletedSites.some(entry => entry.site.id === secondSite.id)).toBe(true);
+  });
+
+  it("keeps successful statistics stable through normal edits, and gives the next import its own retry and invalidation lifecycle", async () => {
+    const store = setupStore();
+    const { result } = renderHook(() => useSiteHub());
+    await act(async () => {});
+    const disk = controlledWrites(store);
+    act(() => { result.current.importData(importRequest("Completed import")); });
+    await act(async () => { disk.writes[0].resolve(); });
+    const completed = result.current.dataImport!;
+    act(() => {
+      result.current.recordSiteClick("google");
+      result.current.setSortMode("heat");
+      const current = result.current.state;
+      result.current.saveSettings({ ...current.brand, name: "Edited after import" }, current.appearance, current.wallpaper);
+    });
+    await act(async () => { disk.writes[1].resolve(); });
+    expect(result.current.dataImport).toBe(completed);
+    expect(result.current.dataImport).toMatchObject({ status: "saved", result: { added: 1, skipped: 1, created: 1 } });
+    expect(disk.persisted().sites.find(site => site.id === "google")?.clickCount).toBe(1);
+    expect(disk.persisted().sortModeByWorkspace.main).toBe("heat");
+    expect(disk.persisted().brand.name).toBe("Edited after import");
+
+    const nextRequest = importRequest("Next import");
+    nextRequest.file.groups[0].payload.sites[0] = { name: "Next report", url: "https://next.example/Report", order: 0 };
+    act(() => { result.current.importData(nextRequest); });
+    const next = result.current.dataImport!;
+    expect(next.id).not.toBe(completed.id);
+    await act(async () => { disk.writes[2].reject(new Error("next import failed")); });
+    expect(result.current.dataImport).toMatchObject({ id: next.id, status: "failed" });
+    let retry!: Promise<boolean>;
+    act(() => { retry = result.current.retrySave(); });
+    await act(async () => { disk.writes[3].resolve(); expect(await retry).toBe(true); });
+    expect(result.current.dataImport).toMatchObject({ id: next.id, status: "saved", result: { added: 1, skipped: 1, created: 1 } });
+    expect(disk.persisted().groups.filter(group => group.name === "Next import")).toHaveLength(1);
+    expect(disk.persisted().sites.filter(site => site.name === "Next report")).toHaveLength(1);
+
+    const pendingRequest = importRequest("Pending import");
+    pendingRequest.file.groups[0].payload.sites[0] = { name: "Pending report", url: "https://pending.example/Report", order: 0 };
+    act(() => { result.current.importData(pendingRequest); });
+    const pendingId = result.current.dataImport!.id;
+    const pendingSite = result.current.state.sites.find(site => site.name === "Pending report")!;
+    act(() => { result.current.deleteSite(pendingSite.id); });
+    expect(result.current.dataImport).toMatchObject({ id: pendingId, status: "superseded" });
+    await act(async () => { disk.writes[4].resolve(); });
+    await act(async () => { disk.writes[5].resolve(); });
+    expect(result.current.dataImport).toMatchObject({ id: pendingId, status: "superseded" });
+    expect(disk.persisted().sites.some(site => site.id === pendingSite.id)).toBe(false);
+  });
+
+  it("keeps failed-import entity protection after an unrelated save fails, and cannot report a deleted result as saved", async () => {
+    const store = setupStore();
+    const { result } = renderHook(() => useSiteHub());
+    await act(async () => {});
+    const disk = controlledWrites(store);
+    act(() => { result.current.importData(importRequest()); });
+    const operation = result.current.dataImport!;
+    const added = result.current.state.sites.find(site => site.name === "Synthetic report")!;
+    await act(async () => { disk.writes[0].reject(new Error("import failed")); });
+    act(() => { result.current.setSortMode("heat"); });
+    await act(async () => { disk.writes[1].reject(new Error("edited snapshot failed")); });
+    expect(result.current.dataImport).toMatchObject({ id: operation.id, status: "failed" });
+    act(() => { result.current.deleteSite(added.id); });
+    expect(result.current.dataImport).toMatchObject({ id: operation.id, status: "superseded" });
+    let retry!: Promise<boolean>;
+    act(() => { retry = result.current.retrySave(); });
+    await act(async () => { disk.writes[2].resolve(); expect(await retry).toBe(true); });
+    expect(result.current.dataImport).toMatchObject({ id: operation.id, status: "superseded" });
+    expect(disk.persisted().sites.some(site => site.id === added.id)).toBe(false);
+  });
+
   it("does not claim an import succeeded after its entities or entire collection were replaced", async () => {
     const store = setupStore();
     const { result } = renderHook(() => useSiteHub());
