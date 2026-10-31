@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc -b",
+    "architecture:check": "node scripts/check-architecture.mjs",
+    "test:architecture": "node --test scripts/check-architecture.test.mjs",
     "capture": "node scripts/capture.mjs",
     "build": "tsc -b && vite build",
     "build:extension": "tsc -b && vite build --mode extension",

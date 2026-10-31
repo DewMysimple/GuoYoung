@@ -27,6 +27,10 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm.cmd ci
+      - name: Architecture checker regression tests
+        run: npm.cmd run test:architecture
+      - name: Check module architecture
+        run: npm.cmd run architecture:check
       - name: Type check
         run: npm.cmd run typecheck
       - name: Unit and component tests

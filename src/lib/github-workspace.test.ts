@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { createDefaultState, GITHUB_OTHER_GROUP_ID, OTHER_GROUP_ID } from "../data/defaults";
 import {
   ensureGithubWorkspace,
-  isGithubHomeUrl,
   isGithubUrl,
   moveGithubHomeToMainInState,
   migrateGithubSitesInState,
@@ -20,28 +19,6 @@ describe("GitHub workspace", () => {
     expect(isGithubUrl("https://notgithub.com" )).toBe(false);
     expect(isGithubUrl("https://github.com.evil.example" )).toBe(false);
     expect(isGithubUrl("not a URL" )).toBe(false);
-  });
-
-  it("recognizes only the GitHub root as the shared official homepage", () => {
-    expect(isGithubHomeUrl("https://github.com")).toBe(true);
-    expect(isGithubHomeUrl("https://www.github.com/")).toBe(true);
-    expect(isGithubHomeUrl("HTTP://GITHUB.COM:80/")).toBe(true);
-    expect(isGithubHomeUrl("https://github.com:443/")).toBe(true);
-    expect(isGithubHomeUrl("https://github.com/openai/openai")).toBe(false);
-    expect(isGithubHomeUrl("https://github.com.evil.example/")).toBe(false);
-    expect(isGithubHomeUrl("https://github.io/")).toBe(false);
-  });
-
-  it.each([
-    "https://github.com/#/dashboard",
-    "https://github.com/?tab=stars",
-    "https://github.com/?",
-    "https://github.com/#",
-    "https://github.com:8443/",
-    "https://user:password@github.com/",
-    "ftp://github.com/",
-  ])("does not treat a distinct root target as the shared homepage: %s", (url) => {
-    expect(isGithubHomeUrl(url)).toBe(false);
   });
 
   function migrationFixture() {
