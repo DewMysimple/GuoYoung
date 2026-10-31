@@ -33,7 +33,7 @@ describe("Favicon", () => {
       <Favicon
         site={{
           name: "Example",
-          url: "https://example.com/path",
+          url: "https://example.com/Private/Report?token=FAKE_TOKEN&view=AbC#Part",
           customIconUrl: "https://cdn.example.com/icon.png",
         }}
       />,
@@ -44,6 +44,7 @@ describe("Favicon", () => {
     expect(image().src).toBe("https://example.com/favicon.ico");
     fireEvent.error(image());
     expect(image().src).toContain("google.com/s2/favicons");
+    expect(new URL(image().src).searchParams.get("domain_url")).toBe("https://example.com");
     expect(image().src).toContain("sz=256");
     fireEvent.error(image());
     expect(image().src).toContain("icons.duckduckgo.com");

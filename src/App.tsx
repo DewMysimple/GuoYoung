@@ -183,6 +183,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     deleteGroup,
     deleteGroups,
     importData,
+    dataImport,
     importGithubRepositories,
     importGithubRepositoryBatch,
     migrateGithubSites,
@@ -1444,7 +1445,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         )}
 
 
-        {dataContext && <DataWorkspace key={`${dataContext.mode}-${dataContext.groupId ?? "all"}`} state={state} context={dataContext} onBack={openCollectionHome} onImport={importData} />}
+        {dataContext && <DataWorkspace key={`${dataContext.mode}-${dataContext.groupId ?? "all"}`} state={state} context={dataContext} onBack={openCollectionHome} onImport={importData} importOperation={dataImport} onRetrySave={retrySave} />}
           <BrowserHistoryView
             active={browserHistoryOpen}
             onBack={closeBrowserHistory}

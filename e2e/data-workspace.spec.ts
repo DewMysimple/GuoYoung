@@ -7,6 +7,43 @@ const payload = {
   sites: [{ name: "Data Example", url: "https://data.example/", order: 0 }],
 };
 
+test("keeps a failed import for save-only retry and reloads the saved result", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "Desktop data import recovery");
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).sites.length);
+  await page.getByRole("button", { name: "打开数据" }).click();
+  await page.getByLabel("选择要导入的数据文件").setInputFiles({ name: "retry.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(payload)) });
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    let rejectNext = true;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "site-hub:v1" && rejectNext) {
+        rejectNext = false;
+        throw new DOMException("Synthetic quota rejection", "QuotaExceededError");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await page.getByRole("button", { name: "预览并导入" }).click();
+  await page.getByRole("button", { name: "确认导入", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "尚未确认保存成功" })).toBeVisible();
+  await expect(page.getByText("retry.json", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "预览并导入" })).toBeDisabled();
+  await expect(page.getByRole("status").filter({ hasText: "已导入" })).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).sites.length)).toBe(before);
+  await page.screenshot({ path: screenshotPath("data-import-save-failed.png"), fullPage: true });
+  await page.getByRole("button", { name: "重试保存导入结果", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "已导入 1 个网站，跳过 0 个链接，新建 1 个分组。" })).toBeVisible();
+  await expect(page.getByText("retry.json", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("link", { name: "打开 Data Example" })).toBeVisible();
+  expect(await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    return { sites: state.sites.filter((item: { name: string }) => item.name === "Data Example").length,
+      groups: state.groups.filter((item: { name: string }) => item.name === "共享收藏").length };
+  })).toEqual({ sites: 1, groups: 1 });
+});
+
 test("imports a group into a new folder only after confirmation and survives refresh", async ({ page }, testInfo) => {
   const before = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).sites.length);
   await page.getByRole("button", { name: "打开数据" }).click();

@@ -2,6 +2,7 @@ import { HelpTip } from "./help-tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Database, DownloadSimple, FileArrowUp, FolderSimple, UploadSimple } from "@phosphor-icons/react";
 import type { SiteCollectionState, SiteWorkspace } from "../types";
+import type { DataImportOperation } from "../hooks/use-site-hub";
 import { applyDataImport, collectionTransferGroups, createSelectedGroupsExport, parseTransferFile, type ImportRequest, type TransferFile, type TransferGroup } from "../lib/data-workspace";
 import { downloadExport, downloadJson } from "../lib/data-transfer";
 import { getGroupWorkspace } from "../lib/github-workspace";
@@ -12,23 +13,25 @@ import "./data-workspace.css";
 export interface DataWorkspaceContext { mode: "import" | "export"; groupId?: string }
 interface Props {
   state: SiteCollectionState; context: DataWorkspaceContext; onBack: () => void;
-  onImport: (request: ImportRequest) => ReturnType<typeof applyDataImport>;
+  onImport: (request: ImportRequest) => DataImportOperation;
+  importOperation: DataImportOperation | null;
+  onRetrySave: () => Promise<boolean>;
 }
 
-function GroupChoices({ groups, selected, onChange }: { groups: TransferGroup[]; selected: string[]; onChange: (ids: string[]) => void }) {
+function GroupChoices({ groups, selected, onChange, disabled = false }: { groups: TransferGroup[]; selected: string[]; onChange: (ids: string[]) => void; disabled?: boolean }) {
   return <div className="data-group-picker">
     <div className="data-picker-summary"><span>已选择 {groups.filter(group => selected.includes(group.key)).length} / {groups.length} 个分组</span>
-      <button type="button" className="data-text-button" onClick={() => onChange(groups.map(group => group.key))}>全选</button>
-      <button type="button" className="data-text-button" onClick={() => onChange([])}>清空选择</button>
+      <button type="button" className="data-text-button" disabled={disabled} onClick={() => onChange(groups.map(group => group.key))}>全选</button>
+      <button type="button" className="data-text-button" disabled={disabled} onClick={() => onChange([])}>清空选择</button>
     </div>
     <div className="data-group-list">{groups.map(group => <label key={group.key} className={`data-group-choice ${selected.includes(group.key) ? "is-selected" : ""}`}>
-      <input type="checkbox" checked={selected.includes(group.key)} onChange={event => onChange(event.target.checked ? [...selected, group.key] : selected.filter(id => id !== group.key))} />
+      <input type="checkbox" disabled={disabled} checked={selected.includes(group.key)} onChange={event => onChange(event.target.checked ? [...selected, group.key] : selected.filter(id => id !== group.key))} />
       <FolderSimple size={20} /><span><strong>{group.payload.group.name}</strong><small>{group.workspace === "github" ? "GitHub" : "收藏主页"} · {group.payload.sites.length} 个链接</small></span>
     </label>)}</div>
   </div>;
 }
 
-export function DataWorkspace({ state, context, onBack, onImport }: Props) {
+export function DataWorkspace({ state, context, onBack, onImport, importOperation, onRetrySave }: Props) {
   const [mode, setMode] = useState(context.mode);
   const [exportScope, setExportScope] = useState(context.groupId ? "groups" : "all");
   const [exportIds, setExportIds] = useState<string[]>(context.groupId ? [context.groupId] : []);
@@ -45,8 +48,31 @@ export function DataWorkspace({ state, context, onBack, onImport }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const generation = useRef(0);
+  const submitted = useRef(false);
+  const [attempt, setAttempt] = useState<{ operation: DataImportOperation; generation: number } | null>(null);
+  const activeImport = attempt && attempt.generation === generation.current
+    ? (importOperation?.id === attempt.operation.id ? importOperation : attempt.operation) : null;
+  const saving = activeImport?.status === "saving";
   useEffect(() => () => { generation.current++; }, []);
   useEffect(() => { heading.current?.focus(); }, []);
+  useEffect(() => {
+    if (!activeImport || attempt?.generation !== generation.current) return;
+    if (activeImport.status === "saving") {
+      setNotice({ text: "正在保存导入结果…" });
+    } else if (activeImport.status === "failed") {
+      setNotice({ error: true, text: "导入结果已在当前页面，尚未确认保存成功。请重试保存；刷新会丢失未保存的更改。" });
+    } else {
+      if (activeImport.status === "saved") {
+        const imported = activeImport.result;
+        setNotice({ text: `已导入 ${imported.added} 个网站，跳过 ${imported.skipped} 个链接，新建 ${imported.created} 个分组。` });
+        setFile(null); setFilename("");
+      } else {
+        setNotice({ error: true, text: "本次导入结果已被后续数据替换，未确认本次导入保存成功。请重新预览。" });
+      }
+      submitted.current = false;
+      setAttempt(null);
+    }
+  }, [activeImport, attempt?.generation]);
   const groups = useMemo(() => collectionTransferGroups(state), [state]);
   const request = useMemo<ImportRequest | null>(() => file ? ({ file, keys: sourceIds, destination: destination === "existing" ? { kind: "existing", groupId: targetId }
     : destination === "replace" ? { kind: "replace" } : { kind: "new", name, workspace: workspace === "source" ? undefined : workspace } }) : null,
@@ -59,6 +85,7 @@ export function DataWorkspace({ state, context, onBack, onImport }: Props) {
 
   async function readFile(value: File) {
     const token = ++generation.current;
+    submitted.current = false; setAttempt(null);
     setReading(true); setNotice(null); setFile(null); setFilename(""); setConfirming(false);
     try {
       const parsed = parseTransferFile(await value.text());
@@ -70,6 +97,24 @@ export function DataWorkspace({ state, context, onBack, onImport }: Props) {
       if (token === generation.current) setNotice({ error: true, text: error instanceof Error ? error.message : "无法读取文件" });
     } finally { if (token === generation.current) setReading(false); }
   }
+  function switchMode(next: "import" | "export") {
+    if (next === mode) return;
+    generation.current++; submitted.current = false; setAttempt(null);
+    setMode(next); setNotice(null); setFile(null); setFilename(""); setReading(false); setConfirming(false);
+  }
+  function confirmImport() {
+    if (!request || submitted.current) return;
+    submitted.current = true;
+    setConfirming(false);
+    try {
+      const operation = onImport(request);
+      setAttempt({ operation, generation: generation.current });
+      setNotice({ text: "正在保存导入结果…" });
+    } catch (error) {
+      submitted.current = false;
+      setNotice({ error: true, text: error instanceof Error ? error.message : "导入失败" });
+    }
+  }
   function exportData() {
     try {
       if (exportScope === "all") downloadExport(state);
@@ -77,7 +122,7 @@ export function DataWorkspace({ state, context, onBack, onImport }: Props) {
       setNotice({ text: "已生成 JSON 文件，请在浏览器下载中查看。" });
     } catch (error) { setNotice({ error: true, text: error instanceof Error ? error.message : "导出失败，请检查下载权限。" }); }
   }
-  const result = preview?.result;
+  const result = activeImport?.result ?? preview?.result;
   return <section className="data-workspace" aria-label="数据页面">
     <header className="data-page-heading">
       <button type="button" className="icon-button" aria-label="返回收藏" onClick={onBack}><ArrowLeft size={20} /></button>
@@ -85,25 +130,27 @@ export function DataWorkspace({ state, context, onBack, onImport }: Props) {
       <div className="data-page-count"><strong>{state.sites.length}</strong><span>个链接 · {state.groups.length} 个分组</span></div>
     </header>
     <div className="data-mode-switch" aria-label="数据操作">
-      <button type="button" aria-pressed={mode === "import"} onClick={() => { setMode("import"); setNotice(null); }}><UploadSimple size={19} />导入</button>
-      <button type="button" aria-pressed={mode === "export"} onClick={() => { setMode("export"); setNotice(null); }}><DownloadSimple size={19} />导出</button>
+      <button type="button" aria-pressed={mode === "import"} onClick={() => switchMode("import")}><UploadSimple size={19} />导入</button>
+      <button type="button" aria-pressed={mode === "export"} onClick={() => switchMode("export")}><DownloadSimple size={19} />导出</button>
     </div>
-    {notice && <div className={`data-notice ${notice.error ? "is-error" : ""}`} role={notice.error ? "alert" : "status"}>{notice.text}</div>}
+    {notice && <div className={`data-notice ${notice.error ? "is-error" : ""}`} role={notice.error ? "alert" : "status"}>{notice.text}
+      {activeImport?.status === "failed" && <button type="button" className="button secondary-button" onClick={() => void onRetrySave()}>重试保存导入结果</button>}
+    </div>}
     <div className="data-page-grid"><div className="data-card">
       {mode === "import" ? <>
         <div className="data-section-heading"><span>01</span><div><h2>选择要导入的文件</h2><p>支持整库备份、单个分组和分组集合。</p></div></div>
-        <button type="button" className="data-file-drop" disabled={reading} onClick={() => input.current?.click()}><FileArrowUp size={32} /><strong>{reading ? "正在读取…" : filename || "选择 JSON 文件"}</strong><span>{file ? "点击更换文件" : "先预览内容，再决定放在哪里"}</span></button>
-        <input ref={input} className="visually-hidden" type="file" accept=".json,application/json" aria-label="选择要导入的数据文件" onChange={event => { const value = event.target.files?.[0]; event.target.value = ""; if (value) void readFile(value); }} />
+        <button type="button" className="data-file-drop" disabled={reading || saving} onClick={() => input.current?.click()}><FileArrowUp size={32} /><strong>{reading ? "正在读取…" : filename || "选择 JSON 文件"}</strong><span>{file ? "点击更换文件" : "先预览内容，再决定放在哪里"}</span></button>
+        <input ref={input} className="visually-hidden" type="file" disabled={saving} accept=".json,application/json" aria-label="选择要导入的数据文件" onChange={event => { const value = event.target.files?.[0]; event.target.value = ""; if (value) void readFile(value); }} />
         {file && <>
           <div className="data-section-heading"><span>02</span><div><h2>选择内容与位置</h2><p>{file.backup ? "整库备份也可以只取出其中的分组。" : "选择需要的分组，按你的方式归档。"}</p></div></div>
-          {destination !== "replace" && <GroupChoices groups={file.groups} selected={sourceIds} onChange={setSourceIds} />}
-          <label className="data-field"><span>导入方式</span><SelectMenu ariaLabel="导入方式" value={destination} onChange={setDestination} options={[
+          {destination !== "replace" && <GroupChoices disabled={Boolean(activeImport)} groups={file.groups} selected={sourceIds} onChange={setSourceIds} />}
+          <label className="data-field"><span>导入方式</span><SelectMenu disabled={Boolean(activeImport)} ariaLabel="导入方式" value={destination} onChange={setDestination} options={[
             { value: "new", label: "新建分组导入" }, { value: "existing", label: "追加到已有分组" }, ...(file.backup ? [{ value: "replace" as const, label: "替换全局数据" }] : []),
           ]} /></label>
-          {destination === "existing" && <label className="data-field"><span>目标分组</span><SelectMenu ariaLabel="目标分组" value={targetId} onChange={setTargetId} options={state.groups.map(group => ({ value: group.id, label: `${getGroupWorkspace(group) === "github" ? "GitHub" : "收藏主页"} / ${group.name}` }))} renderTrigger={selected => selected?.label ?? "请选择目标分组"} /></label>}
+          {destination === "existing" && <label className="data-field"><span>目标分组</span><SelectMenu disabled={Boolean(activeImport)} ariaLabel="目标分组" value={targetId} onChange={setTargetId} options={state.groups.map(group => ({ value: group.id, label: `${getGroupWorkspace(group) === "github" ? "GitHub" : "收藏主页"} / ${group.name}` }))} renderTrigger={selected => selected?.label ?? "请选择目标分组"} /></label>}
           {destination === "new" && <>
-            {sourceIds.length === 1 && <label className="data-field"><span>新分组名称</span><input value={name} placeholder="沿用来源分组名称" onChange={event => setName(event.target.value)} maxLength={100} /></label>}
-            <label className="data-field"><span>创建位置</span><SelectMenu ariaLabel="创建位置" value={workspace} onChange={setWorkspace} options={[{ value: "source", label: "沿用来源工作区" }, { value: "main", label: "收藏主页" }, { value: "github", label: "GitHub" }]} /></label>
+            {sourceIds.length === 1 && <label className="data-field"><span>新分组名称</span><input disabled={Boolean(activeImport)} value={name} placeholder="沿用来源分组名称" onChange={event => setName(event.target.value)} maxLength={100} /></label>}
+            <label className="data-field"><span>创建位置</span><SelectMenu disabled={Boolean(activeImport)} ariaLabel="创建位置" value={workspace} onChange={setWorkspace} options={[{ value: "source", label: "沿用来源工作区" }, { value: "main", label: "收藏主页" }, { value: "github", label: "GitHub" }]} /></label>
           </>}
         </>}
       </> : <>
@@ -122,7 +169,7 @@ export function DataWorkspace({ state, context, onBack, onImport }: Props) {
         {preview?.error && <p role="alert">{preview.error}</p>}
         {result && <><dl><div><dt>{destination === "replace" ? "导入链接" : "新增链接"}</dt><dd>{result.added}</dd></div><div><dt>跳过链接</dt><dd>{result.skipped}</dd></div><div><dt>{destination === "replace" ? "导入分组" : "新建分组"}</dt><dd>{destination === "replace" ? file?.backup?.groups.length : result.created}</dd></div></dl>
           <p>{destination === "replace" ? "将替换所有收藏、分组和外观设置；本机回收站与搜索历史保留。" : "现有收藏和外观保持不变。相同网址自动跳过，同名新分组自动编号。"}</p></>}
-        <button type="button" className="button primary-button" disabled={!result || reading} onClick={() => setConfirming(true)}>预览并导入</button>
+        <button type="button" className="button primary-button" disabled={!result || reading || Boolean(activeImport)} onClick={() => setConfirming(true)}>{saving ? "正在保存…" : "预览并导入"}</button>
       </> : <>
         <dl><div><dt>导出分组</dt><dd>{exportScope === "all" ? state.groups.length : groups.filter(group => exportIds.includes(group.key)).length}</dd></div><div><dt>导出链接</dt><dd>{exportScope === "all" ? state.sites.length : groups.filter(group => exportIds.includes(group.key)).reduce((sum, group) => sum + group.payload.sites.length, 0)}</dd></div><div><dt>外观设置</dt><dd>{exportScope === "all" ? "包含" : "不包含"}</dd></div></dl>
         <button type="button" className="button primary-button" disabled={exportScope === "groups" && !groups.some(group => exportIds.includes(group.key))} onClick={exportData}><DownloadSimple size={18} />导出 JSON</button>
@@ -130,10 +177,7 @@ export function DataWorkspace({ state, context, onBack, onImport }: Props) {
       <div className="data-footnote"><strong>关于数据</strong><HelpTip label="备份范围说明">备份不包含回收站、搜索历史、浏览器历史与本地壁纸文件。</HelpTip>{mode === "import" && <p>具体 GitHub 链接会按工作区规则归类；GitHub 组不接收普通网址和 GitHub 根入口，不符合的链接计入跳过。</p>}</div>
     </aside></div>
     <ConfirmDialog destructive={destination === "replace"} open={confirming} title={destination === "replace" ? "导入并替换收藏？" : "导入分组资源？"} description={destination === "replace" ? `将替换当前 ${state.sites.length} 个收藏及外观设置，导入 ${result?.added ?? 0} 个网站。建议先导出全局备份。` : `新增 ${result?.added ?? 0} 个网站，跳过 ${result?.skipped ?? 0} 个重复或不符合工作区的链接，新建 ${result?.created ?? 0} 个分组。`} confirmLabel="确认导入" onOpenChange={setConfirming} onConfirm={() => {
-      if (!request) return;
-      try { const imported = onImport(request); setNotice({ text: `已导入 ${imported.added} 个网站，跳过 ${imported.skipped} 个链接，新建 ${imported.created} 个分组。` }); setFile(null); setFilename(""); }
-      catch (error) { setNotice({ error: true, text: error instanceof Error ? error.message : "导入失败" }); }
-      setConfirming(false);
+      confirmImport();
     }} />
   </section>;
 }

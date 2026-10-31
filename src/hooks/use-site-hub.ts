@@ -53,12 +53,29 @@ import type {
   GithubRepositorySummary,
 } from "../lib/github-repository-api";
 
+export interface DataImportOperation {
+  id: number;
+  result: ReturnType<typeof applyDataImport>;
+  status: "saving" | "saved" | "failed" | "superseded";
+}
+
+interface SaveTask {
+  state: SiteCollectionState;
+  sequence: number;
+  importId?: number;
+  status: "pending" | "saved" | "failed";
+  result: Promise<void>;
+  resolve: () => void;
+  reject: (error: unknown) => void;
+}
+
 interface SiteHubApi {
   state: SiteCollectionState;
   isLoading: boolean;
   recovered: boolean;
   storageError: string | null;
-  retrySave: () => Promise<void>;
+  retrySave: () => Promise<boolean>;
+  dataImport: DataImportOperation | null;
   storageMode: StorageMode;
   addSite: (values: SiteFormValues & { url: string; customIconUrl?: string }) => void;
   updateSite: (
@@ -84,7 +101,7 @@ interface SiteHubApi {
   reorderGroupBlock: (activeIds: string[], beforeGroupId: string | null) => void;
   deleteGroup: (id: string) => void;
   deleteGroups: (ids: string[]) => void;
-  importData: (request: ImportRequest) => ReturnType<typeof applyDataImport>;
+  importData: (request: ImportRequest) => DataImportOperation;
   importGroup: (
     targetGroupId: string,
     payload: GroupExportPayload,
@@ -124,33 +141,104 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
   const [recovered, setRecovered] = useState(initial?.recovered ?? false);
   const stateRef = useRef(state);
   const hasLoaded = useRef(Boolean(initial));
+  const [dataImport, setRenderedDataImport] = useState<DataImportOperation | null>(null);
+  const dataImportRef = useRef<DataImportOperation | null>(null);
+  const importSequence = useRef(0);
+  const importLineage = useRef<{ sites: string[]; groups: string[] } | null>(null);
+  const importSaveSequence = useRef(0);
+  const setDataImport = useCallback((operation: DataImportOperation) => {
+    dataImportRef.current = operation;
+    setRenderedDataImport(operation);
+  }, []);
+  const supersedeDataImport = useCallback(() => {
+    const operation = dataImportRef.current;
+    if (operation && (operation.status === "saving" || operation.status === "failed")) {
+      setDataImport({ ...operation, status: "superseded" });
+    }
+    importLineage.current = null;
+  }, [setDataImport]);
   // Mutations and result-returning imports share the same current value,
   // including multiple commands issued before React commits a render.
   const setState = useCallback((update: SetStateAction<SiteCollectionState>) => {
     const next = typeof update === "function" ? update(stateRef.current) : update;
+    const lineage = importLineage.current;
+    if (lineage && (lineage.sites.some(id => !next.sites.some(site => site.id === id))
+      || lineage.groups.some(id => !next.groups.some(group => group.id === id)))) {
+      supersedeDataImport();
+    }
     stateRef.current = next;
     setRenderedState(next);
-  }, []);
+  }, [supersedeDataImport]);
   const skipSaveState = useRef<SiteCollectionState | null>(
     initial?.recovered ? state : null,
   );
   const [storageError, setStorageError] = useState<string | null>(null);
-  const lastSave = useRef<{ state: SiteCollectionState; result: Promise<void> } | null>(null);
-  const saveSnapshot = useCallback((next: SiteCollectionState) => {
-    if (lastSave.current?.state === next) return lastSave.current.result;
-    const result = store.save(next).then(
-      () => { if (stateRef.current === next) setStorageError(null); },
-      (error: unknown) => {
-        if (stateRef.current === next) setStorageError("更改尚未保存，请重试保存。");
-        throw error;
-      },
-    );
-    lastSave.current = { state: next, result };
+  const saves = useRef(new WeakMap<SiteCollectionState, SaveTask>());
+  const saveQueue = useRef<SaveTask[]>([]);
+  const saving = useRef(false);
+  const saveSequence = useRef(0);
+  // Keep only expected notifications for actual value changes. Same-value
+  // writes emit no event; changed writes remain identifiable even when their
+  // onChanged notification arrives after many later edits or acknowledgements.
+  const knownPersisted = useRef(store.getPersistedValue ? store.getPersistedValue() : initial ? JSON.stringify(initial.state) : null);
+  const ownWrites = useRef(new Map<string, number[]>());
+  const saveSnapshot = useCallback((next: SiteCollectionState, retry = false) => {
+    const existing = saves.current.get(next);
+    if (existing && (!retry || existing.status !== "failed")) return existing.result;
+    let resolve!: () => void;
+    let reject!: (error: unknown) => void;
+    const result = new Promise<void>((accept, decline) => { resolve = accept; reject = decline; });
+    const operation = dataImportRef.current;
+    const importId = operation && importLineage.current
+      && (operation.status === "saving" || operation.status === "failed") ? operation.id : undefined;
+    const task: SaveTask = { state: next, sequence: ++saveSequence.current, importId, status: "pending", result, resolve, reject };
+    if (importId !== undefined && operation) {
+      importSaveSequence.current = task.sequence;
+      setDataImport({ ...operation, status: "saving" });
+    }
+    saves.current.set(next, task);
+    saveQueue.current.push(task);
+    const drain = () => {
+      if (saving.current) return;
+      const current = saveQueue.current.shift();
+      if (!current) return;
+      saving.current = true;
+      const serialized = JSON.stringify(current.state);
+      if (store.subscribe && serialized !== knownPersisted.current) {
+        ownWrites.current.set(serialized, [...(ownWrites.current.get(serialized) ?? []), current.sequence]);
+      }
+      const finishImport = (status: "saved" | "failed") => {
+        const active = dataImportRef.current;
+        if (active && active.id === current.importId && importLineage.current
+          && current.sequence === importSaveSequence.current
+          && (active.status === "saving" || active.status === "failed")) {
+          setDataImport({ ...active, status });
+        }
+      };
+      let pending: Promise<void>;
+      try { pending = store.save(current.state); }
+      catch (error) { pending = Promise.reject(error); }
+      void pending.then(() => {
+        current.status = "saved";
+        knownPersisted.current = serialized;
+        if (stateRef.current === current.state && current.sequence === saveSequence.current) setStorageError(null);
+        finishImport("saved");
+        current.resolve();
+      }, (error: unknown) => {
+        current.status = "failed";
+        const remaining = ownWrites.current.get(serialized)?.filter(sequence => sequence !== current.sequence);
+        if (remaining?.length) ownWrites.current.set(serialized, remaining);
+        else ownWrites.current.delete(serialized);
+        if (stateRef.current === current.state && current.sequence === saveSequence.current) setStorageError("更改尚未保存，请重试保存。");
+        finishImport("failed");
+        current.reject(error);
+      }).finally(() => { saving.current = false; drain(); });
+    };
+    drain();
     return result;
-  }, [store]);
+  }, [store, setDataImport]);
   const retrySave = useCallback(() => {
-    lastSave.current = null;
-    return saveSnapshot(stateRef.current).catch(() => undefined);
+    return saveSnapshot(stateRef.current, true).then(() => true, () => false);
   }, [saveSnapshot]);
 
   useEffect(() => {
@@ -161,6 +249,7 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
       .load()
       .then((loaded) => {
         if (!active) return;
+        knownPersisted.current = store.getPersistedValue ? store.getPersistedValue() : JSON.stringify(loaded.state);
         setState(loaded.state);
         setRecovered(loaded.recovered);
         skipSaveState.current = loaded.recovered ? loaded.state : null;
@@ -186,17 +275,35 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
     if (isLoading || !store.subscribe) return;
     return store.subscribe((loaded) => {
       const incoming = JSON.stringify(loaded.state);
+      const persistedValue = store.getPersistedValue ? store.getPersistedValue() : incoming;
+      const ownWrite = persistedValue === null ? undefined : ownWrites.current.get(persistedValue);
+      if (ownWrite?.length) {
+        ownWrite.shift();
+        if (!ownWrite.length && persistedValue !== null) ownWrites.current.delete(persistedValue);
+        return;
+      }
+      knownPersisted.current = persistedValue;
       if (incoming === JSON.stringify(stateRef.current)) return;
+      supersedeDataImport();
+      // An incoming replacement invalidates snapshots which have not started.
+      // An already-running adapter write cannot be cancelled; follow it with
+      // the replacement so it cannot remain the final on-disk state here.
+      const cancelled = saveQueue.current.splice(0);
+      for (const task of cancelled) {
+        task.status = "failed";
+        task.reject(new Error("待保存内容已被外部更新替换。"));
+      }
       skipSaveState.current = loaded.state;
       setState(loaded.state);
       setRecovered(loaded.recovered);
       setStorageError(null);
+      if (saving.current) void saveSnapshot(loaded.state).catch(() => undefined);
     });
-  }, [isLoading, store]);
+  }, [isLoading, store, saveSnapshot, supersedeDataImport]);
 
   useEffect(() => {
     if (!hasLoaded.current || isLoading) return;
-    if (state === skipSaveState.current) return;
+    if (state === skipSaveState.current || state !== stateRef.current) return;
     void saveSnapshot(state).catch(() => undefined);
   }, [isLoading, state, saveSnapshot]);
 
@@ -409,11 +516,23 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
   }, [deleteGroups]);
 
   const importData = useCallback((request: ImportRequest) => {
-    const result = applyDataImport(stateRef.current, request);
+    const before = stateRef.current;
+    const applied = applyDataImport(before, request);
+    // Even a no-op import owns its acknowledgement rather than reusing an
+    // unrelated previously saved operation for the same object reference.
+    const result = applied.state === before ? { ...applied, state: { ...applied.state } } : applied;
+    supersedeDataImport();
     setState(result.state);
+    importLineage.current = {
+      sites: result.state.sites.filter(site => request.destination.kind === "replace" || !before.sites.some(previous => previous.id === site.id)).map(site => site.id),
+      groups: result.state.groups.filter(group => request.destination.kind === "replace" || !before.groups.some(previous => previous.id === group.id)).map(group => group.id),
+    };
+    const operation: DataImportOperation = { id: ++importSequence.current, result, status: "saving" };
+    setDataImport(operation);
     setRecovered(false);
-    return result;
-  }, []);
+    void saveSnapshot(result.state).catch(() => undefined);
+    return operation;
+  }, [saveSnapshot, setDataImport, setState, supersedeDataImport]);
 
   const importGroup = useCallback<SiteHubApi["importGroup"]>(
     (targetGroupId, payload) => {
@@ -460,6 +579,7 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
   }, []);
 
   const reset = useCallback(() => {
+    supersedeDataImport();
     const defaults = createDefaultState();
     setState((current) => ({
       ...defaults,
@@ -478,6 +598,7 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
   }, []);
 
   const replaceState = useCallback((nextState: SiteCollectionState) => {
+    supersedeDataImport();
     skipSaveState.current = null;
     setState((current) => ({
       ...nextState,
@@ -562,6 +683,7 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
     recovered,
     storageError,
     retrySave,
+    dataImport,
     storageMode: store.mode,
     addSite,
     updateSite,

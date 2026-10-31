@@ -7,6 +7,33 @@ import { WALLPAPER_STARTUP_KEY } from "./wallpaper-startup";
 import { importSelectedBookmarks } from "./bookmark-manager";
 
 describe("site hub store", () => {
+  it.each(["web", "extension"])("rejects an unsuccessful %s write and permits a later save read by a fresh store", async mode => {
+    const original = createDefaultState();
+    const edited = { ...original, brand: { ...original.brand, name: "Synthetic saved brand" } };
+    let persisted = JSON.stringify(original);
+    let rejectWrite = true;
+    const setItem = vi.fn((key: string, value: string) => {
+      if (key === STORAGE_KEY) {
+        if (rejectWrite) throw new Error("Synthetic quota");
+        persisted = value;
+      }
+    });
+    const webStorage = { getItem: (key: string) => key === STORAGE_KEY ? persisted : null,
+      setItem, removeItem: vi.fn() } as unknown as Storage;
+    const api: ChromiumExtensionApi = mode === "extension" ? {
+      runtime: { id: "synthetic-extension" }, storage: { local: {
+        get: async () => ({ [STORAGE_KEY]: persisted }),
+        set: async values => { if (rejectWrite) throw new Error("Synthetic quota"); persisted = values[STORAGE_KEY] as string; },
+      } },
+    } : {};
+    const store = createSiteHubStore(api, webStorage);
+    await expect(store.save(edited)).rejects.toThrow("Synthetic quota");
+    expect((await createSiteHubStore(api, webStorage).load()).state.brand).toEqual(original.brand);
+    rejectWrite = false;
+    await expect(store.save(edited)).resolves.toBeUndefined();
+    expect((await createSiteHubStore(api, webStorage).load()).state.brand.name).toBe("Synthetic saved brand");
+  });
+
   it.each(["web", "extension"])("restores a newly added anchored bookmark after a fresh %s store is created", async (mode) => {
     const state = createDefaultState();
     const url = "https://example.com/docs?next=/Guide/#installation/";

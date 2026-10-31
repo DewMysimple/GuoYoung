@@ -4,6 +4,7 @@ import {
   filterSites,
   comparableSiteUrl,
   getFaviconCandidates,
+  getFaviconSourceUrl,
   getFaviconUrl,
   getKnownNativeFaviconUrl,
   getSitesInGroup,
@@ -116,7 +117,7 @@ describe("site utilities", () => {
     );
     expect(getFaviconCandidates({ url: "https://example.com/path" })).toEqual([
       "https://example.com/favicon.ico",
-      "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2Fpath&sz=256",
+      "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com&sz=256",
       "https://icons.duckduckgo.com/ip3/example.com.ico",
     ]);
     expect(getFaviconUrl({ url: "https://codepen.io" })).toBe(
@@ -135,6 +136,44 @@ describe("site utilities", () => {
       "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fwww.bilibili.com&sz=256",
       "https://icons.duckduckgo.com/ip3/www.bilibili.com.ico",
     ]);
+  });
+
+  it.each([
+    ["https://example.com/Private/Report?token=FAKE_TOKEN&x=AbC&x=%2f#section-2", "https://example.com"],
+    ["https://FAKE_USER:FAKE_PASSWORD@example.com:8443/Encoded%2FPath?token=FAKE_TOKEN#Part", "https://example.com:8443"],
+    ["HTTPS://EXAMPLE.COM:443/Guide?ID=AbC#Part", "https://example.com"],
+    ["http://example.com:8080/Guide/?x=1&x=2#Part", "http://example.com:8080"],
+  ])("limits mirror queries without changing navigation or custom resources: %s", (navigation, origin) => {
+    const customIconUrl = "https://cdn.example.com/Images/Icon.png?signature=FAKE_SIGNATURE&v=AbC#image";
+    const site = { url: navigation, customIconUrl };
+    const google = new URL(getFaviconSourceUrl(site, "google")!);
+    expect([...google.searchParams]).toEqual([["domain_url", origin], ["sz", "256"]]);
+    const duckduckgo = new URL(getFaviconSourceUrl(site, "duckduckgo")!);
+    expect(duckduckgo.pathname).toBe(`/ip3/${new URL(navigation).hostname}.ico`);
+    expect(duckduckgo.search).toBe("");
+    expect(duckduckgo.hash).toBe("");
+    expect(getFaviconSourceUrl(site, "custom")).toBe(customIconUrl);
+    expect(site.url).toBe(navigation);
+    const candidates = getFaviconCandidates({ ...site, iconSource: "google" });
+    expect(candidates[0]).toBe(google.href);
+    expect(candidates.filter(candidate => candidate === google.href)).toHaveLength(1);
+  });
+
+  it("keeps full-page local favicon lookup separate from minimized third-party queries", () => {
+    (globalThis as typeof globalThis & { chrome?: unknown }).chrome = {
+      runtime: {
+        id: "test-extension",
+        getURL: (path: string) => `chrome-extension://test-extension${path}`,
+      },
+    };
+    const url = "https://example.com:8443/Private/Report?token=FAKE_TOKEN&x=AbC&x=%2f#section-2";
+    const candidates = getFaviconCandidates({ url });
+    const local = candidates.filter(candidate => candidate.startsWith("chrome-extension:"));
+    expect(local.map(candidate => new URL(candidate).searchParams.get("pageUrl")))
+      .toEqual([url, "https://example.com:8443"]);
+    expect(new URL(getFaviconSourceUrl({ url }, "browser")!).searchParams.get("pageUrl")).toBe(url);
+    expect(new URL(candidates.find(candidate => candidate.startsWith("https://www.google.com"))!).searchParams.get("domain_url"))
+      .toBe("https://example.com:8443");
   });
 
   it("uses a site's declared native icon when favicon.ico is non-standard", () => {
@@ -165,7 +204,7 @@ describe("site utilities", () => {
       "chrome-extension://test-extension/_favicon/?pageUrl=https%3A%2F%2Fexample.com%2Fpath&size=64",
       "chrome-extension://test-extension/_favicon/?pageUrl=https%3A%2F%2Fexample.com&size=64",
       "https://icons.duckduckgo.com/ip3/example.com.ico",
-      "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com%2Fpath&sz=256",
+      "https://www.google.com/s2/favicons?domain_url=https%3A%2F%2Fexample.com&sz=256",
     ]);
   });
 

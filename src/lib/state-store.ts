@@ -20,6 +20,8 @@ export interface SiteHubStore {
   initial?: LoadedState;
   load: () => Promise<LoadedState>;
   save: (state: SiteCollectionState) => Promise<void>;
+  /** Last raw authoritative value, before parsing or schema normalization. */
+  getPersistedValue?: () => string | null;
   subscribe?: (listener: (loaded: LoadedState) => void) => () => void;
 }
 
@@ -35,22 +37,26 @@ export function createSiteHubStore(
 ): SiteHubStore {
   const extensionStorage = api?.storage?.local;
   if (isExtensionEnvironment(api) && extensionStorage) {
+    let persistedValue: string | null = null;
     return {
       mode: "extension",
+      getPersistedValue: () => persistedValue,
       async load() {
         const pending = startupRead;
         startupRead = undefined;
         const values = await (pending ?? extensionStorage.get(STORAGE_KEY));
-        const loaded = parseStoredState(
-          normalizeExtensionValue(values?.[STORAGE_KEY]),
-        );
+        const raw = values?.[STORAGE_KEY];
+        persistedValue = typeof raw === "string" ? raw : null;
+        const loaded = parseStoredState(normalizeExtensionValue(raw));
         if (!loaded.recovered) void syncWallpaperStartup(loaded.state, webStorage);
         return loaded;
       },
       async save(state) {
+        const serialized = JSON.stringify(state);
         await extensionStorage.set({
-          [STORAGE_KEY]: JSON.stringify(state),
+          [STORAGE_KEY]: serialized,
         });
+        persistedValue = serialized;
         void syncWallpaperStartup(state, webStorage);
       },
       subscribe(listener) {
@@ -61,7 +67,9 @@ export function createSiteHubStore(
           areaName: string,
         ) => {
           if (areaName !== "local" || !(STORAGE_KEY in changes)) return;
-          const loaded = parseStoredState(normalizeExtensionValue(changes[STORAGE_KEY]?.newValue));
+          const raw = changes[STORAGE_KEY]?.newValue;
+          persistedValue = typeof raw === "string" ? raw : null;
+          const loaded = parseStoredState(normalizeExtensionValue(raw));
           if (!loaded.recovered) void syncWallpaperStartup(loaded.state, webStorage);
           listener(loaded);
         };

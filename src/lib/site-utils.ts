@@ -162,7 +162,9 @@ export function getFaviconSourceUrl(
   if (source === "custom") return site.customIconUrl;
   if (source === "browser") return getBrowserFaviconUrl(site.url, 64);
   if (source === "google") {
-    return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(site.url)}&sz=256`;
+    // This is a third-party site lookup, not a navigation or local page-cache
+    // lookup. Keep paths, query strings, fragments and credentials out of it.
+    return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(url.origin)}&sz=256`;
   }
   if (source === "root") return `${url.origin}/favicon.ico`;
   return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(hostname)}.ico`;
