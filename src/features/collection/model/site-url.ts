@@ -132,4 +132,3 @@ export function isDuplicateUrl(
     (site) => site.id !== ignoreId && comparableSiteUrl(site.url) === target,
   );
 }
-
