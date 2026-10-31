@@ -74,6 +74,11 @@ import { NewGroupDialog } from "./components/new-group-dialog";
 import { GroupSortDragPreview } from "./components/group-sort-preview";
 import { GithubHomeEntry } from "./components/github-home-entry";
 import { GithubRepositoryImportDialog } from "./components/github-repository-import-dialog";
+import {
+  createGithubRefreshNotice,
+  deduplicateGithubRefreshSources,
+  orderGithubRefreshEntries,
+} from "./features/github/model/repository-refresh";
 import { SelectMenu } from "./components/select-menu";
 import {
   GithubRefreshDetailsDialog,
@@ -1079,20 +1084,14 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   async function handleGithubHomeRefresh() {
     if (githubBulkRefreshLoading) return;
     setGithubRefreshReport(null);
-    const sources = state.groups
-      .filter(
-        (group) =>
-          getGroupWorkspace(group) === "github" && group.githubImportSource,
-      )
-      .map((group) => group.githubImportSource!)
-      .filter(
-        (source, index, all) =>
-          all.findIndex(
-            (candidate) =>
-              candidate.login.toLocaleLowerCase("en-US") ===
-              source.login.toLocaleLowerCase("en-US"),
-          ) === index,
-      );
+    const sources = deduplicateGithubRefreshSources(
+      state.groups
+        .filter(
+          (group) =>
+            getGroupWorkspace(group) === "github" && group.githubImportSource,
+        )
+        .map((group) => group.githubImportSource!),
+    );
 
     if (sources.length === 0) {
       openGithubRepositoryImport();
@@ -1135,25 +1134,11 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       }
 
       const result = importGithubRepositoryBatch(imports);
-      const successfulByLogin = new Map(
-        result.details.map((detail) => [
-          detail.owner.login.toLocaleLowerCase("en-US"),
-          detail,
-        ]),
+      const entries = orderGithubRefreshEntries<GithubRefreshReportEntry>(
+        sources,
+        result.details,
+        failures,
       );
-      const failedByLogin = new Map(
-        failures.map((detail) => [
-          detail.owner.login.toLocaleLowerCase("en-US"),
-          detail,
-        ]),
-      );
-      const entries = sources
-        .map(
-          (source) =>
-            successfulByLogin.get(source.login.toLocaleLowerCase("en-US")) ??
-            failedByLogin.get(source.login.toLocaleLowerCase("en-US")),
-        )
-        .filter((entry): entry is GithubRefreshReportEntry => Boolean(entry));
       setGithubRefreshReport({
         refreshedAt: new Date().toISOString(),
         refreshedOwners: sources.length,
@@ -1162,14 +1147,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         failed: failures.length,
         entries,
       });
-      const summary = `已刷新 ${imports.length} 个作者仓库，新增 ${result.added} 个，跳过 ${result.skipped} 个。`;
-      setTransferNotice({
-        kind: failures.length > 0 ? "error" : "success",
-        message:
-          failures.length > 0
-            ? `${summary}失败 ${failures.length} 个。`
-            : summary,
-      });
+      setTransferNotice(createGithubRefreshNotice(
+        imports.length,
+        result.added,
+        result.skipped,
+        failures.length,
+      ));
     } finally {
       setGithubBulkRefreshLoading(false);
     }

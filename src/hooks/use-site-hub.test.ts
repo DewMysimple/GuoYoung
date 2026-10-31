@@ -10,7 +10,7 @@ import { STORAGE_KEY } from "../lib/storage";
 import { useSiteHub } from "./use-site-hub";
 
 vi.mock("../lib/state-store", () => ({ createSiteHubStore: vi.fn() }));
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
 
 function setupStore() {
   const initial = { state: createDefaultState(), recovered: false };
@@ -42,6 +42,44 @@ function controlledWrites(store: ReturnType<typeof setupStore>) {
 }
 
 describe("collection state updates", () => {
+  it.each([
+    { workspace: "main", active: ["design"], before: "search", expected: ["design", "search", "develop", "media", "learn", "other"] },
+    { workspace: "main", active: ["search", "design"], before: "media", expected: ["develop", "search", "design", "media", "learn", "other"] },
+    { workspace: "github", active: ["github-docs"], before: "github-repositories", expected: ["github-docs", "github-repositories", "github-tools", "github-other"] },
+    { workspace: "github", active: ["github-repositories", "github-docs"], before: "github-tools", expected: ["github-repositories", "github-docs", "github-tools", "github-other"] },
+  ])("persists a $workspace group move $active in one save and leaves the other workspace intact", async ({ workspace, active, before, expected }) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const now = "2026-11-01T00:23:45.678Z";
+    vi.setSystemTime(now);
+    const store = setupStore();
+    const initial = store.initial.state;
+    const otherGroups = initial.groups.filter(g => g.workspace !== workspace);
+    const { result } = renderHook(() => useSiteHub());
+    await act(async () => {});
+    store.save.mockClear();
+    await act(async () => {
+      if (active.length === 1) result.current.reorderGroups(active[0], before);
+      else result.current.reorderGroupBlock(active, before);
+    });
+    const updated = result.current.state;
+    const scoped = updated.groups.filter(g => g.workspace === workspace).sort((a, b) => a.order - b.order);
+    expect(scoped.map(g => g.id)).toEqual(expected);
+    expect(scoped.map(g => g.order)).toEqual(expected.map((_, index) => index));
+    expect(scoped.at(-1)?.isProtected).toBe(true);
+    expect(scoped.filter(g => active.includes(g.id)).every(g => g.updatedAt === now)).toBe(true);
+    expect(scoped.filter(g => !active.includes(g.id)).map(g => g.updatedAt))
+      .toEqual(scoped.filter(g => !active.includes(g.id)).map(g => initial.groups.find(original => original.id === g.id)!.updatedAt));
+    const untouched = updated.groups.filter(g => g.workspace !== workspace);
+    expect(untouched).toEqual(otherGroups);
+    expect(untouched.every((g, index) => g === otherGroups[index])).toBe(true);
+    expect(updated.sites).toBe(initial.sites);
+    expect(updated.deletedSites).toBe(initial.deletedSites);
+    expect(store.save).toHaveBeenCalledTimes(1);
+    expect(store.save).toHaveBeenLastCalledWith(updated);
+    const reloaded = renderHook(() => useSiteHub({ mode: "extension", initial: { state: updated, recovered: false }, load: async () => ({ state: updated, recovered: false }), save: async () => {} }));
+    expect(reloaded.result.current.state.groups).toEqual(updated.groups);
+  });
+
   it("reports a failed save and retries the latest collection", async () => {
     const store = setupStore();
     const { result } = renderHook(() => useSiteHub());

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createDefaultState, DEFAULT_GROUPS, DEFAULT_SITES } from "../data/defaults";
 import * as collectionUrl from "../features/collection/model/site-url";
+import * as groupReorder from "../features/groups/model/group-reorder";
 import { isGithubHomeUrl as workspaceGithubHomeUrl } from "./github-workspace";
 import * as legacySiteUtils from "./site-utils";
 import {
@@ -10,8 +11,6 @@ import {
   getFaviconUrl,
   getKnownNativeFaviconUrl,
   getSitesInGroup,
-  reorderGroupBlock,
-  reorderGroups,
   reorderSites,
   reorderSitesGlobally,
   sortSitesByHeat,
@@ -34,6 +33,11 @@ describe("site utilities", () => {
       expect(legacySiteUtils[name]).toBe(collectionUrl[name]);
     }
     expect(workspaceGithubHomeUrl).toBe(collectionUrl.isGithubHomeUrl);
+  });
+
+  it("preserves the legacy group reorder exports as the model functions", () => {
+    expect(legacySiteUtils.reorderGroups).toBe(groupReorder.reorderGroups);
+    expect(legacySiteUtils.reorderGroupBlock).toBe(groupReorder.reorderGroupBlock);
   });
 
   it("uses a custom icon before native and optional mirror sources on the web", () => {
@@ -243,45 +247,5 @@ describe("site utilities", () => {
       getSitesInGroup(reordered, "learn").map((site) => site.id),
     ).toEqual(["mdn", "wikipedia"]);
   });
-
-  it("reorders ordinary groups while keeping the protected group last", () => {
-    const reordered = reorderGroups(DEFAULT_GROUPS, "design", "search");
-    expect(reordered[0].id).toBe("design");
-    expect(reordered.at(-1)?.id).toBe("other");
-    expect(reordered.at(-1)?.isProtected).toBe(true);
-  });
-
-  it("moves an ordinary group to the end before protected groups", () => {
-    const reordered = reorderGroups(DEFAULT_GROUPS, "search", null);
-    expect(reordered.at(-2)?.id).toBe("search");
-    expect(reordered.at(-1)?.id).toBe("other");
-  });
-
-  it("moves non-contiguous selected groups as one stable block", () => {
-    const reordered = reorderGroupBlock(
-      DEFAULT_GROUPS,
-      ["search", "design"],
-      "media",
-    );
-    expect(reordered.map((group) => group.id)).toEqual([
-      "develop",
-      "search",
-      "design",
-      "media",
-      "learn",
-      "other",
-    ]);
-  });
-
-  it("ignores protected groups in a block and keeps Other last", () => {
-    const reordered = reorderGroupBlock(
-      DEFAULT_GROUPS,
-      ["other", "search"],
-      null,
-    );
-    expect(reordered.at(-2)?.id).toBe("search");
-    expect(reordered.at(-1)?.id).toBe("other");
-  });
-
 
 });

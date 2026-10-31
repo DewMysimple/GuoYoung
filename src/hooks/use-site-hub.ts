@@ -6,11 +6,11 @@ import {
   type SiteHubStore,
   type StorageMode,
 } from "../lib/state-store";
+import { reindexSites } from "../lib/site-utils";
 import {
-  reindexSites,
   reorderGroups as reorderGroupItems,
   reorderGroupBlock,
-} from "../lib/site-utils";
+} from "../features/groups/model/group-reorder";
 import {
   addGroupToState,
   addSiteToState,

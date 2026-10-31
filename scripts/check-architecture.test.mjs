@@ -104,6 +104,34 @@ test("allows same-feature and shared dependencies while legacy references remain
   assert.equal(report.crossBoundaryEdges.length, 2);
 });
 
+test("keeps group and GitHub extraction entrypoints compatible without allowing legacy type dependencies", (t) => {
+  const report = analyzeArchitecture(fixture(t, {
+    "App.tsx": 'import "./features/github/model/repository-refresh";',
+    "hooks/use-site-hub.ts": 'import "../features/groups/model/group-reorder";',
+    "lib/site-utils.ts": 'export { reorderGroups } from "../features/groups/model/group-reorder";',
+    "types.ts": "export interface SiteGroup { id: string } export interface GithubImportSource { login: string }",
+    "features/groups/model/group-reorder.ts": 'import type { SiteGroup } from "../../../types"; export const reorderGroups = (groups: SiteGroup[]) => groups;',
+    "features/github/model/repository-refresh.ts": 'import type { GithubImportSource } from "../../../types"; import type { Report } from "../../../components/github-refresh-details-dialog"; import type { Owner } from "../../../lib/github-repository-api";',
+    "components/github-refresh-details-dialog.tsx": "export interface Report { entries: unknown[] }",
+    "lib/github-repository-api.ts": "export interface Owner { login: string }",
+  }));
+
+  assert.equal(report.runtimeEdgeCount, 3);
+  assert.equal(report.typeEdgeCount, 4);
+  assert.deepEqual(report.runtimeCycles, []);
+  assert.deepEqual(report.typeCycles, []);
+  assert.deepEqual(report.unresolved, []);
+  assert.deepEqual(report.boundaryViolations.map(({ from, to, kind }) => ({ from, to, kind })), [
+    { from: "src/features/github/model/repository-refresh.ts", to: "src/components/github-refresh-details-dialog.tsx", kind: "type" },
+    { from: "src/features/github/model/repository-refresh.ts", to: "src/lib/github-repository-api.ts", kind: "type" },
+  ]);
+  assert.equal(report.ownershipCoverage.find(({ file }) => file === "src/features/groups/model/group-reorder.ts").owner, "groups");
+  assert.equal(report.ownershipCoverage.find(({ file }) => file === "src/features/github/model/repository-refresh.ts").owner, "github");
+  assert.equal(report.ownershipCoverage.find(({ file }) => file === "src/lib/site-utils.ts").owner, "mixed");
+  assert.ok(report.edges.some(({ from, to, form }) => from === "src/lib/site-utils.ts" && to === "src/features/groups/model/group-reorder.ts" && form === "re-export"));
+  assert.equal(report.passed, false);
+});
+
 test("reports reviewed legacy cross-business edges without guessing ownership of mixed files", (t) => {
   const report = analyzeArchitecture(fixture(t, {
     "components/github-home-entry.tsx": 'import "./site-card"; import "../lib/site-utils";',

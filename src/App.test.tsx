@@ -14,6 +14,7 @@ import { clearFaviconResolutionCache } from "./components/favicon";
 import { createDefaultState } from "./data/defaults";
 import { createGroupExportPayload, serializeExport } from "./lib/data-transfer";
 import { STORAGE_KEY } from "./lib/storage";
+import { createSiteHubStore } from "./lib/state-store";
 import { App } from "./App";
 
 function firePointerEvent(
@@ -365,6 +366,82 @@ describe("App", () => {
       expect(screen.queryByRole("dialog", { name: "GitHub 刷新详情" })).not.toBeInTheDocument();
     } finally {
       vi.stubGlobal("fetch", originalFetch);
+    }
+  });
+
+  it.each(["partial", "all-failed"] as const)("isolates %s GitHub refresh failures and commits the successful batch only once", async (mode) => {
+    const state = createDefaultState();
+    const template = state.groups.find(group => group.id === "github-other")!;
+    for (const [index, login] of ["Alpha", "Beta", "alpha"].entries()) {
+      state.groups.push({
+        ...template,
+        id: `github-refresh-${index}`,
+        name: `${login}-${index}`,
+        isProtected: false,
+        order: index,
+        githubImportSource: { login, profileUrl: `https://github.com/${login}`, entityType: "user" },
+      });
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const store = createSiteHubStore();
+    const save = vi.spyOn(store, "save");
+    const requests: string[] = [];
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      requests.push(url);
+      if (mode === "all-failed" || url.includes("/users/Alpha")) {
+        throw new Error("Synthetic request failure");
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => url.includes("/repos?")
+          ? [{ id: 801, name: "synthetic", full_name: "Beta/synthetic", html_url: "https://github.com/Beta/synthetic", private: false }]
+          : { login: "Beta", type: "User", name: "Synthetic Beta" },
+      } as Response;
+    });
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const user = userEvent.setup();
+      render(<App store={store} />);
+      await user.click(screen.getByRole("button", { name: "打开 GitHub 收藏" }));
+      await act(async () => undefined);
+      const beforeRefresh = localStorage.getItem(STORAGE_KEY);
+      save.mockClear();
+      await user.click(screen.getByRole("button", { name: "刷新仓库" }));
+
+      const report = await screen.findByRole("dialog", { name: "GitHub 刷新详情" });
+      expect(Array.from(report.querySelectorAll(".github-refresh-owner span"), element => element.textContent))
+        .toEqual(["@Alpha", "@Beta"]);
+      const stats = Array.from(report.querySelectorAll(".github-refresh-stat strong"), element => element.textContent);
+      expect(stats).toEqual(mode === "partial" ? ["2", "1", "0", "1"] : ["2", "0", "0", "2"]);
+      if (mode === "partial") {
+        expect(requests).toEqual([
+          "https://api.github.com/users/Alpha",
+          "https://api.github.com/users/Beta",
+          "https://api.github.com/users/Beta/repos?per_page=100&sort=full_name&direction=asc&type=all",
+        ]);
+        expect(within(report).getByText("Beta/synthetic")).toBeInTheDocument();
+        expect(screen.getByText("已刷新 1 个作者仓库，新增 1 个，跳过 0 个。失败 1 个。")).toBeInTheDocument();
+        await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+        expect(saved.sites.filter((site: { url: string }) => site.url === "https://github.com/Beta/synthetic")).toHaveLength(1);
+      } else {
+        expect(requests).toEqual(["https://api.github.com/users/Alpha", "https://api.github.com/users/Beta"]);
+        expect(screen.getByText("全部 2 个作者仓库刷新失败。")).toBeInTheDocument();
+        expect(save).not.toHaveBeenCalled();
+        expect(localStorage.getItem(STORAGE_KEY)).toBe(beforeRefresh);
+      }
+      await user.click(within(report).getByRole("button", { name: "知道了" }));
+      expect(screen.getByRole("button", { name: "刷新仓库" })).toBeEnabled();
+      await user.click(screen.getByRole("button", { name: "打开收藏主页" }));
+      expect(screen.getByRole("heading", { name: "全部网站" })).toBeInTheDocument();
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+      save.mockRestore();
     }
   });
 
@@ -1538,7 +1615,7 @@ describe("App", () => {
     await user.click(
       within(confirm).getByRole("button", { name: "确认导入" }),
     );
-    expect(screen.getByText(/已导入 1 个网站/)).toBeInTheDocument();
+    expect(await screen.findByText(/已导入 1 个网站/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "返回收藏" }));
     expect(screen.queryByRole("link", { name: "打开 GitHub" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "打开 Google" })).toBeInTheDocument();
