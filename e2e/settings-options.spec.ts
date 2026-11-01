@@ -119,7 +119,7 @@ for (const theme of ["light", "dark"] as const) for (const withWallpaper of [fal
     await choose(panel.getByRole("group", { name: "主题模式", exact: true }), theme === "light" ? "深色" : "浅色");
     await choose(panel.getByRole("group", { name: "主题模式", exact: true }), theme === "light" ? "浅色" : "深色");
     await choose(panel.getByRole("group", { name: "布局预设", exact: true }), "紧凑");
-    for (const [label, option] of [["页面宽度模式", "铺满窗口"], ["卡片形状", "正方形"], ["卡片排列", "指定每行数量"]]) {
+    for (const [label, option] of [["页面宽度模式", "铺满窗口"], ["卡片形状", "正方形"], ["卡片排列", "每行数量上限"]]) {
       await choose(panel.getByRole("group", { name: label, exact: true }), option);
     }
     await panel.getByRole("button", { name: "使用颜色 #3367d6", exact: true }).click();

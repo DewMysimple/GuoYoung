@@ -73,6 +73,7 @@ async function gridGeometry(grid: Locator, cardSelector = "[data-site-dnd-id]") 
         scrollWidth: card.scrollWidth, clientWidth: card.clientWidth };
     });
     return { width: bounds.width, left: bounds.left, right: bounds.right, count: cards.length,
+      gap: parseFloat(getComputedStyle(element).columnGap),
       firstRow: cards.filter(card => Math.abs(card.layoutTop - cards[0].layoutTop) < 1).length,
       tracks: getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length,
       squareError: Math.max(...cards.map(card => Math.abs(card.width - card.height))),
@@ -88,11 +89,17 @@ async function expectSquareGrid(grid: Locator, columns: number, cardSelector?: s
   const geometry = await gridGeometry(grid, cardSelector);
   expect(geometry.cardWidthRange).toBeLessThan(1);
   expect(geometry.overflow).toBe(false);
-  expect(geometry.cards.at(columns - 1)!.right).toBeCloseTo(geometry.right, 0);
+  expect(geometry.cards[0].x).toBeCloseTo(geometry.left, 0);
+  expect(geometry.cards.at(columns - 1)!.right).toBeLessThanOrEqual(geometry.right + 1);
+  for (let column = 1; column < columns; column++) {
+    expect(geometry.cards[column].x - geometry.cards[column - 1].right).toBeCloseTo(geometry.gap, 0);
+  }
+  const unused = geometry.right - geometry.cards.at(columns - 1)!.right;
+  expect(unused).toBeCloseTo(geometry.width - columns * geometry.cards[0].width - (columns - 1) * geometry.gap, 0);
 }
 
-async function cardContentOverflow(grid: Locator) {
-  return grid.evaluate(element => [...element.querySelectorAll<HTMLElement>("[data-site-dnd-id]")].flatMap(card => {
+async function cardContentOverflow(grid: Locator, cardSelector = "[data-site-dnd-id]") {
+  return grid.evaluate((element, cardSelector) => [...element.querySelectorAll<HTMLElement>(cardSelector)].flatMap(card => {
     const bounds = card.getBoundingClientRect();
     const escaped = [...card.querySelectorAll<HTMLElement>("*")].flatMap(child => {
       const style = getComputedStyle(child), rect = child.getBoundingClientRect();
@@ -103,7 +110,7 @@ async function cardContentOverflow(grid: Locator) {
     return card.scrollWidth > card.clientWidth + 1 || card.scrollHeight > card.clientHeight + 1 || escaped.length
       ? [{ id: card.dataset.siteDndId, rect: bounds.toJSON(), scrollWidth: card.scrollWidth, clientWidth: card.clientWidth,
         scrollHeight: card.scrollHeight, clientHeight: card.clientHeight, escaped }] : [];
-  }));
+  }), cardSelector);
 }
 
 async function expectInViewport(page: Page, locator: Locator) {
@@ -185,12 +192,18 @@ test("keeps rendered cards square and honors a saved row count in flat, focused 
   await seedLayout(page, { cardWidth: 132, contentWidth: 1440 });
   const panel = await openAppearance(page);
   await expandGeometry(panel);
+  await panel.getByRole("button", { name: "每行数量上限", exact: true }).click();
+  await enterNumber(panel, "每行最多卡片数", 6);
+  const free = await gridGeometry(page.locator(".site-grid"));
+  expect(free.firstRow).toBe(6);
+  expect(free.cards[5].right).toBeCloseTo(free.right, 0);
   await panel.getByRole("button", { name: "正方形", exact: true }).click();
-  await panel.getByRole("button", { name: "指定每行数量", exact: true }).click();
-  await enterNumber(panel, "每行卡片数量", 6);
-  await expect(panel.getByRole("spinbutton", { name: "卡片宽度数值", exact: true })).toBeDisabled();
-  await expect(panel.getByRole("spinbutton", { name: "卡片高度数值", exact: true })).toBeDisabled();
+  await expect(panel.getByRole("spinbutton", { name: "卡片宽度数值", exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("spinbutton", { name: "正方形目标边长数值", exact: true })).toBeEnabled();
   await expectSquareGrid(page.locator(".site-grid"), 6);
+  const square = await gridGeometry(page.locator(".site-grid"));
+  expect(square.cards[0].width).toBeLessThan(free.cards[0].width - 20);
+  expect(square.right - square.cards[5].right).toBeGreaterThan(100);
   await panel.getByRole("button", { name: "保存设置", exact: true }).click();
   await page.reload();
   await expectSquareGrid(page.locator(".site-grid"), 6);
@@ -234,6 +247,74 @@ test("keeps rendered cards square and honors a saved row count in flat, focused 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance)).toEqual(saved.appearance);
 });
 
+test("edits a compact square side in columns mode, shares height with free and preserves drafts and saved values", async ({ page }) => {
+  await seedLayout(page, { cardWidth: 260, cardHeight: 160, contentWidth: 1440, cardLayout: "columns", cardColumns: 6 });
+  const grid = page.locator(".site-grid");
+  const original = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  const initial = await gridGeometry(grid);
+  expect(initial.firstRow).toBe(6);
+  expect(initial.cards[5].right).toBeCloseTo(initial.right, 0);
+  const panel = await openAppearance(page);
+  await expandGeometry(panel);
+  await panel.getByRole("button", { name: "正方形", exact: true }).click();
+  await expectSquareGrid(grid, 6);
+  await expect(panel.getByRole("slider", { name: "卡片宽度", exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("slider", { name: "正方形目标边长", exact: true })).toBeEnabled();
+  await expect(panel.getByText(/与自由比例的卡片高度共用同一数值/)).toContainText("实际边长可能因图标、操作按钮、文字和备注而增加");
+  const compact = await gridGeometry(grid);
+  expect(compact.cards[0].width).toBeLessThan(initial.cards[0].width - 20);
+  await enterNumber(panel, "正方形目标边长", 200);
+  await expectSquareGrid(grid, 6);
+  await expect.poll(async () => (await gridGeometry(grid)).cards[0].width).toBeCloseTo(200, 0);
+  expect((await gridGeometry(grid)).cards[0].height).toBeCloseTo(200, 0);
+  await enterNumber(panel, "每行最多卡片数", 3);
+  await expectSquareGrid(grid, 3);
+  expect((await gridGeometry(grid)).cards[0].width).toBeCloseTo(200, 0);
+  await enterNumber(panel, "每行最多卡片数", 6);
+  await panel.getByRole("button", { name: "自由比例", exact: true }).click();
+  await expect(panel.getByRole("spinbutton", { name: "卡片宽度数值", exact: true })).toHaveValue("260");
+  await expect(panel.getByRole("spinbutton", { name: "卡片宽度数值", exact: true })).toBeDisabled();
+  await expect(panel.getByRole("spinbutton", { name: "卡片高度数值", exact: true })).toHaveValue("200");
+  const freeColumns = await gridGeometry(grid);
+  expect(freeColumns.firstRow).toBe(6);
+  expect(freeColumns.cards[5].right).toBeCloseTo(freeColumns.right, 0);
+  expect(freeColumns.cards[0].height).toBeCloseTo(200, 0);
+  await panel.getByRole("button", { name: "自动适配", exact: true }).click();
+  await expect(panel.getByRole("spinbutton", { name: "卡片宽度数值", exact: true })).toBeEnabled();
+  const freeAdaptive = await gridGeometry(grid);
+  expect(freeAdaptive.cards[freeAdaptive.firstRow - 1].right).toBeCloseTo(freeAdaptive.right, 0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(original);
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  await expect.poll(async () => (await gridGeometry(grid)).cards[0].height).toBeCloseTo(160, 0);
+  expect((await gridGeometry(grid)).cards[0].width).toBeCloseTo(initial.cards[0].width, 0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(original);
+
+  await openAppearance(page);
+  await expandGeometry(panel);
+  await expect(panel.getByRole("spinbutton", { name: "卡片高度数值", exact: true })).toHaveValue("160");
+  await panel.getByRole("button", { name: "正方形", exact: true }).click();
+  await enterNumber(panel, "正方形目标边长", 200);
+  await panel.getByRole("button", { name: "保存设置", exact: true }).click();
+  await page.reload();
+  await expectSquareGrid(grid, 6);
+  expect((await gridGeometry(grid)).cards[0].width).toBeCloseTo(200, 0);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  expect(saved.version).toBe(28);
+  expect(saved.appearance).toEqual({ ...original.appearance, cardShape: "square", cardHeight: 200, layoutPreset: "custom" });
+  expect(saved.sites).toEqual(original.sites);
+  expect(saved.groups).toEqual(original.groups);
+  await openAppearance(page);
+  await expandGeometry(panel);
+  await expect(panel.getByRole("spinbutton", { name: "正方形目标边长数值", exact: true })).toHaveValue("200");
+  await panel.getByRole("button", { name: "自由比例", exact: true }).click();
+  await expect(panel.getByRole("spinbutton", { name: "卡片宽度数值", exact: true })).toHaveValue("260");
+  await expect(panel.getByRole("spinbutton", { name: "卡片高度数值", exact: true })).toHaveValue("200");
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  await expectSquareGrid(grid, 6);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(saved);
+  await page.screenshot({ path: screenshotPath("layout-settings-square-editable-shared-side-saved.png"), animations: "disabled" });
+});
+
 test("uses full window width and clamps the rendered row count without losing the requested count", async ({ page }) => {
   await seedLayout(page, { cardWidth: 132, contentWidth: 1280 });
   const main = page.locator("main.page-container");
@@ -244,8 +325,8 @@ test("uses full window width and clamps the rendered row count without losing th
   await expandGeometry(panel);
   await panel.getByRole("button", { name: "铺满窗口", exact: true }).click();
   await panel.getByRole("button", { name: "正方形", exact: true }).click();
-  await panel.getByRole("button", { name: "指定每行数量", exact: true }).click();
-  await enterNumber(panel, "每行卡片数量", 12);
+  await panel.getByRole("button", { name: "每行数量上限", exact: true }).click();
+  await enterNumber(panel, "每行最多卡片数", 12);
   await expect.poll(async () => (await main.boundingBox())!.width).toBeGreaterThan(fixedWidth + 800);
   await expectSquareGrid(page.locator(".site-grid"), 12);
   await page.setViewportSize({ width: 1366, height: 900 });
@@ -267,7 +348,7 @@ test("uses full window width and clamps the rendered row count without losing th
     }));
     throw error;
   }
-  await expect(panel.getByRole("spinbutton", { name: "每行卡片数量数值", exact: true })).toHaveValue("12");
+  await expect(panel.getByRole("spinbutton", { name: "每行最多卡片数数值", exact: true })).toHaveValue("12");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
   await page.screenshot({ path: screenshotPath("layout-settings-square-1366-clamped.png"), animations: "disabled" });
   await page.setViewportSize({ width: 2560, height: 1440 });
@@ -276,6 +357,111 @@ test("uses full window width and clamps the rendered row count without losing th
   await page.reload();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance)).toMatchObject({ contentWidthMode: "full", cardColumns: 12 });
   await expectSquareGrid(page.locator(".site-grid"), 12);
+});
+
+test("keeps square content at its measured 75% scale in an 880px desktop window while preserving free media behavior", async ({ page }) => {
+  await page.setViewportSize({ width: 880, height: 900 });
+  await seedLayout(page, { interfaceScale: 75, cardShape: "square", cardLayout: "columns", cardColumns: 6,
+    cardHeight: 140, contentWidthMode: "full", fontScale: 100, cardFontScale: 100, siteIconScale: 100 });
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.sites.forEach((site: { note?: string }) => { site.note = "保留完整单行备注与底部分组"; });
+    state.sortModeByWorkspace.main = "heat";
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  await page.reload();
+  const grid = page.locator(".site-grid"), card = page.getByTestId("site-card-layout-a-0");
+  await expect(page.locator("[data-site-dnd-id]")).toHaveCount(48);
+  await expect.poll(async () => (await gridGeometry(grid)).squareError).toBeLessThan(1);
+  await expect.poll(() => cardContentOverflow(grid)).toEqual([]);
+  const geometry = await gridGeometry(grid);
+  expect(geometry.firstRow).toBeGreaterThan(0);
+  expect(geometry.firstRow).toBeLessThanOrEqual(6);
+  expect(geometry.cards[0].width).toBeLessThan(150);
+  expect(geometry.overflow).toBe(false);
+  await expect(card.locator(".site-name")).toHaveCSS("font-size", "10.5px");
+  await expect(card).toHaveCSS("padding", "9px");
+  await expect(card.locator(".favicon-large")).toHaveCSS("width", "28.5px");
+  await expect(card.locator(".site-category svg")).toHaveCSS("width", "12px");
+  const beforeDrag = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  const source = (await card.boundingBox())!;
+  const x = source.x + source.width / 2, y = source.y + source.height * .65;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 55, y);
+  const preview = page.getByTestId("site-card-drag-preview");
+  await expect(preview).toHaveCount(1);
+  await expect(preview).toBeVisible();
+  expect((await preview.boundingBox())!.width).toBeCloseTo(source.width, 0);
+  expect((await preview.boundingBox())!.height).toBeCloseTo(source.height, 0);
+  await expect(preview.locator(".site-name")).toHaveCSS("font-size", "10.5px");
+  await expect(preview).toHaveCSS("padding", "9px");
+  await expect(preview.locator(".favicon-large")).toHaveCSS("width", "28.5px");
+  await expect.poll(() => cardContentOverflow(page.locator("body"), ".site-card-drag-preview")).toEqual([]);
+  await page.screenshot({ path: screenshotPath("layout-settings-square-narrow-desktop-75-overlay.png"), animations: "disabled" });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(preview).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(beforeDrag);
+  await card.getByRole("button", { name: "编辑 布局网站 A 1", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "编辑网站", exact: true });
+  await expect(editor.getByLabel("网站备注", { exact: true })).toHaveValue("保留完整单行备注与底部分组");
+  await editor.getByRole("button", { name: "取消", exact: true }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  const panel = await openAppearance(page);
+  await panel.getByRole("button", { name: "自由比例", exact: true }).click();
+  await expect(card.locator(".site-name")).toHaveCSS("font-size", "14px");
+  await expect(card).toHaveCSS("padding", "13px");
+  await expect(card).toHaveCSS("min-height", "140px");
+  await expect(card.locator(".favicon-large")).toHaveCSS("width", "38px");
+  const free = await gridGeometry(grid);
+  expect(free.cards[free.firstRow - 1].right).toBeCloseTo(free.right, 0);
+  expect(free.cards[0].height).toBeGreaterThanOrEqual(140);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(saved);
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  await expect.poll(() => cardContentOverflow(grid)).toEqual([]);
+  await expect(card.locator(".site-name")).toHaveCSS("font-size", "10.5px");
+  await page.screenshot({ path: screenshotPath("layout-settings-square-narrow-desktop-75.png"), animations: "disabled" });
+});
+
+test("keeps the square preview grip within the shared content budget with small icons and large text", async ({ page }) => {
+  await page.setViewportSize({ width: 880, height: 900 });
+  await seedLayout(page, { interfaceScale: 75, cardShape: "square", cardLayout: "columns", cardColumns: 6,
+    cardHeight: 112, contentWidthMode: "full", fontScale: 130, cardFontScale: 140,
+    siteIconSize: 24, controlScale: 80, cardPadding: 6, siteIconScale: 100 });
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    state.sites.forEach((site: { note?: string }) => { site.note = "极端偏好仍保留完整备注与分组"; });
+    state.sortModeByWorkspace.main = "heat";
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  await page.reload();
+  const grid = page.locator(".site-grid"), card = page.getByTestId("site-card-layout-a-0");
+  await expect(page.locator("[data-site-dnd-id]")).toHaveCount(48);
+  await expect.poll(() => cardContentOverflow(grid)).toEqual([]);
+  await expect.poll(async () => (await gridGeometry(grid)).squareError).toBeLessThan(1);
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+  const source = (await card.boundingBox())!, x = source.x + source.width / 2, y = source.y + source.height * .65;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 55, y);
+  const preview = page.getByTestId("site-card-drag-preview");
+  await expect(preview).toHaveCount(1);
+  await expect(preview).toBeVisible();
+  expect((await preview.boundingBox())!.width).toBeCloseTo(source.width, 0);
+  expect((await preview.boundingBox())!.height).toBeCloseTo(source.height, 0);
+  await expect(preview).toHaveCSS("padding", "4.5px");
+  await expect(preview.locator(".favicon-large")).toHaveCSS("width", "18px");
+  const action = (await card.locator(".card-action").first().boundingBox())!;
+  const grip = (await preview.locator(".drag-preview-grip").boundingBox())!;
+  expect(grip.width).toBeCloseTo(action.width, 2);
+  expect(grip.height).toBeCloseTo(action.height, 2);
+  await expect.poll(() => cardContentOverflow(page.locator("body"), ".site-card-drag-preview")).toEqual([]);
+  await page.screenshot({ path: screenshotPath("layout-settings-square-small-icon-large-text-overlay.png"), animations: "disabled" });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(preview).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(before);
 });
 
 test("falls back to an overlay at 900px and 150% while preserving the requested push preference", async ({ page }) => {

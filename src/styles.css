@@ -2071,9 +2071,18 @@ select:focus-visible {
 .grouped-site-track {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(var(--grid-columns, auto-fill), minmax(min(var(--card-grid-min-width, var(--card-min-width)), 100%), 1fr));
   gap: var(--grid-gap);
   justify-content: start;
+}
+
+.site-grid:not([data-card-shape="square"]),
+.grouped-site-track:not([data-card-shape="square"]) {
+  grid-template-columns: repeat(var(--grid-columns, auto-fill), minmax(min(var(--card-grid-min-width, var(--card-min-width)), 100%), 1fr));
+}
+
+.site-grid[data-card-shape="square"],
+.grouped-site-track[data-card-shape="square"] {
+  grid-template-columns: repeat(var(--grid-columns, 1), var(--grid-card-size, 100%));
 }
 
 .grouped-site-track.is-group-drag-over,
@@ -2110,8 +2119,7 @@ select:focus-visible {
 
 [data-card-shape="square"] > :is(.site-card, .add-site-card) {
   min-height: 0;
-  height: var(--grid-card-size);
-  aspect-ratio: 1;
+  height: var(--card-min-height);
 }
 
 .site-card[data-drag-disabled] {
@@ -2197,8 +2205,8 @@ select:focus-visible {
 
 .drag-preview-grip {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: var(--drag-preview-grip-size, 28px);
+  height: var(--drag-preview-grip-size, 28px);
   place-items: center;
   border-radius: 9px;
   color: var(--ui-accent-text);

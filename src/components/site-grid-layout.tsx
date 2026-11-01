@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type Ref } from "react";
 import { DEFAULT_APPEARANCE } from "../data/defaults";
-import { getGridLayout } from "../lib/layout";
+import { cardLayoutVariables, getGridLayout } from "../lib/layout";
 
 /** React context shares the settings draft with collection and history grids, including portals. */
 export const LayoutSettingsContext = createContext(DEFAULT_APPEARANCE);
@@ -25,6 +25,17 @@ export function SiteGridLayout({ ref, style, hasNotes = false, ...props }: HTMLA
   const layout = getGridLayout(appearance, width, hasNotes);
   return <div {...props} ref={setElement} data-card-shape={appearance.cardShape} style={{
     ...style,
-    ...(width > 0 ? { "--grid-columns": layout.columns, "--grid-card-size": `${layout.cardWidth}px`, "--card-grid-min-width": `${layout.minCardWidth}px` } : {}),
+    ...(width > 0 ? {
+      "--grid-columns": layout.columns,
+      // A square's fixed tracks and height share the model's geometry. Keep the
+      // same content tokens locally so inherited narrow-window defaults cannot
+      // invalidate its safety budget. Free cards keep their existing root tokens.
+      ...(appearance.cardShape === "square" ? {
+        ...cardLayoutVariables(appearance),
+        "--grid-card-size": `${layout.cardWidth}px`,
+        "--card-min-height": `${layout.cardHeight}px`,
+        "--grid-gap": `${layout.gap}px`,
+      } : { "--card-grid-min-width": `${layout.minCardWidth}px` }),
+    } : {}),
   } as CSSProperties} />;
 }

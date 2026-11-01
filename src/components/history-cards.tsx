@@ -1,5 +1,8 @@
 import { useDraggable } from "@dnd-kit/core";
 import { ClockCounterClockwise, Trash } from "@phosphor-icons/react";
+import { useContext, type CSSProperties } from "react";
+import { cardLayoutVariables } from "../lib/layout";
+import { LayoutSettingsContext } from "./site-grid-layout";
 import type { HistorySiteGroup } from "../lib/browser-history";
 import type { BrowserHistoryItem } from "../lib/browser-runtime";
 import { CardContent, CardOpenAction, CardSelectionToggle, CardSurface } from "./card-primitives";
@@ -26,7 +29,9 @@ function useHistoryCardDrag(id: string, item: HistoryUrlItem | undefined, disabl
 }
 
 export function HistoryDragPreview({ item }: { item: HistoryUrlItem }) {
-  return <CardSurface className="site-card-drag-preview history-drag-preview" aria-hidden="true" data-testid="history-card-drag-preview">
+  const appearance = useContext(LayoutSettingsContext);
+  return <CardSurface className="site-card-drag-preview history-drag-preview" aria-hidden="true" data-testid="history-card-drag-preview"
+    style={appearance.cardShape === "square" ? cardLayoutVariables(appearance) as CSSProperties : undefined}>
     <CardContent icon={<HistoryFavicon item={item} size="large" />} name={formatHistoryTitle(item)} domain={item.url}
       footer={<HistoryCardMeta item={item} />} />
   </CardSurface>;

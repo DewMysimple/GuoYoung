@@ -973,14 +973,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         ).toFixed(4),
       ),
     ),
-    "--card-font-scale": String(
-      Number(
-        (
-          (effectiveAppearance.fontScale / 100) *
-          (effectiveAppearance.cardFontScale / 100) * interfaceScale
-        ).toFixed(4),
-      ),
-    ),
     "--group-font-scale": String(
       Number(
         (
@@ -999,15 +991,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     "--search-height": `${geometry.searchHeight}px`,
     "--search-radius": `${geometry.searchRadius}px`,
     "--group-tab-height": `${geometry.groupTabHeight}px`,
-    "--group-icon-size": `${geometry.groupIconSize}px`,
     "--group-gap": `${geometry.groupGap}px`,
     "--card-min-width": `${geometry.cardWidth}px`,
     "--card-min-height": `${geometry.cardHeight}px`,
     "--grid-gap": `${geometry.gap}px`,
     "--content-max-width": effectiveAppearance.contentWidthMode === "full" ? "100%" : `${geometry.contentWidth}px`,
     "--radius-card": `${geometry.radius}px`,
-    "--card-padding": `${geometry.cardPadding}px`,
-    "--site-icon-size": `${geometry.siteIconSize}px`,
     "--site-icon-scale": String(effectiveAppearance.siteIconScale / 100),
     "--wallpaper-fit": effectiveWallpaper.fit,
     "--wallpaper-position-x": `${effectiveWallpaper.positionX}%`,

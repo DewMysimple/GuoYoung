@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_APPEARANCE } from "../data/defaults";
+import { createDefaultState, DEFAULT_APPEARANCE, LAYOUT_PRESETS } from "../data/defaults";
+import { applyLayoutPreset, getLayoutPreset, patchAppearance, restoreLayout } from "./appearance-settings";
+import { parseImportFile, serializeExport } from "./data-transfer";
 import { appearanceScale, cardLayoutVariables, getGridLayout, getMinimumCardWidth, scaledGeometry } from "./layout";
+import { parseStoredState } from "./storage";
 
 describe("layout geometry", () => {
   it("reserves enough width for the standard icon, three actions, padding and border", () => {
@@ -44,13 +47,14 @@ describe("layout geometry", () => {
     expect(appearance.cardColumns).toBe(6);
   });
 
-  it("computes square height from the stretched width rather than saved minimum", () => {
+  it("uses the saved square target side instead of stretching three tracks across the row", () => {
     const appearance = { ...DEFAULT_APPEARANCE, cardShape: "square" as const,
       cardLayout: "columns" as const, cardColumns: 3, cardHeight: 235 };
     const result = getGridLayout(appearance, 1000);
     expect(result.columns).toBe(3);
     expect(result.cardHeight).toBe(result.cardWidth);
-    expect(result.cardWidth).toBeCloseTo((1000 - 24) / 3);
+    expect(result.cardWidth).toBe(235);
+    expect(result.cardWidth * result.columns + result.gap * (result.columns - 1)).toBe(729);
     expect(result.cardHeight).not.toBe(appearance.cardWidth);
     expect(appearance.cardHeight).toBe(235);
   });
@@ -142,7 +146,9 @@ describe("layout geometry", () => {
     expect(getMinimumCardWidth(appearance)).toBeCloseTo(409.6475);
     expect(getMinimumCardWidth({ ...appearance, cardShape: "free" })).toBeCloseTo(358.1);
     const layout = getGridLayout(appearance, 900);
-    expect(layout).toMatchObject({ columns: 2, cardWidth: 441, cardHeight: 441 });
+    expect(layout.columns).toBe(2);
+    expect(layout.cardWidth).toBeCloseTo(409.6475);
+    expect(layout.cardHeight).toBe(layout.cardWidth);
     expect(layout.cardHeight).toBeGreaterThanOrEqual(409.6475);
   });
 
@@ -167,10 +173,14 @@ describe("layout geometry", () => {
         const fontRatio = fontScale / 100 * cardFontScale / 100;
         const contentHeight = (38 + Math.max(14 * 1.5 * fontRatio, 18) + 12 * 1.5 * fontRatio +
           11 * 1.25 * fontRatio + Math.max(12 * 1.5 * fontRatio, 16) + 7 + 5 + 4 + 5 + 2 + 24) * scale + 2;
-        const layout = getGridLayout(appearance, 1300);
-        expect(layout.cardHeight).toBeGreaterThanOrEqual(contentHeight);
-        expect(layout.cardWidth).toBe(layout.cardHeight);
-        expect(layout.cardWidth).toBeGreaterThanOrEqual(getMinimumCardWidth(appearance));
+        for (const hasNotes of [false, true]) {
+          const layout = getGridLayout(appearance, 1300, hasNotes);
+          const requiredHeight = contentHeight + (hasNotes ? (11 * 1.25 * fontRatio + 5) * scale : 0);
+          expect(layout.cardHeight).toBeGreaterThanOrEqual(requiredHeight);
+          expect(layout.cardWidth).toBe(layout.cardHeight);
+          expect(layout.cardWidth).toBeGreaterThanOrEqual(getMinimumCardWidth(appearance, hasNotes));
+          expect(layout.cardWidth * layout.columns + layout.gap * (layout.columns - 1)).toBeLessThanOrEqual(1300);
+        }
       }
     }
   });
@@ -188,6 +198,39 @@ describe("layout geometry", () => {
     });
   });
 
+  it.each([75, 75.1, 100, 125, 150])("publishes content tokens consistent with the square safety budget at %s%%", interfaceScale => {
+    const appearance = Object.freeze({ ...DEFAULT_APPEARANCE, cardShape: "square" as const,
+      interfaceScale, fontScale: 130, cardFontScale: 140, cardHeight: 112 });
+    const variables = cardLayoutVariables(appearance);
+    const scale = interfaceScale / 100;
+    expect(variables).toMatchObject({
+      "--card-font-scale": String(Number((1.3 * 1.4 * scale).toFixed(4))),
+      "--card-padding": `${12 * scale}px`,
+      "--site-icon-size": `${38 * scale}px`,
+      "--group-icon-size": `${16 * scale}px`,
+    });
+    expect(variables).not.toHaveProperty("--site-icon-scale");
+    const physical = (key: keyof typeof variables) => Number.parseFloat(variables[key]);
+    const textScale = physical("--card-font-scale");
+    // The same published lengths and line boxes must fit after the grid isolates
+    // square cards from the old narrow-window inherited geometry defaults.
+    const requiredHeight = Math.max(physical("--site-icon-size"), physical("--card-action-size")) +
+      Math.max(14 * 1.5 * textScale, physical("--card-open-arrow-size")) +
+      12 * 1.5 * textScale + 2 * 11 * 1.25 * textScale +
+      Math.max(12 * 1.5 * textScale, physical("--group-icon-size")) +
+      physical("--card-content-top") + physical("--card-content-bottom") +
+      physical("--card-domain-gap") + 2 * physical("--card-detail-gap") +
+      physical("--card-footer-gap") + 2 * physical("--card-padding") +
+      2 * physical("--card-border-width");
+    const layout = getGridLayout(appearance, 880, true);
+    // CSS serializes the shared font ratio to four decimal places; preserve its
+    // existing rounding rather than adding a second precision policy.
+    expect(layout.cardHeight).toBeCloseTo(requiredHeight, 2);
+    expect(layout.cardWidth).toBe(layout.cardHeight);
+    expect(layout.cardHeight).toBe(getMinimumCardWidth(appearance, true));
+    expect(appearance.interfaceScale).toBe(interfaceScale);
+  });
+
   it.each([0, -10, Number.NaN, Number.POSITIVE_INFINITY])("keeps hidden or unavailable width %s finite", (width) => {
     const result = getGridLayout({ ...DEFAULT_APPEARANCE, cardShape: "square" }, width);
     expect(result.columns).toBe(1);
@@ -197,6 +240,122 @@ describe("layout geometry", () => {
 
   it("shrinks a single track to the available width when even one minimum cannot fit", () => {
     const result = getGridLayout({ ...DEFAULT_APPEARANCE, interfaceScale: 150, cardShape: "square" }, 100);
-    expect(result).toMatchObject({ columns: 1, cardWidth: 100, cardHeight: 100, minCardWidth: 240, gap: 18 });
+    expect(result).toMatchObject({ columns: 1, cardWidth: 100, cardHeight: 100, minCardWidth: 236, gap: 18 });
+  });
+
+  it.each([
+    ["compact", 10, 143.76, 152.8, 124, 8],
+    ["standard", 9, 160, 1504 / 9, 140, 12],
+    ["spacious", 7, 190, 1504 / 7, 168, 16],
+  ] as const)("preserves the captured free adaptive %s preset geometry", (preset, columns, minCardWidth, cardWidth, cardHeight, gap) => {
+    const appearance = { ...DEFAULT_APPEARANCE, ...LAYOUT_PRESETS[preset] };
+    const result = getGridLayout(appearance, 1600);
+    expect(result).toMatchObject({ columns, cardHeight, gap });
+    expect(result.minCardWidth).toBeCloseTo(minCardWidth);
+    expect(result.cardWidth).toBeCloseTo(cardWidth);
+    expect(result.cardWidth * columns + gap * (columns - 1)).toBeCloseTo(1600);
+  });
+
+  it("keeps adaptive squares compact and leaves the remaining row width outside the cards", () => {
+    const appearance = { ...DEFAULT_APPEARANCE, cardShape: "square" as const };
+    const result = getGridLayout(appearance, 1600);
+    expect(result).toEqual({ columns: 9, cardWidth: 158, cardHeight: 158, gap: 12, minCardWidth: 158 });
+    expect(1600 - (result.cardWidth * result.columns + result.gap * (result.columns - 1))).toBe(82);
+    expect(result.cardWidth).toBeLessThan(getGridLayout(DEFAULT_APPEARANCE, 1600).cardWidth);
+  });
+
+  it.each([3, 6, 12])("caps square columns requested at %s without enlarging their target side", cardColumns => {
+    const appearance = { ...DEFAULT_APPEARANCE, cardShape: "square" as const,
+      cardLayout: "columns" as const, cardColumns, cardHeight: 180, cardWidth: 400 };
+    const result = getGridLayout(appearance, 1000);
+    expect(result).toEqual({ columns: Math.min(cardColumns, 5), cardWidth: 180,
+      cardHeight: 180, gap: 12, minCardWidth: 180 });
+    expect(result.cardWidth * result.columns + result.gap * (result.columns - 1)).toBeLessThan(1000);
+    expect(appearance.cardWidth).toBe(400);
+    expect(appearance.cardColumns).toBe(cardColumns);
+  });
+
+  it("applies the shared height target once and keeps content safety above a smaller target", () => {
+    const appearance = { ...DEFAULT_APPEARANCE, cardShape: "square" as const,
+      interfaceScale: 125, cardHeight: 220 };
+    expect(getGridLayout(appearance, 1600).cardWidth).toBe(275);
+    const small = { ...appearance, cardHeight: 112 };
+    expect(getGridLayout(small, 1600).cardWidth).toBe(getMinimumCardWidth(small));
+    expect(getGridLayout(small, 1600, true).cardWidth).toBe(getMinimumCardWidth(small, true));
+    expect(getGridLayout({ ...small, showSiteNotes: false }, 1600, true))
+      .toEqual(getGridLayout(small, 1600));
+    expect(small.cardHeight).toBe(112);
+  });
+
+  it.each(["adaptive", "columns"] as const)("fits exact fractional square boundaries in %s mode", cardLayout => {
+    const appearance = { ...DEFAULT_APPEARANCE, cardShape: "square" as const,
+      cardLayout, cardColumns: 12, interfaceScale: 75.1, cardHeight: 211, gap: 4 };
+    const side = 211 * (75.1 / 100);
+    const gap = 4 * (75.1 / 100);
+    const exactWidth = side * 3 + gap * 2;
+    const exact = getGridLayout(appearance, exactWidth);
+    expect(exact.columns).toBe(3);
+    expect(exact.cardWidth).toBe(side);
+    const smaller = getGridLayout(appearance, exactWidth - .001);
+    expect(smaller.columns).toBe(2);
+    expect(smaller.cardWidth).toBe(side);
+    expect(getGridLayout(appearance, side - .001)).toMatchObject({ columns: 1,
+      cardWidth: side - .001, cardHeight: side - .001 });
+  });
+
+  it("uses one measured content box for squares regardless of panel, padding and page width settings", () => {
+    const appearance = { ...DEFAULT_APPEARANCE, cardShape: "square" as const,
+      interfaceScale: 125, cardHeight: 190, settingsPresentation: "push" as const,
+      contentWidthMode: "fixed" as const, contentWidth: 960, pagePadding: 80 };
+    expect(getGridLayout(appearance, 1500)).toEqual(getGridLayout({ ...appearance,
+      settingsPresentation: "overlay", contentWidthMode: "full", contentWidth: 3840, pagePadding: 12 }, 1500));
+    expect(getGridLayout(appearance, 1500).cardWidth).toBe(237.5);
+  });
+
+  it("keeps unavailable requested column counts finite without changing valid count rounding", () => {
+    for (const cardShape of ["free", "square"] as const) {
+      for (const cardColumns of [NaN, Infinity, -Infinity]) {
+        const appearance = { ...DEFAULT_APPEARANCE, cardShape, cardLayout: "columns" as const, cardColumns };
+        expect(getGridLayout(appearance, 1600)).toEqual(getGridLayout({ ...appearance, cardColumns: 6 }, 1600));
+      }
+      expect(getGridLayout({ ...DEFAULT_APPEARANCE, cardShape, cardLayout: "columns", cardColumns: 3.4 }, 1600).columns).toBe(3);
+    }
+  });
+
+  it("keeps existing v28 and JSON dimensions intact through layout, preset and restore operations", () => {
+    const state = createDefaultState();
+    state.appearance = { ...state.appearance, cardShape: "square", cardLayout: "columns",
+      cardWidth: 319, cardHeight: 203, cardColumns: 7 };
+    const loaded = parseStoredState(JSON.stringify(state));
+    expect(loaded.recovered).toBe(false);
+    expect(loaded.state.version).toBe(28);
+    const original = { ...loaded.state.appearance };
+    for (const appearance of [loaded.state.appearance, parseImportFile(serializeExport(state)).appearance]) {
+      expect(appearance).toEqual(original);
+      expect(getGridLayout(appearance, 1600).cardWidth).toBe(203);
+      expect(appearance).toEqual(original);
+    }
+    expect(getLayoutPreset(original)).toBe("custom");
+    const selected = applyLayoutPreset(original, "compact");
+    expect(selected).toMatchObject({ cardShape: "square", cardLayout: "columns",
+      cardColumns: 7, cardWidth: 140, cardHeight: 124 });
+    expect(restoreLayout(patchAppearance(original, { cardHeight: 312 }), original))
+      .toEqual({ ...original, layoutPreset: "custom" });
+  });
+
+  it("restores free width on shape switches and shares only explicit target-height edits", () => {
+    const original = { ...DEFAULT_APPEARANCE, cardWidth: 319, cardHeight: 203 };
+    const square = patchAppearance(original, { cardShape: "square" });
+    expect(square).toMatchObject({ cardWidth: 319, cardHeight: 203 });
+    expect(getGridLayout(square, 1600).cardWidth).toBe(203);
+    const freeAgain = patchAppearance(square, { cardShape: "free" });
+    expect(getGridLayout(freeAgain, 1600)).toEqual(getGridLayout(original, 1600));
+    const edited = patchAppearance(square, { cardHeight: 246 });
+    expect(getGridLayout(edited, 1600).cardWidth).toBe(246);
+    const freeEdited = patchAppearance(edited, { cardShape: "free" });
+    expect(freeEdited.cardWidth).toBe(319);
+    expect(getGridLayout(freeEdited, 1600).cardWidth).toBe(getGridLayout(original, 1600).cardWidth);
+    expect(getGridLayout(freeEdited, 1600).cardHeight).toBe(246);
+    expect(original.cardHeight).toBe(203);
   });
 });

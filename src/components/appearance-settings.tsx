@@ -89,7 +89,7 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
               aria-controls={layoutId} onClick={() => setLayoutOpen(open => !open)}>
               页面布局<CaretDown size={15} aria-hidden="true" />
             </button>
-            <HelpTip label="页面布局说明">选择喜欢的疏密，卡片与间距一起调整。折叠后仍可直接选择紧凑、标准或宽松；展开后可调整页面宽度、卡片形状与排列。</HelpTip>
+            <HelpTip label="页面布局说明">整页布局预设一起调整卡片、间距、顶栏与搜索框等尺寸。折叠后仍可直接选择紧凑、标准或宽松；展开后可调整页面宽度、卡片形状与排列。</HelpTip>
           </h3>
           {preset === "custom" && <span className="appearance-status">已自定义</span>}
         </div>
@@ -119,13 +119,15 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
             options={[{ value: "free", label: "自由比例" }, { value: "square", label: "正方形" }]}
             onChange={cardShape => onChange(patchAppearance(value, { cardShape }))} />
           <LayoutChoice label="卡片排列" value={value.cardLayout}
-            options={[{ value: "adaptive", label: "自动适配" }, { value: "columns", label: "指定每行数量" }]}
-            help={`${value.cardLayout === "columns"
-              ? "按每行数量均分宽度；空间不足时自动减少列数，保持卡片可读。"
-              : "根据卡片最小宽度自动排列，充分利用可用空间。"}${value.cardShape === "square" ? " 正方形的高度始终跟随实际宽度。" : ""}`}
+            options={[{ value: "adaptive", label: "自动适配" }, { value: "columns", label: "每行数量上限" }]}
+            help={value.cardShape === "square"
+              ? `${value.cardLayout === "columns" ? "每行不超过指定数量。" : "根据可用空间自动增加列数。"}按目标边长排列，卡片不随剩余空间拉伸；空间不足时自动减少列数。`
+              : value.cardLayout === "columns"
+                ? "每行不超过指定数量，卡片均分可用宽度；空间不足时自动减少列数，保持卡片可读。"
+                : "根据卡片最小宽度自动排列，充分利用可用空间。"}
             onChange={cardLayout => onChange(patchAppearance(value, { cardLayout }))} />
-          {value.cardLayout === "columns" && <RangeControl label="每行卡片数量" value={value.cardColumns}
-            min={LAYOUT_LIMITS.cardColumns.min} max={LAYOUT_LIMITS.cardColumns.max} unit="列"
+          {value.cardLayout === "columns" && <RangeControl label="每行最多卡片数" value={value.cardColumns}
+            min={LAYOUT_LIMITS.cardColumns.min} max={LAYOUT_LIMITS.cardColumns.max} unit="张"
             onChange={cardColumns => onChange(patchAppearance(value, { cardColumns }))} />}
         </div>
         <button type="button" className="appearance-disclosure" aria-expanded={detailsOpen}
@@ -136,12 +138,14 @@ export function AppearanceSettingsEditor({ value, previousPreset, onPresetChange
         </button>
         {detailsOpen && (
           <div className="appearance-details" id={detailsId}>
-            <p className="appearance-description">尺寸以 100% 缩放为基准，立即预览。自动适配时，卡片宽度为最小宽度；实际宽度随排列均分。</p>
-            {LAYOUT_DETAILS.map(({ key, ...field }) => (
-              <RangeControl key={key} {...field} value={value[key]}
+            <p className="appearance-description">尺寸以 100% 缩放为基准，立即预览。{value.cardShape === "square"
+              ? "正方形使用目标边长，不随剩余空间拉伸。"
+              : "自动适配时，卡片宽度为最小宽度；实际宽度随排列均分。"}</p>
+            {value.cardShape === "square" && <p className="appearance-description">与自由比例的卡片高度共用同一数值；修改后切回自由比例也会使用该高度。实际边长可能因图标、操作按钮、文字和备注而增加。</p>}
+            {LAYOUT_DETAILS.filter(({ key }) => value.cardShape !== "square" || key !== "cardWidth").map(({ key, ...field }) => (
+              <RangeControl key={key} {...field} label={key === "cardHeight" && value.cardShape === "square" ? "正方形目标边长" : field.label} value={value[key]}
                 disabled={(key === "contentWidth" && value.contentWidthMode === "full") ||
-                  (key === "cardWidth" && value.cardLayout === "columns") ||
-                  (key === "cardHeight" && value.cardShape === "square")}
+                  (key === "cardWidth" && value.cardLayout === "columns")}
                 onChange={(next) => onChange(patchAppearance(value, { [key]: next }))} />
             ))}
             <div className="settings-inline-actions">

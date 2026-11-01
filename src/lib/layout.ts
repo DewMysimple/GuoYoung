@@ -82,8 +82,15 @@ export function getMinimumCardWidth(appearance: AppearanceSettings, hasNotes = f
  */
 export function cardLayoutVariables(appearance: AppearanceSettings) {
   const scale = appearanceScale(appearance);
+  const geometry = scaledGeometry(appearance);
   const metrics = CARD_LAYOUT_METRICS;
   return {
+    "--card-font-scale": String(Number((
+      (appearance.fontScale / 100) * (appearance.cardFontScale / 100) * scale
+    ).toFixed(4))),
+    "--card-padding": `${geometry.cardPadding}px`,
+    "--site-icon-size": `${geometry.siteIconSize}px`,
+    "--group-icon-size": `${geometry.groupIconSize}px`,
     "--card-action-size": `${metrics.actionSize * appearance.controlScale / 100 * scale}px`,
     "--card-actions-gap": `${metrics.actionsGap * scale}px`,
     "--card-topline-gap": `${metrics.toplineGap * scale}px`,
@@ -117,23 +124,28 @@ export interface GridLayout {
  */
 export function getGridLayout(appearance: AppearanceSettings, availableWidth: number, hasNotes = false): GridLayout {
   const width = Number.isFinite(availableWidth) ? Math.max(0, availableWidth) : 0;
-  const { cardWidth: adaptiveWidth, cardHeight: freeHeight, gap } = scaledGeometry(appearance);
+  const { cardWidth: adaptiveWidth, cardHeight: preferredHeight, gap } = scaledGeometry(appearance);
   const safeWidth = getMinimumCardWidth(appearance, hasNotes);
-  const minCardWidth = appearance.cardLayout === "columns"
-    ? safeWidth : Math.max(adaptiveWidth, safeWidth);
+  const square = appearance.cardShape === "square";
+  // Squares choose a content-safe side before fitting tracks. Remaining row
+  // space stays outside those tracks; free cards keep their existing stretch.
+  const minCardWidth = square ? Math.max(preferredHeight, safeWidth)
+    : appearance.cardLayout === "columns" ? safeWidth : Math.max(adaptiveWidth, safeWidth);
   const fittingRatio = (width + gap) / (minCardWidth + gap);
   // An exact track boundary can divide to 1.9999999999999998 after scaling.
   // Only absorb arithmetic rounding; a genuinely narrower box still loses a track.
   const fittingColumns = Math.max(1, Math.floor(fittingRatio + Number.EPSILON * Math.max(1, fittingRatio) * 4));
   const requestedColumns = Math.round(Math.min(LAYOUT_LIMITS.cardColumns.max,
-    Math.max(LAYOUT_LIMITS.cardColumns.min, appearance.cardColumns)));
+    Math.max(LAYOUT_LIMITS.cardColumns.min, Number.isFinite(appearance.cardColumns)
+      ? appearance.cardColumns : LAYOUT_LIMITS.cardColumns.default)));
   const columns = appearance.cardLayout === "columns"
     ? Math.min(requestedColumns, fittingColumns) : fittingColumns;
-  const cardWidth = Math.max(0, (width - gap * (columns - 1)) / columns);
+  const cardWidth = square ? Math.min(minCardWidth, width)
+    : Math.max(0, (width - gap * (columns - 1)) / columns);
   return {
     columns,
     cardWidth,
-    cardHeight: appearance.cardShape === "square" ? cardWidth : freeHeight,
+    cardHeight: square ? cardWidth : preferredHeight,
     gap,
     minCardWidth,
   };

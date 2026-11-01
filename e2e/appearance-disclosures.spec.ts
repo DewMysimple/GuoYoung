@@ -18,7 +18,7 @@ test("keeps layout presets visible when collapsed and exposes concise help on de
   await page.screenshot({ path: screenshotPath("appearance-layout-collapsed.png"), animations: "disabled" });
 
   for (const [label, content] of [["界面缩放说明", "一起调整卡片、文字、图标与间距"],
-    ["主题说明", "选择界面的明暗，或随系统自动切换"], ["页面布局说明", "选择喜欢的疏密，卡片与间距一起调整"]]) {
+    ["主题说明", "选择界面的明暗，或随系统自动切换"], ["页面布局说明", "整页布局预设一起调整卡片、间距、顶栏与搜索框等尺寸"]]) {
     await panel.getByRole("button", { name: label, exact: true }).focus();
     await expect(page.getByRole("tooltip")).toContainText(content);
     await page.keyboard.press("Escape");
@@ -33,8 +33,8 @@ test("keeps layout presets visible when collapsed and exposes concise help on de
   await expect(panel.getByRole("group", { name: "页面宽度模式", exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "正方形", exact: true }).click();
   await panel.getByRole("button", { name: "卡片排列说明", exact: true }).click();
-  await expect(page.getByRole("tooltip")).toContainText("根据卡片最小宽度自动排列");
-  await expect(page.getByRole("tooltip")).toContainText("正方形的高度始终跟随实际宽度");
+  await expect(page.getByRole("tooltip")).toContainText("按目标边长排列");
+  await expect(page.getByRole("tooltip")).toContainText("卡片不随剩余空间拉伸");
   await page.keyboard.press("Escape");
   await expect(panel).toBeVisible();
   await page.screenshot({ path: screenshotPath("appearance-layout-expanded.png"), animations: "disabled" });

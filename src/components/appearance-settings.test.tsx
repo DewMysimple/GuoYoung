@@ -9,10 +9,14 @@ import { SettingsLocationContext } from "./settings-location";
 
 afterEach(cleanup);
 
-function Fixture({ onChange = () => {} }: { onChange?: (next: AppearanceSettings) => void }) {
-  const [value, setValue] = useState({ ...DEFAULT_APPEARANCE });
-  return <AppearanceSettingsEditor value={value} previousPreset={DEFAULT_APPEARANCE}
-    onChange={next => { setValue(next); onChange(next); }} onPresetChange={() => {}} onColorPreview={() => {}}
+function Fixture({ onChange = () => {}, initial = DEFAULT_APPEARANCE }: {
+  onChange?: (next: AppearanceSettings) => void;
+  initial?: AppearanceSettings;
+}) {
+  const [value, setValue] = useState({ ...initial });
+  const [previousPreset, setPreviousPreset] = useState(initial);
+  return <AppearanceSettingsEditor value={value} previousPreset={previousPreset}
+    onChange={next => { setValue(next); onChange(next); }} onPresetChange={setPreviousPreset} onColorPreview={() => {}}
     panelWidth={440} panelMaxWidth={720} onPanelWidthChange={() => {}} />;
 }
 
@@ -69,14 +73,14 @@ describe("appearance disclosures and help", () => {
     await user.keyboard("{Escape}");
     const layoutHelp = screen.getByRole("button", { name: /^页面布局说明$/ });
     act(() => layoutHelp.focus());
-    expect(screen.getByRole("tooltip")).toHaveTextContent("选择喜欢的疏密，卡片与间距一起调整");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("整页布局预设一起调整卡片、间距、顶栏与搜索框等尺寸");
     expect(screen.getByRole("button", { name: /^页面布局$/ })).toHaveAttribute("aria-expanded", "false");
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: /^页面布局$/ }));
     await user.click(screen.getByRole("button", { name: /^正方形$/ }));
     await user.click(screen.getByRole("button", { name: /^卡片排列说明$/ }));
-    expect(screen.getByRole("tooltip")).toHaveTextContent("根据卡片最小宽度自动排列");
-    expect(screen.getByRole("tooltip")).toHaveTextContent("正方形的高度始终跟随实际宽度");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("按目标边长排列");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("卡片不随剩余空间拉伸");
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
@@ -92,5 +96,76 @@ describe("appearance disclosures and help", () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ showSiteNotes: false, cardWidth: DEFAULT_APPEARANCE.cardWidth }));
     await user.click(notes);
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ showSiteNotes: true }));
+  });
+
+  it.each(["adaptive", "columns"] as const)("keeps the square target side editable in %s layout and shares only height with free", async cardLayout => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const initial = { ...DEFAULT_APPEARANCE, cardLayout, cardWidth: 287, cardHeight: 233, cardColumns: 9 };
+    render(<Fixture initial={initial} onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: /^页面布局$/ }));
+    await user.click(screen.getByRole("button", { name: /布局微调/ }));
+    await user.click(screen.getByRole("button", { name: /^正方形$/ }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...initial, cardShape: "square", layoutPreset: "custom" });
+    expect(screen.queryByRole("slider", { name: /^卡片宽度$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton", { name: /^卡片宽度数值$/ })).not.toBeInTheDocument();
+    const side = screen.getByRole("slider", { name: /^正方形目标边长$/ });
+    expect(side).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: /^正方形目标边长数值$/ })).toBeEnabled();
+    expect(side).toHaveValue("233");
+    expect(screen.getByText(/与自由比例的卡片高度共用同一数值/)).toHaveTextContent("修改后切回自由比例也会使用该高度");
+    expect(screen.getByText(/与自由比例的卡片高度共用同一数值/)).toHaveTextContent("实际边长可能因图标、操作按钮、文字和备注而增加");
+    if (cardLayout === "columns") {
+      fireEvent.change(screen.getByRole("slider", { name: /^每行最多卡片数$/ }), { target: { value: "6" } });
+      expect(onChange).toHaveBeenLastCalledWith({ ...initial, cardShape: "square", cardColumns: 6, layoutPreset: "custom" });
+      fireEvent.change(screen.getByRole("slider", { name: /^每行最多卡片数$/ }), { target: { value: "9" } });
+    }
+    fireEvent.change(side, { target: { value: "212" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...initial, cardShape: "square", cardHeight: 212, layoutPreset: "custom" });
+    expect(screen.getByRole("spinbutton", { name: /^正方形目标边长数值$/ })).toHaveValue("212");
+    await user.click(screen.getByRole("button", { name: /^自由比例$/ }));
+    const width = screen.getByRole("slider", { name: /^卡片宽度$/ });
+    expect(width).toHaveValue("287");
+    if (cardLayout === "columns") expect(width).toBeDisabled();
+    else expect(width).toBeEnabled();
+    expect(screen.getByRole("slider", { name: /^卡片高度$/ })).toBeEnabled();
+    expect(screen.getByRole("slider", { name: /^卡片高度$/ })).toHaveValue("212");
+    expect(onChange).toHaveBeenLastCalledWith({ ...initial, cardHeight: 212, layoutPreset: "custom" });
+  });
+
+  it("switches shape without changing saved dimensions or an idle requested count", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const initial = { ...DEFAULT_APPEARANCE, cardWidth: 319, cardHeight: 227, cardColumns: 11, fontScale: 115 };
+    render(<Fixture initial={initial} onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: /^页面布局$/ }));
+    await user.click(screen.getByRole("button", { name: /^正方形$/ }));
+    await user.click(screen.getByRole("button", { name: /^自由比例$/ }));
+    expect(onChange.mock.calls.map(([next]) => ({ width: next.cardWidth, height: next.cardHeight, columns: next.cardColumns })))
+      .toEqual([{ width: 319, height: 227, columns: 11 }, { width: 319, height: 227, columns: 11 }]);
+    expect(onChange).toHaveBeenLastCalledWith({ ...initial, layoutPreset: "custom" });
+  });
+
+  it("keeps density presets and their restore commands on the same shared geometry", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const initial = { ...DEFAULT_APPEARANCE, cardShape: "square" as const, cardLayout: "columns" as const,
+      cardWidth: 287, cardHeight: 233, cardColumns: 9, fontScale: 115, accentColor: "#00897b" };
+    render(<Fixture initial={initial} onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: /^页面布局$/ }));
+    await user.click(screen.getByRole("button", { name: /布局微调/ }));
+    await user.click(screen.getByRole("button", { name: /^紧凑$/ }));
+    const selected: AppearanceSettings = onChange.mock.lastCall![0];
+    expect(selected).toMatchObject({ cardShape: "square", cardLayout: "columns", cardColumns: 9,
+      cardWidth: 140, cardHeight: 124, layoutPreset: "custom", fontScale: 115, accentColor: "#00897b" });
+    expect(screen.getByRole("slider", { name: /^正方形目标边长$/ })).toHaveValue("124");
+    fireEvent.change(screen.getByRole("slider", { name: /^正方形目标边长$/ }), { target: { value: "212" } });
+    await user.click(screen.getByRole("button", { name: /^恢复上次预设$/ }));
+    expect(onChange).toHaveBeenLastCalledWith(selected);
+    await user.click(screen.getByRole("button", { name: /^恢复默认$/ }));
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_APPEARANCE, fontScale: 115, accentColor: "#00897b" });
+    expect(screen.queryByRole("slider", { name: /^正方形目标边长$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: /^卡片宽度$/ })).toHaveValue("160");
+    expect(screen.getByRole("slider", { name: /^卡片高度$/ })).toHaveValue("140");
   });
 });

@@ -8,7 +8,9 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { useReducedMotion } from "framer-motion";
-import type { CSSProperties } from "react";
+import { useContext, type CSSProperties } from "react";
+import { cardLayoutVariables } from "../lib/layout";
+import { LayoutSettingsContext } from "./site-grid-layout";
 import { getHostname } from "../lib/site-utils";
 import type { SiteGroup, SiteItem } from "../types";
 import { CategoryIcon } from "./category-icon";
@@ -260,8 +262,13 @@ export function SiteCardDragPreview({
   showClickCount = false,
   showNotes = true,
 }: SiteCardDragPreviewProps) {
+  const appearance = useContext(LayoutSettingsContext);
   return (
     <CardSurface
+      style={appearance.cardShape === "square" ? {
+        ...cardLayoutVariables(appearance),
+        "--drag-preview-grip-size": "var(--card-action-size)",
+      } as CSSProperties : undefined}
       className={`site-card-drag-preview ${
         overGroupTab ? "is-over-group-tab" : ""
       }`}
