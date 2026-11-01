@@ -35,6 +35,7 @@ export function SiteGridLayout({ ref, style, hasNotes = false, ...props }: HTMLA
         "--grid-card-size": `${layout.cardWidth}px`,
         "--card-min-height": `${layout.cardHeight}px`,
         "--grid-gap": `${layout.gap}px`,
+        "--grid-column-gap": `${layout.columnGap}px`,
       } : { "--card-grid-min-width": `${layout.minCardWidth}px` }),
     } : {}),
   } as CSSProperties} />;

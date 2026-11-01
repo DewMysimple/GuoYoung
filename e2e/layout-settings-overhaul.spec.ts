@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { expect, screenshotPath, test } from "./fixtures";
+import { LAYOUT_LIMITS } from "../src/lib/layout";
 
 async function saveDiagnostic(page: Page, name: string, value: unknown) {
   const directory = "artifacts/working/layout-overhaul";
@@ -40,6 +41,22 @@ async function seedLayout(page: Page, appearance: Record<string, string | number
   await expect(page.locator("[data-site-dnd-id]")).toHaveCount(48);
 }
 
+async function seedAlignmentGroups(page: Page, appearance: Record<string, string | number> = {}) {
+  await seedLayout(page, { interfaceScale: 75, contentWidthMode: "fixed", contentWidth: 1840,
+    cardShape: "square", cardLayout: "columns", cardColumns: 10, ...appearance });
+  await page.evaluate(() => {
+    const key = "site-hub:v1", state = JSON.parse(localStorage.getItem(key)!);
+    state.sites = state.sites.filter((site: { groupId: string; order: number }) =>
+      site.groupId !== "layout-a" && site.groupId !== "layout-b" || site.order < (site.groupId === "layout-a" ? 10 : 13));
+    state.groups.find((group: { id: string }) => group.id === "layout-a").name = "网站审美";
+    state.groups.find((group: { id: string }) => group.id === "layout-b").name = "设计参考";
+    state.displayModeByWorkspace.main = "grouped";
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await page.reload();
+  await expect(page.locator("[data-site-dnd-id]")).toHaveCount(23);
+}
+
 async function openAppearance(page: Page) {
   await page.getByRole("button", { name: "打开设置", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
@@ -64,7 +81,7 @@ async function enterNumber(panel: Locator, label: string, value: number) {
   await expect(panel.getByRole("slider", { name: label, exact: true })).toHaveValue(String(value));
 }
 
-async function gridGeometry(grid: Locator, cardSelector = "[data-site-dnd-id]") {
+async function gridGeometry(grid: Locator, cardSelector = "[data-site-dnd-id], .add-site-card") {
   return grid.evaluate((element, cardSelector) => {
     const bounds = element.getBoundingClientRect();
     const cards = [...element.querySelectorAll<HTMLElement>(cardSelector)].map(card => {
@@ -72,8 +89,11 @@ async function gridGeometry(grid: Locator, cardSelector = "[data-site-dnd-id]") 
       return { x: rect.x, y: rect.y, layoutTop: card.offsetTop, width: rect.width, height: rect.height, right: rect.right,
         scrollWidth: card.scrollWidth, clientWidth: card.clientWidth };
     });
+    const style = getComputedStyle(element);
     return { width: bounds.width, left: bounds.left, right: bounds.right, count: cards.length,
-      gap: parseFloat(getComputedStyle(element).columnGap),
+      gap: parseFloat(style.columnGap), rowGap: parseFloat(style.rowGap),
+      baseGap: parseFloat(style.getPropertyValue("--grid-gap")),
+      scale: parseFloat(style.getPropertyValue("--interface-scale")),
       firstRow: cards.filter(card => Math.abs(card.layoutTop - cards[0].layoutTop) < 1).length,
       tracks: getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length,
       squareError: Math.max(...cards.map(card => Math.abs(card.width - card.height))),
@@ -96,6 +116,20 @@ async function expectSquareGrid(grid: Locator, columns: number, cardSelector?: s
   }
   const unused = geometry.right - geometry.cards.at(columns - 1)!.right;
   expect(unused).toBeCloseTo(geometry.width - columns * geometry.cards[0].width - (columns - 1) * geometry.gap, 0);
+  expect(geometry.rowGap).toBeCloseTo(geometry.baseGap, 2);
+  if (columns > 1) {
+    const distributed = (geometry.width - columns * geometry.cards[0].width) / (columns - 1);
+    const upper = Math.max(geometry.baseGap, LAYOUT_LIMITS.gap.max * geometry.scale);
+    expect(geometry.gap).toBeCloseTo(Math.max(geometry.baseGap, Math.min(upper, distributed)), 1);
+    if (distributed <= upper + .01) expect(Math.abs(unused)).toBeLessThan(2);
+    else {
+      expect(geometry.gap).toBeCloseTo(upper, 1);
+      expect(unused).toBeGreaterThan(0);
+    }
+  }
+  for (let index = columns; index < geometry.cards.length; index++) {
+    expect(geometry.cards[index].x).toBeCloseTo(geometry.cards[index % columns].x, 0);
+  }
 }
 
 async function cardContentOverflow(grid: Locator, cardSelector = "[data-site-dnd-id]") {
@@ -203,7 +237,6 @@ test("keeps rendered cards square and honors a saved row count in flat, focused 
   await expectSquareGrid(page.locator(".site-grid"), 6);
   const square = await gridGeometry(page.locator(".site-grid"));
   expect(square.cards[0].width).toBeLessThan(free.cards[0].width - 20);
-  expect(square.right - square.cards[5].right).toBeGreaterThan(100);
   await panel.getByRole("button", { name: "保存设置", exact: true }).click();
   await page.reload();
   await expectSquareGrid(page.locator(".site-grid"), 6);
@@ -245,6 +278,129 @@ test("keeps rendered cards square and honors a saved row count in flat, focused 
   await expect(panel.getByRole("spinbutton", { name: "卡片高度数值", exact: true })).toHaveValue("160");
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance)).toEqual(saved.appearance);
+});
+
+test("aligns ten compact square slots with both group headers and keeps partial rows and the add card on those slots", async ({ page }) => {
+  await page.setViewportSize({ width: 1720, height: 1100 });
+  await seedAlignmentGroups(page);
+  for (const [group, count] of [["layout-a", 11], ["layout-b", 14]] as const) {
+    const section = page.locator(`[data-group-sort-section-id="${group}"]`), grid = section.locator(".grouped-site-track");
+    await expectSquareGrid(grid, 10);
+    const measured = await gridGeometry(grid);
+    expect(measured.count).toBe(count);
+    expect(measured.cards[0].width).toBeCloseTo(120, 1);
+    expect(Math.abs(measured.right - measured.cards[9].right)).toBeLessThan(2);
+    for (const selector of [".grouped-site-header", ".grouped-site-actions"]) {
+      const box = (await section.locator(selector).boundingBox())!;
+      expect(box.x + box.width).toBeCloseTo(measured.right, 0);
+    }
+    expect((await section.locator(".grouped-site-header").boundingBox())!.x).toBeCloseTo(measured.left, 0);
+    const add = (await grid.locator(".add-site-card").boundingBox())!;
+    expect(add.width).toBeCloseTo(measured.cards[0].width, 1);
+    expect(add.height).toBeCloseTo(add.width, 1);
+    await saveDiagnostic(page, `square-alignment-${group}`, measured);
+  }
+  await page.locator('[data-add-site-group-id="layout-a"]').click();
+  const addDialog = page.getByRole("dialog", { name: "添加网站", exact: true });
+  await expect(addDialog).toBeVisible();
+  await addDialog.getByRole("button", { name: "取消", exact: true }).click();
+  const card = page.getByTestId("site-card-layout-a-0");
+  await card.hover();
+  await expect(card.getByRole("button", { name: "编辑 布局网站 A 1", exact: true })).toBeVisible();
+  await expect(card.getByRole("button", { name: "删除 布局网站 A 1", exact: true })).toBeVisible();
+  await page.screenshot({ path: screenshotPath("square-alignment-ten-grouped-hover.png"), animations: "disabled" });
+  const panel = await openAppearance(page);
+  await panel.getByRole("button", { name: "自由比例", exact: true }).click();
+  for (const group of ["layout-a", "layout-b"]) {
+    const measured = await gridGeometry(page.locator(`[data-group-sort-section-id="${group}"] .grouped-site-track`));
+    expect(measured.tracks).toBe(10);
+    expect(measured.cards[9].right).toBeCloseTo(measured.right, 0);
+    expect(measured.gap).toBeCloseTo(9, 1);
+    expect(measured.cards[0].height).toBeCloseTo(120, 1);
+  }
+  await panel.getByRole("button", { name: "取消", exact: true }).click();
+  await expectSquareGrid(page.locator('[data-group-sort-section-id="layout-a"] .grouped-site-track'), 10);
+});
+
+test("bounds two-column square spacing without stretching cards or spreading a partial final row", async ({ page }) => {
+  await page.setViewportSize({ width: 1720, height: 1100 });
+  await seedAlignmentGroups(page, { contentWidthMode: "full", cardColumns: 2 });
+  const grid = page.locator('[data-group-sort-section-id="layout-a"] .grouped-site-track');
+  await expectSquareGrid(grid, 2);
+  const measured = await gridGeometry(grid);
+  expect(measured.gap).toBeCloseTo(LAYOUT_LIMITS.gap.max * .75, 1);
+  expect(measured.rowGap).toBeCloseTo(9, 1);
+  expect(measured.cards[0].width).toBeCloseTo(120, 1);
+  expect(measured.right - measured.cards[1].right).toBeGreaterThan(100);
+  expect(measured.cards.at(-1)!.x).toBeCloseTo(measured.left, 0);
+});
+
+test("recalculates square slots at desktop scales in fixed/full width and overlay/push settings without saving preview data", async ({ page }) => {
+  for (const [width, scale, mode, presentation] of [
+    [1440, 75, "full", "overlay"], [1720, 100, "fixed", "push"],
+    [1920, 125, "full", "push"], [1720, 150, "fixed", "overlay"],
+  ] as const) {
+    await page.setViewportSize({ width, height: 1100 });
+    await seedAlignmentGroups(page, { interfaceScale: scale, contentWidthMode: mode, settingsPresentation: presentation });
+    const grid = page.locator('[data-group-sort-section-id="layout-b"] .grouped-site-track');
+    const original = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
+    await expectSquareGrid(grid, (await gridGeometry(grid)).tracks);
+    const before = await gridGeometry(grid), panel = await openAppearance(page);
+    await expectSquareGrid(grid, (await gridGeometry(grid)).tracks);
+    const opened = await gridGeometry(grid);
+    if (presentation === "overlay") expect(opened.width).toBeCloseTo(before.width, 0);
+    else expect(opened.width).toBeLessThan(before.width);
+    await panel.getByRole("button", { name: "取消", exact: true }).click();
+    await expect.poll(async () => (await gridGeometry(grid)).width).toBeCloseTo(before.width, 0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(original);
+    await page.reload();
+    await expectSquareGrid(grid, before.tracks);
+    expect((await gridGeometry(grid)).gap).toBeCloseTo(before.gap, 1);
+  }
+});
+
+test("sorts square cards with the keyboard and transfers a mouse-dragged card across groups after gap distribution", async ({ page }) => {
+  await page.setViewportSize({ width: 1720, height: 1100 });
+  await seedAlignmentGroups(page);
+  await page.getByRole("tab", { name: /网站审美/ }).click();
+  const grid = page.locator(".site-grid"), source = page.getByTestId("site-card-layout-a-0"), target = page.getByTestId("site-card-layout-a-1");
+  const firstSlot = (await source.boundingBox())!.x;
+  const slots = (await gridGeometry(grid)).cards;
+  await source.getByRole("button", { name: "拖动 布局网站 A 1 调整顺序", exact: true }).focus();
+  await page.keyboard.press("Space");
+  const preview = page.getByTestId("site-card-drag-preview");
+  await expect(preview).toBeVisible();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(async () => (await target.boundingBox())!.x).toBeCloseTo(firstSlot, 0);
+  const previewSlot = (await source.boundingBox())!;
+  const destinationIndex = slots.findIndex(slot => Math.abs(slot.x - previewSlot.x) < 1 && Math.abs(slot.y - previewSlot.y) < 1);
+  // The same fixture on the previous production MV3 build lands in slot 2.
+  // Keep that established keyboard behavior and its exact visual/saved order.
+  expect(destinationIndex).toBe(2);
+  const expectedOrder = Array.from({ length: 10 }, (_, index) => `layout-a-${index}`);
+  expectedOrder.splice(destinationIndex, 0, expectedOrder.splice(0, 1)[0]);
+  await page.keyboard.press("Space");
+  await expect(preview).toHaveCount(0);
+  const ids = () => grid.locator("[data-site-dnd-id]").evaluateAll(elements => elements.map(element => element.getAttribute("data-site-dnd-id")));
+  await expect.poll(ids).toEqual(expectedOrder);
+  await page.reload();
+  await page.getByRole("tab", { name: /网站审美/ }).click();
+  await expect.poll(ids).toEqual(expectedOrder);
+  const start = (await source.boundingBox())!, destination = (await page.getByRole("tab", { name: /设计参考/ }).boundingBox())!;
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height * .65);
+  await page.mouse.down();
+  await page.mouse.move(start.x + start.width / 2 + 55, start.y + start.height * .65);
+  await expect(preview).toBeVisible();
+  await page.mouse.move(destination.x + destination.width / 2, destination.y + destination.height / 2, { steps: 10 });
+  await expect(page.getByRole("tab", { name: /设计参考/ })).toHaveAttribute("aria-selected", "true");
+  await page.screenshot({ path: screenshotPath("square-alignment-cross-group-held.png"), animations: "disabled" });
+  await page.mouse.up();
+  await expect(preview).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).sites.find((site: { id: string }) => site.id === "layout-a-0").groupId)).toBe("layout-b");
+  await page.reload();
+  await page.getByRole("tab", { name: /设计参考/ }).click();
+  await expect(source).toBeVisible();
 });
 
 test("edits a compact square side in columns mode, shares height with free and preserves drafts and saved values", async ({ page }) => {
@@ -403,6 +559,9 @@ test("keeps square content at its measured 75% scale in an 880px desktop window 
   await page.mouse.up();
   await expect(preview).toHaveCount(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(beforeDrag);
+  // Cancellation deliberately suppresses the release click. Wait for the
+  // guarded link to be restored before starting the independent edit action.
+  await expect(card.locator(".site-card-full-link")).toHaveAttribute("href", "https://layout.example/a/0");
   await card.getByRole("button", { name: "编辑 布局网站 A 1", exact: true }).click();
   const editor = page.getByRole("dialog", { name: "编辑网站", exact: true });
   await expect(editor.getByLabel("网站备注", { exact: true })).toHaveValue("保留完整单行备注与底部分组");

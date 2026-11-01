@@ -115,6 +115,7 @@ export interface GridLayout {
   cardWidth: number;
   cardHeight: number;
   gap: number;
+  columnGap: number;
   minCardWidth: number;
 }
 
@@ -127,8 +128,8 @@ export function getGridLayout(appearance: AppearanceSettings, availableWidth: nu
   const { cardWidth: adaptiveWidth, cardHeight: preferredHeight, gap } = scaledGeometry(appearance);
   const safeWidth = getMinimumCardWidth(appearance, hasNotes);
   const square = appearance.cardShape === "square";
-  // Squares choose a content-safe side before fitting tracks. Remaining row
-  // space stays outside those tracks; free cards keep their existing stretch.
+  // Squares choose a content-safe side before fitting tracks; free cards keep
+  // their existing stretch. Base gap remains the minimum cost of each track.
   const minCardWidth = square ? Math.max(preferredHeight, safeWidth)
     : appearance.cardLayout === "columns" ? safeWidth : Math.max(adaptiveWidth, safeWidth);
   const fittingRatio = (width + gap) / (minCardWidth + gap);
@@ -142,11 +143,19 @@ export function getGridLayout(appearance: AppearanceSettings, availableWidth: nu
     ? Math.min(requestedColumns, fittingColumns) : fittingColumns;
   const cardWidth = square ? Math.min(minCardWidth, width)
     : Math.max(0, (width - gap * (columns - 1)) / columns);
+  // Distribute spare width between stable column slots, never by item count.
+  // Reuse the once-scaled spacing range: very few requested columns may leave
+  // space outside the tracks rather than growing cards or creating huge gaps.
+  const columnGap = square && columns > 1
+    ? Math.min(Math.max(gap, LAYOUT_LIMITS.gap.max * appearanceScale(appearance)),
+      Math.max(gap, (width - columns * cardWidth) / (columns - 1)))
+    : gap;
   return {
     columns,
     cardWidth,
     cardHeight: square ? cardWidth : preferredHeight,
     gap,
+    columnGap,
     minCardWidth,
   };
 }

@@ -2071,7 +2071,8 @@ select:focus-visible {
 .grouped-site-track {
   display: grid;
   width: 100%;
-  gap: var(--grid-gap);
+  row-gap: var(--grid-gap);
+  column-gap: var(--grid-column-gap, var(--grid-gap));
   justify-content: start;
 }
 
