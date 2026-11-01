@@ -10,30 +10,38 @@
   align-items: center;
   gap: 7px;
   padding: 0 10px;
-  border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--text-soft);
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
   cursor: pointer;
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: 680;
-  backdrop-filter: blur(12px);
 }
 
-.select-menu-trigger:hover:not(:disabled):not(.settings-option),
-.select-menu-trigger.is-open:not(.settings-option),
-.view-control-button:hover {
+/* SettingsSelect delegates its entire surface to settings-options.css.
+   Ordinary selects and plain view buttons share this single consumption chain.
+   Material inputs are local to their wallpaper container, with theme fallbacks. */
+:where(.select-menu-trigger, .view-control-button):not(.settings-option) {
+  border: 1px solid var(--select-edge, var(--border));
+  color: var(--text-soft);
+  background-color: var(--select-fill, color-mix(in srgb, var(--surface) 90%, transparent));
+  background-image: var(--select-image, none);
+  box-shadow: var(--select-shadow, none);
+  backdrop-filter: var(--select-filter, blur(12px));
+}
+
+/* Priority: disabled ignores hover/open; active wins over open/hover.
+   Focus is an independent outline, never a replacement background. */
+:where(.select-menu-trigger, .view-control-button):not(.settings-option):where(:not(:disabled)):is(:hover, .is-open) {
   color: var(--text);
-  border-color: var(--border-strong);
-  background: var(--surface);
+  border-color: var(--select-hover-edge, var(--border-strong));
+  background-color: var(--select-hover-fill, var(--surface));
 }
 
-.select-menu-trigger.is-active,
-.view-control-button.active {
+:where(.select-menu-trigger, .view-control-button):not(.settings-option):is(.is-active, .active) {
   color: var(--ui-accent-text);
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--select-edge, var(--border)));
+  background-color: var(--select-active-fill, var(--accent-soft));
+  box-shadow: var(--select-active-shadow, none);
 }
 
 .select-menu-trigger:disabled,
@@ -42,7 +50,7 @@
   opacity: 0.42;
 }
 
-.select-menu-trigger:focus-visible {
+:where(.select-menu-trigger, .view-control-button):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -58,8 +66,7 @@
   transform: rotate(180deg);
 }
 
-.select-menu-popover,
-.view-popover {
+.select-menu-popover {
   position: absolute;
   z-index: 24;
   top: calc(100% + 7px);
@@ -70,12 +77,13 @@
   gap: 3px;
   overflow: auto;
   padding: 7px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--select-hover-edge, var(--border-strong));
   border-radius: 13px;
   color: var(--text);
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  box-shadow: var(--shadow-dialog);
-  backdrop-filter: blur(18px);
+  background-color: var(--select-menu-fill, color-mix(in srgb, var(--surface) 96%, transparent));
+  background-image: var(--select-image, none);
+  box-shadow: var(--select-menu-shadow, var(--shadow-dialog));
+  backdrop-filter: var(--select-filter, blur(18px));
   animation: select-menu-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -92,39 +100,36 @@
   font-weight: 720;
 }
 
-.select-menu-option,
-.sort-popover > button,
-.display-popover > button {
+.select-menu-option {
   display: flex;
   min-height: 36px;
   align-items: center;
   gap: 9px;
   padding: 0 9px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--text-soft);
-  background: transparent;
   cursor: pointer;
   font-size: 0.75rem;
   text-align: left;
 }
 
-.select-menu-option:hover,
-.select-menu-option:focus-visible,
-.select-menu-option.is-selected,
-.sort-popover > button:hover,
-.sort-popover > button.active,
-.display-popover > button:hover,
-.display-popover > button.active {
-  color: var(--text);
-  background: var(--surface-raised);
-  outline: none;
+:where(.select-menu-option):not(.settings-option) {
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-soft);
+  background-color: transparent;
 }
 
-.select-menu-option.is-selected,
-.sort-popover > button.active,
-.display-popover > button.active {
+:where(.select-menu-option):not(.settings-option):is(:hover, :focus-visible, .is-selected) {
+  color: var(--text);
+  background-color: var(--select-option-fill, var(--surface-raised));
+}
+
+:where(.select-menu-option):not(.settings-option).is-selected {
   color: var(--ui-accent-text);
+}
+
+:where(.select-menu-option):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .select-menu-option-label {

@@ -312,7 +312,11 @@ test("aligns ten compact square slots with both group headers and keeps partial 
   const panel = await openAppearance(page);
   await panel.getByRole("button", { name: "自由比例", exact: true }).click();
   for (const group of ["layout-a", "layout-b"]) {
-    const measured = await gridGeometry(page.locator(`[data-group-sort-section-id="${group}"] .grouped-site-track`));
+    const grid = page.locator(`[data-group-sort-section-id="${group}"] .grouped-site-track`);
+    // The editor's draft reaches the shared grid through an effect. Wait for
+    // that preview rather than sampling the previous square's distributed gap.
+    await expect(grid).toHaveAttribute("data-card-shape", "free");
+    const measured = await gridGeometry(grid);
     expect(measured.tracks).toBe(10);
     expect(measured.cards[9].right).toBeCloseTo(measured.right, 0);
     expect(measured.gap).toBeCloseTo(9, 1);
