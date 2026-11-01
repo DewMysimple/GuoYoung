@@ -14,17 +14,7 @@ import { useEffect, useId, useInsertionEffect, useMemo, useRef, useState } from 
 import { typographyVariables } from "../lib/typography";
 import { useLocalFont } from "../hooks/use-local-font";
 import {
-  deleteBookmarkSelection,
-  filterBookmarkTree,
-  getDescendantIds,
-  importSelectedBookmarks,
-  indexBookmarkTree,
-  summarizeBookmarkDeletion,
-  type BookmarkDeleteSummary,
-} from "../lib/bookmark-manager";
-import {
   getChromiumExtensionApi,
-  type BrowserBookmarkTreeNode,
   type BrowserTab,
 } from "../lib/browser-runtime";
 import {
@@ -46,7 +36,8 @@ import type { SiteCollectionState, SiteWorkspace } from "../types";
 import { useTheme } from "../hooks/use-theme";
 import { useTextSelection } from "../hooks/use-text-selection";
 import { DEFAULT_APPEARANCE } from "../data/defaults";
-import { BookmarkTile, getBookmarkSiteIds } from "./bookmark-tree";
+import { BookmarkTile } from "./bookmark-tree";
+import { useBookmarkSession } from "./hooks/use-bookmark-session";
 import { SelectMenu } from "../components/select-menu";
 import { CategoryIcon as GroupIcon } from "../components/category-icon";
 import { Favicon } from "../components/favicon";
@@ -112,13 +103,7 @@ export function PopupApp() {
   const quickGroupInput = useRef<HTMLInputElement>(null);
   const quickGroupTrigger = useRef<HTMLButtonElement>(null);
   const quickSaving = useRef(false);
-  const [bookmarkGroupId, setBookmarkGroupId] = useState("");
   const [quickDuplicateId, setQuickDuplicateId] = useState<string>();
-  const [bookmarkRoots, setBookmarkRoots] = useState<BrowserBookmarkTreeNode[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bookmarkPath, setBookmarkPath] = useState<string[]>([]);
-  const [bookmarkQuery, setBookmarkQuery] = useState("");
-  const [deleteSummary, setDeleteSummary] = useState<BookmarkDeleteSummary | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadVersion, setLoadVersion] = useState(0);
@@ -139,18 +124,17 @@ export function PopupApp() {
     [quickWorkspace, state],
   );
   const mainGroups = useMemo(() => state ? getWorkspaceGroups(state.groups, "main") : [], [state]);
-  const defaultBookmarkGroup = mainGroups.find((group) => !group.isProtected) ?? mainGroups[0];
-  const folderIcons = useMemo(() => new Map(mainGroups.map((group) => [
-    group.name.trim().toLocaleLowerCase("zh-CN"), group.icon,
-  ] as const)), [mainGroups]);
-
-  async function reloadBookmarks() {
-    if (!api?.bookmarks) return;
-    const tree = await api.bookmarks.getTree();
-    const roots = tree.flatMap((root) => root.children ?? [root]);
-    setBookmarkRoots(roots);
-    setBookmarkPath([]);
-  }
+  const {
+    bookmarkGroupId, selectedIds, bookmarkQuery, deleteSummary,
+    folderIcons, bookmarkPathNodes, currentBookmarkFolder, visibleBookmarkTiles,
+    visibleIds, selectedBookmarkCount, allVisibleSelected,
+    initializeBookmarks, setBookmarkGroupId, toggleBookmarkSelection, openBookmarkFolder,
+    handleImportBookmarks, requestDeleteBookmarks, confirmDeleteBookmarks, refreshBookmarks,
+    changeBookmarkQuery, backBookmarkFolder, toggleVisibleBookmarks, cancelDeleteBookmarks,
+  } = useBookmarkSession({
+    bookmarks: api?.bookmarks, state, mainGroups, loadState: store.load,
+    saveNextState, setBusy, setNotice,
+  });
 
   useEffect(() => {
     let active = true;
@@ -203,23 +187,18 @@ export function PopupApp() {
         ? findSiteByUrl(loaded.state.sites, normalizedCurrentUrl)?.note ?? ""
         : "");
       const mainGroups = getWorkspaceGroups(loaded.state.groups, "main");
-      setBookmarkGroupId((current) => mainGroups.some((group) => group.id === current)
-        ? current
-        : (mainGroups.find((group) => !group.isProtected) ?? mainGroups[0])?.id ?? "");
       setActiveBrowserTab(current);
       setQuickName(
         current?.title?.trim() ||
           (current?.url ? inferSiteName(current.url) : "") ||
           "",
       );
-      const roots = tree.flatMap((root) => root.children ?? [root]);
-      setBookmarkRoots(roots);
-      setBookmarkPath([]);
+      initializeBookmarks(tree, mainGroups);
     });
     return () => {
       active = false;
     };
-  }, [api, store, loadVersion]);
+  }, [api, store, loadVersion, initializeBookmarks]);
 
   const quickUrl = useMemo(() => {
     try {
@@ -240,42 +219,6 @@ export function PopupApp() {
   }, [activeBrowserTab, quickName, quickUrl]);
   const duplicate =
     state && quickUrl ? findSiteByUrl(state.sites, quickUrl) : undefined;
-  const visibleBookmarkRoots = useMemo(
-    () => filterBookmarkTree(bookmarkRoots, bookmarkQuery),
-    [bookmarkQuery, bookmarkRoots],
-  );
-  const bookmarkIndex = useMemo(() => indexBookmarkTree(bookmarkRoots), [bookmarkRoots]);
-  const bookmarkPathNodes = useMemo(
-    () => bookmarkPath.flatMap((id) => {
-      const node = bookmarkIndex.get(id)?.node;
-      return node && !node.url ? [node] : [];
-    }),
-    [bookmarkIndex, bookmarkPath],
-  );
-  const currentBookmarkFolder = bookmarkPathNodes.at(-1);
-  const currentBookmarkNodes = currentBookmarkFolder?.children ?? bookmarkRoots;
-  const visibleBookmarkTiles = useMemo(() => {
-    if (!bookmarkQuery.trim()) return currentBookmarkNodes;
-    const matching: BrowserBookmarkTreeNode[] = [];
-    const collectMatches = (nodes: BrowserBookmarkTreeNode[]) => {
-      for (const node of nodes) {
-        const isMatch = [node.title, node.url ?? ""].some((value) =>
-          value.toLocaleLowerCase("zh-CN").includes(bookmarkQuery.trim().toLocaleLowerCase("zh-CN")),
-        );
-        if (isMatch) matching.push(node);
-        else collectMatches(node.children ?? []);
-      }
-    };
-    collectMatches(visibleBookmarkRoots);
-    return matching;
-  }, [bookmarkQuery, currentBookmarkNodes, visibleBookmarkRoots]);
-  const visibleIds = useMemo(
-    () => new Set(visibleBookmarkTiles.flatMap((node) =>
-      bookmarkQuery.trim() ? getBookmarkSiteIds(node) : getDescendantIds(node),
-    )),
-    [bookmarkQuery, visibleBookmarkTiles],
-  );
-  const selectedBookmarkCount = [...selectedIds].filter((id) => Boolean(bookmarkIndex.get(id)?.node.url)).length;
   async function saveNextState(next: SiteCollectionState) {
     await store.save(next);
     setState(next);
@@ -368,92 +311,6 @@ export function PopupApp() {
     }
   }
 
-  function toggleBookmarkSelection(node: BrowserBookmarkTreeNode) {
-    const ids = bookmarkQuery.trim() ? getBookmarkSiteIds(node) : getDescendantIds(node);
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      const shouldSelect = ids.some((id) => !next.has(id));
-      ids.forEach((id) => (shouldSelect ? next.add(id) : next.delete(id)));
-      return next;
-    });
-  }
-
-  function openBookmarkFolder(node: BrowserBookmarkTreeNode) {
-    const entry = bookmarkIndex.get(node.id);
-    setBookmarkPath([...(entry?.ancestorIds ?? []), node.id]);
-    if (bookmarkQuery.trim()) {
-      setBookmarkQuery("");
-      setSelectedIds(new Set());
-    }
-  }
-
-  async function handleImportBookmarks() {
-    if (!state || !defaultBookmarkGroup || selectedBookmarkCount === 0) return;
-    setBusy(true);
-    try {
-      const loaded = await store.load();
-      if (loaded.recovered) throw new Error("Invalid stored collection");
-      const freshMainGroups = getWorkspaceGroups(loaded.state.groups, "main");
-      const targetGroup = freshMainGroups.find((group) => group.id === bookmarkGroupId)
-        ?? freshMainGroups.find((group) => !group.isProtected)
-        ?? freshMainGroups[0];
-      if (!targetGroup) throw new Error("No homepage group available");
-      const result = importSelectedBookmarks(
-        loaded.state,
-        bookmarkRoots,
-        selectedIds,
-        targetGroup.id,
-      );
-      await saveNextState(result.state);
-      setBookmarkGroupId(targetGroup.id);
-      setNotice({
-        kind: result.failed ? "error" : "success",
-        text: `新增 ${result.added} 个，跳过 ${result.skipped} 个，失败 ${result.failed} 个。`,
-      });
-      setSelectedIds(new Set());
-    } catch {
-      setNotice({ kind: "error", text: "导入失败，主页收藏没有被修改。" });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function requestDeleteBookmarks() {
-    const summary = summarizeBookmarkDeletion(bookmarkRoots, selectedIds);
-    if (summary.roots.length > 0) setDeleteSummary(summary);
-  }
-
-  async function confirmDeleteBookmarks() {
-    if (!api?.bookmarks || !deleteSummary) return;
-    setBusy(true);
-    try {
-      const result = await deleteBookmarkSelection(api.bookmarks, deleteSummary);
-      await reloadBookmarks();
-      setSelectedIds(new Set());
-      setNotice({
-        kind: result.failed ? "error" : "success",
-        text: result.failed
-          ? `已删除 ${result.deleted} 项，${result.failed} 项删除失败。`
-          : "所选浏览器书签已删除。",
-      });
-    } catch {
-      setNotice({ kind: "error", text: "删除失败，浏览器书签未完全修改。" });
-    } finally {
-      setBusy(false);
-      setDeleteSummary(null);
-    }
-  }
-
-  async function refreshBookmarks() {
-    try {
-      await reloadBookmarks();
-      setSelectedIds(new Set());
-      setNotice({ kind: "success", text: "浏览器书签已更新。" });
-    } catch {
-      setNotice({ kind: "error", text: "书签读取失败，请重试。" });
-    }
-  }
-
   if (!state) {
     return <main className="popup-loading">
       {loadError ? <>
@@ -462,9 +319,6 @@ export function PopupApp() {
       </> : "正在读取收藏…"}
     </main>;
   }
-
-  const selectedVisibleCount = [...visibleIds].filter((id) => selectedIds.has(id)).length;
-  const allVisibleSelected = visibleIds.size > 0 && selectedVisibleCount === visibleIds.size;
 
   return (
     <main className={`popup-shell is-${tab}`}>
@@ -622,12 +476,7 @@ export function PopupApp() {
                   <MagnifyingGlass size={16} />
                   <input
                     value={bookmarkQuery}
-                    onChange={(event) => {
-                      const query = event.target.value;
-                      setBookmarkQuery(query);
-                      setBookmarkPath([]);
-                      setSelectedIds(new Set());
-                    }}
+                    onChange={(event) => changeBookmarkQuery(event.target.value)}
                     placeholder="搜索书签或网址"
                     aria-label="搜索书签或网址"
                   />
@@ -644,7 +493,7 @@ export function PopupApp() {
                       className="bookmark-back"
                       aria-label="返回上一级书签文件夹"
                       title="返回上一级"
-                      onClick={() => setBookmarkPath((path) => path.slice(0, -1))}
+                      onClick={backBookmarkFolder}
                     >
                       <ArrowLeft size={15} />
                     </button>
@@ -660,11 +509,7 @@ export function PopupApp() {
                   type="button"
                   className="select-visible"
                   disabled={visibleIds.size === 0}
-                  onClick={() => setSelectedIds((current) => {
-                    const next = new Set(current);
-                    visibleIds.forEach((id) => allVisibleSelected ? next.delete(id) : next.add(id));
-                    return next;
-                  })}
+                  onClick={toggleVisibleBookmarks}
                 >
                   {allVisibleSelected ? "取消全选" : "全选结果"}
                 </button>
@@ -726,7 +571,7 @@ export function PopupApp() {
             <h2 id="delete-bookmarks-title">删除浏览器原生书签？</h2>
             <p>将删除 {deleteSummary.bookmarkCount} 个网站和 {deleteSummary.folderCount} 个文件夹。主页收藏不会受到影响。</p>
             <div>
-              <button onClick={() => setDeleteSummary(null)}>取消</button>
+              <button onClick={cancelDeleteBookmarks}>取消</button>
               <button className="popup-danger filled" disabled={busy} onClick={confirmDeleteBookmarks}>确认删除</button>
             </div>
           </section>

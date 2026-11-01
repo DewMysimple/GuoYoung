@@ -1,0 +1,548 @@
+/* Preserve the main stylesheet's Tailwind optimization without emitting it twice. */
+@reference "../styles.css";
+
+
+@media (max-width: 1050px) {
+  .card-actions {
+    opacity: 1;
+    transform: none;
+  }
+
+  .open-arrow {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 899px) {
+  .app-shell {
+    --font-scale: 1 !important;
+    --brand-font-scale: 1 !important;
+    --card-font-scale: 1 !important;
+    --group-font-scale: 1 !important;
+    --ui-icon-scale: 1 !important;
+    --control-scale: 1 !important;
+    --radius-control: 12px !important;
+    --page-padding: 20px !important;
+    --brand-logo-size: 36px !important;
+    --brand-logo-scale: 0.61 !important;
+    --brand-logo-radius: 11px !important;
+    --brand-gap: 10px !important;
+    --topbar-height: 64px !important;
+    --search-width: 680px !important;
+    --search-height: 52px !important;
+    --search-radius: 15px !important;
+    --group-tab-height: 38px !important;
+    --group-icon-size: 16px !important;
+    --group-gap: 5px !important;
+    --card-min-width: 160px !important;
+    --card-min-height: 140px !important;
+    --grid-gap: 12px !important;
+    --content-max-width: 1600px !important;
+    --radius-card: 16px !important;
+    --card-padding: 13px !important;
+    --site-icon-size: 38px !important;
+    --site-icon-scale: 1 !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    --page-padding: 14px !important;
+    --brand-logo-size: 34px !important;
+    --brand-logo-radius: 10px !important;
+    --brand-gap: 9px !important;
+  }
+
+  .page-container {
+    width: min(100% - calc(var(--page-padding) * 2), 100%);
+  }
+
+  .topbar {
+    height: 64px;
+  }
+
+  .topbar-inner {
+    padding-inline: var(--page-padding);
+  }
+
+  .topbar-navigation {
+    gap: 8px;
+  }
+
+  .brand-mark {
+    width: var(--brand-logo-size);
+    height: var(--brand-logo-size);
+  }
+
+  .main-content {
+    padding-top: 0;
+  }
+
+  .workspace-intro {
+    padding: 20px 0 22px;
+  }
+
+  .history-summary {
+    flex-basis: 100%;
+  }
+
+  .history-range-control {
+    width: 100%;
+    min-width: 0;
+    max-width: 260px;
+  }
+
+  .history-range-trigger {
+    justify-content: space-between;
+  }
+
+  .history-selection-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 11px;
+  }
+
+  .github-home-entry {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .github-home-entry-actions {
+    width: 100%;
+  }
+
+  .github-home-entry-open {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .github-import-dialog {
+    width: min(calc(100vw - 24px), 720px);
+    height: calc(100dvh - 24px);
+    max-height: none;
+    padding: 20px;
+  }
+
+  .dialog-content.github-import-dialog {
+    height: calc(100dvh - 24px);
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .github-import-form .input-shell {
+    align-items: stretch;
+    height: auto;
+    flex-wrap: wrap;
+    padding: 5px;
+  }
+
+  .github-import-form .input-shell > svg {
+    margin: 10px 3px 10px 7px;
+  }
+
+  .github-import-form .input-shell input {
+    height: 36px;
+    flex: 1 1 180px;
+  }
+
+  .github-import-read {
+    width: 100%;
+    flex-basis: 100%;
+    justify-content: center;
+    margin: 0;
+  }
+
+  .github-import-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .github-import-repo-status {
+    grid-column: 2;
+  }
+
+  .history-selection-actions {
+    flex-wrap: wrap;
+  }
+
+  .search-panel {
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .collection-section {
+    padding: 16px 0 22px;
+  }
+
+  .collection-toolbar {
+    align-items: flex-start;
+  }
+
+  .collection-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .collection-view-controls {
+    width: 100%;
+  }
+
+  .view-control {
+    flex: 1;
+  }
+
+  .view-control-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .collection-view-controls .view-control .view-popover {
+    right: auto;
+    left: 0;
+  }
+
+  .collection-view-controls .view-control:last-child .view-popover {
+    right: 0;
+    left: auto;
+  }
+
+  .site-grid:not([data-card-shape]) {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: min(var(--grid-gap), 16px);
+  }
+
+  .site-card {
+    min-height: var(--card-min-height);
+    padding: 13px;
+  }
+
+  .card-actions {
+    gap: 1px;
+  }
+
+  .card-action,
+  .drag-handle {
+    width: 28px;
+    height: 28px;
+  }
+
+  .danger-action {
+    display: none;
+  }
+
+  .recovery-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dialog-content,
+  .confirm-content {
+    padding: 20px;
+  }
+
+  .dialog-content.github-refresh-dialog {
+    width: min(calc(100vw - 24px), 640px);
+    max-height: calc(100dvh - 24px);
+    padding: 20px;
+  }
+
+  .github-refresh-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-dialog-content,
+  .group-dialog-content,
+  .new-group-dialog {
+    height: min(760px, calc(100dvh - 24px));
+  }
+
+  .category-choice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .group-list {
+    gap: 36px;
+  }
+
+  .group-manager-layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    height: auto;
+  }
+
+  .group-manager-list {
+    max-height: 220px;
+  }
+
+  .group-dialog-scroll {
+    display: block;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-color: var(--border-strong) transparent;
+    scrollbar-gutter: stable;
+  }
+
+  .group-manager-editor {
+    margin-top: 16px;
+    overflow: visible;
+  }
+
+  .settings-panel {
+    width: 100vw;
+    max-width: none;
+    padding: 20px;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 899px) {
+  .app-shell.settings-push {
+    padding-right: 0;
+  }
+
+  .settings-panel {
+    width: 100vw !important;
+    max-width: none;
+  }
+
+  .settings-resize-handle {
+    display: none;
+  }
+
+  .settings-outside-dismiss-layer {
+    display: none;
+  }
+
+  .wallpaper-edit-canvas {
+    display: none;
+  }
+}
+
+/* The settings sidebar changes the header's width without changing the viewport. */
+@container topbar (max-width: 43.75rem) {
+  .topbar-navigation { gap: 8px; }
+  .topbar-actions { flex: 0 0 auto; gap: 4px; }
+  .brand { min-width: 0; }
+  .brand-mark { flex: 0 0 auto; }
+  .brand-name { max-width: 100px; }
+  .topbar-history-button {
+    width: 38px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .topbar-history-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .add-button {
+    width: 42px;
+    min-height: 42px;
+    padding: 0;
+  }
+
+  .add-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .settings-button {
+    width: 42px;
+    height: 42px;
+  }
+
+}
+
+/* A pushing panel can leave a narrow desktop header at enlarged UI scales. */
+@media (min-width: 900px) {
+  @container topbar (max-width: 440px) {
+    .topbar-inner { padding-inline: 12px; gap: 8px; }
+    .topbar-navigation, .topbar-actions { gap: 4px; }
+    .brand { display: none; }
+    .topbar-history-button { width: 34px; min-height: 34px; }
+    .topbar-actions :is(.settings-button, .add-button) { width: 34px; height: 34px; min-height: 34px; }
+  }
+}
+
+@media (max-width: 480px) {
+  .page-container {
+    width: min(100% - 22px, 100%);
+  }
+
+  .brand {
+    font-size: calc(17px * var(--brand-font-scale));
+  }
+
+  .github-home-entry-copy {
+    gap: 12px;
+  }
+
+  .github-home-entry-icon {
+    width: 50px;
+    height: 50px;
+    flex-basis: 50px;
+    border-radius: 14px;
+  }
+
+  .github-home-entry-copy strong {
+    font-size: 0.9375rem;
+  }
+
+  .github-home-entry-copy > div > span {
+    font-size: 0.75rem;
+  }
+
+  .search-input {
+    min-height: 54px;
+  }
+
+  .search-input input {
+    height: 52px;
+    font-size: 0.875rem;
+  }
+
+  .search-submit {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
+  }
+
+  .search-submit span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .site-grid:not([data-card-shape]) {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-card,
+  .add-site-card {
+    width: 100%;
+    min-height: var(--card-min-height);
+  }
+
+  .danger-action {
+    display: grid;
+  }
+
+  .collection-toolbar {
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 25px;
+  }
+
+  .collection-actions {
+    width: 100%;
+  }
+
+  .category-filter,
+  .category-tabs {
+    width: 100%;
+  }
+
+  .manage-groups-button {
+    flex: 1;
+    justify-content: center;
+    min-height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+
+  .category-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .group-icon-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dialog-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .group-icon-choice-grid.manager-icon-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .footer {
+    min-height: 46px;
+  }
+}
+
+@media (max-width: 620px) {
+  .history-selection-toolbar {
+    padding-inline: 14px;
+  }
+
+  .history-detail-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 13px;
+  }
+
+  .history-detail-meta {
+    width: 100%;
+    margin-left: calc(var(--site-icon-size) + 12px);
+    padding-right: 0;
+  }
+
+  .history-url-card {
+    min-height: var(--card-min-height);
+    padding: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-card.site-card-drag-preview {
+    transform: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .topbar,
+  .dialog-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .topbar {
+    background: var(--page);
+  }
+}
+
+.site-selection-toggle:disabled { cursor: default; opacity: .52; }
+.site-selection-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

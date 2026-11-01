@@ -180,6 +180,99 @@ test("keeps reviewed app workflows above legacy services and pure models without
   assert.deepEqual(cyclic.typeCycles.map((cycle) => cycle.members), [["src/app/hooks/use-github-repository-workflow.ts", "src/components/github-refresh-details-dialog.tsx"]]);
 });
 
+test("reviews storage normalizers as transitional pure modules without allowing reverse feature dependencies", (t) => {
+  const sources = {
+    "lib/storage.ts": 'import { clamp } from "./storage-normalization/number"; import { normalizeBrand } from "./storage-normalization/brand"; import { normalizeWallpaper } from "./storage-normalization/wallpaper"; export { normalizeBrand, normalizeWallpaper }; export interface LegacyState {}',
+    "lib/storage-normalization/brand.ts": 'import { defaults } from "../../data/defaults"; import { valid } from "../brand-logo"; import type { Brand } from "../../types"; export interface NormalizedBrand {} export const normalizeBrand = (value: Brand) => value;',
+    "lib/storage-normalization/wallpaper.ts": 'import { defaults } from "../../data/defaults"; import { keys } from "../wallpaper-presets"; import { clamp } from "./number"; import type { Wallpaper } from "../../types"; export const normalizeWallpaper = (value: Wallpaper) => value;',
+    "lib/storage-normalization/number.ts": "export const clamp = (value: number) => value;",
+    "lib/brand-logo.ts": "export const valid = () => true;",
+    "lib/wallpaper-presets.ts": "export const keys = [];",
+    "lib/storage-normalization/unreviewed.ts": "export const value = 1;",
+    "data/defaults.ts": "export const defaults = {};",
+    "types.ts": "export interface Brand {} export interface Wallpaper {}",
+  };
+  const allowed = analyzeArchitecture(fixture(t, sources));
+  assert.equal(allowed.passed, true);
+  assert.deepEqual(allowed.runtimeCycles, []);
+  assert.deepEqual(allowed.typeCycles, []);
+  assert.deepEqual(allowed.unresolved, []);
+  for (const file of ["brand", "wallpaper"]) {
+    assert.equal(allowed.ownershipCoverage.find((item) => item.file === `src/lib/storage-normalization/${file}.ts`).owner, "appearance");
+  }
+  assert.equal(allowed.ownershipCoverage.find((item) => item.file === "src/lib/storage-normalization/number.ts").owner, "shared");
+  assert.equal(allowed.ownershipCoverage.find((item) => item.file === "src/lib/storage-normalization/unreviewed.ts").owner, "unknown");
+  assert.ok(allowed.edges.some((edge) => edge.from === "src/lib/storage.ts" && edge.to === "src/lib/storage-normalization/brand.ts" && edge.kind === "runtime"));
+
+  const reversed = analyzeArchitecture(fixture(t, {
+    ...sources,
+    "features/appearance/model/reverse.ts": 'import "../../../lib/storage-normalization/brand"; import type { NormalizedBrand } from "../../../lib/storage-normalization/brand";',
+    "shared/number.ts": 'import "../lib/storage-normalization/number";',
+    "platform/storage/adapter.ts": 'import "../../lib/storage";',
+  }));
+  assert.equal(reversed.passed, false);
+  assert.deepEqual(reversed.unresolved, []);
+  assert.deepEqual(reversed.boundaryViolations.map(({ from, to, kind }) => ({ from, to, kind })), [
+    { from: "src/features/appearance/model/reverse.ts", to: "src/lib/storage-normalization/brand.ts", kind: "runtime" },
+    { from: "src/features/appearance/model/reverse.ts", to: "src/lib/storage-normalization/brand.ts", kind: "type" },
+    { from: "src/platform/storage/adapter.ts", to: "src/lib/storage.ts", kind: "runtime" },
+    { from: "src/shared/number.ts", to: "src/lib/storage-normalization/number.ts", kind: "runtime" },
+  ]);
+
+  const cyclic = analyzeArchitecture(fixture(t, {
+    ...sources,
+    "lib/storage.ts": `${sources["lib/storage.ts"]} import type { NormalizedBrand } from "./storage-normalization/brand";`,
+    "lib/storage-normalization/brand.ts": `${sources["lib/storage-normalization/brand.ts"]} import "../storage"; import type { LegacyState } from "../storage";`,
+  }));
+  assert.equal(cyclic.passed, false);
+  assert.deepEqual(cyclic.boundaryViolations, []);
+  assert.deepEqual(cyclic.runtimeCycles.map((cycle) => cycle.members), [["src/lib/storage-normalization/brand.ts", "src/lib/storage.ts"]]);
+  assert.deepEqual(cyclic.typeCycles.map((cycle) => cycle.members), [["src/lib/storage-normalization/brand.ts", "src/lib/storage.ts"]]);
+});
+
+test("keeps popup bookmark sessions in assembly with one-way legacy dependencies and independent cycle checks", (t) => {
+  const sources = {
+    "popup/popup-app.tsx": 'import "./hooks/use-bookmark-session"; import "../lib/state-store";',
+    "popup/hooks/use-bookmark-session.ts": 'import { importBookmarks } from "../../lib/bookmark-manager"; import type { BookmarksApi } from "../../lib/browser-runtime"; import { getBookmarkSiteIds } from "../bookmark-tree"; export interface BookmarkSession {}',
+    "popup/hooks/use-unreviewed.ts": "export const value = 1;",
+    "popup/bookmark-tree.tsx": "export const getBookmarkSiteIds = () => [];",
+    "lib/state-store.ts": "export const createStore = () => ({});",
+    "lib/bookmark-manager.ts": "export const importBookmarks = () => [];",
+    "lib/browser-runtime.ts": "export interface BookmarksApi {}",
+  };
+  const allowed = analyzeArchitecture(fixture(t, sources));
+  assert.equal(allowed.passed, true);
+  assert.deepEqual(allowed.runtimeCycles, []);
+  assert.deepEqual(allowed.typeCycles, []);
+  assert.deepEqual(allowed.unresolved, []);
+  assert.equal(allowed.ownershipCoverage.find((item) => item.file === "src/popup/hooks/use-bookmark-session.ts").owner, "assembly");
+  assert.equal(allowed.ownershipCoverage.find((item) => item.file === "src/popup/hooks/use-unreviewed.ts").owner, "unknown");
+
+  const reversed = analyzeArchitecture(fixture(t, {
+    ...sources,
+    "features/bookmarks/model/reverse.ts": 'import "../../../popup/hooks/use-bookmark-session"; import type { BookmarkSession } from "../../../popup/hooks/use-bookmark-session";',
+    "shared/bookmarks.ts": 'import "../popup/hooks/use-bookmark-session"; import type { BookmarkSession } from "../popup/hooks/use-bookmark-session";',
+  }));
+  assert.equal(reversed.passed, false);
+  assert.deepEqual(reversed.unresolved, []);
+  assert.deepEqual(reversed.boundaryViolations.map(({ from, to, kind }) => ({ from, to, kind })), [
+    { from: "src/features/bookmarks/model/reverse.ts", to: "src/popup/hooks/use-bookmark-session.ts", kind: "runtime" },
+    { from: "src/features/bookmarks/model/reverse.ts", to: "src/popup/hooks/use-bookmark-session.ts", kind: "type" },
+    { from: "src/shared/bookmarks.ts", to: "src/popup/hooks/use-bookmark-session.ts", kind: "runtime" },
+    { from: "src/shared/bookmarks.ts", to: "src/popup/hooks/use-bookmark-session.ts", kind: "type" },
+  ]);
+
+  const cyclic = analyzeArchitecture(fixture(t, {
+    ...sources,
+    "lib/bookmark-manager.ts": `${sources["lib/bookmark-manager.ts"]} import "../popup/hooks/use-bookmark-session";`,
+    "lib/browser-runtime.ts": `${sources["lib/browser-runtime.ts"]} import type { BookmarkSession } from "../popup/hooks/use-bookmark-session";`,
+  }));
+  assert.equal(cyclic.passed, false);
+  assert.deepEqual(cyclic.boundaryViolations, []);
+  assert.deepEqual(cyclic.runtimeCycles.map((cycle) => cycle.members), [["src/lib/bookmark-manager.ts", "src/popup/hooks/use-bookmark-session.ts"]]);
+  assert.deepEqual(cyclic.typeCycles.map((cycle) => cycle.members), [["src/lib/browser-runtime.ts", "src/popup/hooks/use-bookmark-session.ts"]]);
+});
+
 test("reports reviewed legacy cross-business edges without guessing ownership of mixed files", (t) => {
   const report = analyzeArchitecture(fixture(t, {
     "components/github-home-entry.tsx": 'import "./site-card"; import "../lib/site-utils";',
