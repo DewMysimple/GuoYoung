@@ -27,7 +27,9 @@ function zone(file) {
 // Reviewed file-level ownership, not filename heuristics. Mixed/unknown modules
 // remain explicit; this partial map does not claim all legacy business borders.
 const reviewedOwnership = Object.fromEntries(Object.entries({
-  assembly: ["App.tsx", "main.tsx", "background.ts", "lib/app-startup.ts", "popup/main.tsx", "popup/popup-app.tsx"],
+  // These app Hooks own temporary sessions and coordinate legacy services/UI and
+  // useSiteHub commands; their domain models remain separate pure dependencies.
+  assembly: ["App.tsx", "main.tsx", "background.ts", "app/hooks/use-github-repository-workflow.ts", "app/hooks/use-collection-search-session.ts", "lib/app-startup.ts", "popup/main.tsx", "popup/popup-app.tsx"],
   collection: ["lib/collection-search.ts", "lib/collection-selection.ts", "lib/site-notes.ts", "lib/grouped-sites.ts", "components/site-card.tsx", "components/site-dialog.tsx", "components/add-site-card.tsx", "components/collection-site-grid.tsx", "hooks/use-collection-selection.ts", "hooks/use-site-dragging.ts", "hooks/use-site-click-guard.ts"],
   groups: ["lib/group-sort.ts", "lib/collection-drag-ids.ts", "lib/collection-drag-geometry.ts", "lib/collection-drag-sensors.ts", "hooks/use-group-sort-session.ts", "hooks/use-group-sorting.ts", "components/group-dialog.tsx", "components/grouped-collection.tsx", "components/group-section-nav.tsx", "components/group-section-header.tsx", "components/group-drop-target.tsx", "components/group-insert-control.tsx", "components/group-sort-preview.tsx", "components/new-group-dialog.tsx", "components/sortable-group-section.tsx"],
   github: ["lib/github-workspace.ts", "lib/github-repository-api.ts", "components/github-home-entry.tsx", "components/github-refresh-details-dialog.tsx", "components/github-repository-import-dialog.tsx"],

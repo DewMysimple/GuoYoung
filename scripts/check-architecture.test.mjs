@@ -132,6 +132,54 @@ test("keeps group and GitHub extraction entrypoints compatible without allowing 
   assert.equal(report.passed, false);
 });
 
+test("keeps reviewed app workflows above legacy services and pure models without weakening reverse boundaries or cycles", (t) => {
+  const sources = {
+    "App.tsx": 'import "./app/hooks/use-github-repository-workflow"; import "./app/hooks/use-collection-search-session";',
+    "app/hooks/use-github-repository-workflow.ts": 'import { read } from "../../lib/github-repository-api"; import type { Report } from "../../components/github-refresh-details-dialog"; import { deduplicate } from "../../features/github/model/repository-refresh"; export interface Session { report: Report }',
+    "app/hooks/use-collection-search-session.ts": 'import { searchWeb } from "../../lib/browser-search"; import type { SiteGroup } from "../../types"; export interface SearchSession { groups: SiteGroup[] }',
+    "app/hooks/use-unreviewed-session.ts": "export const unreviewed = 1;",
+    "lib/github-repository-api.ts": "export const read = () => [];",
+    "lib/browser-search.ts": "export const searchWeb = () => {};",
+    "components/github-refresh-details-dialog.tsx": "export interface Report { entries: unknown[] }",
+    "features/github/model/repository-refresh.ts": 'import type { SiteGroup } from "../../../types"; export const deduplicate = (groups: SiteGroup[]) => groups;',
+    "types.ts": "export interface SiteGroup { id: string }",
+  };
+  const allowed = analyzeArchitecture(fixture(t, sources));
+  assert.equal(allowed.passed, true);
+  assert.equal(allowed.runtimeEdgeCount, 5);
+  assert.equal(allowed.typeEdgeCount, 3);
+  assert.deepEqual(allowed.boundaryViolations, []);
+  assert.deepEqual(allowed.unresolved, []);
+  for (const file of ["src/app/hooks/use-github-repository-workflow.ts", "src/app/hooks/use-collection-search-session.ts"]) {
+    assert.equal(allowed.ownershipCoverage.find((item) => item.file === file).owner, "assembly");
+  }
+  assert.equal(allowed.ownershipCoverage.find((item) => item.file === "src/app/hooks/use-unreviewed-session.ts").owner, "unknown");
+
+  const reversed = analyzeArchitecture(fixture(t, {
+    ...sources,
+    "features/collection/model/reverse.ts": 'import "../../../app/hooks/use-github-repository-workflow"; import type { SearchSession } from "../../../app/hooks/use-collection-search-session";',
+    "shared/tool.ts": 'import "../app/hooks/use-github-repository-workflow"; import type { SearchSession } from "../app/hooks/use-collection-search-session";',
+  }));
+  assert.equal(reversed.passed, false);
+  assert.deepEqual(reversed.unresolved, []);
+  assert.deepEqual(reversed.boundaryViolations.map(({ from, to, kind }) => ({ from, to, kind })), [
+    { from: "src/features/collection/model/reverse.ts", to: "src/app/hooks/use-collection-search-session.ts", kind: "type" },
+    { from: "src/features/collection/model/reverse.ts", to: "src/app/hooks/use-github-repository-workflow.ts", kind: "runtime" },
+    { from: "src/shared/tool.ts", to: "src/app/hooks/use-collection-search-session.ts", kind: "type" },
+    { from: "src/shared/tool.ts", to: "src/app/hooks/use-github-repository-workflow.ts", kind: "runtime" },
+  ]);
+
+  const cyclic = analyzeArchitecture(fixture(t, {
+    ...sources,
+    "lib/github-repository-api.ts": 'import "../app/hooks/use-github-repository-workflow"; export const read = () => [];',
+    "components/github-refresh-details-dialog.tsx": 'import type { Session } from "../app/hooks/use-github-repository-workflow"; export interface Report { session?: Session }',
+  }));
+  assert.equal(cyclic.passed, false);
+  assert.deepEqual(cyclic.boundaryViolations, []);
+  assert.deepEqual(cyclic.runtimeCycles.map((cycle) => cycle.members), [["src/app/hooks/use-github-repository-workflow.ts", "src/lib/github-repository-api.ts"]]);
+  assert.deepEqual(cyclic.typeCycles.map((cycle) => cycle.members), [["src/app/hooks/use-github-repository-workflow.ts", "src/components/github-refresh-details-dialog.tsx"]]);
+});
+
 test("reports reviewed legacy cross-business edges without guessing ownership of mixed files", (t) => {
   const report = analyzeArchitecture(fixture(t, {
     "components/github-home-entry.tsx": 'import "./site-card"; import "../lib/site-utils";',

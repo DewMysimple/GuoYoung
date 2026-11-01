@@ -19,9 +19,6 @@ import {
   useState,
   useCallback,
   type CSSProperties,
-  type FocusEvent,
-  type FormEvent,
-  type KeyboardEvent,
 } from "react";
 import {
   DndContext,
@@ -74,17 +71,10 @@ import { NewGroupDialog } from "./components/new-group-dialog";
 import { GroupSortDragPreview } from "./components/group-sort-preview";
 import { GithubHomeEntry } from "./components/github-home-entry";
 import { GithubRepositoryImportDialog } from "./components/github-repository-import-dialog";
-import {
-  createGithubRefreshNotice,
-  deduplicateGithubRefreshSources,
-  orderGithubRefreshEntries,
-} from "./features/github/model/repository-refresh";
+import { useGithubRepositoryWorkflow } from "./app/hooks/use-github-repository-workflow";
+import { useCollectionSearchSession } from "./app/hooks/use-collection-search-session";
 import { SelectMenu } from "./components/select-menu";
-import {
-  GithubRefreshDetailsDialog,
-  type GithubRefreshReport,
-  type GithubRefreshReportEntry,
-} from "./components/github-refresh-details-dialog";
+import { GithubRefreshDetailsDialog } from "./components/github-refresh-details-dialog";
 import { GroupedCollection } from "./components/grouped-collection";
 import { CollectionSiteGrid } from "./components/collection-site-grid";
 import {
@@ -114,7 +104,6 @@ import {
   requestHistoryPermission,
   type BrowserHistoryPermissionResult,
 } from "./lib/browser-history";
-import { searchWeb } from "./lib/browser-search";
 import type { DroppedSitePreview } from "./lib/external-link-drop";
 import {
   groupSortIntentFromTargetIndex,
@@ -125,9 +114,6 @@ import {
 } from "./lib/site-utils";
 import { getGroupedSiteSections } from "./lib/grouped-sites";
 import type {
-  GithubRepositoryBatchImport,
-} from "./lib/site-state";
-import type {
   CategoryIcon as GroupIconName,
   SiteFormValues,
   SiteGroup,
@@ -135,11 +121,6 @@ import type {
   SiteSortMode,
   SiteWorkspace,
 } from "./types";
-import {
-  fetchGithubOwnerRepositories,
-  formatGithubRepositoryError,
-  type GithubOwnerRepositories,
-} from "./lib/github-repository-api";
 import {
   findGithubHomeSite,
   getGroupWorkspace,
@@ -149,11 +130,6 @@ import {
 } from "./lib/github-workspace";
 
 type GroupFilter = "all" | string;
-type CollectionSearchOrigin = {
-  workspace: SiteWorkspace;
-  groupId: GroupFilter;
-};
-
 const SORT_OPTIONS: Array<{ value: SiteSortMode; label: string }> = [
   { value: "manual", label: "手动排列" },
   { value: "name-asc", label: "名称 A–Z" },
@@ -233,7 +209,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     };
   }, [wallpaperUrl]);
   const reduceMotion = useReducedMotion();
-  const [query, setQuery] = useState("");
   const [activeGroupId, setActiveGroupId] = useState<GroupFilter>("all");
   const [siteDialogOpen, setSiteDialogOpen] = useState(false);
   const [dialogGroupId, setDialogGroupId] = useState<string>();
@@ -265,27 +240,60 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const [dragSitesPreview, setDragSitesPreview] = useState<SiteItem[] | null>(
     null,
   );
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [browserHistoryOpen, setBrowserHistoryOpen] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<SiteWorkspace>("main");
   const [historyPermissionVersion, setHistoryPermissionVersion] = useState(0);
   const [historyPermissionError, setHistoryPermissionError] = useState<string | null>(
     null,
   );
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [githubImportOpen, setGithubImportOpen] = useState(false);
-  const [githubImportInitialUrl, setGithubImportInitialUrl] = useState("");
-  const [githubImportPreview, setGithubImportPreview] =
-    useState<GithubOwnerRepositories | null>(null);
-  const [githubImportLoading, setGithubImportLoading] = useState(false);
-  const [githubImportConfirming, setGithubImportConfirming] = useState(false);
-  const [githubImportError, setGithubImportError] = useState<string | null>(null);
-  const [githubBulkRefreshLoading, setGithubBulkRefreshLoading] = useState(false);
-  const [githubRefreshReport, setGithubRefreshReport] =
-    useState<GithubRefreshReport | null>(null);
+  const {
+    query,
+    historyOpen,
+    historyIndex,
+    setCollectionQuery,
+    resetCollectionQuery,
+    dismissHistory,
+    handleSearchFocus,
+    handleSearchBlur,
+    handleSearchKeyDown,
+    handleSearchSubmit,
+    activateHistoryQuery,
+  } = useCollectionSearchSession({
+    activeWorkspace,
+    activeGroupId,
+    groups: state.groups,
+    searchHistory: state.searchHistory,
+    setActiveWorkspace,
+    setActiveGroupId,
+    recordSearch,
+    onNotice: setTransferNotice,
+  });
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const {
+    githubImportOpen,
+    githubImportInitialUrl,
+    githubImportPreview,
+    githubImportLoading,
+    githubImportConfirming,
+    githubImportError,
+    githubBulkRefreshLoading,
+    githubRefreshReport,
+    openGithubRepositoryImport,
+    handleGithubRepositoryRead,
+    handleGithubRepositoryConfirm,
+    closeGithubRepositoryImport,
+    openGithubRefresh,
+    handleGithubHomeRefresh,
+    closeGithubRefreshReport,
+  } = useGithubRepositoryWorkflow({
+    groups: state.groups,
+    importGithubRepositories,
+    importGithubRepositoryBatch,
+    onSelectGroup: setActiveGroupId,
+    onNotice: setTransferNotice,
+    onCloseAddMenu: () => setAddMenuOpen(false),
+  });
   const addMenuRef = useRef<HTMLDivElement>(null);
-  const collectionSearchOriginRef = useRef<CollectionSearchOrigin | null>(null);
   const armedDeleteTimerRef = useRef<number | null>(null);
   const sortMode: SiteSortMode =
     state.sortModeByWorkspace[activeWorkspace] ?? state.sortMode ?? "manual";
@@ -710,42 +718,10 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   function selectGroup(groupId: GroupFilter) {
     clearArmedDelete();
     if (query.trim()) {
-      collectionSearchOriginRef.current = null;
-      setQuery("");
+      resetCollectionQuery();
     }
     setActiveGroupId(groupId);
     cancelSelection();
-  }
-
-  function setCollectionQuery(nextQuery: string) {
-    const nextIsSearching = Boolean(nextQuery.trim());
-    const wasSearching = Boolean(query.trim());
-
-    if (nextIsSearching && !wasSearching) {
-      collectionSearchOriginRef.current = {
-        workspace: activeWorkspace,
-        groupId: activeGroupId,
-      };
-      setActiveGroupId("all");
-    } else if (!nextIsSearching && wasSearching) {
-      const origin = collectionSearchOriginRef.current;
-      collectionSearchOriginRef.current = null;
-      if (origin) {
-        const originGroups = getWorkspaceGroups(state.groups, origin.workspace);
-        const originGroupStillExists =
-          origin.groupId === "all" ||
-          originGroups.some((group) => group.id === origin.groupId);
-        setActiveWorkspace(origin.workspace);
-        setActiveGroupId(originGroupStillExists ? origin.groupId : "all");
-      }
-    }
-
-    setQuery(nextQuery);
-  }
-
-  function resetCollectionQuery() {
-    collectionSearchOriginRef.current = null;
-    setQuery("");
   }
 
   function openGroupManager(groupId?: string) {
@@ -855,66 +831,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     setNewGroupInsertionContext(undefined);
   }
 
-  async function performSearch(text: string) {
-    const normalized = text.trim();
-    if (!normalized) return;
-    setHistoryOpen(false);
-    void recordSearch(normalized).catch(() => {
-      setTransferNotice({
-        kind: "error",
-        message: "搜索已发起，但这条历史记录未能保存。",
-      });
-    });
-    try {
-      await searchWeb(normalized);
-    } catch {
-      setTransferNotice({
-        kind: "error",
-        message: "无法调用浏览器搜索，请稍后重试。",
-      });
-    }
-  }
-
-  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void performSearch(query);
-  }
-
-  function handleSearchBlur(event: FocusEvent<HTMLElement>) {
-    const next = event.relatedTarget;
-    if (next instanceof Node && event.currentTarget.closest(".search-panel")?.contains(next)) return;
-    setHistoryOpen(false);
-  }
-
-  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (query.trim() || !historyOpen || state.searchHistory.length === 0) return;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setHistoryIndex((current) =>
-        Math.min(state.searchHistory.length - 1, current + 1),
-      );
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setHistoryIndex((current) => Math.max(-1, current - 1));
-    } else if (event.key === "Escape") {
-      setHistoryOpen(false);
-      setHistoryIndex(-1);
-    } else if (event.key === "Enter" && historyIndex >= 0) {
-      event.preventDefault();
-      const historyQuery = state.searchHistory[historyIndex]?.query;
-      if (historyQuery) {
-        setCollectionQuery(historyQuery);
-        void performSearch(historyQuery);
-      }
-    }
-  }
-
   function openData(mode: "import" | "export" = "import", groupId?: string) {
     setGroupDialogOpen(false);
     setSettingsOpen(false);
     setSettingsPreview(null);
     setDataContext({ mode, groupId });
-    setHistoryOpen(false);
+    dismissHistory();
     setAddMenuOpen(false);
     dismissBrowserHistoryLayer();
     document.documentElement.scrollTop = 0;
@@ -1012,150 +934,6 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     setDialogGroupId(targetGroup.id);
     setSiteDialogPrefill({ name: "GitHub", url: "https://github.com/" });
     setSiteDialogOpen(true);
-  }
-
-  function openGithubRepositoryImport(profileUrl = "") {
-    setAddMenuOpen(false);
-    setGithubImportInitialUrl(profileUrl);
-    setGithubImportPreview(null);
-    setGithubImportError(null);
-    setGithubImportOpen(true);
-  }
-
-  async function handleGithubRepositoryRead(input: string) {
-    setGithubImportLoading(true);
-    setGithubImportError(null);
-    setGithubImportPreview(null);
-    try {
-      const result = await fetchGithubOwnerRepositories(input);
-      if (result.repositories.length === 0) {
-        setGithubImportError("这个作者或组织没有可导入的公开仓库。");
-        return;
-      }
-      setGithubImportPreview(result);
-    } catch (error) {
-      setGithubImportError(formatGithubRepositoryError(error));
-    } finally {
-      setGithubImportLoading(false);
-    }
-  }
-
-  function handleGithubRepositoryConfirm(selectedIds: Set<number>) {
-    if (!githubImportPreview || selectedIds.size === 0) return;
-    setGithubImportConfirming(true);
-    try {
-      const result = importGithubRepositories(
-        githubImportPreview.owner,
-        githubImportPreview.repositories,
-        selectedIds,
-      );
-      setGithubImportOpen(false);
-      setGithubImportPreview(null);
-      setGithubImportError(null);
-      setTransferNotice({
-        kind: "success",
-        message: result.added > 0
-          ? `已将 ${result.added} 个仓库添加到“${result.group?.name ?? githubImportPreview.owner.login}”，跳过 ${result.skipped} 个重复项。`
-          : `没有新增仓库，已跳过 ${result.skipped} 个重复项。`,
-      });
-      if (result.group) setActiveGroupId(result.group.id);
-    } catch (error) {
-      setGithubImportError(error instanceof Error ? error.message : "导入失败，请稍后重试。");
-    } finally {
-      setGithubImportConfirming(false);
-    }
-  }
-
-  function closeGithubRepositoryImport(open: boolean) {
-    setGithubImportOpen(open);
-    if (!open) {
-      setGithubImportPreview(null);
-      setGithubImportError(null);
-      setGithubImportInitialUrl("");
-    }
-  }
-
-  function openGithubRefresh(group: SiteGroup) {
-    const source = group.githubImportSource;
-    if (!source) return;
-    openGithubRepositoryImport(source.profileUrl);
-  }
-
-  async function handleGithubHomeRefresh() {
-    if (githubBulkRefreshLoading) return;
-    setGithubRefreshReport(null);
-    const sources = deduplicateGithubRefreshSources(
-      state.groups
-        .filter(
-          (group) =>
-            getGroupWorkspace(group) === "github" && group.githubImportSource,
-        )
-        .map((group) => group.githubImportSource!),
-    );
-
-    if (sources.length === 0) {
-      openGithubRepositoryImport();
-      return;
-    }
-
-    setGithubBulkRefreshLoading(true);
-    const imports: GithubRepositoryBatchImport[] = [];
-    const failures: GithubRefreshReportEntry[] = [];
-    try {
-      for (const source of sources) {
-        try {
-          imports.push(await fetchGithubOwnerRepositories(source.profileUrl));
-        } catch (error) {
-          failures.push({
-            owner: source,
-            addedRepositories: [],
-            skipped: 0,
-            skippedActive: 0,
-            skippedDeleted: 0,
-            error: formatGithubRepositoryError(error),
-          });
-        }
-      }
-
-      if (imports.length === 0) {
-        setGithubRefreshReport({
-          refreshedAt: new Date().toISOString(),
-          refreshedOwners: sources.length,
-          added: 0,
-          skipped: 0,
-          failed: failures.length,
-          entries: failures,
-        });
-        setTransferNotice({
-          kind: "error",
-          message: `全部 ${sources.length} 个作者仓库刷新失败。`,
-        });
-        return;
-      }
-
-      const result = importGithubRepositoryBatch(imports);
-      const entries = orderGithubRefreshEntries<GithubRefreshReportEntry>(
-        sources,
-        result.details,
-        failures,
-      );
-      setGithubRefreshReport({
-        refreshedAt: new Date().toISOString(),
-        refreshedOwners: sources.length,
-        added: result.added,
-        skipped: result.skipped,
-        failed: failures.length,
-        entries,
-      });
-      setTransferNotice(createGithubRefreshNotice(
-        imports.length,
-        result.added,
-        result.skipped,
-        failures.length,
-      ));
-    } finally {
-      setGithubBulkRefreshLoading(false);
-    }
   }
 
   const collectionTitle =
@@ -1441,7 +1219,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
           <>
         <WorkspaceSearch value={query} onChange={setCollectionQuery} label="搜索网页或筛选收藏" placeholder="筛选收藏，支持拼音、首字母缩写"
           description="输入筛选收藏，按 Enter 搜索网页"
-          onSubmit={handleSearchSubmit} inputProps={{ id: "site-search", onFocus: () => { setHistoryOpen(true); setHistoryIndex(-1); },
+          onSubmit={handleSearchSubmit} inputProps={{ id: "site-search", onFocus: handleSearchFocus,
             onBlur: handleSearchBlur, onKeyDown: handleSearchKeyDown }}>
             {historyOpen && !query.trim() && state.searchHistory.length > 0 && (
               <div className="search-history" role="listbox" aria-label="最近搜索" onBlur={handleSearchBlur}>
@@ -1468,10 +1246,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                       type="button"
                       className="search-history-query"
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setCollectionQuery(entry.query);
-                        void performSearch(entry.query);
-                      }}
+                      onClick={() => activateHistoryQuery(entry.query)}
                     >
                       <ClockCounterClockwise size={16} />
                       <span>{entry.query}</span>
@@ -1867,9 +1642,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       <GithubRefreshDetailsDialog
         open={Boolean(githubRefreshReport)}
         report={githubRefreshReport}
-        onOpenChange={(open) => {
-          if (!open) setGithubRefreshReport(null);
-        }}
+        onOpenChange={closeGithubRefreshReport}
       />
 
       <NewGroupDialog
