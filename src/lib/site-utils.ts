@@ -1,4 +1,5 @@
 import { collectionSearchScore } from "./collection-search";
+import { getGroupPath } from "./group-hierarchy";
 import type { SiteGroup, SiteIconSource, SiteItem } from "../types";
 import { getBrowserFaviconUrl, getBrowserFaviconUrls } from "./browser-runtime";
 import { getHostname } from "../features/collection/model/site-url";
@@ -127,7 +128,8 @@ export function filterSites(
   groupId: string | "all" = "all",
 ): SiteItem[] {
   const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");
-  const groupNames = new Map(groups.map((group) => [group.id, group.name]));
+  const groupNames = new Map(groups.map((group) => [group.id,
+    normalizedQuery ? getGroupPath(groups, group.id) : group.name]));
 
   const eligible = [...sites]
     .sort((a, b) =>
@@ -137,7 +139,7 @@ export function filterSites(
     )
     .filter(
       (site) =>
-        groups.some((group) => group.id === site.groupId) &&
+        groupNames.has(site.groupId) &&
         (groupId === "all" || site.groupId === groupId),
     )
     ;

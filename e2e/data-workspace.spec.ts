@@ -87,3 +87,47 @@ test("exports selected groups and reopens the collection as a selectable import"
   await page.goBack();
   await expect(page.getByRole("region", { name: "数据页面" })).toHaveCount(0);
 });
+
+test("imports and exports a parent package with child folders and mixed order", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "Desktop hierarchical data transfer");
+  const hierarchy = {
+    ...payload, exportVersion: 2,
+    children: [
+      { group: { name: "子组资源", icon: "folder" }, sites: [{ name: "Child Example", url: "https://child-data.example", order: 0 }] },
+      { group: { name: "空子组", icon: "folder" }, sites: [] },
+    ],
+    entryOrder: [{ kind: "folder", index: 0 }, { kind: "site", index: 0 }, { kind: "folder", index: 1 }],
+  };
+  await page.getByRole("button", { name: "打开数据" }).click();
+  await page.getByLabel("选择要导入的数据文件").setInputFiles({
+    name: "hierarchy.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(hierarchy)),
+  });
+  const inheritedChild = page.getByRole("checkbox", { name: /共享收藏 \/ 子组资源/ });
+  await expect(inheritedChild).toBeChecked();
+  await expect(inheritedChild).toBeDisabled();
+  await expect(page.getByText("已选择 3 / 3 个分组")).toBeVisible();
+  await page.screenshot({ path: screenshotPath("data-import-folder-package.png"), fullPage: true });
+  await page.getByRole("button", { name: "预览并导入" }).click();
+  await page.getByRole("button", { name: "确认导入", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "已导入 2 个网站，跳过 0 个链接，新建 3 个分组。" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("link", { name: "打开 Data Example" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "打开 Child Example" })).toHaveCount(0);
+  await page.getByRole("button", { name: "打开数据" }).click();
+  await page.getByRole("button", { name: "导出", exact: true }).click();
+  await page.getByRole("button", { name: /指定分组/ }).click();
+  await page.getByRole("checkbox", { name: /^共享收藏 收藏主页/ }).check();
+  await expect(page.getByRole("checkbox", { name: /共享收藏 \/ 空子组/ })).toBeChecked();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出 JSON" }).click();
+  const downloaded = await download;
+  const exported = JSON.parse(await readFile((await downloaded.path())!, "utf8"));
+  expect(exported).toMatchObject({
+    exportVersion: 2,
+    group: hierarchy.group,
+    entryOrder: hierarchy.entryOrder,
+    children: hierarchy.children,
+  });
+  expect(exported.sites.map((site: { name: string }) => site.name)).toEqual(["Data Example"]);
+});

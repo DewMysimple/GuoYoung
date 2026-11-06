@@ -42,9 +42,9 @@ function setup() {
     control: () => { controlled = true; save.mockClear(); } };
 }
 
-async function selectFile(name = "synthetic.json") {
+async function selectFile(name = "synthetic.json", content: unknown = payload) {
   fireEvent.change(screen.getByLabelText("选择要导入的数据文件"), {
-    target: { files: [{ name, text: async () => JSON.stringify(payload) }] },
+    target: { files: [{ name, text: async () => JSON.stringify(content) }] },
   });
   await screen.findByText(name);
 }
@@ -55,6 +55,34 @@ async function confirm() {
 }
 
 describe("data import persistence feedback", () => {
+  it("includes a selected parent's child in preview and saves both in one acknowledged operation", async () => {
+    const app = setup();
+    await waitFor(() => expect(app.save).toHaveBeenCalled());
+    app.control();
+    await selectFile("hierarchy.json", {
+      ...payload, exportVersion: 2,
+      children: [{ group: { name: "Child", icon: "folder" }, sites: [
+        { name: "Child link", url: "https://child.import.example", order: 0 },
+      ] }],
+      entryOrder: [{ kind: "folder", index: 0 }, { kind: "site", index: 0 }],
+    });
+    const inherited = screen.getByRole("checkbox", { name: /Synthetic import \/ Child/ });
+    expect(inherited).toBeChecked();
+    expect(inherited).toBeDisabled();
+    expect(screen.getByText("所选父组中的子分组会随链接一起导入。")).toBeVisible();
+    await confirm();
+    expect(app.imported).toHaveBeenCalledTimes(1);
+    expect(app.save).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/^已导入/)).toBeNull();
+    await act(async () => app.pending[0].resolve());
+    expect(screen.getByRole("status")).toHaveTextContent("已导入 2 个网站，跳过 0 个链接，新建 2 个分组。");
+    const parent = app.persisted().groups.find(group => group.name === "Synthetic import")!;
+    const child = app.persisted().groups.find(group => group.name === "Child")!;
+    expect(child.parentId).toBe(parent.id);
+    expect(parent.entryOrder?.[0]).toBe(`folder:${child.id}`);
+    expect(app.persisted().sites.find(site => site.name === "Child link")?.groupId).toBe(child.id);
+  });
+
   it("waits for the save receipt, prevents duplicate confirmation and uses executed statistics", async () => {
     const app = setup();
     await waitFor(() => expect(app.save).toHaveBeenCalled());

@@ -8,6 +8,7 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
+  alternateAction?: { label: string; onClick: () => void };
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }
@@ -19,6 +20,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = "取消",
   destructive = false,
+  alternateAction,
   onOpenChange,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -40,6 +42,11 @@ export function ConfirmDialog({
                 {cancelLabel}
               </button>
             </AlertDialog.Cancel>
+            {alternateAction && <AlertDialog.Action asChild>
+              <button type="button" className="button destructive-button" onClick={alternateAction.onClick}>
+                {alternateAction.label}
+              </button>
+            </AlertDialog.Action>}
             <AlertDialog.Action asChild>
               <button
                 type="button"

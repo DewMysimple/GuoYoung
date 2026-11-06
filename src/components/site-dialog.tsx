@@ -10,6 +10,7 @@ import {
 } from "../lib/site-utils";
 import { isGithubHomeUrl, isGithubUrl } from "../lib/github-workspace";
 import { findSiteByUrl } from "../lib/site-state";
+import { getGroupPath, getGroupsInTreeOrder } from "../lib/group-hierarchy";
 import type {
   SiteFormValues,
   SiteGroup,
@@ -374,9 +375,7 @@ export function SiteDialog({
               <fieldset className="field-group">
               <legend>分组</legend>
               <div className="category-choice-grid">
-                {groups
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
+                {getGroupsInTreeOrder(groups.slice().sort((a, b) => a.order - b.order))
                   .map((group) => (
                   <label
                     key={group.id}
@@ -392,7 +391,7 @@ export function SiteDialog({
                       onChange={() => update("groupId", group.id)}
                     />
                     <CategoryIcon name={group.icon} size={17} />
-                    <span>{group.name}</span>
+                    <span>{getGroupPath(groups, group.id)}</span>
                   </label>
                   ))}
               </div>

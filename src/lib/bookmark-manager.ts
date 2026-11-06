@@ -11,6 +11,7 @@ import {
   findSiteByUrl,
 } from "./site-state";
 import { getWorkspaceGroups } from "./github-workspace";
+import { getRootGroups } from "./group-hierarchy";
 
 export interface IndexedBookmarkNode {
   node: BrowserBookmarkTreeNode;
@@ -104,10 +105,10 @@ export function importSelectedBookmarks(
 
     let groupId = fallbackGroupId;
     if (entry.mappedGroupName) {
-      let group = findGroupByName(getWorkspaceGroups(next.groups, "main"), entry.mappedGroupName);
+      let group = findGroupByName(getRootGroups(getWorkspaceGroups(next.groups, "main")), entry.mappedGroupName);
       if (!group) {
         next = addGroupToState(next, entry.mappedGroupName, "stack");
-        group = findGroupByName(getWorkspaceGroups(next.groups, "main"), entry.mappedGroupName);
+        group = findGroupByName(getRootGroups(getWorkspaceGroups(next.groups, "main")), entry.mappedGroupName);
       }
       if (group) groupId = group.id;
     }

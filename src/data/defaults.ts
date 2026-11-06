@@ -329,9 +329,11 @@ export const DEFAULT_SITES: SiteItem[] = [
   ),
 ];
 
+export const STATE_VERSION = 29;
+
 export function createDefaultState(): SiteCollectionState {
   return {
-    version: 28,
+    version: STATE_VERSION,
     groups: [
       ...DEFAULT_GROUPS.map((group) => ({ ...group })),
       ...DEFAULT_GITHUB_GROUPS.map((group) => ({ ...group })),

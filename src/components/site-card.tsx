@@ -22,6 +22,7 @@ interface SiteCardProps {
   site: SiteItem;
   group: SiteGroup;
   workspaceLabel?: string;
+  groupLabel?: string;
   showClickCount?: boolean;
   showNotes?: boolean;
   dragMode: SiteDragMode;
@@ -96,6 +97,7 @@ function SiteCardFrame({
   site,
   group,
   workspaceLabel,
+  groupLabel,
   showClickCount = false,
   showNotes = true,
   dragMode,
@@ -236,7 +238,7 @@ function SiteCardFrame({
         )}{showNotes && site.note && <span className="site-note" title={site.note}>{site.note}</span>}</>} footer={<div className="site-category">
         <span className="site-category-group">
           <CategoryIcon name={group.icon} size={15} />
-          <span>{group.name}</span>
+          <span title={groupLabel}>{groupLabel ?? group.name}</span>
         </span>
         {workspaceLabel && (
           <span className="site-workspace-label">{workspaceLabel}</span>

@@ -61,12 +61,12 @@ export function captureStableDropGeometry() {
     };
 
     const sites = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-site-dnd-id]"),
+      document.querySelectorAll<HTMLElement>("[data-site-dnd-id], [data-folder-dnd-id]"),
     ).map((element) =>
       readRect(
         element,
-        element.dataset.siteDndId!,
-        element.dataset.siteGroupId!,
+        (element.dataset.siteDndId ?? element.dataset.folderDndId)!,
+        (element.dataset.siteGroupId ?? element.dataset.folderParentId)!,
       ),
     );
     const groups = Array.from(

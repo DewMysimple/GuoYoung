@@ -10,6 +10,7 @@ import {
 } from "../../lib/bookmark-manager";
 import type { BrowserBookmarksApi, BrowserBookmarkTreeNode } from "../../lib/browser-runtime";
 import { getWorkspaceGroups } from "../../lib/github-workspace";
+import { getGroupsInTreeOrder, getRootGroups } from "../../lib/group-hierarchy";
 import type { SiteHubStore } from "../../lib/state-store";
 import type { SiteCollectionState, SiteGroup } from "../../types";
 import { getBookmarkSiteIds } from "../bookmark-tree";
@@ -46,7 +47,7 @@ export function useBookmarkSession({
   }, []);
 
   const defaultBookmarkGroup = mainGroups.find((group) => !group.isProtected) ?? mainGroups[0];
-  const folderIcons = useMemo(() => new Map(mainGroups.map((group) => [
+  const folderIcons = useMemo(() => new Map(getRootGroups(mainGroups).map((group) => [
     group.name.trim().toLocaleLowerCase("zh-CN"), group.icon,
   ] as const)), [mainGroups]);
 
@@ -120,7 +121,7 @@ export function useBookmarkSession({
     try {
       const loaded = await loadState();
       if (loaded.recovered) throw new Error("Invalid stored collection");
-      const freshMainGroups = getWorkspaceGroups(loaded.state.groups, "main");
+      const freshMainGroups = getGroupsInTreeOrder(getWorkspaceGroups(loaded.state.groups, "main"));
       const targetGroup = freshMainGroups.find((group) => group.id === bookmarkGroupId)
         ?? freshMainGroups.find((group) => !group.isProtected)
         ?? freshMainGroups[0];

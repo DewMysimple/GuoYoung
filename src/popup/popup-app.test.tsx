@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "../data/defaults";
 import { STORAGE_KEY } from "../lib/storage";
+import { addGroupToState } from "../lib/site-state";
 import type { SiteCollectionState } from "../types";
 import { PopupApp } from "./popup-app";
 
@@ -76,6 +77,21 @@ afterEach(() => {
 });
 
 describe("toolbar popup", () => {
+  it("labels a child by its path and saves the current page into that child via extension storage", async () => {
+    const state = addGroupToState(createDefaultState(), "灵感", "palette", "child", undefined, undefined, "main", "design");
+    const { set } = installChromeMock({ state });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    const target = await screen.findByRole("radio", { name: "设计 / 灵感" });
+    await user.click(target);
+    const save = screen.getByRole("button", { name: "添加到主页" });
+    await user.click(save);
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    expect(saved.groups.find(group => group.id === "child")?.parentId).toBe("design");
+    expect(saved.sites.find(site => site.url === "https://platform.openai.com/docs")?.groupId).toBe("child");
+  });
+
   it("creates a group and adds the current page in one write based on the latest collection", async () => {
     const state = createDefaultState();
     state.sites[0].note = "保留已有备注";

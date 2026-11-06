@@ -5,6 +5,7 @@ import {
   DEFAULT_GROUPS,
   GITHUB_OTHER_GROUP_ID,
   OTHER_GROUP_ID,
+  STATE_VERSION,
 } from "../data/defaults";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
 import { normalizeTypography } from "./typography";
@@ -33,6 +34,7 @@ import { isHttpImageUrl } from "./brand-logo";
 import { reindexSites } from "./site-utils";
 import { purgeExpiredTrashFromState } from "./site-state";
 import { ensureGithubWorkspace, getGroupWorkspace } from "./github-workspace";
+import { normalizeCollectionHierarchy } from "./group-hierarchy";
 
 export { normalizeBrand, normalizeWallpaper };
 
@@ -471,7 +473,7 @@ export function isSiteCollectionState(value: unknown): value is SiteCollectionSt
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
   return (
-    state.version === 28 &&
+    state.version === STATE_VERSION &&
     baseStateIsValid(state, true) &&
     (state.sites as Array<Record<string, unknown>>).every((site) =>
       hasValidClickCount(site.clickCount) && (site.note === undefined || typeof site.note === "string"),
@@ -565,6 +567,8 @@ function repairDuplicateOtherGroups(
     (group) =>
       getGroupWorkspace(group) === "main" &&
       !group.isProtected &&
+      group.parentId === undefined &&
+      !state.groups.some((child) => child.parentId === group.id) &&
       group.name.trim().toLocaleLowerCase("zh-CN") === protectedName,
   );
   if (!duplicates.length) return state;
@@ -920,6 +924,14 @@ function upgradeToVersion28(legacy: Record<string, unknown> | SiteCollectionStat
   return { ...candidate, version: 28, appearance: normalizeAppearance(candidate.appearance) };
 }
 
+function upgradeToVersion29(legacy: Record<string, unknown> | SiteCollectionState, sourceAppearance: unknown): SiteCollectionState | undefined {
+  const base = legacy.version === STATE_VERSION ? legacy : upgradeToVersion28(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  // Hierarchy fields are optional. The common read boundary normalizes them
+  // after compatibility repairs, without renumbering old site or group orders.
+  return { ...(base as SiteCollectionState), version: STATE_VERSION };
+}
+
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
   const now = new Date().toISOString();
   const ordinary = groups
@@ -1034,7 +1046,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
       const baseCandidate =
-        candidate.version === 28 || candidate.version === 27 || candidate.version === 26 || candidate.version === 25 || candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
+        candidate.version === STATE_VERSION || candidate.version === 28 || candidate.version === 27 || candidate.version === 26 || candidate.version === 25 || candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
           candidate.version === 18 ||
           candidate.version === 17 ||
           candidate.version === 16 ||
@@ -1050,7 +1062,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion28(baseCandidate, candidate.appearance)
+        ? upgradeToVersion29(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.
@@ -1061,43 +1073,45 @@ export function parseStoredState(raw: string | null): LoadedState {
         const sortMode = sortModes.includes(migrated.sortMode)
           ? migrated.sortMode
           : DEFAULT_SORT_MODE_BY_WORKSPACE.main;
-        return {
-          state: purgeExpiredTrashFromState(
-            repairDuplicateOtherGroups({
-              ...migrated,
-              groups: migrated.groups.map((group) => ({
-                ...group,
-                workspace: getGroupWorkspace(group),
-              })),
-              sites: migrated.sites.map((site) => ({
-                ...site,
-                note: normalizeSiteNote(site.note),
-                clickCount: normalizeClickCount(site.clickCount),
-              })),
-              deletedSites: normalizeDeletedSites(migrated.deletedSites),
-              trashRetentionDays: trashRetentionOptions.includes(migrated.trashRetentionDays)
-                ? migrated.trashRetentionDays
-                : 30,
-              githubMigration: migrated.githubMigration === undefined ||
-                isGithubMigrationRecord(migrated.githubMigration)
-                  ? migrated.githubMigration
-                  : null,
-              displayMode,
-              displayModeByWorkspace: normalizeDisplayModeByWorkspace(
-                migrated.displayModeByWorkspace,
-                displayMode,
-              ),
-              sortMode,
-              sortModeByWorkspace: normalizeSortModeByWorkspace(
-                migrated.sortModeByWorkspace,
-                sortMode,
-              ),
-              brand: normalizeBrand(migrated.brand),
-              appearance: normalizeAppearance(migrated.appearance),
-              wallpaper: normalizeWallpaper(migrated.wallpaper),
-              searchHistory: normalizeSearchHistory(migrated.searchHistory),
-            }),
+        const normalized: SiteCollectionState = {
+          ...migrated,
+          groups: migrated.groups.map((group) => ({
+            ...group,
+            workspace: getGroupWorkspace(group),
+          })),
+          sites: migrated.sites.map((site) => ({
+            ...site,
+            note: normalizeSiteNote(site.note),
+            clickCount: normalizeClickCount(site.clickCount),
+          })),
+          deletedSites: normalizeDeletedSites(migrated.deletedSites),
+          trashRetentionDays: trashRetentionOptions.includes(migrated.trashRetentionDays)
+            ? migrated.trashRetentionDays
+            : 30,
+          githubMigration: migrated.githubMigration === undefined ||
+            isGithubMigrationRecord(migrated.githubMigration)
+              ? migrated.githubMigration
+              : null,
+          displayMode,
+          displayModeByWorkspace: normalizeDisplayModeByWorkspace(
+            migrated.displayModeByWorkspace,
+            displayMode,
           ),
+          sortMode,
+          sortModeByWorkspace: normalizeSortModeByWorkspace(
+            migrated.sortModeByWorkspace,
+            sortMode,
+          ),
+          brand: normalizeBrand(migrated.brand),
+          appearance: normalizeAppearance(migrated.appearance),
+          wallpaper: normalizeWallpaper(migrated.wallpaper),
+          searchHistory: normalizeSearchHistory(migrated.searchHistory),
+        };
+        // The duplicate-Other repair only applies to legacy snapshots. A
+        // same-name folder promoted in v29 must survive the next read.
+        const collection = candidate.version === STATE_VERSION ? normalized : repairDuplicateOtherGroups(normalized);
+        return {
+          state: purgeExpiredTrashFromState(normalizeCollectionHierarchy(collection)),
           recovered: false,
         };
       }

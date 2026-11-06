@@ -1,0 +1,29 @@
+.folder-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+.folder-breadcrumb button {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.folder-breadcrumb button:hover {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.new-group-dialog.move-sites-dialog {
+  width: min(calc(100vw - 32px), 560px);
+  height: auto;
+  max-height: calc(100dvh - 40px);
+}

@@ -33,8 +33,11 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
+import { canParentGroup, getChildGroups, getGroupSiteCounts, getGroupSubtreeIds, getRootGroups } from "../lib/group-hierarchy";
+import { getGroupWorkspace } from "../lib/github-workspace";
 import type { CategoryIcon, SiteGroup, SiteItem } from "../types";
 import { CategoryIcon as GroupIcon } from "./category-icon";
+import { SelectMenu } from "./select-menu";
 
 interface GroupDialogProps {
   open: boolean;
@@ -42,9 +45,12 @@ interface GroupDialogProps {
   groups: SiteGroup[];
   sites: SiteItem[];
   onOpenChange: (open: boolean) => void;
-  onUpdate: (id: string, name: string, icon: CategoryIcon) => void;
+  onUpdate: (id: string, name: string, icon: CategoryIcon, parentId?: string | null) => void;
   onReorder: (activeId: string, overId: string) => void;
-  onDelete: (group: SiteGroup) => void;
+  onDelete: (group: SiteGroup, mode?: "trash" | "keep") => void;
+  onCreateChild: (parent: SiteGroup) => void;
+  onOpenChild: (group: SiteGroup) => void;
+  currentGroupId: string;
   onDeleteMany: (ids: string[]) => void;
   onExportGroup: (groupId: string) => void;
   onImportGroup: (groupId: string) => void;
@@ -53,6 +59,7 @@ interface GroupDialogProps {
 interface GroupDraft {
   name: string;
   icon: CategoryIcon;
+  parentId?: string | null;
 }
 
 function SortableGroupItem({
@@ -78,7 +85,10 @@ function SortableGroupItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: group.id, disabled: group.isProtected });
+  } = useSortable({
+    id: group.id,
+    disabled: { draggable: group.isProtected || Boolean(group.parentId), droppable: Boolean(group.parentId) },
+  });
 
   return (
     <div
@@ -88,7 +98,7 @@ function SortableGroupItem({
         transition: isDragging ? undefined : transition,
         willChange: isDragging ? "transform" : undefined,
       }}
-      className={`group-list-item has-selection ${checked ? "is-checked" : ""} ${selected ? "selected" : ""} ${
+      className={`group-list-item has-selection ${group.parentId ? "is-child-group" : ""} ${checked ? "is-checked" : ""} ${selected ? "selected" : ""} ${
         isDragging ? "is-dragging" : ""
       }`}
     >
@@ -105,23 +115,23 @@ function SortableGroupItem({
         </span>
         <span className="group-list-copy">
           <strong>{group.name}</strong>
-          <small>{count} 个网站</small>
+          <small>{group.parentId && "子分组 · "}{count} 个网站</small>
         </span>
       </button>
       <button
         type="button"
         className="group-drag-handle"
         ref={setActivatorNodeRef}
-        disabled={group.isProtected}
+        disabled={group.isProtected || Boolean(group.parentId)}
         aria-label={
-          group.isProtected ? "受保护分组不能移动" : `拖动 ${group.name}`
+          group.isProtected ? "受保护分组不能移动" : group.parentId ? "在父组网格中排列子分组" : `拖动 ${group.name}`
         }
         {...attributes}
         {...listeners}
       >
         {group.isProtected ? (
           <LockSimple size={16} />
-        ) : (
+        ) : !group.parentId && (
           <DotsSixVertical size={18} weight="bold" />
         )}
       </button>
@@ -154,6 +164,32 @@ function GroupDragPreview({
   );
 }
 
+function HierarchyDeletion({ group, groups, count, confirmTrash, onClose, onRequestTrash, onDelete }: {
+  group?: SiteGroup;
+  groups: SiteGroup[];
+  count: number;
+  confirmTrash: boolean;
+  onClose: () => void;
+  onRequestTrash: (id: string) => void;
+  onDelete: GroupDialogProps["onDelete"];
+}) {
+  if (!group) return null;
+  const parent = groups.find(candidate => candidate.id === group.parentId);
+  if (confirmTrash) {
+    return <ConfirmDialog key="trash" open title={`确认删除“${group.name}”？`}
+      description={`${parent ? "子分组" : "该分组及其子分组"}将删除，${count} 个网站会移入回收站。`}
+      confirmLabel={parent ? "连同网站删除" : "连同子分组删除"} destructive
+      onOpenChange={open => { if (!open) onClose(); }} onConfirm={() => onDelete(group, "trash")} />;
+  }
+  return <ConfirmDialog key="keep" open title={`如何删除“${group.name}”？`}
+    description={parent
+      ? `其中有 ${count} 个网站。保留网站时，它们会移到“${parent.name}”。`
+      : `该分组下共有 ${count} 个网站。解散后，子分组提升为一级，直属网站移至当前工作区的“其他”。`}
+    confirmLabel={parent ? "保留网站并删除文件夹" : "解散分组"}
+    alternateAction={{ label: parent ? "连同网站删除…" : "连同子分组删除…", onClick: () => onRequestTrash(group.id) }}
+    onOpenChange={open => { if (!open) onClose(); }} onConfirm={() => onDelete(group, "keep")} />;
+}
+
 export function GroupDialog({
   open,
   initialGroupId,
@@ -163,19 +199,26 @@ export function GroupDialog({
   onUpdate,
   onReorder,
   onDelete,
+  onCreateChild,
+  onOpenChild,
+  currentGroupId,
   onDeleteMany,
   onExportGroup,
   onImportGroup,
 }: GroupDialogProps) {
   const titleId = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const roots = useMemo(() => getRootGroups(groups).sort((a, b) => a.order - b.order), [groups]);
   const orderedGroups = useMemo(
-    () => groups.slice().sort((a, b) => a.order - b.order),
-    [groups],
+    () => roots.flatMap(group => [group, ...getChildGroups(groups, group.id)]),
+    [groups, roots],
   );
   const selection = useGroupManagerSelection(open, orderedGroups);
   const [deleteRequested, setDeleteRequested] = useState(false);
-  const selectedSiteCount = sites.filter(site => selection.selectedIds.includes(site.groupId)).length;
+  const [hierarchyDeleteId, setHierarchyDeleteId] = useState<string>();
+  const [trashHierarchyId, setTrashHierarchyId] = useState<string>();
+  const selectedSubtree = getGroupSubtreeIds(groups, selection.selectedIds);
+  const selectedSiteCount = sites.filter(site => selectedSubtree.has(site.groupId)).length;
   const [selectedId, setSelectedId] = useState("");
   const [drafts, setDrafts] = useState<Record<string, GroupDraft>>({});
   const [pendingTransfer, setPendingTransfer] = useState<"import" | "export" | null>(null);
@@ -190,7 +233,7 @@ export function GroupDialog({
   );
   const [dndContextKey, setDndContextKey] = useState(0);
   const { containerRef: groupListRef, handlers: sweepHandlers } = useSweepSelection({
-    enabled: open && !activeDragGroupId && !deleteRequested && !pendingTransfer,
+    enabled: open && !activeDragGroupId && !deleteRequested && !pendingTransfer && !hierarchyDeleteId && !trashHierarchyId,
     itemSelector: ".group-manager-check:not(:disabled)", idAttribute: "data-selection-id",
     onToggle: ids => { clearArmedDelete(); selection.toggleMany(ids); },
   });
@@ -250,7 +293,12 @@ export function GroupDialog({
   };
 
   const groupListCollisionDetection: CollisionDetection = (args) => {
-    const collisions = closestCenter(args);
+    const sortableGroups = roots.filter(group => !group.isProtected);
+    const sortableIds = new Set(sortableGroups.map(group => group.id));
+    const collisions = closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter(container => sortableIds.has(String(container.id))),
+    });
     const pointer = args.pointerCoordinates;
     const list = groupListRef.current;
     if (!pointer || !list || collisions.length === 0) return collisions;
@@ -280,7 +328,6 @@ export function GroupDialog({
     ) {
       return [];
     }
-    const sortableGroups = orderedGroups.filter((group) => !group.isProtected);
     const firstId = sortableGroups[0]?.id;
     const lastId = sortableGroups[sortableGroups.length - 1]?.id;
     const firstRect = firstId ? args.droppableRects.get(firstId) : undefined;
@@ -313,17 +360,13 @@ export function GroupDialog({
       : collisions;
   };
 
-  const siteCountByGroup = useMemo(() => {
-    const counts = new Map<string, number>();
-    sites.forEach((site) => {
-      counts.set(site.groupId, (counts.get(site.groupId) ?? 0) + 1);
-    });
-    return counts;
-  }, [sites]);
+  const siteCountByGroup = useMemo(() => getGroupSiteCounts(groups, sites), [groups, sites]);
 
   useEffect(() => {
     if (!open) {
       setDeleteRequested(false);
+      setHierarchyDeleteId(undefined);
+      setTrashHierarchyId(undefined);
       activeDragRef.current = false;
       setActiveDragGroupId(null);
       setDndContextKey((current) => current + 1);
@@ -361,6 +404,10 @@ export function GroupDialog({
   }
 
   function requestDelete(group: SiteGroup) {
+    if (group.parentId || getChildGroups(groups, group.id).length > 0) {
+      setHierarchyDeleteId(group.id);
+      return;
+    }
     if (armedDeleteGroupId === group.id) {
       clearArmedDelete();
       onDelete(group);
@@ -480,7 +527,8 @@ export function GroupDialog({
     if (!selected) return;
     const dirty = orderedGroups.some(group => {
       const draft = drafts[group.id];
-      return draft && (draft.name !== group.name || draft.icon !== group.icon);
+      return draft && (draft.name !== group.name || draft.icon !== group.icon ||
+        (draft.parentId !== undefined && draft.parentId !== (group.parentId ?? null)));
     });
     if (dirty) setPendingTransfer(mode);
     else (mode === "import" ? onImportGroup : onExportGroup)(selected.id);
@@ -506,7 +554,7 @@ export function GroupDialog({
         name: group.name,
         icon: group.icon,
       };
-      onUpdate(group.id, draft.name.trim(), draft.icon);
+      onUpdate(group.id, draft.name.trim(), draft.icon, draft.parentId);
     });
     onOpenChange(false);
   }
@@ -574,7 +622,7 @@ export function GroupDialog({
                   }}
                 >
                   <SortableContext
-                    items={orderedGroups.map((group) => group.id)}
+                    items={roots.map((group) => group.id)}
                     strategy={verticalListSortingStrategy}
                   >
                     {orderedGroups.map((group) => (
@@ -632,6 +680,16 @@ export function GroupDialog({
                       </span>
                     </div>
                     <div className="group-editor-summary-actions">
+                      {selected.parentId && selected.id !== currentGroupId && (
+                        <button type="button" className="button secondary-button" onClick={() => onOpenChild(selected)}>
+                          进入子分组
+                        </button>
+                      )}
+                      {canParentGroup(selected, getGroupWorkspace(selected)) && (
+                        <button type="button" className="button secondary-button" onClick={() => onCreateChild(selected)}>
+                          创建子分组
+                        </button>
+                      )}
                       <DataTransferActions group onImport={() => requestTransfer("import")} onExport={() => requestTransfer("export")} />
                       {!selected.isProtected && (
                         <button
@@ -671,6 +729,24 @@ export function GroupDialog({
                       }
                     />
                   </label>
+
+                  {!selected.isProtected && !selected.githubImportSource &&
+                    !getChildGroups(groups, selected.id).length &&
+                    roots.some(group => group.id !== selected.id && canParentGroup(group, getGroupWorkspace(selected))) &&
+                    <div className="settings-field">
+                    <span>所属一级分组</span>
+                    <SelectMenu
+                      ariaLabel="所属一级分组"
+                      menuLabel="所属一级分组"
+                      value={selectedDraft.parentId === null ? "" : selectedDraft.parentId ?? selected.parentId ?? ""}
+                      options={[
+                        { value: "", label: selected.parentId ? "提升为一级分组" : "一级分组" },
+                        ...roots.filter(group => group.id !== selected.id && canParentGroup(group, getGroupWorkspace(selected)))
+                          .map(group => ({ value: group.id, label: group.name })),
+                      ]}
+                      onChange={parentId => updateSelected({ parentId: parentId || null })}
+                    />
+                  </div>}
 
                   <fieldset className="field-group">
                     <legend>分组图标</legend>
@@ -731,15 +807,24 @@ export function GroupDialog({
             </button>
           </div>
           <ConfirmDialog open={Boolean(pendingTransfer)} title="放弃未保存的分组修改？"
-            description="进入数据页面会使用已保存的分组名称与图标。你也可以取消，先保存分组。"
+            description="进入数据页面会使用已保存的分组信息。你也可以取消，先保存分组。"
             confirmLabel="放弃并继续" cancelLabel="继续编辑" onOpenChange={(open) => { if (!open) setPendingTransfer(null); }}
             onConfirm={() => { if (selected && pendingTransfer) (pendingTransfer === "import" ? onImportGroup : onExportGroup)(selected.id); setPendingTransfer(null); }} />
           <ConfirmDialog open={deleteRequested && selection.selectedIds.length > 0} onOpenChange={setDeleteRequested}
             title={`删除 ${selection.selectedIds.length} 个分组？`}
-            description={`所选分组将删除，其中 ${selectedSiteCount} 个网站移入回收站，可在回收站恢复网站。受保护分组不受影响。`}
+            description={`所选分组及其子分组将删除，其中 ${selectedSiteCount} 个网站移入回收站，可在回收站恢复网站。受保护分组不受影响。`}
             confirmLabel="删除所选分组" destructive onConfirm={() => {
               onDeleteMany(selection.selectedIds); selection.clear(); setDeleteRequested(false);
             }} />
+          <HierarchyDeletion
+            group={groups.find(group => group.id === (hierarchyDeleteId ?? trashHierarchyId))}
+            groups={groups}
+            count={siteCountByGroup.get(hierarchyDeleteId ?? trashHierarchyId ?? "") ?? 0}
+            confirmTrash={Boolean(trashHierarchyId)}
+            onClose={trashHierarchyId ? () => setTrashHierarchyId(undefined) : () => setHierarchyDeleteId(undefined)}
+            onRequestTrash={id => { setHierarchyDeleteId(undefined); setTrashHierarchyId(id); }}
+            onDelete={onDelete}
+          />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

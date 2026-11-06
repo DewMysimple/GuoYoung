@@ -60,6 +60,8 @@ export type SiteSortMode =
 
 export type WorkspaceSortModes = Record<SiteWorkspace, SiteSortMode>;
 
+export type CollectionEntryId = `site:${string}` | `folder:${string}`;
+
 export interface SiteGroup {
   id: string;
   name: string;
@@ -70,6 +72,8 @@ export interface SiteGroup {
   createdAt: string;
   updatedAt: string;
   githubImportSource?: GithubImportSource;
+  parentId?: string;
+  entryOrder?: CollectionEntryId[];
 }
 
 export interface GithubImportSource {

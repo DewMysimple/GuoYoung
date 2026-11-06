@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "../data/defaults";
 import type { BrowserBookmarkTreeNode } from "./browser-runtime";
+import { addGroupToState } from "./site-state";
 import {
   deleteBookmarkSelection,
   filterBookmarkTree,
@@ -76,6 +77,15 @@ describe("bookmark manager", () => {
     expect(homepageWork).toBeDefined();
     expect(result.state.sites.find((site) => site.url === "https://notion.so")?.groupId).toBe(homepageWork?.id);
     expect(homepageWork?.id).not.toBe("github-tools");
+  });
+
+  it("uses an explicitly selected child for loose links without conflating it with a named bookmark folder", () => {
+    const state = addGroupToState(createDefaultState(), "工作", "folder", "work-child", undefined, undefined, "main", "design");
+    const result = importSelectedBookmarks(state, roots, new Set(["notion", "loose"]), "work-child");
+    const importedWork = result.state.groups.find(group => group.name === "工作" && !group.parentId);
+    expect(importedWork).toBeDefined();
+    expect(result.state.sites.find(site => site.url === "https://notion.so")?.groupId).toBe(importedWork?.id);
+    expect(result.state.sites.find(site => site.url === "https://openai.com")?.groupId).toBe("work-child");
   });
 
   it("includes a matching folder's bookmarks in filtered results", () => {

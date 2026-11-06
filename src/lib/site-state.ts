@@ -23,6 +23,12 @@ import {
 } from "./github-workspace";
 import { comparableSiteUrl, normalizeUrl, reindexSites } from "./site-utils";
 import { normalizeSiteNote } from "./site-notes";
+import {
+  canParentGroup,
+  getChildGroups,
+  getGroupSubtreeIds,
+  normalizeCollectionHierarchy,
+} from "./group-hierarchy";
 
 export type SavedSiteValues = SiteFormValues & {
   url: string;
@@ -125,13 +131,15 @@ function findGithubImportGroup(
   const sourceGroup = state.groups.find(
     (group) =>
       getGroupWorkspace(group) === "github" &&
+      !group.parentId &&
+      !group.isProtected &&
       group.githubImportSource?.login.toLocaleLowerCase("en-US") ===
         owner.login.toLocaleLowerCase("en-US"),
   );
   if (sourceGroup) return sourceGroup;
-  return state.groups.find(
-    (group) => githubGroupNameMatches(group, owner.login) && !group.githubImportSource,
-  );
+  return state.groups.find((group) =>
+    githubGroupNameMatches(group, owner.login) && !group.parentId && !group.isProtected &&
+    !group.githubImportSource && !state.groups.some((child) => child.parentId === group.id));
 }
 
 export function importGithubRepositoriesToState(
@@ -246,11 +254,11 @@ export function importGithubRepositoriesToState(
     createdAt: now,
     updatedAt: now,
   }));
-  const finalState = {
+  const finalState = normalizeCollectionHierarchy({
     ...nextState,
     groups,
     sites: reindexSites([...nextState.sites.map((site) => ({ ...site })), ...imported]),
-  };
+  });
   return {
     state: finalState,
     group: finalState.groups.find((group) => group.id === targetGroup!.id),
@@ -313,7 +321,7 @@ function resolveSiteGroupId(
   url: string,
 ): string {
   const group = state.groups.find((item) => item.id === groupId);
-  if (!group) return groupId;
+  if (!group) throw new Error("所选分组不存在");
   const workspace = getGroupWorkspace(group);
   if (workspace === "github") {
     if (!isGithubUrl(url)) {
@@ -350,13 +358,13 @@ export function addSiteToState(
     createdAt: now,
     updatedAt: now,
   };
-  return { ...state, sites: [...state.sites, site] };
+  return normalizeCollectionHierarchy({ ...state, sites: [...state.sites, site] });
 }
 
 export function mergeGroupImportIntoState(
   state: SiteCollectionState,
   targetGroupId: string,
-  payload: GroupExportPayload,
+  payload: Pick<GroupExportPayload, "sites">,
   now = new Date().toISOString(),
 ): GroupImportResult {
   if (!state.groups.some((group) => group.id === targetGroupId)) {
@@ -420,13 +428,13 @@ export function mergeGroupImportIntoState(
 
   if (!imported.length) return { state, added, skipped };
   return {
-    state: {
+    state: normalizeCollectionHierarchy({
       ...state,
       sites: reindexSites([
         ...state.sites.map((site) => ({ ...site })),
         ...imported,
       ]),
-    },
+    }),
     added,
     skipped,
   };
@@ -461,7 +469,43 @@ export function updateSiteInState(
         }
       : { ...site },
   );
-  return { ...state, sites: reindexSites(sites) };
+  return normalizeCollectionHierarchy({ ...state, sites: reindexSites(sites) });
+}
+
+export function canMoveSiteToGroup(site: Pick<SiteItem, "url">, group: SiteGroup): boolean {
+  const github = isGithubUrl(site.url) && !isGithubHomeUrl(site.url);
+  return getGroupWorkspace(group) === (github ? "github" : "main");
+}
+
+export function moveSitesToGroupInState(
+  state: SiteCollectionState,
+  ids: readonly string[],
+  targetGroupId: string,
+  now = new Date().toISOString(),
+): SiteCollectionState {
+  const target = state.groups.find((group) => group.id === targetGroupId);
+  if (!target) return state;
+  const byId = new Map(state.sites.map((site) => [site.id, site]));
+  const selected = [...new Set(ids)].map((id) => byId.get(id));
+  // A target change or mixed, incompatible selection must not move a subset.
+  if (selected.some((site) => !site || !canMoveSiteToGroup(site, target))) return state;
+  const moved = selected.filter((site): site is SiteItem => Boolean(site && site.groupId !== targetGroupId));
+  if (!moved.length) return state;
+  const destination = state.sites.filter((site) => site.groupId === targetGroupId).sort((a, b) => a.order - b.order);
+  const movedIds = new Set(moved.map((site) => site.id));
+  const affected = new Map<string, SiteItem>();
+  const sourceIds = new Set(moved.map((site) => site.groupId));
+  for (const sourceId of sourceIds) {
+    state.sites.filter((site) => site.groupId === sourceId && !movedIds.has(site.id))
+      .sort((a, b) => a.order - b.order)
+      .forEach((site, order) => affected.set(site.id, { ...site, order }));
+  }
+  [...destination, ...moved.map((site) => ({ ...site, groupId: targetGroupId, updatedAt: now }))]
+    .forEach((site, order) => affected.set(site.id, { ...site, order }));
+  return normalizeCollectionHierarchy({
+    ...state,
+    sites: state.sites.map((site) => affected.get(site.id) ?? site),
+  });
 }
 
 export function addGroupToState(
@@ -472,11 +516,16 @@ export function addGroupToState(
   now = new Date().toISOString(),
   beforeGroupId?: string,
   workspace: SiteWorkspace = "main",
+  parentId?: string,
 ): SiteCollectionState {
+  if (!name.trim() || state.groups.some((group) => group.id === id)) return state;
+  if (parentId !== undefined && !canParentGroup(state.groups.find((group) => group.id === parentId), workspace)) {
+    return state;
+  }
   const ordinaryGroups = state.groups
     .filter(
       (item) =>
-        !item.isProtected && getGroupWorkspace(item) === workspace,
+        !item.isProtected && getGroupWorkspace(item) === workspace && item.parentId === parentId,
     )
     .sort((a, b) => a.order - b.order);
   const insertionIndex = beforeGroupId
@@ -491,28 +540,98 @@ export function addGroupToState(
     order: insertionIndex >= 0 ? insertionIndex - 0.5 : ordinaryGroups.length,
     createdAt: now,
     updatedAt: now,
+    ...(parentId === undefined ? {} : { parentId }),
   };
-  return {
+  return normalizeCollectionHierarchy({
     ...state,
     groups: normalizeWorkspaceGroupOrder([...state.groups, group]),
-  };
+  });
 }
+
+export function updateGroupInState(
+  state: SiteCollectionState,
+  id: string,
+  name: string,
+  icon: CategoryIcon,
+  parentId?: string | null,
+  now = new Date().toISOString(),
+): SiteCollectionState {
+  const group = state.groups.find((candidate) => candidate.id === id);
+  const trimmed = name.trim();
+  if (!group || group.isProtected || !trimmed) return state;
+
+  const nextParentId = parentId === undefined ? group.parentId : parentId ?? undefined;
+  const reparenting = nextParentId !== group.parentId;
+  const workspace = getGroupWorkspace(group);
+  if (reparenting && nextParentId !== undefined && (
+    nextParentId === id || group.githubImportSource || getChildGroups(state.groups, id).length ||
+    !canParentGroup(state.groups.find((candidate) => candidate.id === nextParentId), workspace)
+  )) return state;
+
+  const next: SiteGroup = { ...group, name: trimmed, icon, updatedAt: now };
+  if (reparenting) {
+    if (nextParentId === undefined) delete next.parentId;
+    else next.parentId = nextParentId;
+    next.order = state.groups.filter((candidate) => getGroupWorkspace(candidate) === workspace &&
+      candidate.parentId === nextParentId && !candidate.isProtected).length;
+  }
+  const groups = state.groups.map((candidate) => candidate.id === id ? next : candidate);
+  return normalizeCollectionHierarchy({ ...state, groups: reparenting ? normalizeWorkspaceGroupOrder(groups) : groups });
+}
+
+export type GroupDeletionMode = "trash" | "keep";
 
 export function deleteGroupFromState(
   state: SiteCollectionState,
   id: string,
   now = new Date().toISOString(),
+  mode: GroupDeletionMode = "trash",
 ): SiteCollectionState {
-  return deleteGroupsFromState(state, [id], now);
+  if (mode === "trash") return deleteGroupsFromState(state, [id], now);
+
+  const group = state.groups.find((candidate) => candidate.id === id);
+  if (!group || group.isProtected) return state;
+  const workspace = getGroupWorkspace(group);
+  const fallback = state.groups.find((candidate) => candidate.id === group.parentId &&
+    getGroupWorkspace(candidate) === workspace) ?? getWorkspaceOtherGroup(state, workspace);
+  const directSites = state.sites.filter((site) => site.groupId === id).sort((a, b) => a.order - b.order);
+  if (directSites.length && !fallback) return state;
+
+  const destinationStart = state.sites.filter((site) => site.groupId === fallback?.id).length;
+  const siteOrder = new Map(directSites.map((site, index) => [site.id, destinationStart + index]));
+  const rootStart = state.groups.filter((candidate) => !candidate.parentId && !candidate.isProtected &&
+    getGroupWorkspace(candidate) === workspace).length;
+  const promotedOrder = new Map(getChildGroups(state.groups, id).map((child, index) => [child.id, rootStart + index]));
+  const groups = state.groups.filter((candidate) => candidate.id !== id).map((candidate) => {
+    const order = promotedOrder.get(candidate.id);
+    if (order === undefined) return candidate;
+    const { parentId: _parent, ...promoted } = candidate;
+    return { ...promoted, order, updatedAt: now };
+  });
+  const sites = state.sites.map((site) => {
+    const order = siteOrder.get(site.id);
+    return order === undefined || !fallback ? site : { ...site, groupId: fallback.id, order, updatedAt: now };
+  });
+  return normalizeCollectionHierarchy({ ...state, groups: normalizeWorkspaceGroupOrder(groups), sites });
 }
 
-export function deleteGroupsFromState(state: SiteCollectionState, ids: string[], now = new Date().toISOString()): SiteCollectionState {
+function getWorkspaceOtherGroup(state: SiteCollectionState, workspace: SiteWorkspace): SiteGroup | undefined {
+  const fallbackId = workspace === "github" ? GITHUB_OTHER_GROUP_ID : OTHER_GROUP_ID;
+  return state.groups.find((group) => group.id === fallbackId && getGroupWorkspace(group) === workspace) ??
+    state.groups.find((group) => group.isProtected && getGroupWorkspace(group) === workspace);
+}
+
+export function deleteGroupsFromState(state: SiteCollectionState, ids: readonly string[], now = new Date().toISOString()): SiteCollectionState {
   const requested = new Set(ids);
-  const targets = new Map(state.groups.filter(group => requested.has(group.id) && !group.isProtected).map(group => [group.id, group]));
+  const requestedGroups = state.groups.filter((group) => requested.has(group.id) && !group.isProtected);
+  const expanded = getGroupSubtreeIds(state.groups, requestedGroups.map((group) => group.id));
+  const targets = new Map(state.groups.filter((group) => expanded.has(group.id) && !group.isProtected)
+    .map((group) => [group.id, group]));
   if (!targets.size) return state;
   const removedSites = state.sites.filter(site => targets.has(site.groupId));
+  const removedIds = new Set(removedSites.map((site) => site.id));
   const deletedSites = [
-    ...state.deletedSites,
+    ...state.deletedSites.filter((record) => !removedIds.has(record.site.id)),
     ...removedSites.map((site) => ({
       site: { ...site },
       deletedAt: now,
@@ -522,7 +641,7 @@ export function deleteGroupsFromState(state: SiteCollectionState, ids: string[],
     })),
   ];
 
-  return {
+  return normalizeCollectionHierarchy({
     ...state,
     groups: normalizeWorkspaceGroupOrder(
       state.groups.filter((group) => !targets.has(group.id)),
@@ -533,7 +652,7 @@ export function deleteGroupsFromState(state: SiteCollectionState, ids: string[],
         .map((site) => ({ ...site })),
     ),
     deletedSites,
-  };
+  });
 }
 
 export function trashSiteFromState(
@@ -544,13 +663,13 @@ export function trashSiteFromState(
   const site = state.sites.find((item) => item.id === id);
   if (!site) return state;
   const group = state.groups.find((item) => item.id === site.groupId);
-  return {
+  return normalizeCollectionHierarchy({
     ...state,
     sites: reindexSites(
       state.sites.filter((item) => item.id !== id).map((item) => ({ ...item })),
     ),
     deletedSites: [
-      ...state.deletedSites,
+      ...state.deletedSites.filter((record) => record.site.id !== id),
       {
         site: { ...site },
         deletedAt: now,
@@ -559,7 +678,7 @@ export function trashSiteFromState(
         originalWorkspace: group ? getGroupWorkspace(group) : "main",
       },
     ],
-  };
+  });
 }
 
 export function restoreTrashedSiteFromState(
@@ -570,17 +689,13 @@ export function restoreTrashedSiteFromState(
   const record = state.deletedSites.find((item) => item.site.id === id);
   if (!record || state.sites.some((site) => site.id === id)) return state;
   const originalWorkspace = record.originalWorkspace ?? "main";
-  const fallbackGroupId =
-    originalWorkspace === "github" ? GITHUB_OTHER_GROUP_ID : OTHER_GROUP_ID;
-  const targetGroupId = state.groups.some(
+  const targetGroup = state.groups.find(
     (group) =>
       group.id === record.originalGroupId &&
       getGroupWorkspace(group) === originalWorkspace,
-  )
-    ? record.originalGroupId
-    : state.groups.some((group) => group.id === fallbackGroupId)
-      ? fallbackGroupId
-      : OTHER_GROUP_ID;
+  ) ?? getWorkspaceOtherGroup(state, originalWorkspace);
+  if (!targetGroup) return state;
+  const targetGroupId = targetGroup.id;
   const restored: SiteItem = {
     ...record.site,
     groupId: targetGroupId,
@@ -588,11 +703,11 @@ export function restoreTrashedSiteFromState(
     globalOrder: state.sites.length,
     updatedAt: now,
   };
-  return {
+  return normalizeCollectionHierarchy({
     ...state,
     sites: reindexSites([...state.sites.map((site) => ({ ...site })), restored]),
     deletedSites: state.deletedSites.filter((item) => item.site.id !== id),
-  };
+  });
 }
 
 export function restoreAllTrashedSitesFromState(

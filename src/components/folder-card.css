@@ -1,0 +1,22 @@
+.folder-card .folder-card-icon {
+  color: var(--ui-accent-text);
+  background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface-raised));
+}
+
+.folder-card-icon > svg {
+  width: 64%;
+  height: 64%;
+}
+
+.folder-card-footer {
+  justify-content: space-between;
+}
+
+.folder-card-arrow {
+  flex: none;
+  color: var(--ui-accent-text);
+}
+
+.folder-card[data-folder-dnd-id].is-dragging {
+  opacity: 0.46;
+}

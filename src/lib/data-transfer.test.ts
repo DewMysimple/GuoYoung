@@ -250,4 +250,25 @@ describe("data transfer", () => {
       ),
     ).toThrow("地址无效");
   });
+
+  it("repairs duplicate and stale portable positions while retaining all child folders and links", () => {
+    const root = createGroupExportPayload(createDefaultState(), "design");
+    const packageWithBadOrder = {
+      ...root,
+      exportVersion: 2,
+      children: [{ group: { name: "子组", icon: "folder" }, sites: [] }],
+      entryOrder: [{ kind: "folder", index: 0 }, { kind: "site", index: 99 }, { kind: "folder", index: 0 }, null],
+    };
+    const parsed = parseGroupImportFile(JSON.stringify(packageWithBadOrder));
+    expect(parsed).toMatchObject({
+      exportVersion: 2,
+      children: packageWithBadOrder.children,
+      entryOrder: [{ kind: "folder", index: 0 }, { kind: "site", index: 0 }, { kind: "site", index: 1 }],
+    });
+    expect(parseGroupImportFile(JSON.stringify(parsed))).toEqual(parsed);
+    expect(() => parseGroupImportFile(JSON.stringify({
+      ...packageWithBadOrder,
+      children: [{ ...packageWithBadOrder.children[0], children: [] }],
+    }))).toThrow("子分组无效");
+  });
 });

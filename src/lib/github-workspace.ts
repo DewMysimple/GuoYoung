@@ -11,8 +11,10 @@ import type {
   SiteWorkspace,
 } from "../types";
 import { isGithubHomeUrl, reindexSites } from "./site-utils";
+import { normalizeCollectionHierarchy, normalizeWorkspaceGroupOrder } from "./group-hierarchy";
 
 export { isGithubHomeUrl } from "./site-utils";
+export { normalizeWorkspaceGroupOrder } from "./group-hierarchy";
 
 export function findGithubHomeSite(
   sites: SiteItem[],
@@ -39,7 +41,7 @@ export function moveGithubHomeToMainInState(
   const nextOrder = input.sites.filter(
     (site) => site.groupId === targetGroup.id,
   ).length;
-  return {
+  return normalizeCollectionHierarchy({
     ...input,
     sites: reindexSites(
       input.sites.map((site) =>
@@ -48,7 +50,7 @@ export function moveGithubHomeToMainInState(
           : { ...site },
       ),
     ),
-  };
+  });
 }
 
 export function getGroupWorkspace(group: Pick<SiteGroup, "workspace">): SiteWorkspace {
@@ -80,24 +82,6 @@ export function getGithubOtherGroupId(state: SiteCollectionState): string {
           (group) =>
             getGroupWorkspace(group) === "github" && group.isProtected,
         )?.id ?? GITHUB_OTHER_GROUP_ID;
-}
-
-export function normalizeWorkspaceGroupOrder(groups: SiteGroup[]): SiteGroup[] {
-  const next = groups.map((group) => ({ ...group }));
-  for (const workspace of ["main", "github"] as const) {
-    const scoped = next
-      .filter((group) => getGroupWorkspace(group) === workspace)
-      .sort((first, second) => {
-        if (first.isProtected !== second.isProtected) {
-          return first.isProtected ? 1 : -1;
-        }
-        return first.order - second.order;
-      });
-    scoped.forEach((group, order) => {
-      group.order = order;
-    });
-  }
-  return next;
 }
 
 export function ensureGithubWorkspace(
@@ -174,7 +158,7 @@ export function migrateGithubSitesInState(
   });
 
   return {
-    state: {
+    state: normalizeCollectionHierarchy({
       ...state,
       sites: reindexSites(sites),
       githubMigration: {
@@ -182,7 +166,7 @@ export function migrateGithubSitesInState(
         completedAt: now,
         entries,
       },
-    },
+    }),
     movedCount: entries.length,
   };
 }
@@ -216,7 +200,7 @@ export function routeGithubSitesInState(
       updatedAt: now,
     };
   });
-  return { state: { ...state, sites: reindexSites(sites) }, movedCount };
+  return { state: normalizeCollectionHierarchy({ ...state, sites: reindexSites(sites) }), movedCount };
 }
 
 export interface GithubMigrationUndoResult {
@@ -265,7 +249,7 @@ export function undoGithubMigrationInState(
   });
 
   return {
-    state: {
+    state: normalizeCollectionHierarchy({
       ...input,
       sites: reindexSites(sites),
       githubMigration: {
@@ -273,7 +257,7 @@ export function undoGithubMigrationInState(
         status: "undone",
         undoneAt: now,
       },
-    },
+    }),
     restoredCount,
     skippedCount,
   };

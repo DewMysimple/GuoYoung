@@ -9,6 +9,7 @@ import { CategoryIcon as GroupIcon } from "./category-icon";
 interface NewGroupDialogProps {
   open: boolean;
   groups: SiteGroup[];
+  parent?: SiteGroup;
   insertionContext?: {
     groupName: string;
     position: "before" | "after";
@@ -20,6 +21,7 @@ interface NewGroupDialogProps {
 export function NewGroupDialog({
   open,
   groups,
+  parent,
   insertionContext,
   onOpenChange,
   onSubmit,
@@ -71,10 +73,12 @@ export function NewGroupDialog({
           <div className="dialog-header">
             <div>
               <Dialog.Title id={titleId} className="dialog-title">
-                新建分组
+                {parent ? "新建子分组" : "新建分组"}
               </Dialog.Title>
               <Dialog.Description className="dialog-description">
-                {insertionContext
+                {parent
+                  ? `新分组将作为文件夹显示在“${parent.name}”中。`
+                  : insertionContext
                   ? `分组会创建在“${insertionContext.groupName}”${
                       insertionContext.position === "before" ? "之前" : "之后"
                     }，并保留当前分组总览。`
@@ -149,7 +153,7 @@ export function NewGroupDialog({
                 </button>
               </Dialog.Close>
               <button type="submit" className="button primary-button">
-                创建分组
+                {parent ? "创建子分组" : "创建分组"}
               </button>
             </div>
           </form>

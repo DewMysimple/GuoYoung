@@ -407,12 +407,12 @@ describe("layout geometry", () => {
   });
 
   it("keeps existing v28 and JSON dimensions intact through layout, preset and restore operations", () => {
-    const state = createDefaultState();
+    const state = { ...createDefaultState(), version: 28 };
     state.appearance = { ...state.appearance, cardShape: "square", cardLayout: "columns",
       cardWidth: 319, cardHeight: 203, cardColumns: 7 };
     const loaded = parseStoredState(JSON.stringify(state));
     expect(loaded.recovered).toBe(false);
-    expect(loaded.state.version).toBe(28);
+    expect(loaded.state.version).toBe(29);
     const original = { ...loaded.state.appearance };
     for (const appearance of [loaded.state.appearance, parseImportFile(serializeExport(state)).appearance]) {
       expect(appearance).toEqual(original);

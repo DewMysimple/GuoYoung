@@ -23,6 +23,7 @@ import {
   isGithubHomeUrl,
   isGithubUrl,
 } from "../lib/github-workspace";
+import { getGroupPath, getGroupsInTreeOrder } from "../lib/group-hierarchy";
 import { createSiteHubStore } from "../lib/state-store";
 import {
   findSiteByUrl,
@@ -120,10 +121,10 @@ export function PopupApp() {
   }, [notice]);
 
   const groups = useMemo(
-    () => state ? getWorkspaceGroups(state.groups, quickWorkspace) : [],
+    () => state ? getGroupsInTreeOrder(getWorkspaceGroups(state.groups, quickWorkspace)) : [],
     [quickWorkspace, state],
   );
-  const mainGroups = useMemo(() => state ? getWorkspaceGroups(state.groups, "main") : [], [state]);
+  const mainGroups = useMemo(() => state ? getGroupsInTreeOrder(getWorkspaceGroups(state.groups, "main")) : [], [state]);
   const {
     bookmarkGroupId, selectedIds, bookmarkQuery, deleteSummary,
     folderIcons, bookmarkPathNodes, currentBookmarkFolder, visibleBookmarkTiles,
@@ -168,10 +169,10 @@ export function PopupApp() {
       })();
       const detectedWorkspace = getQuickWorkspace(normalizedCurrentUrl);
       setQuickWorkspace(detectedWorkspace);
-      const detectedGroups = getWorkspaceGroups(
+      const detectedGroups = getGroupsInTreeOrder(getWorkspaceGroups(
         loaded.state.groups,
         detectedWorkspace,
-      );
+      ));
       const detectedGroup = detectedWorkspace === "github"
         ? detectedGroups.find(
             (group) => group.id === readPopupPreferences().lastGithubGroupId,
@@ -186,7 +187,7 @@ export function PopupApp() {
       setQuickNote(normalizedCurrentUrl
         ? findSiteByUrl(loaded.state.sites, normalizedCurrentUrl)?.note ?? ""
         : "");
-      const mainGroups = getWorkspaceGroups(loaded.state.groups, "main");
+      const mainGroups = getGroupsInTreeOrder(getWorkspaceGroups(loaded.state.groups, "main"));
       setActiveBrowserTab(current);
       setQuickName(
         current?.title?.trim() ||
@@ -241,7 +242,7 @@ export function PopupApp() {
     try {
       const loaded = await store.load();
       if (loaded.recovered) throw new Error("Invalid stored collection");
-      const freshGroups = getWorkspaceGroups(loaded.state.groups, quickWorkspace);
+      const freshGroups = getGroupsInTreeOrder(getWorkspaceGroups(loaded.state.groups, quickWorkspace));
       if (newGroupName && findGroupByName(freshGroups, newGroupName)) {
         setState(loaded.state);
         setQuickGroupError("已经有同名分组，请选择现有分组。");
@@ -422,7 +423,7 @@ export function PopupApp() {
                       }}
                     >
                       <span className="popup-group-option-icon"><GroupIcon name={group.icon} size={16} /></span>
-                      <span className="popup-group-option-name">{group.name}</span>
+                      <span className="popup-group-option-name">{getGroupPath(groups, group.id)}</span>
                       {selected && <Check className="popup-group-option-check" size={15} weight="bold" />}
                     </button>
                   );
@@ -441,7 +442,7 @@ export function PopupApp() {
             {duplicate && quickDuplicateId && (
               <div className="duplicate-popup-notice">
                 <Warning size={18} />
-                <span>已收藏在“{state.groups.find((group) => group.id === duplicate.groupId)?.name ?? "其他"}”。{creatingQuickGroup
+                <span>已收藏在“{getGroupPath(state.groups, duplicate.groupId) || "其他"}”。{creatingQuickGroup
                   ? `再次确认会新建“${quickGroupName.trim()}”并移动网站、更新名称。`
                   : "再次确认会移动到当前分组并更新名称。"}</span>
               </div>
@@ -536,7 +537,7 @@ export function PopupApp() {
                   <SelectMenu
                     ariaLabel="默认分组"
                     value={bookmarkGroupId}
-                    options={mainGroups.map((group) => ({ value: group.id, label: group.name }))}
+                    options={mainGroups.map((group) => ({ value: group.id, label: getGroupPath(mainGroups, group.id) }))}
                     className="view-control"
                     triggerClassName="view-control-button popup-select-trigger"
                     menuClassName="popup-select-popover"

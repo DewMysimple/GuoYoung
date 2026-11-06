@@ -4,9 +4,10 @@ import { ArrowLeft, Database, DownloadSimple, FileArrowUp, FolderSimple, UploadS
 import type { SiteCollectionState, SiteWorkspace } from "../types";
 import type { DataImportOperation } from "../hooks/use-site-hub";
 import type { LocalFontState } from "../hooks/use-local-font";
-import { applyDataImport, collectionTransferGroups, createSelectedGroupsExport, parseTransferFile, type ImportRequest, type TransferFile, type TransferGroup } from "../lib/data-workspace";
+import { applyDataImport, collectionTransferGroups, createSelectedGroupsExport, getTransferGroupCounts, getTransferSelection, parseTransferFile, type ImportRequest, type TransferFile, type TransferGroup } from "../lib/data-workspace";
 import { downloadExport, downloadJson } from "../lib/data-transfer";
 import { getGroupWorkspace } from "../lib/github-workspace";
+import { canParentGroup, getGroupPath, getGroupsInTreeOrder } from "../lib/group-hierarchy";
 import { SelectMenu } from "./select-menu";
 import { ConfirmDialog } from "./confirm-dialog";
 import "./data-workspace.css";
@@ -22,15 +23,21 @@ interface Props {
 }
 
 function GroupChoices({ groups, selected, onChange, disabled = false }: { groups: TransferGroup[]; selected: string[]; onChange: (ids: string[]) => void; disabled?: boolean }) {
+  const selectedKeys = new Set(selected);
+  const isIncluded = (group: TransferGroup) => selectedKeys.has(group.key) || Boolean(group.parentKey && selectedKeys.has(group.parentKey));
   return <div className="data-group-picker">
-    <div className="data-picker-summary"><span>已选择 {groups.filter(group => selected.includes(group.key)).length} / {groups.length} 个分组</span>
-      <button type="button" className="data-text-button" disabled={disabled} onClick={() => onChange(groups.map(group => group.key))}>全选</button>
+    <div className="data-picker-summary"><span>已选择 {groups.filter(isIncluded).length} / {groups.length} 个分组</span>
+      <button type="button" className="data-text-button" disabled={disabled} onClick={() => onChange(groups.filter(group => !group.parentKey).map(group => group.key))}>全选</button>
       <button type="button" className="data-text-button" disabled={disabled} onClick={() => onChange([])}>清空选择</button>
     </div>
-    <div className="data-group-list">{groups.map(group => <label key={group.key} className={`data-group-choice ${selected.includes(group.key) ? "is-selected" : ""}`}>
-      <input type="checkbox" disabled={disabled} checked={selected.includes(group.key)} onChange={event => onChange(event.target.checked ? [...selected, group.key] : selected.filter(id => id !== group.key))} />
-      <FolderSimple size={20} /><span><strong>{group.payload.group.name}</strong><small>{group.workspace === "github" ? "GitHub" : "收藏主页"} · {group.payload.sites.length} 个链接</small></span>
-    </label>)}</div>
+    <div className="data-group-list">{groups.map(group => {
+      const inherited = Boolean(group.parentKey && selectedKeys.has(group.parentKey));
+      const counts = getTransferGroupCounts(group.payload);
+      return <label key={group.key} className={`data-group-choice ${isIncluded(group) ? "is-selected" : ""}`}>
+        <input type="checkbox" disabled={disabled || inherited} checked={isIncluded(group)} onChange={event => onChange(event.target.checked ? [...selected, group.key] : selected.filter(id => id !== group.key))} />
+        <FolderSimple size={20} /><span><strong>{group.label}</strong><small>{group.workspace === "github" ? "GitHub" : "收藏主页"} · {counts.sites} 个链接{counts.groups > 1 ? ` · ${counts.groups - 1} 个子分组` : ""}{inherited ? " · 随父组选择" : ""}</small></span>
+      </label>;
+    })}</div>
   </div>;
 }
 
@@ -43,7 +50,7 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [destination, setDestination] = useState<"new" | "existing" | "replace">(context.groupId ? "existing" : "new");
   const [targetId, setTargetId] = useState(context.groupId ?? "");
-  const [name, setName] = useState("");
+  const [name, setName] = useState<string>();
   const [workspace, setWorkspace] = useState<"source" | SiteWorkspace>("source");
   const [notice, setNotice] = useState<{ error?: boolean; text: string } | null>(null);
   const [reading, setReading] = useState(false);
@@ -81,6 +88,10 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
     }
   }, [activeImport, attempt?.generation, attempt?.restoresAppearance]);
   const groups = useMemo(() => collectionTransferGroups(state), [state]);
+  const exported = getTransferSelection(groups, exportIds).map(group => getTransferGroupCounts(group.payload));
+  const sources = file ? getTransferSelection(file.groups, sourceIds) : [];
+  const includesChildren = sources.some(group => getTransferGroupCounts(group.payload).groups > 1);
+  const target = destination === "existing" ? state.groups.find(group => group.id === targetId) : undefined;
   const request = useMemo<ImportRequest | null>(() => file ? ({ file, keys: sourceIds, destination: destination === "existing" ? { kind: "existing", groupId: targetId }
     : destination === "replace" ? { kind: "replace" } : { kind: "new", name, workspace: workspace === "source" ? undefined : workspace } }) : null,
     [file, sourceIds, destination, targetId, name, workspace]);
@@ -97,8 +108,9 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
     try {
       const parsed = parseTransferFile(await value.text());
       if (token !== generation.current) return;
-      setFile(parsed); setFilename(value.name); setSourceIds(parsed.groups.map(group => group.key));
-      setName(parsed.groups.length === 1 ? parsed.groups[0].payload.group.name : "");
+      const roots = parsed.groups.filter(group => !group.parentKey);
+      setFile(parsed); setFilename(value.name); setSourceIds(roots.map(group => group.key));
+      setName(undefined);
       setDestination(context.groupId ? "existing" : "new"); setWorkspace("source");
     } catch (error) {
       if (token === generation.current) setNotice({ error: true, text: error instanceof Error ? error.message : "无法读取文件" });
@@ -162,9 +174,9 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
           <label className="data-field"><span>导入方式</span><SelectMenu disabled={Boolean(activeImport)} ariaLabel="导入方式" value={destination} onChange={setDestination} options={[
             { value: "new", label: "新建分组导入" }, { value: "existing", label: "追加到已有分组" }, ...(file.backup ? [{ value: "replace" as const, label: "替换全局数据" }] : []),
           ]} /></label>
-          {destination === "existing" && <label className="data-field"><span>目标分组</span><SelectMenu disabled={Boolean(activeImport)} ariaLabel="目标分组" value={targetId} onChange={setTargetId} options={state.groups.map(group => ({ value: group.id, label: `${getGroupWorkspace(group) === "github" ? "GitHub" : "收藏主页"} / ${group.name}` }))} renderTrigger={selected => selected?.label ?? "请选择目标分组"} /></label>}
+          {destination === "existing" && <label className="data-field"><span>目标分组</span><SelectMenu disabled={Boolean(activeImport)} ariaLabel="目标分组" value={targetId} onChange={setTargetId} options={getGroupsInTreeOrder(state.groups).map(group => ({ value: group.id, label: `${getGroupWorkspace(group) === "github" ? "GitHub" : "收藏主页"} / ${getGroupPath(state.groups, group.id)}` }))} renderTrigger={selected => selected?.label ?? "请选择目标分组"} /></label>}
           {destination === "new" && <>
-            {sourceIds.length === 1 && <label className="data-field"><span>新分组名称</span><input disabled={Boolean(activeImport)} value={name} placeholder="沿用来源分组名称" onChange={event => setName(event.target.value)} maxLength={100} /></label>}
+            {sources.length === 1 && <label className="data-field"><span>新分组名称</span><input disabled={Boolean(activeImport)} value={name ?? sources[0].payload.group.name} placeholder="沿用来源分组名称" onChange={event => setName(event.target.value)} maxLength={100} /></label>}
             <label className="data-field"><span>创建位置</span><SelectMenu disabled={Boolean(activeImport)} ariaLabel="创建位置" value={workspace} onChange={setWorkspace} options={[{ value: "source", label: "沿用来源工作区" }, { value: "main", label: "收藏主页" }, { value: "github", label: "GitHub" }]} /></label>
           </>}
         </>}
@@ -183,10 +195,11 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
         {!file && <p>选取文件后，这里会显示本次新增、跳过的链接与分组数量。</p>}
         {preview?.error && <p role="alert">{preview.error}</p>}
         {result && <><dl><div><dt>{destination === "replace" ? "导入链接" : "新增链接"}</dt><dd>{result.added}</dd></div><div><dt>跳过链接</dt><dd>{result.skipped}</dd></div><div><dt>{destination === "replace" ? "导入分组" : "新建分组"}</dt><dd>{destination === "replace" ? file?.backup?.groups.length : result.created}</dd></div></dl>
-          <p>{destination === "replace" ? "将替换所有收藏、分组和外观设置；本机回收站与搜索历史保留。" : "现有收藏和外观保持不变。相同网址自动跳过，同名新分组自动编号。"}</p></>}
+          <p>{destination === "replace" ? "将替换所有收藏、分组和外观设置；本机回收站与搜索历史保留。" : "现有收藏和外观保持不变。相同网址自动跳过，同名新分组自动编号。"}</p>
+          {includesChildren && destination !== "replace" && <p>{target && !canParentGroup(target, getGroupWorkspace(target)) ? "目标分组无法容纳子分组，包内链接将一并追加到目标。" : "所选父组中的子分组会随链接一起导入。"}</p>}</>}
         <button type="button" className="button primary-button" disabled={!result || reading || Boolean(activeImport)} onClick={() => setConfirming(true)}>{saving ? "正在保存…" : "预览并导入"}</button>
       </> : <>
-        <dl><div><dt>导出分组</dt><dd>{exportScope === "all" ? state.groups.length : groups.filter(group => exportIds.includes(group.key)).length}</dd></div><div><dt>导出链接</dt><dd>{exportScope === "all" ? state.sites.length : groups.filter(group => exportIds.includes(group.key)).reduce((sum, group) => sum + group.payload.sites.length, 0)}</dd></div><div><dt>外观设置</dt><dd>{exportScope === "all" ? "包含" : "不包含"}</dd></div></dl>
+        <dl><div><dt>导出分组</dt><dd>{exportScope === "all" ? state.groups.length : exported.reduce((sum, group) => sum + group.groups, 0)}</dd></div><div><dt>导出链接</dt><dd>{exportScope === "all" ? state.sites.length : exported.reduce((sum, group) => sum + group.sites, 0)}</dd></div><div><dt>外观设置</dt><dd>{exportScope === "all" ? "包含" : "不包含"}</dd></div></dl>
         <button type="button" className="button primary-button" disabled={exportScope === "groups" && !groups.some(group => exportIds.includes(group.key))} onClick={exportData}><DownloadSimple size={18} />导出 JSON</button>
       </>}
       <div className="data-footnote"><strong>关于数据</strong><HelpTip label="备份范围说明">JSON 备份包含活动收藏、分组和可导出的设置，不包含回收站、搜索历史、浏览器历史，以及本地壁纸和字体文件。</HelpTip>

@@ -708,7 +708,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":28');
+      expect(stored).toContain('"version":29');
     });
   });
 
@@ -981,7 +981,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(28);
+      expect(stored.version).toBe(29);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,

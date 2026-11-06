@@ -1,4 +1,4 @@
-import { applyDataImport, type ImportRequest } from "../lib/data-workspace";
+import { applyDataImport, importGroupPackage, type ImportRequest } from "../lib/data-workspace";
 import { useCallback, useEffect, useRef, useState, type SetStateAction } from "react";
 import { createDefaultState } from "../data/defaults";
 import {
@@ -7,6 +7,7 @@ import {
   type StorageMode,
 } from "../lib/state-store";
 import { reindexSites } from "../lib/site-utils";
+import { commitGroupEntriesToState, normalizeCollectionHierarchy } from "../lib/group-hierarchy";
 import {
   reorderGroups as reorderGroupItems,
   reorderGroupBlock,
@@ -14,7 +15,9 @@ import {
 import {
   addGroupToState,
   addSiteToState,
+  deleteGroupFromState,
   deleteGroupsFromState,
+  moveSitesToGroupInState,
   permanentlyDeleteTrashedSiteFromState,
   purgeExpiredTrashFromState,
   restoreAllTrashedSitesFromState,
@@ -22,8 +25,9 @@ import {
   setTrashRetentionInState,
   trashSiteFromState,
   updateSiteInState,
-  mergeGroupImportIntoState,
+  updateGroupInState,
   type GroupImportResult,
+  type GroupDeletionMode,
   importGithubRepositoryBatchToState,
   type GithubRepositoryBatchImport,
   type GithubRepositoryBatchImportResult,
@@ -39,6 +43,7 @@ import type {
   AppearanceSettings,
   BrandSettings,
   CategoryIcon,
+  CollectionEntryId,
   SiteCollectionState,
   SiteFormValues,
   SiteItem,
@@ -90,16 +95,19 @@ interface SiteHubApi {
   emptyTrash: () => void;
   setTrashRetentionDays: (days: TrashRetentionDays) => void;
   commitSites: (sites: SiteItem[]) => void;
+  moveSites: (ids: readonly string[], targetGroupId: string) => void;
+  commitGroupEntries: (groupId: string, entryOrder: readonly CollectionEntryId[]) => void;
   addGroup: (
     name: string,
     icon: CategoryIcon,
     beforeGroupId?: string,
     workspace?: SiteWorkspace,
+    parentId?: string,
   ) => string;
-  updateGroup: (id: string, name: string, icon: CategoryIcon) => void;
+  updateGroup: (id: string, name: string, icon: CategoryIcon, parentId?: string | null) => void;
   reorderGroups: (activeId: string, beforeGroupId: string | null) => void;
   reorderGroupBlock: (activeIds: string[], beforeGroupId: string | null) => void;
-  deleteGroup: (id: string) => void;
+  deleteGroup: (id: string, mode?: GroupDeletionMode) => void;
   deleteGroups: (ids: string[]) => void;
   importData: (request: ImportRequest) => DataImportOperation;
   importGroup: (
@@ -411,49 +419,47 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
   }, []);
 
   const commitSites = useCallback((sites: SiteItem[]) => {
-    setState((current) => ({
+    setState((current) => normalizeCollectionHierarchy({
       ...current,
       sites: reindexSites(sites.map((site) => ({ ...site }))),
-    }));
+    }, true));
+    setRecovered(false);
+  }, []);
+
+  const moveSites = useCallback<SiteHubApi["moveSites"]>((ids, targetGroupId) => {
+    setState((current) => moveSitesToGroupInState(current, ids, targetGroupId));
+    setRecovered(false);
+  }, []);
+
+  const commitGroupEntries = useCallback<SiteHubApi["commitGroupEntries"]>((groupId, entryOrder) => {
+    setState((current) => commitGroupEntriesToState(current, groupId, entryOrder));
     setRecovered(false);
   }, []);
 
   const addGroup = useCallback<SiteHubApi["addGroup"]>(
-    (name, icon, beforeGroupId, workspace = "main") => {
+    (name, icon, beforeGroupId, workspace = "main", parentId) => {
       const id = crypto.randomUUID();
-      setState((current) =>
-        addGroupToState(
-          current,
-          name,
-          icon,
-          id,
-          new Date().toISOString(),
-          beforeGroupId,
-          workspace,
-        ),
+      const current = stateRef.current;
+      const next = addGroupToState(
+        current,
+        name,
+        icon,
+        id,
+        new Date().toISOString(),
+        beforeGroupId,
+        workspace,
+        parentId,
       );
+      if (next === current) return "";
+      setState(next);
       setRecovered(false);
       return id;
     },
     [],
   );
 
-  const updateGroup = useCallback<SiteHubApi["updateGroup"]>((id, name, icon) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setState((current) => ({
-      ...current,
-      groups: current.groups.map((group) =>
-        group.id === id && !group.isProtected
-          ? {
-              ...group,
-              name: trimmed,
-              icon,
-              updatedAt: new Date().toISOString(),
-            }
-          : group,
-      ),
-    }));
+  const updateGroup = useCallback<SiteHubApi["updateGroup"]>((id, name, icon, parentId) => {
+    setState((current) => updateGroupInState(current, id, name, icon, parentId));
     setRecovered(false);
   }, []);
 
@@ -461,9 +467,9 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
     (activeId, beforeGroupId) => {
       setState((current) => {
         const target = current.groups.find((group) => group.id === activeId);
-        if (!target) return current;
+        if (!target || target.parentId) return current;
         const scoped = current.groups.filter(
-          (group) => group.workspace === target.workspace,
+          (group) => group.workspace === target.workspace && !group.parentId,
         );
         const reordered = reorderGroupItems(
           scoped,
@@ -485,11 +491,11 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
     (activeIds, beforeGroupId) => {
       setState((current) => {
         const workspace = current.groups.find((group) =>
-          activeIds.includes(group.id),
+          activeIds.includes(group.id) && !group.parentId,
         )?.workspace;
         if (!workspace) return current;
         const scoped = current.groups.filter(
-          (group) => group.workspace === workspace,
+          (group) => group.workspace === workspace && !group.parentId,
         );
         const reordered = reorderGroupBlock(
           scoped,
@@ -512,9 +518,10 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
     setRecovered(false);
   }, []);
 
-  const deleteGroup = useCallback<SiteHubApi["deleteGroup"]>((id) => {
-    deleteGroups([id]);
-  }, [deleteGroups]);
+  const deleteGroup = useCallback<SiteHubApi["deleteGroup"]>((id, mode) => {
+    setState((current) => deleteGroupFromState(current, id, undefined, mode));
+    setRecovered(false);
+  }, []);
 
   const importData = useCallback((request: ImportRequest) => {
     const before = stateRef.current;
@@ -537,7 +544,7 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
 
   const importGroup = useCallback<SiteHubApi["importGroup"]>(
     (targetGroupId, payload) => {
-      const result = mergeGroupImportIntoState(
+      const result = importGroupPackage(
         stateRef.current,
         targetGroupId,
         payload,
@@ -696,6 +703,8 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
     emptyTrash,
     setTrashRetentionDays,
     commitSites,
+    moveSites,
+    commitGroupEntries,
     addGroup,
     updateGroup,
     reorderGroups,

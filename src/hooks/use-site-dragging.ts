@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { closestCorners, pointerWithin, rectIntersection, type CollisionDetection, type DragStartEvent, type DragOverEvent, type DragEndEvent } from "@dnd-kit/core";
-import type { SiteItem, SiteGroup } from "../types";
-import { readDropGroupId } from "../lib/collection-drag-ids";
+import { arrayMove } from "@dnd-kit/sortable";
+import type { CollectionEntryId, SiteItem, SiteGroup } from "../types";
+import { createFolderDragIds, readDropGroupId } from "../lib/collection-drag-ids";
 import { captureStableDropGeometry as measureDropGeometry, pointInDropRect, distanceToDropRect, rectOverlapArea, readOverlappingGroupTab, type StableDropGeometry } from "../lib/collection-drag-geometry";
+import { getGroupEntries } from "../lib/group-hierarchy";
 import { moveSiteToGroupEnd, reorderSites, reorderSitesGlobally } from "../lib/site-utils";
 import { getGroupWorkspace, isGithubHomeUrl } from "../lib/github-workspace";
 import { useTabEdgeScroll } from "./use-tab-edge-scroll";
@@ -11,6 +13,7 @@ import { useLatestEvent } from "./use-latest-event";
 
 type SiteDropIntent =
   | { type: "site"; siteId: string; groupId: string }
+  | { type: "entries"; entryIds: CollectionEntryId[]; groupId: string }
   | { type: "group-end"; groupId: string };
 
 const DROP_TARGET_HYSTERESIS = 18;
@@ -25,20 +28,28 @@ interface Options {
   canReorderSites: boolean;
   dragDisabled: boolean;
   setActiveGroupId: (id: string) => void;
+  onCommitGroupNavigation?: (groupId: string) => void;
   setDragSitesPreview: (sites: SiteItem[] | null) => void;
   commitSites: (sites: SiteItem[]) => void;
+  commitGroupEntries?: (groupId: string, entryIds: CollectionEntryId[]) => void;
   onStart: () => void;
   armSiteClickSuppression: () => void;
 }
 
-/** Owns one website drag transaction; the snapshot sent upward is display-only. */
+/** Owns one card drag transaction; the website snapshot sent upward is display-only. */
 export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupIds, activeGroupId,
   isGroupedView, canReorderSites, dragDisabled, setActiveGroupId, setDragSitesPreview,
-  commitSites, onStart, armSiteClickSuppression }: Options) {
+  onCommitGroupNavigation, commitSites, commitGroupEntries, onStart, armSiteClickSuppression }: Options) {
   const [pendingDragId, setPendingDragId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [overDragId, setOverDragId] = useState<string | null>(null);
   const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
+  const folderDragIds = useMemo(() => createFolderDragIds(groups, sites), [groups, sites]);
+  const foldersByDragId = useMemo(() => new Map(groups.flatMap(group => {
+    const id = folderDragIds.get(group.id);
+    return id ? [[id, group] as const] : [];
+  })), [folderDragIds, groups]);
+  const renderedSitesById = useMemo(() => new Map(renderedSites.map(site => [site.id, site])), [renderedSites]);
   const dragSitesPreviewRef = useRef<SiteItem[] | null>(null);
   const dragBaseSitesRef = useRef<SiteItem[] | null>(null);
   const sourceStateRef = useRef<{ sites: SiteItem[]; groups: SiteGroup[] } | null>(null);
@@ -50,10 +61,12 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
   const activeDragIdRef = useRef<string | null>(null);
   const dragCanReorderRef = useRef(true);
   const siteDropIntentRef = useRef<SiteDropIntent | null>(null);
-  const lastValidSiteTargetRef = useRef<{
-    siteId: string;
+  const mixedOrderRef = useRef<{
     groupId: string;
+    entryIds: CollectionEntryId[];
+    dragIds: string[];
   } | null>(null);
+  const lastValidCardTargetGroupRef = useRef<string | null>(null);
   const dragOriginGroupIdRef = useRef<string | null>(null);
   const dragStartedFromAllRef = useRef(true);
   const switchedDragGroupIdRef = useRef<string | null>(null);
@@ -65,13 +78,21 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
   });
   function captureStableDropGeometry() { stableDropGeometryRef.current = measureDropGeometry(); }
   const activeCollisionDetection: CollisionDetection = (args) => {
-      const siteIds = new Set(renderedSites.map((site) => site.id));
       const activeId = String(args.active.id);
+      const isFolderDrag = foldersByDragId.has(activeId);
+      const originGroupId = dragOriginGroupIdRef.current;
+      const cardGroupId = (id: string) =>
+        foldersByDragId.get(id)?.parentId ?? renderedSitesById.get(id)?.groupId;
+      const canTargetCard = (id: string) => {
+        if (isFolderDrag) return cardGroupId(id) === originGroupId;
+        if (foldersByDragId.has(id)) return mixedOrderRef.current?.dragIds.includes(id) ?? false;
+        return renderedSitesById.has(id);
+      };
       const pointerCollisions = pointerWithin(args);
       const groupTabCollision = pointerCollisions.find(({ id }) =>
         String(id).startsWith("group-tab:"),
       );
-      if (groupTabCollision) return [groupTabCollision];
+      if (groupTabCollision) return isFolderDrag ? [] : [groupTabCollision];
 
       const geometry = stableDropGeometryRef.current;
       const pointer = args.pointerCoordinates;
@@ -101,16 +122,20 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
           pointInDropRect(rect, pointerX, pointerY),
         );
         if (groupEnd) {
-          stableCollisionIdRef.current = groupEnd.id;
-          return [{ id: groupEnd.id }];
+          if (isFolderDrag && groupEnd.groupId !== originGroupId) return [];
+          const id = mixedEndOverId(groupEnd.groupId) ?? groupEnd.id;
+          stableCollisionIdRef.current = id;
+          return [{ id }];
         }
 
         const pointedGroup = geometry.groups.find((rect) =>
           pointInDropRect(rect, pointerX, pointerY),
         );
+        if (isFolderDrag && pointedGroup?.groupId !== originGroupId) return [];
         const isGlobalFlatView = activeGroupId === "all" && !isGroupedView;
         const candidates = geometry.sites.filter(
-          (rect) => isGlobalFlatView || rect.groupId === pointedGroup?.groupId,
+          (rect) => (isGlobalFlatView || rect.groupId === pointedGroup?.groupId) &&
+            ((!isFolderDrag && !foldersByDragId.has(rect.id)) || canTargetCard(rect.id)),
         );
 
         if (candidates.length > 0 && (pointedGroup || isGlobalFlatView)) {
@@ -180,16 +205,9 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
         if (previousId) return [{ id: previousId }];
       }
 
-      const activeSite = renderedSites.find((site) => site.id === activeId);
       const pointedSitesInActiveGroup = pointerCollisions.filter(({ id }) => {
-        const pointedSite = renderedSites.find(
-          (site) => site.id === String(id),
-        );
-        return (
-          pointedSite &&
-          pointedSite.id !== activeId &&
-          pointedSite.groupId === activeSite?.groupId
-        );
+        const target = String(id);
+        return target !== activeId && canTargetCard(target) && cardGroupId(target) === cardGroupId(activeId);
       });
       if (pointedSitesInActiveGroup.length > 0) {
         return pointedSitesInActiveGroup;
@@ -197,19 +215,20 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
 
       const intersections = rectIntersection(args);
       const intersectedSites = intersections.filter(
-        ({ id }) => String(id) !== activeId && siteIds.has(String(id)),
+        ({ id }) => String(id) !== activeId && canTargetCard(String(id)),
       );
       if (intersectedSites.length > 0) return intersectedSites;
 
       const nearest = closestCorners(args);
       const nearestSites = nearest.filter(
-        ({ id }) => String(id) !== activeId && siteIds.has(String(id)),
+        ({ id }) => String(id) !== activeId && canTargetCard(String(id)),
       );
       if (nearestSites.length > 0) return nearestSites;
 
-      return intersections.length > 0
-        ? intersections
-        : nearest;
+      if (isFolderDrag) return [];
+      const otherTargets = (intersections.length > 0 ? intersections : nearest)
+        .filter(({ id }) => !foldersByDragId.has(String(id)));
+      return otherTargets;
     };
 
   function handleDragStart(event: DragStartEvent) {
@@ -223,22 +242,36 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     siteDropIntentRef.current = null;
     dragBaseSitesRef.current = preview;
     dragSitesPreviewRef.current = preview;
+    const folder = foldersByDragId.get(activeId);
     dragOriginGroupIdRef.current =
-      preview.find((site) => site.id === activeId)?.groupId ??
-      null;
+      folder?.parentId ?? preview.find((site) => site.id === activeId)?.groupId ?? null;
     dragStartedFromAllRef.current = activeGroupId === "all";
+    const parent = groups.find(group => group.id === dragOriginGroupIdRef.current);
+    if (canReorderSites && parent && (isGroupedView || !dragStartedFromAllRef.current)) {
+      const directSites = preview.filter(site => site.groupId === parent.id).sort((a, b) => a.order - b.order);
+      const entries = getGroupEntries(parent, groups, directSites, "manual");
+      if (entries.some(entry => entry.kind === "folder")) {
+        mixedOrderRef.current = {
+          groupId: parent.id,
+          entryIds: entries.map(entry => entry.id),
+          dragIds: entries.map(entry => entry.kind === "site" ? entry.site.id : folderDragIds.get(entry.group.id)!),
+        };
+      }
+    }
     switchedDragGroupIdRef.current = null;
     pointerGroupZoneRef.current = null;
     pointerAtGroupEndRef.current = false;
     stableCollisionIdRef.current = activeId;
     captureStableDropGeometry();
-    lastValidSiteTargetRef.current = null;
+    lastValidCardTargetGroupRef.current = null;
     setDragSitesPreview(preview);
     setPendingDragId(null);
     setActiveDragId(activeId);
     setOverDragId(activeId);
-    startGroupOverlapTracking();
-    edgeScroll.start();
+    if (!folder) {
+      startGroupOverlapTracking();
+      edgeScroll.start();
+    }
   }
 
   function clearGroupHoverTimer() {
@@ -279,7 +312,7 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
       clearGroupHoverTimer();
       setDragHoverGroupId(null);
       siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
+      lastValidCardTargetGroupRef.current = null;
       if (activeDragIdRef.current) setOverDragId(activeDragIdRef.current);
       return;
     }
@@ -337,6 +370,28 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     dragSitesPreviewRef.current = next;
   }
 
+  function mixedEndOverId(groupId: string) {
+    const order = mixedOrderRef.current;
+    return order?.groupId === groupId ? order.dragIds.at(-1) : undefined;
+  }
+
+  function previewMixedDrop(overId: string) {
+    const order = mixedOrderRef.current;
+    const activeId = activeDragIdRef.current;
+    if (!order || !activeId) return false;
+    const from = order.dragIds.indexOf(activeId);
+    const to = order.dragIds.indexOf(overId);
+    if (from < 0 || to < 0) return false;
+    siteDropIntentRef.current = from === to ? null : {
+      type: "entries",
+      groupId: order.groupId,
+      entryIds: arrayMove(order.entryIds, from, to),
+    };
+    lastValidCardTargetGroupRef.current = from === to ? null : order.groupId;
+    setOverDragId(overId);
+    return true;
+  }
+
   function targetTransferGroup(groupId: string) {
     const activeId = activeDragIdRef.current;
     if (
@@ -346,13 +401,13 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
       isTransferTargetNoOp(groupId)
     ) {
       siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
+      lastValidCardTargetGroupRef.current = null;
       if (activeId) setOverDragId(activeId);
       return;
     }
 
     siteDropIntentRef.current = { type: "group-end", groupId };
-    lastValidSiteTargetRef.current = null;
+    lastValidCardTargetGroupRef.current = null;
     setOverDragId(`group-zone:${groupId}`);
   }
 
@@ -379,10 +434,14 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
   }
 
   function previewGroupEndDrop(groupId: string) {
+    const mixedEndId = mixedEndOverId(groupId);
+    if (mixedEndId && previewMixedDrop(mixedEndId)) return;
+    const activeId = activeDragIdRef.current;
+    if (!activeId || foldersByDragId.has(activeId)) return;
     if (isGithubHomeDragBlocked(groupId)) {
       siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
-      if (activeDragIdRef.current) setOverDragId(activeDragIdRef.current);
+      lastValidCardTargetGroupRef.current = null;
+      setOverDragId(activeId);
       return;
     }
     if (!dragCanReorderRef.current) {
@@ -390,16 +449,15 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
       return;
     }
 
-    const activeId = activeDragIdRef.current;
     const calculationBase = dragBaseSitesRef.current;
-    if (!activeId || !calculationBase) return;
+    if (!calculationBase) return;
 
     const currentIntent = siteDropIntentRef.current;
     const alreadyTargetingEnd =
       currentIntent?.type === "group-end" &&
       currentIntent.groupId === groupId;
     siteDropIntentRef.current = { type: "group-end", groupId };
-    lastValidSiteTargetRef.current = null;
+    lastValidCardTargetGroupRef.current = null;
     if (!alreadyTargetingEnd) {
       updateDragPreview(
         moveSiteToGroupEnd(calculationBase, activeId, groupId),
@@ -411,10 +469,17 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
   function handleDragOver(event: DragOverEvent) {
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : undefined;
+    if (foldersByDragId.has(activeId)) {
+      if (!dragDisabled && overId && previewMixedDrop(overId)) return;
+      siteDropIntentRef.current = null;
+      lastValidCardTargetGroupRef.current = null;
+      setOverDragId(activeId);
+      return;
+    }
     if (!overId || dragDisabled) {
       if (!dragCanReorderRef.current) {
         siteDropIntentRef.current = null;
-        lastValidSiteTargetRef.current = null;
+        lastValidCardTargetGroupRef.current = null;
         setOverDragId(activeId);
       }
       clearGroupHoverTimer();
@@ -429,7 +494,7 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     const overGroupId = dropGroupId ?? overSite?.groupId;
     if (isGithubHomeDragBlocked(overGroupId, calculationBase)) {
       siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
+      lastValidCardTargetGroupRef.current = null;
       setOverDragId(activeId);
       clearGroupHoverTimer();
       return;
@@ -452,16 +517,15 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
       return;
     }
 
-    if (overSite && activeId !== overId) {
+    if (previewMixedDrop(overId)) {
+      next = calculationBase;
+    } else if (overSite && activeId !== overId) {
       siteDropIntentRef.current = {
         type: "site",
         siteId: overId,
         groupId: overSite.groupId,
       };
-      lastValidSiteTargetRef.current = {
-        siteId: overId,
-        groupId: overSite.groupId,
-      };
+      lastValidCardTargetGroupRef.current = overSite.groupId;
       setOverDragId(overId);
       if (activeGroupId === "all" && !isGroupedView) {
         next = reorderSitesGlobally(
@@ -475,15 +539,14 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
       }
     } else if (overId === activeId && !pointerAtGroupEndRef.current) {
       siteDropIntentRef.current = null;
-      lastValidSiteTargetRef.current = null;
+      lastValidCardTargetGroupRef.current = null;
       setOverDragId(activeId);
       next = calculationBase;
     } else if (dropGroupId) {
       const activeSite = calculationBase.find((site) => site.id === activeId);
-      const lastTarget = lastValidSiteTargetRef.current;
       const isTransientSameGroupZone =
         activeSite?.groupId === dropGroupId &&
-        lastTarget?.groupId === dropGroupId &&
+        lastValidCardTargetGroupRef.current === dropGroupId &&
         !pointerAtGroupEndRef.current;
 
       // Cards move out from under the pointer while making room. During that
@@ -513,6 +576,15 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     const dropIntent = siteDropIntentRef.current;
     const calculationBase = dragBaseSitesRef.current;
 
+    if (dropIntent?.type === "entries") {
+      const source = sourceStateRef.current;
+      if (!dragDisabled && source?.groups === groups && source.sites === sites) {
+        commitGroupEntries?.(dropIntent.groupId, dropIntent.entryIds);
+      }
+      clearDragState();
+      return;
+    }
+
     if (
       dropIntent &&
       isGithubHomeDragBlocked(
@@ -520,6 +592,7 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
         calculationBase ?? undefined,
       )
     ) {
+      restoreChildGroupPreview();
       clearDragState();
       return;
     }
@@ -536,8 +609,10 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
           moveSiteToGroupEnd(calculationBase, String(active.id), targetGroupId),
         );
         if (!dragStartedFromAllRef.current) {
-          setActiveGroupId(targetGroupId);
+          (onCommitGroupNavigation ?? setActiveGroupId)(targetGroupId);
         }
+      } else {
+        restoreChildGroupPreview();
       }
       clearDragState();
       return;
@@ -564,6 +639,11 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
               dropIntent.groupId,
             );
       commitSites(finalSites);
+      if (switchedDragGroupIdRef.current && !dragStartedFromAllRef.current) {
+        (onCommitGroupNavigation ?? setActiveGroupId)(dropIntent.groupId);
+      }
+    } else {
+      restoreChildGroupPreview();
     }
     clearDragState();
   }
@@ -581,7 +661,8 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
     activeDragIdRef.current = null;
     dragCanReorderRef.current = true;
     siteDropIntentRef.current = null;
-    lastValidSiteTargetRef.current = null;
+    mixedOrderRef.current = null;
+    lastValidCardTargetGroupRef.current = null;
     dragOriginGroupIdRef.current = null;
     dragStartedFromAllRef.current = true;
     switchedDragGroupIdRef.current = null;
@@ -594,13 +675,20 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
 
   function handleDragCancel() {
     armSiteClickSuppression();
+    restoreChildGroupPreview();
     clearDragState();
   }
 
+  function restoreChildGroupPreview() {
+    if (!switchedDragGroupIdRef.current) return;
+    const origin = groups.find(group => group.id === dragOriginGroupIdRef.current);
+    if (origin?.parentId) setActiveGroupId(origin.id);
+  }
 
   const cancelSensor = useDragWindowEvents({
     isActive: () => Boolean(activeDragIdRef.current || pendingDragId),
     onMove: (x, y) => {
+      if (activeDragIdRef.current && foldersByDragId.has(activeDragIdRef.current)) return;
       edgeScroll.track(x);
       if (!dragSitesPreviewRef.current) return;
       const element = document.elementFromPoint(x, y);
@@ -626,6 +714,8 @@ export function useSiteDragging({ sites, groups, renderedSites, workspaceGroupId
   }, []);
   return { pendingDragId, activeDragId, overDragId, dragHoverGroupId,
     originGroupId: dragOriginGroupIdRef.current,
+    folderDragIds,
+    activeDraggedFolder: activeDragId ? foldersByDragId.get(activeDragId) : undefined,
     activeDraggedSite: activeDragId ? (dragSitesPreviewRef.current ?? renderedSites).find(site => site.id === activeDragId) : undefined,
     setPendingDragId, activeCollisionDetection, handleDragStart, handleDragOver, handleDragEnd, handleDragCancel };
 }

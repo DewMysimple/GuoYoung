@@ -1,4 +1,5 @@
 import { useEffect, useRef, type HTMLAttributes } from "react";
+import { SITE_DRAG_ACTIVATION_DISTANCE } from "../lib/collection-drag-sensors";
 
 export function useSiteClickGuard() {
   const suppressSiteClickRef = useRef(false);
@@ -12,7 +13,7 @@ export function useSiteClickGuard() {
     startX: number;
     startY: number;
     crossedDragThreshold: boolean;
-    link: HTMLAnchorElement;
+    action: HTMLElement;
   } | null>(null);
   function armSiteClickSuppression() {
     suppressSiteClickRef.current = true;
@@ -52,11 +53,12 @@ export function useSiteClickGuard() {
         const target = event.target as Element;
         const card = target.closest<HTMLElement>(".site-card");
         const isCardAction = Boolean(target.closest(".card-actions"));
-        const link = card?.querySelector<HTMLAnchorElement>(
+        const action = card?.querySelector<HTMLElement>(
           ".site-card-full-link",
         );
-        if (!card || !link || isCardAction) {
+        if (!card || !action || isCardAction) {
           sitePointerGestureRef.current = null;
+          if (isCardAction && card?.classList.contains("folder-card")) clearSiteClickSuppression();
           return;
         }
         clearSiteClickSuppression();
@@ -71,7 +73,7 @@ export function useSiteClickGuard() {
           startX: event.clientX,
           startY: event.clientY,
           crossedDragThreshold: false,
-          link,
+          action,
         };
       },
       onPointerMoveCapture: (event) => {
@@ -82,10 +84,10 @@ export function useSiteClickGuard() {
           event.clientX - gesture.startX,
           event.clientY - gesture.startY,
         );
-        if (distance > 50) {
+        if (distance > SITE_DRAG_ACTIVATION_DISTANCE) {
           gesture.crossedDragThreshold = true;
           suppressSiteClickRef.current = true;
-          disableGestureSiteLink(gesture.link);
+          if (gesture.action instanceof HTMLAnchorElement) disableGestureSiteLink(gesture.action);
         }
       },
       onPointerUpCapture: (event) => {
@@ -103,6 +105,9 @@ export function useSiteClickGuard() {
       onClickCapture: (event) => {
         if (!suppressSiteClickRef.current) return;
         if (!(event.target as Element).closest(".site-card")) return;
+        // Keyboard and assistive activation of the folder's native button
+        // is independent of a preceding pointer gesture.
+        if (event.detail === 0 && (event.target as Element).closest(".folder-card")) return;
         event.preventDefault();
         event.stopPropagation();
         clearSiteClickSuppression();

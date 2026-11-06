@@ -41,6 +41,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import {
+  ArrowLeft,
   Database,
   ArrowsDownUp,
   CaretDown,
@@ -68,6 +69,9 @@ import {
   GroupDropTab,
 } from "./components/group-drop-target";
 import { NewGroupDialog } from "./components/new-group-dialog";
+import { MoveSitesDialog } from "./components/move-sites-dialog";
+import { FolderCardDragPreview } from "./components/folder-card";
+import "./components/folder-navigation.css";
 import { GroupSortDragPreview } from "./components/group-sort-preview";
 import { GithubHomeEntry } from "./components/github-home-entry";
 import { GithubRepositoryImportDialog } from "./components/github-repository-import-dialog";
@@ -93,6 +97,7 @@ import { useSiteHub } from "./hooks/use-site-hub";
 import { useGroupSorting } from "./hooks/use-group-sorting";
 import { useSiteDragging } from "./hooks/use-site-dragging";
 import { useSiteClickGuard } from "./hooks/use-site-click-guard";
+import { useLatestEvent } from "./hooks/use-latest-event";
 import { groupSortTabId, readGroupSortId } from "./lib/collection-drag-ids";
 import { CollectionMouseSensor, CollectionTouchSensor, GROUP_SORT_ACTIVATION_DISTANCE, SITE_DRAG_ACTIVATION_DISTANCE } from "./lib/collection-drag-sensors";
 import { useCollectionSelection } from "./hooks/use-collection-selection";
@@ -113,6 +118,17 @@ import {
   sortSitesByHeat,
 } from "./lib/site-utils";
 import { getGroupedSiteSections } from "./lib/grouped-sites";
+import {
+  canParentGroup,
+  getChildGroups,
+  getGroupEntries,
+  getGroupPath,
+  getGroupSiteCounts,
+  getGroupSubtreeIds,
+  getRootGroups,
+  siteEntryId,
+  type CollectionEntry,
+} from "./lib/group-hierarchy";
 import type {
   CategoryIcon as GroupIconName,
   SiteFormValues,
@@ -130,6 +146,22 @@ import {
 } from "./lib/github-workspace";
 
 type GroupFilter = "all" | string;
+type CollectionHistoryLocation = {
+  workspace: SiteWorkspace;
+  groupId: GroupFilter;
+  parentId?: string;
+  originGroupId?: GroupFilter;
+  scrollTop?: number;
+};
+
+function readCollectionLocation(historyState: unknown): CollectionHistoryLocation | undefined {
+  const entry = historyState as { siteHubLayer?: string; collectionLocation?: CollectionHistoryLocation } | null;
+  if (!entry?.siteHubLayer) return entry?.collectionLocation;
+}
+
+function replaceCollectionLocation(location: CollectionHistoryLocation | undefined) {
+  window.history.replaceState({ ...window.history.state, collectionLocation: location }, "");
+}
 const SORT_OPTIONS: Array<{ value: SiteSortMode; label: string }> = [
   { value: "manual", label: "手动排列" },
   { value: "name-asc", label: "名称 A–Z" },
@@ -157,6 +189,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     emptyTrash,
     setTrashRetentionDays,
     commitSites,
+    commitGroupEntries,
+    moveSites,
     addGroup,
     updateGroup,
     reorderGroups,
@@ -209,7 +243,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     };
   }, [wallpaperUrl]);
   const reduceMotion = useReducedMotion();
-  const [activeGroupId, setActiveGroupId] = useState<GroupFilter>("all");
+  const [activeGroupId, setActiveGroupId] = useState<GroupFilter>(
+    () => readCollectionLocation(window.history.state)?.groupId ?? "all",
+  );
+  const [collectionReveal, setCollectionReveal] = useState<{ scrollTop: number; focus?: boolean }>();
+  const collectionTitleRef = useRef<HTMLHeadingElement>(null);
+  const [sitesToMove, setSitesToMove] = useState<string[]>([]);
   const [siteDialogOpen, setSiteDialogOpen] = useState(false);
   const [dialogGroupId, setDialogGroupId] = useState<string>();
   const [dialogWorkspace, setDialogWorkspace] = useState<SiteWorkspace>("main");
@@ -218,6 +257,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   >();
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupBeforeId, setNewGroupBeforeId] = useState<string>();
+  const [newGroupParentId, setNewGroupParentId] = useState<string>();
   const [newGroupInsertionContext, setNewGroupInsertionContext] = useState<{
     groupName: string;
     position: "before" | "after";
@@ -241,7 +281,9 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     null,
   );
   const [browserHistoryOpen, setBrowserHistoryOpen] = useState(false);
-  const [activeWorkspace, setActiveWorkspace] = useState<SiteWorkspace>("main");
+  const [activeWorkspace, setActiveWorkspace] = useState<SiteWorkspace>(
+    () => readCollectionLocation(window.history.state)?.workspace ?? "main",
+  );
   const [historyPermissionVersion, setHistoryPermissionVersion] = useState(0);
   const [historyPermissionError, setHistoryPermissionError] = useState<string | null>(
     null,
@@ -289,7 +331,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     groups: state.groups,
     importGithubRepositories,
     importGithubRepositoryBatch,
-    onSelectGroup: setActiveGroupId,
+    onSelectGroup: selectGroup,
     onNotice: setTransferNotice,
     onCloseAddMenu: () => setAddMenuOpen(false),
   });
@@ -298,8 +340,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const sortMode: SiteSortMode =
     state.sortModeByWorkspace[activeWorkspace] ?? state.sortMode ?? "manual";
 
-  useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
+  const handlePopState = useLatestEvent((event: PopStateEvent) => {
       if (event.state?.siteHubLayer === "data") {
         setDataContext(event.state.dataContext ?? { mode: "import" });
         setBrowserHistoryOpen(false);
@@ -310,21 +351,38 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         event.state?.siteHubLayer === "browser-history" ||
         event.state?.siteHubLayer === "history-detail"
       ) {
+        setBrowserHistoryOpen(true);
+        return;
+      }
+      const location = readCollectionLocation(event.state);
+      if (location) {
+        // Returning from the data layer keeps the search session open over its
+        // original folder, just as it does over a first-level collection.
+        if (dataContext && query.trim() && location.workspace === activeWorkspace) return;
+        resetCollectionQuery();
+        dismissHistory();
+        cancelSelection();
+        setBrowserHistoryOpen(false);
+        setActiveWorkspace(location.workspace);
+        setActiveGroupId(location.groupId);
+        setCollectionReveal({ scrollTop: location.scrollTop ?? 0, focus: Boolean(location.parentId) });
         return;
       }
       if (browserHistoryOpen) {
         setBrowserHistoryOpen(false);
         setActiveWorkspace("main");
       }
-    };
+  });
+  useEffect(() => {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [browserHistoryOpen]);
+  }, [handlePopState]);
 
-  const groups = useMemo(
+  const workspaceGroups = useMemo(
     () => getWorkspaceGroups(state.groups, activeWorkspace),
     [activeWorkspace, state.groups],
   );
+  const groups = useMemo(() => getRootGroups(workspaceGroups), [workspaceGroups]);
   const defaultGroup =
     groups.find((group) => !group.isProtected) ??
     groups.find((group) => group.id === OTHER_GROUP_ID) ??
@@ -332,14 +390,15 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const activeGroup =
     activeGroupId === "all"
       ? undefined
-      : groups.find((group) => group.id === activeGroupId);
+      : workspaceGroups.find((group) => group.id === activeGroupId);
+  const activeParent = groups.find(group => group.id === activeGroup?.parentId);
   const activeGithubImportGroup =
     activeWorkspace === "github" && activeGroup?.githubImportSource
       ? activeGroup
       : undefined;
   const workspaceGroupIds = useMemo(
-    () => new Set(groups.map((group) => group.id)),
-    [groups],
+    () => new Set(workspaceGroups.map((group) => group.id)),
+    [workspaceGroups],
   );
   const workspaceSites = useMemo(
     () => state.sites.filter(
@@ -358,12 +417,18 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     [activeWorkspace, dragSitesPreview, state.sites, workspaceGroupIds],
   );
   const isGlobalCollectionSearch = Boolean(query.trim());
-  const searchGroups = isGlobalCollectionSearch ? state.groups : groups;
+  const siteCounts = useMemo(
+    () => getGroupSiteCounts(workspaceGroups, workspaceSites),
+    [workspaceGroups, workspaceSites],
+  );
+  const searchGroups = isGlobalCollectionSearch ? state.groups : workspaceGroups;
   const searchSites = isGlobalCollectionSearch
     ? state.sites.filter(
         (site) => !(activeWorkspace === "github" && isGithubHomeUrl(site.url)),
       )
-    : renderedSites;
+    : activeGroupId === "all" && groups.length !== workspaceGroups.length
+      ? renderedSites.filter(site => groups.some(group => group.id === site.groupId))
+      : renderedSites;
   const githubHomeSite = useMemo(
     () => findGithubHomeSite(state.sites) ?? null,
     [state.sites],
@@ -401,9 +466,30 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     state.displayModeByWorkspace[activeWorkspace] === "grouped";
   const addCardGroup = activeGroup ?? defaultGroup;
   const groupedSections = useMemo(
-    () => getGroupedSiteSections(groups, visibleSites, sortMode, isSearching),
-    [groups, isSearching, sortMode, visibleSites],
+    () => getGroupedSiteSections(groups, visibleSites, sortMode, isSearching).map(section => ({
+      ...section,
+      count: siteCounts.get(section.group.id) ?? 0,
+      entries: getChildGroups(workspaceGroups, section.group.id).length
+        ? getGroupEntries(section.group, workspaceGroups, section.sites, sortMode)
+        : undefined,
+    })),
+    [groups, isSearching, siteCounts, sortMode, visibleSites, workspaceGroups],
   );
+  const flatEntries = useMemo((): CollectionEntry[] | undefined => {
+    if (isSearching || isGroupedView) return;
+    if (activeGroup) {
+      if (getChildGroups(workspaceGroups, activeGroup.id).length) {
+        return getGroupEntries(activeGroup, workspaceGroups, visibleSites, sortMode);
+      }
+      return;
+    }
+    const folders = groups.flatMap(group =>
+      getGroupEntries(group, workspaceGroups, [], sortMode).filter(entry => entry.kind === "folder"),
+    );
+    if (!folders.length) return;
+    const sites = visibleSites.map(site => ({ kind: "site" as const, id: siteEntryId(site.id), site }));
+    return sortMode === "manual" ? [...sites, ...folders] : [...folders, ...sites];
+  }, [activeGroup, groups, isGroupedView, isSearching, sortMode, visibleSites, workspaceGroups]);
   const selectableSiteIds = useMemo(
     () =>
       isGroupedView
@@ -437,6 +523,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     newGroupDialogOpen ||
     groupDialogOpen ||
     githubImportOpen ||
+    sitesToMove.length > 0 ||
     Boolean(githubRefreshReport) ||
     settingsOpen ||
     resetOpen ||
@@ -451,14 +538,16 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   const { beginGroupSort, finishGroupSort, detectGroupSortCollisions, updateKeyboardGroupSortIntent,
     handleGroupTabDragStart, handleGroupTabDragOver, handleGroupTabDragEnd } = groupSort;
   const { pendingDragId, activeDragId, overDragId, dragHoverGroupId, originGroupId,
+    activeDraggedFolder, folderDragIds,
     activeDraggedSite, setPendingDragId, activeCollisionDetection: siteCollisionDetection,
     handleDragStart, handleDragOver, handleDragEnd, handleDragCancel,
   } = useSiteDragging({ sites: state.sites, groups: state.groups, renderedSites, workspaceGroupIds,
     activeGroupId, isGroupedView, canReorderSites, dragDisabled, setActiveGroupId,
-    setDragSitesPreview, commitSites, onStart: clearArmedDelete, armSiteClickSuppression });
+    setDragSitesPreview, commitSites, commitGroupEntries, onCommitGroupNavigation: selectGroup,
+    onStart: clearArmedDelete, armSiteClickSuppression });
   const activeCollisionDetection: CollisionDetection = args => args.active.data.current?.type === "group-row-sort"
     ? detectGroupSortCollisions(args, "vertical") : siteCollisionDetection(args);
-  const activeDraggedGroup = activeDraggedSite ? groups.find(group => group.id === activeDraggedSite.groupId) : undefined;
+  const activeDraggedGroup = activeDraggedSite ? workspaceGroups.find(group => group.id === activeDraggedSite.groupId) : undefined;
   const activeGroupSortId = groupSort.view?.activeId ?? null;
   const activeGroupSortAxis = groupSort.view?.axis ?? null;
   const groupSortIntent = groupSort.view?.intent ?? null;
@@ -466,7 +555,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     ? groups.find((group) => group.id === activeGroupSortId)
     : undefined;
   const activeSortedGroupCount = activeSortedGroup
-    ? state.sites.filter((site) => site.groupId === activeSortedGroup.id).length
+    ? siteCounts.get(activeSortedGroup.id) ?? 0
     : 0;
   const groupSortAnnouncement = groupSortIntent
     ? `将${activeSortedGroup?.name ?? "分组"}移动到${
@@ -489,17 +578,56 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }, []);
 
   const gridDrag = { activeId: activeDragId, overId: overDragId, originGroupId,
+    pendingId: pendingDragId, folderIds: folderDragIds,
     reorder: canReorderSites && !multiSelectMode, disabled: dragDisabled };
   const allVisibleSitesSelected = selectableSiteIds.length > 0 && selectableSiteIds.every(id => selectedSiteIds.has(id));
 
   useEffect(() => {
-    if (
-      activeGroupId !== "all" &&
-      !groups.some((group) => group.id === activeGroupId)
-    ) {
-      setActiveGroupId("all");
+    if (isLoading || activeGroupId === "all") return;
+    const location = readCollectionLocation(window.history.state);
+    const expectedParent = location?.groupId === activeGroupId ? location.parentId : undefined;
+    if (activeGroup && (!expectedParent || activeGroup.parentId === expectedParent)) return;
+    const groupId = groups.some(group => group.id === expectedParent) ? expectedParent! : "all";
+    setActiveGroupId(groupId);
+    if (location?.groupId === activeGroupId) replaceCollectionLocation({ workspace: activeWorkspace, groupId });
+  }, [activeGroup, activeGroupId, activeWorkspace, groups, isLoading]);
+
+  useLayoutEffect(() => {
+    if (!collectionReveal || isLoading || dataContext || browserHistoryOpen) return;
+    if (collectionReveal.focus) collectionTitleRef.current?.focus({ preventScroll: true });
+    const root = document.documentElement;
+    const grid = sweepSelection.containerRef.current;
+    if (!collectionReveal.scrollTop || !grid || typeof ResizeObserver === "undefined") {
+      root.scrollTop = collectionReveal.scrollTop;
+      setCollectionReveal(undefined);
+      return;
     }
-  }, [activeGroupId, groups]);
+    // Group grids can change row count once they measure their real width.
+    // Keep the recorded position through that layout instead of anchoring to
+    // whichever card occupied the same coordinates in the provisional grid.
+    const previousAnchor = root.style.overflowAnchor;
+    root.style.overflowAnchor = "none";
+    root.scrollTop = collectionReveal.scrollTop;
+    let timer = 0;
+    const settle = () => {
+      window.clearTimeout(timer);
+      // Scrollbar width and the measured column count can settle in separate
+      // renders. Reapply after a quiet layout window, including near the end
+      // of a page where the provisional height can clamp the initial scroll.
+      timer = window.setTimeout(() => {
+        root.scrollTop = collectionReveal.scrollTop;
+        setCollectionReveal(undefined);
+      }, 120);
+    };
+    const observer = new ResizeObserver(settle);
+    observer.observe(grid);
+    settle();
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+      root.style.overflowAnchor = previousAnchor;
+    };
+  }, [browserHistoryOpen, collectionReveal, dataContext, isLoading, sweepSelection.containerRef]);
 
   useEffect(() => {
     function handleOutsidePointer(event: PointerEvent) {
@@ -519,7 +647,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       ) {
         clearArmedDelete();
       }
-      if (selectionArmed) {
+      if (selectionArmed && sitesToMove.length === 0) {
         const selectionSurface = (event.target as Element).closest(
           "[data-selection-surface]",
         );
@@ -540,7 +668,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       window.removeEventListener("pointerdown", handleOutsidePointer);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [armedDeleteSiteId, selectionArmed, cancelSelection]);
+  }, [armedDeleteSiteId, selectionArmed, cancelSelection, sitesToMove.length]);
 
   useEffect(() => {
     if (!transferNotice) return;
@@ -624,6 +752,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         key={site.id}
         site={site}
         group={group}
+        groupLabel={isGlobalCollectionSearch && group.parentId ? getGroupPath(searchGroups, group.id) : undefined}
         showClickCount={sortMode === "heat"}
         showNotes={effectiveAppearance.showSiteNotes}
         workspaceLabel={
@@ -704,7 +833,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     setAddMenuOpen(false);
     clearArmedDelete();
     const targetGroup =
-      groups.find((group) => group.id === groupId) ??
+      workspaceGroups.find((group) => group.id === groupId) ??
       activeGroup ??
       defaultGroup;
     if (!targetGroup) return;
@@ -720,9 +849,58 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     if (query.trim()) {
       resetCollectionQuery();
     }
+    const location = readCollectionLocation(window.history.state);
+    if (location?.workspace === activeWorkspace && location.parentId && location.originGroupId === groupId) {
+      window.history.back();
+      return;
+    }
+    if (location) {
+      replaceCollectionLocation({ workspace: activeWorkspace, groupId });
+    }
     setActiveGroupId(groupId);
     cancelSelection();
   }
+
+  function openFolder(group: SiteGroup) {
+    if (!group.parentId || group.id === activeGroupId || activeDragId || selectionArmed) return;
+    const previousLocation = readCollectionLocation(window.history.state);
+    replaceCollectionLocation({
+      ...(previousLocation?.groupId === activeGroupId ? previousLocation : undefined),
+      workspace: activeWorkspace, groupId: activeGroupId, scrollTop: window.scrollY,
+    });
+    const location: CollectionHistoryLocation = {
+      workspace: activeWorkspace,
+      groupId: group.id,
+      parentId: group.parentId,
+      originGroupId: activeGroupId,
+    };
+    window.history.pushState({ ...window.history.state, collectionLocation: location }, "");
+    clearArmedDelete();
+    if (query.trim()) resetCollectionQuery();
+    dismissHistory();
+    setActiveGroupId(group.id);
+    setCollectionReveal({ scrollTop: 0, focus: true });
+  }
+
+  function returnFromFolder() {
+    const location = readCollectionLocation(window.history.state);
+    if (location?.groupId === activeGroupId && location.originGroupId !== undefined) {
+      window.history.back();
+      return;
+    }
+    selectGroup(activeParent?.id ?? "all");
+  }
+
+  const folderOriginId = activeParent ? readCollectionLocation(window.history.state)?.originGroupId : undefined;
+  const folderReturnLabel = folderOriginId === "all" ? "全部" :
+    groups.find(group => group.id === folderOriginId)?.name ?? activeParent?.name;
+
+  const folderActions = {
+    onOpen: openFolder,
+    onManage: (group: SiteGroup) => openGroupManager(group.id),
+    counts: siteCounts,
+    groups: workspaceGroups,
+  };
 
   function openGroupManager(groupId?: string) {
     setAddMenuOpen(false);
@@ -731,18 +909,18 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     setGroupDialogOpen(true);
   }
 
-  function handleGroupDelete(group: SiteGroup) {
-    const siteCount = state.sites.filter(
-      (site) => site.groupId === group.id,
-    ).length;
-    deleteGroup(group.id);
-    if (activeGroupId === group.id) setActiveGroupId("all");
+  function handleGroupDelete(group: SiteGroup, mode: "trash" | "keep" = "trash") {
+    const deleted = getGroupSubtreeIds(workspaceGroups, [group.id]);
+    const siteCount = state.sites.filter(site => deleted.has(site.groupId)).length;
+    deleteGroup(group.id, mode);
     setGroupDialogOpen(false);
     setManagedGroupId(undefined);
     setTransferNotice({
       kind: "success",
       message:
-        siteCount > 0
+        mode === "keep"
+          ? `“${group.name}”已${group.parentId ? "删除" : "解散"}，网站已保留。`
+          : siteCount > 0
           ? `“${group.name}”已删除，${siteCount} 个链接已移入回收站。`
           : `“${group.name}”已删除。`,
     });
@@ -819,15 +997,26 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     },
   ) {
     setAddMenuOpen(false);
+    setNewGroupParentId(undefined);
     setNewGroupBeforeId(beforeGroupId);
     setNewGroupInsertionContext(insertionContext);
     setNewGroupDialogOpen(true);
   }
 
+  function openNewChildGroupDialog(parent: SiteGroup) {
+    if (!canParentGroup(parent, activeWorkspace)) return;
+    cancelGroupManagementForSort();
+    openNewGroupDialog();
+    setNewGroupParentId(parent.id);
+  }
+
   function handleNewGroup(name: string, icon: GroupIconName) {
-    const id = addGroup(name, icon, newGroupBeforeId, activeWorkspace);
-    if (!newGroupInsertionContext) setActiveGroupId(id);
+    const parent = groups.find(group => group.id === newGroupParentId);
+    if (newGroupParentId && !canParentGroup(parent, activeWorkspace)) return;
+    const id = addGroup(name, icon, newGroupBeforeId, activeWorkspace, newGroupParentId);
+    if (id && !newGroupInsertionContext && !newGroupParentId) selectGroup(id);
     setNewGroupBeforeId(undefined);
+    setNewGroupParentId(undefined);
     setNewGroupInsertionContext(undefined);
   }
 
@@ -909,12 +1098,14 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     setActiveGroupId("all");
     resetCollectionQuery();
     dismissBrowserHistoryLayer();
+    if (readCollectionLocation(window.history.state)) replaceCollectionLocation(undefined);
   }
 
   function openGithubWorkspace() {
     setDataContext(null);
     setHistoryPermissionError(null);
     dismissBrowserHistoryLayer();
+    if (readCollectionLocation(window.history.state)) replaceCollectionLocation(undefined);
     setActiveWorkspace("github");
     setActiveGroupId("all");
     resetCollectionQuery();
@@ -1324,17 +1515,15 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                   <span>{workspaceSites.length}</span>
                 </button>
                 {groups.map((group) => {
-                  const count = state.sites.filter(
-                    (site) => site.groupId === group.id,
-                  ).length;
+                  const count = siteCounts.get(group.id) ?? 0;
                   return (
                     <Fragment key={group.id}>
                       <GroupDropTab
                         group={group}
                         count={count}
-                        selected={activeGroupId === group.id}
+                        selected={(activeParent?.id ?? activeGroupId) === group.id}
                         dragActive={
-                          Boolean(activeDragId) &&
+                          Boolean(activeDragId) && !activeDraggedFolder &&
                           !dragDisabled
                         }
                         dragOver={dragHoverGroupId === group.id}
@@ -1426,14 +1615,36 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
 
           <div className="collection-heading">
             <div>
-              <h2 id="collection-title">{collectionTitle}</h2>
+              {activeParent && !isSearching && (
+                <nav aria-label="收藏路径" className="folder-breadcrumb">
+                  <button type="button" onClick={() => selectGroup("all")}>
+                    {activeWorkspace === "github" ? "全部 GitHub" : "全部网站"}
+                  </button>
+                  <span aria-hidden="true">/</span>
+                  <button type="button" onClick={() => selectGroup(activeParent.id)}>{activeParent.name}</button>
+                  <span aria-hidden="true">/</span>
+                  <span aria-current="page">{activeGroup?.name}</span>
+                </nav>
+              )}
+              <h2 id="collection-title" ref={collectionTitleRef} tabIndex={activeParent ? -1 : undefined}>{collectionTitle}</h2>
               <p>
                 {isSearching
                   ? `找到 ${visibleSites.length} 个结果`
-                  : `${visibleSites.length} 个收藏`}
+                  : `${activeGroup ? siteCounts.get(activeGroup.id) ?? 0 : workspaceSites.length} 个收藏`}
                 </p>
             </div>
             <div className="collection-view-controls">
+              {activeParent && !isSearching && <button type="button" className="view-control-button" onClick={returnFromFolder}>
+                <ArrowLeft size={16} />
+                <span>返回{folderReturnLabel}</span>
+              </button>}
+              {multiSelectMode && selectedSiteIds.size > 0 && <button
+                type="button" className="view-control-button" data-selection-surface="move"
+                onClick={() => setSitesToMove(selectableSiteIds.filter(id => selectedSiteIds.has(id)))}
+              >
+                <FolderOpen size={16} />
+                <span>移动至分组</span>
+              </button>}
               {(!multiSelectMode || isGroupedView || activeGroupId === "all") && <SelectMenu
                 value={sortMode}
                 options={SORT_OPTIONS}
@@ -1529,14 +1740,15 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                       navigationSettingsDisabled={settingsOpen}
                       onNavigationGapChange={groupNavigationGap => saveSettings(state.brand,
                         patchAppearance(state.appearance, { groupNavigationGap }), state.wallpaper)}
-                      sections={groupedSections} selection={{ ...selection,
+                      sections={groupedSections} folderActions={folderActions} selection={{ ...selection,
                       toggleGroupSelection, toggleGroupedSiteSelection, enterGroupSelectionFromDoubleClick }}
                       drag={gridDrag} sorting={activeGroupSortAxis === "vertical"} sortDisabled={groupSortDisabled}
                       insertDisabled={Boolean(activeGroupSortId || activeDragId || isSearching || selectionArmed)}
                       onInsert={openNewGroupDialog} onManage={openGroupManager} onAdd={openAddDialog}
                       renderSite={renderCollectionCard} />
                   ) : (
-                    <CollectionSiteGrid group={addCardGroup} sites={visibleSites} grouped={false} drag={gridDrag}
+                    <CollectionSiteGrid group={addCardGroup} sites={visibleSites} entries={flatEntries}
+                      folderActions={folderActions} flat={activeGroupId === "all"} grouped={false} drag={gridDrag}
                       dropEnabled={Boolean(activeDragId) && !dragDisabled && canReorderSites && activeGroupId !== "all"}
                       renderSite={site => renderCollectionCard(site, searchGroups.find(group => group.id === site.groupId) ?? addCardGroup)}
                       onAdd={openAddDialog} />
@@ -1553,7 +1765,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                             // Keep site card material intact during the return.
                             // This overlay also serves vertical group sorting,
                             // whose existing source-hiding feedback is retained.
-                            sideEffects: args => args.active.node.matches("[data-site-dnd-id]")
+                            sideEffects: args => args.active.node.matches("[data-site-dnd-id], [data-folder-dnd-id]")
                               ? undefined
                               : defaultDropAnimationSideEffects({ styles: { active: { opacity: "0" } } })(args),
                           }
@@ -1568,6 +1780,8 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                         count={activeSortedGroupCount}
                         batchCount={groupSort.view?.activeIds.length || 1}
                       />
+                    ) : activeDraggedFolder ? (
+                      <FolderCardDragPreview group={activeDraggedFolder} count={siteCounts.get(activeDraggedFolder.id) ?? 0} />
                     ) : activeDraggedSite && activeDraggedGroup ? (
                       <SiteCardDragPreview
                         site={activeDraggedSite}
@@ -1636,12 +1850,14 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
 
       <NewGroupDialog
         open={newGroupDialogOpen}
-        groups={groups}
+        groups={workspaceGroups}
+        parent={groups.find(group => group.id === newGroupParentId)}
         insertionContext={newGroupInsertionContext}
         onOpenChange={(open) => {
           setNewGroupDialogOpen(open);
           if (!open) {
             setNewGroupBeforeId(undefined);
+            setNewGroupParentId(undefined);
             setNewGroupInsertionContext(undefined);
           }
         }}
@@ -1651,7 +1867,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
       <GroupDialog
         open={groupDialogOpen}
         initialGroupId={managedGroupId}
-        groups={groups}
+        groups={workspaceGroups}
         sites={state.sites}
         onOpenChange={(open) => {
           setGroupDialogOpen(open);
@@ -1660,16 +1876,34 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         onUpdate={updateGroup}
         onReorder={reorderManagedGroups}
         onDelete={handleGroupDelete}
+        onCreateChild={openNewChildGroupDialog}
+        currentGroupId={activeGroupId}
+        onOpenChild={group => {
+          cancelGroupManagementForSort();
+          openFolder(group);
+        }}
         onDeleteMany={(ids) => {
-          const deleted = groups.filter(group => ids.includes(group.id) && !group.isProtected);
-          const count = state.sites.filter(site => deleted.some(group => group.id === site.groupId)).length;
-          deleteGroups(deleted.map(group => group.id));
-          if (ids.includes(activeGroupId)) setActiveGroupId("all");
-          setTransferNotice({ kind: "success", message: `已删除 ${deleted.length} 个分组，${count} 个链接已移入回收站。` });
+          const requested = workspaceGroups.filter(group => ids.includes(group.id) && !group.isProtected).map(group => group.id);
+          const deleted = getGroupSubtreeIds(workspaceGroups, requested);
+          const count = state.sites.filter(site => deleted.has(site.groupId)).length;
+          deleteGroups(requested);
+          setTransferNotice({ kind: "success", message: `已删除 ${deleted.size} 个分组，${count} 个链接已移入回收站。` });
         }}
         onExportGroup={(id) => openData("export", id)}
         onImportGroup={(id) => openData("import", id)}
       />
+
+      {sitesToMove.length > 0 && <MoveSitesDialog
+        sites={state.sites.filter(site => sitesToMove.includes(site.id))}
+        groups={state.groups}
+        onClose={() => setSitesToMove([])}
+        onMove={groupId => {
+          moveSites(sitesToMove.filter(id => state.sites.some(site => site.id === id)), groupId);
+          setSitesToMove([]);
+          cancelSelection();
+          setTransferNotice({ kind: "success", message: `已移动至“${getGroupPath(state.groups, groupId)}”。` });
+        }}
+      />}
 
       {!settingsOpen && <TopbarResizeHandle value={effectiveAppearance.topbarHeight} scale={interfaceScale}
         onChange={(topbarHeight) => setSettingsPreview({ brand: state.brand, wallpaper: state.wallpaper,
@@ -1757,7 +1991,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
         onConfirm={() => {
           reset();
           resetCollectionQuery();
-          setActiveGroupId("all");
+          selectGroup("all");
           setResetOpen(false);
         }}
       />
