@@ -351,8 +351,9 @@ test("navigator follows saved order, live deletion and the GitHub workspace", as
   await page.getByRole("button", { name: "管理分组", exact: true }).click();
   const manager = page.getByRole("dialog", { name: "管理分组", exact: true });
   await manager.getByRole("button", { name: /分组 1 14 个网站/ }).click();
-  await manager.getByRole("button", { name: "删除这个分组", exact: true }).click();
-  await manager.getByRole("button", { name: "再次点击删除这个分组", exact: true }).click();
+  await manager.getByRole("button", { name: "更多分组操作" }).click();
+  await manager.getByRole("menuitem", { name: "删除这个分组", exact: true }).click();
+  await manager.getByRole("menuitem", { name: "再次点击删除这个分组", exact: true }).click();
   await expect(page.getByRole("button", { name: "定位到 分组 1", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "打开 GitHub 收藏" }).click();
   await expect(page.getByRole("navigation", { name: "分组定位" })).toHaveCount(0);

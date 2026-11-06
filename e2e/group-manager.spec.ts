@@ -23,6 +23,7 @@ for (const theme of ["light", "dark"] as const) for (const wallpaper of [false, 
     const before = await page.evaluate(() => window.scrollY);
     expect(before).toBe(100);
     const originalGeometry = await page.locator(".app-shell").boundingBox();
+    await dialog.getByRole("button", { name: "展开全部图标" }).click();
     for (const selector of [".group-manager-list", ".group-manager-editor"]) {
       const scroll = dialog.locator(selector);
       expect(await scroll.evaluate(el => el.scrollHeight - el.clientHeight)).toBeGreaterThan(100);
@@ -58,16 +59,25 @@ for (const theme of ["light", "dark"] as const) for (const wallpaper of [false, 
     await page.waitForTimeout(150);
     expect(await page.evaluate(() => window.scrollY)).toBe(before);
     expect((await page.locator(".app-shell").boundingBox())?.x).toBe(originalGeometry?.x);
-    const remove = dialog.locator(".group-editor-delete");
+    const menuTrigger = dialog.getByRole("button", { name: "更多分组操作" });
+    await menuTrigger.click();
+    const menu = dialog.getByRole("menu", { name: "分组操作" });
+    const remove = menu.locator(".group-editor-delete");
     if (wallpaper) {
-      const fill = await dialog.getByRole("button", { name: "导入资源" }).evaluate(el => getComputedStyle(el).backgroundColor);
+      await expect(menu).not.toHaveCSS("backdrop-filter", "none");
+      await expect(menu).not.toHaveCSS("background-image", "none");
+      const fill = await menu.getByRole("menuitem", { name: "导入资源" }).evaluate(el => getComputedStyle(el).backgroundColor);
       await expect(remove).toHaveCSS("background-color", fill);
     }
     await remove.click();
     await expect(remove).toHaveAttribute("aria-label", "再次点击删除这个分组");
     await expect(remove).toHaveCSS("background-color", "rgb(179, 58, 70)");
     await dialog.getByLabel("分组名称").click();
+    await expect(menu).toHaveCount(0);
+    await menuTrigger.click();
     await expect(remove).toHaveAttribute("aria-label", "删除这个分组");
+    await page.keyboard.press("Escape");
+    await dialog.getByRole("button", { name: "收起图标" }).click();
     await page.screenshot({ path: screenshotPath(`group-manager-theme-${theme}-${wallpaper}.png`) });
     await dialog.getByRole("button", { name: "取消", exact: true }).click();
     await expect(page.locator("body")).not.toHaveAttribute("data-scroll-locked");
@@ -76,6 +86,80 @@ for (const theme of ["light", "dark"] as const) for (const wallpaper of [false, 
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before);
   });
 }
+
+test("manager displays a nested directory and separates editing, actions, and folder navigation", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium", "Desktop directory layout and keyboard actions");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
+    const design = state.groups.find((group: { id: string }) => group.id === "design");
+    state.groups.push({ ...design, id: "group-manager-child", name: "设计资料", icon: "flask", parentId: "design", order: 0 });
+    localStorage.setItem("site-hub:v1", JSON.stringify(state));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "管理分组", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "管理分组" });
+  const directory = dialog.getByRole("list", { name: "分组目录" });
+  const branch = directory.locator(":scope > li").filter({ has: page.getByRole("list", { name: "设计的子分组" }) });
+  await expect(branch.getByRole("button", { name: /^设计 \d+ 个网站$/ })).toBeVisible();
+  const childList = branch.getByRole("list", { name: "设计的子分组" });
+  const handle = await branch.getByRole("button", { name: "拖动 设计" }).boundingBox();
+  const listBox = await dialog.locator(".group-manager-list").boundingBox();
+  if (!handle || !listBox) throw new Error("Directory drag geometry is unavailable");
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2, listBox.y + 8, { steps: 14 });
+  await expect(page.locator(".group-list-item-drag-preview")).toBeVisible();
+  const sourceChildren = dialog.locator(".group-manager-branch.is-dragging .group-manager-tree-children");
+  await expect(sourceChildren).toHaveCSS("visibility", "hidden");
+  await expect(sourceChildren.locator(".group-manager-check")).toHaveCSS("visibility", "hidden");
+  await page.screenshot({ path: screenshotPath("group-manager-directory-branch-drag.png") });
+  await page.mouse.up();
+  await expect(directory.locator(":scope > li").first().getByRole("list", { name: "设计的子分组" })).toBeVisible();
+
+  const child = childList.getByRole("button", { name: "设计资料 子分组 · 0 个网站" });
+  await child.click();
+  await expect(dialog.getByLabel("分组名称")).toHaveValue("设计资料");
+  await expect(dialog.locator(".group-editor-summary-copy")).toContainText("子分组 · 0 个网站");
+  await expect(dialog.getByRole("menuitem")).toHaveCount(0);
+
+  const actionTrigger = dialog.getByRole("button", { name: "更多分组操作" });
+  await actionTrigger.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(dialog.getByRole("menuitem", { name: "导入资源" })).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(dialog.getByRole("menuitem", { name: "删除这个分组" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog.getByRole("menu")).toHaveCount(0);
+  await expect(actionTrigger).toBeFocused();
+  await expect(dialog).toBeVisible();
+
+  const parentTrigger = dialog.getByRole("button", { name: "所属一级分组" });
+  await parentTrigger.click();
+  const parents = dialog.getByRole("listbox", { name: "所属一级分组" });
+  await expect(parents.getByRole("option", { name: "设计", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Escape");
+  await expect(parents).toHaveCount(0);
+  await expect(parentTrigger).toBeFocused();
+
+  const iconGrid = dialog.locator(".manager-icon-grid");
+  await expect(iconGrid.getByRole("radio")).toHaveCount(12);
+  await expect(iconGrid.getByRole("radio", { name: "研究" })).toBeChecked();
+  await dialog.getByRole("button", { name: "展开全部图标" }).click();
+  await expect(iconGrid.getByRole("radio")).toHaveCount(48);
+  await dialog.getByRole("button", { name: "收起图标" }).click();
+  await expect(iconGrid.getByRole("radio")).toHaveCount(12);
+
+  const openFolder = dialog.getByRole("button", { name: "打开此分组" });
+  await openFolder.scrollIntoViewIfNeeded();
+  const openBox = await openFolder.boundingBox();
+  const iconBox = await iconGrid.boundingBox();
+  expect(openBox?.y).toBeGreaterThan((iconBox?.y ?? 0) + (iconBox?.height ?? 0));
+  await page.screenshot({ path: screenshotPath("group-manager-directory-detail.png") });
+  await openFolder.click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("heading", { name: "设计资料", exact: true })).toBeVisible();
+});
 
 test("creates a group, selects it, and keeps it after refresh", async ({ page }) => {
   await page.getByRole("button", { name: "新建分组" }).click();
@@ -161,7 +245,26 @@ test("opens group management without automatic help and supports every entry", a
     "backdrop-filter",
     "none",
   );
+  await designTab.dispatchEvent("pointermove", {
+    button: 0,
+    pointerId: 17,
+    pointerType: "touch",
+    clientX: tabBox.x + tabBox.width / 2 + 9,
+    clientY: tabBox.y + tabBox.height / 2,
+  });
+  await expect(dialog).toBeHidden();
+  await designTab.dispatchEvent("pointerup", {
+    button: 0,
+    pointerId: 17,
+    pointerType: "touch",
+  });
+
+  await page.getByRole("button", { name: "显示" }).click();
+  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
+  await page.getByRole("button", { name: "管理 设计 分组" }).click();
   const iconGrid = dialog.locator(".manager-icon-grid");
+  await expect(iconGrid.locator("label.group-icon-choice")).toHaveCount(12);
+  await dialog.getByRole("button", { name: "展开全部图标" }).click();
   await expect(iconGrid.locator("label.group-icon-choice")).toHaveCount(48);
   const iconGridSize = await iconGrid.evaluate((element) => {
     const gridRect = element.getBoundingClientRect();
@@ -194,28 +297,16 @@ test("opens group management without automatic help and supports every entry", a
   } else {
     expect(iconGridSize.gridBottom).toBeLessThanOrEqual(iconGridSize.editorBottom + 1);
   }
-  const deleteBox = await dialog
-    .getByRole("button", { name: "删除这个分组" })
+  const moreActions = dialog.getByRole("button", { name: "更多分组操作" });
+  await moreActions.scrollIntoViewIfNeeded();
+  const actionBox = await moreActions
     .boundingBox();
   const iconGridBox = await iconGrid.boundingBox();
-  if (!deleteBox || !iconGridBox) throw new Error("Group manager controls are not visible");
-  expect(deleteBox.y).toBeLessThan(iconGridBox.y);
-  await designTab.dispatchEvent("pointermove", {
-    button: 0,
-    pointerId: 17,
-    pointerType: "touch",
-    clientX: tabBox.x + tabBox.width / 2 + 9,
-    clientY: tabBox.y + tabBox.height / 2,
-  });
+  if (!actionBox || !iconGridBox) throw new Error("Group manager controls are not visible");
+  expect(actionBox.y).toBeLessThan(iconGridBox.y);
+  await dialog.getByRole("button", { name: "返回收藏主页" }).click();
   await expect(dialog).toBeHidden();
-  await designTab.dispatchEvent("pointerup", {
-    button: 0,
-    pointerId: 17,
-    pointerType: "touch",
-  });
 
-  await page.getByRole("button", { name: "显示" }).click();
-  await page.getByRole("menuitemradio", { name: "按分组显示" }).click();
   await page.getByRole("button", { name: "管理 学习 分组" }).click();
   dialog = page.getByRole("dialog", { name: "管理分组" });
   await expect(dialog.getByLabel("分组名称")).toHaveValue("学习");
@@ -447,7 +538,8 @@ test("imports a group resource package into the selected manager group", async (
 }) => {
   await page.getByRole("button", { name: "管理分组" }).click();
   const dialog = page.getByRole("dialog", { name: "管理分组" });
-  await dialog.getByRole("button", { name: "导入资源" }).click();
+  await dialog.getByRole("button", { name: "更多分组操作" }).click();
+  await dialog.getByRole("menuitem", { name: "导入资源" }).click();
   const payload = {
     format: "site-hub-group-export",
     exportVersion: 1,
@@ -493,14 +585,15 @@ test("deletes a group directly after two clicks and keeps its links in trash", a
   await page.getByRole("button", { name: "管理分组" }).click();
   let manager = page.getByRole("dialog", { name: "管理分组" });
   await manager.getByRole("button", { name: /学习 2 个网站/ }).click();
-  await manager.getByRole("button", { name: "删除这个分组" }).click();
-  await expect(manager.getByRole("button", { name: "再次点击删除这个分组" })).toBeVisible();
+  await manager.getByRole("button", { name: "更多分组操作" }).click();
+  await manager.getByRole("menuitem", { name: "删除这个分组" }).click();
+  await expect(manager.getByRole("menuitem", { name: "再次点击删除这个分组" })).toBeVisible();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.screenshot({
     path: screenshotPath(`group-delete-double-${testInfo.project.name}.png`),
     fullPage: true,
   });
-  await manager.getByRole("button", { name: "再次点击删除这个分组" }).click();
+  await manager.getByRole("menuitem", { name: "再次点击删除这个分组" }).click();
   await expect(manager).toBeHidden();
 
   await expect(page.getByRole("tab", { name: /全部/ })).toHaveAttribute(

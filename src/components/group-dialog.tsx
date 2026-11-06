@@ -1,12 +1,11 @@
 import { HelpTip } from "./help-tip";
-import { DataTransferActions } from "./data-transfer-actions";
 import { CardSelectionToggle } from "./card-primitives";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useGroupManagerSelection } from "../hooks/use-group-manager-selection";
 import { useSweepSelection } from "../hooks/use-sweep-selection";
 import "./group-manager-selection.css";
 import { DialogNavigation } from "./dialog-navigation";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -28,15 +27,18 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  ArrowRight,
+  CaretDown,
   DotsSixVertical,
+  FolderSimplePlus,
   LockSimple,
-  Trash,
 } from "@phosphor-icons/react";
 import { GROUP_ICON_OPTIONS } from "../data/group-icons";
 import { canParentGroup, getChildGroups, getGroupSiteCounts, getGroupSubtreeIds, getRootGroups } from "../lib/group-hierarchy";
 import { getGroupWorkspace } from "../lib/github-workspace";
 import type { CategoryIcon, SiteGroup, SiteItem } from "../types";
 import { CategoryIcon as GroupIcon } from "./category-icon";
+import { GroupManagerActions } from "./group-manager-actions";
 import { SelectMenu } from "./select-menu";
 
 interface GroupDialogProps {
@@ -62,21 +64,17 @@ interface GroupDraft {
   parentId?: string | null;
 }
 
-function SortableGroupItem({
-  group,
-  count,
-  selected,
-  onSelect,
-  checked,
-  onToggle,
-}: {
+interface GroupRowProps {
   group: SiteGroup;
   count: number;
   selected: boolean;
   onSelect: () => void;
   checked: boolean;
   onToggle: (shift: boolean) => void;
-}) {
+}
+
+function SortableGroupBranch({ children, ...props }: GroupRowProps & { children: ReactNode }) {
+  const { group } = props;
   const {
     attributes,
     listeners,
@@ -87,17 +85,33 @@ function SortableGroupItem({
     isDragging,
   } = useSortable({
     id: group.id,
-    disabled: { draggable: group.isProtected || Boolean(group.parentId), droppable: Boolean(group.parentId) },
+    disabled: group.isProtected,
   });
 
   return (
-    <div
+    <li
       ref={setNodeRef}
+      className={`group-manager-branch ${isDragging ? "is-dragging" : ""}`}
       style={{
         transform: CSS.Transform.toString(transform),
         transition: isDragging ? undefined : transition,
         willChange: isDragging ? "transform" : undefined,
       }}
+    >
+      <GroupManagerRow {...props} isDragging={isDragging} dragHandle={{ attributes, listeners, setActivatorNodeRef }} />
+      {children}
+    </li>
+  );
+}
+
+function GroupManagerRow({ group, count, checked, onToggle, selected, onSelect, isDragging, dragHandle }:
+  GroupRowProps & {
+    isDragging?: boolean;
+    dragHandle?: Pick<ReturnType<typeof useSortable>, "attributes" | "listeners" | "setActivatorNodeRef">;
+  }
+) {
+  return (
+    <div
       className={`group-list-item has-selection ${group.parentId ? "is-child-group" : ""} ${checked ? "is-checked" : ""} ${selected ? "selected" : ""} ${
         isDragging ? "is-dragging" : ""
       }`}
@@ -118,23 +132,21 @@ function SortableGroupItem({
           <small>{group.parentId && "子分组 · "}{count} 个网站</small>
         </span>
       </button>
-      <button
+      {dragHandle && <button
         type="button"
         className="group-drag-handle"
-        ref={setActivatorNodeRef}
-        disabled={group.isProtected || Boolean(group.parentId)}
-        aria-label={
-          group.isProtected ? "受保护分组不能移动" : group.parentId ? "在父组网格中排列子分组" : `拖动 ${group.name}`
-        }
-        {...attributes}
-        {...listeners}
+        ref={dragHandle.setActivatorNodeRef}
+        disabled={group.isProtected}
+        aria-label={group.isProtected ? "受保护分组不能移动" : `拖动 ${group.name}`}
+        {...dragHandle.attributes}
+        {...dragHandle.listeners}
       >
         {group.isProtected ? (
           <LockSimple size={16} />
-        ) : !group.parentId && (
+        ) : (
           <DotsSixVertical size={18} weight="bold" />
         )}
-      </button>
+      </button>}
     </div>
   );
 }
@@ -161,6 +173,46 @@ function GroupDragPreview({
         <DotsSixVertical size={18} weight="bold" />
       </span>
     </div>
+  );
+}
+
+const COMMON_GROUP_ICON_COUNT = 12;
+
+function GroupIconPicker({ groupId, selected, onChange }: {
+  groupId: string;
+  selected: CategoryIcon;
+  onChange: (icon: CategoryIcon) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const gridId = useId();
+  const common = GROUP_ICON_OPTIONS.slice(0, COMMON_GROUP_ICON_COUNT);
+  const selectedOption = GROUP_ICON_OPTIONS.find(option => option.value === selected);
+  const visible = expanded ? GROUP_ICON_OPTIONS
+    : selectedOption && !common.includes(selectedOption) ? [...common.slice(0, -1), selectedOption] : common;
+
+  return (
+    <fieldset className="field-group manager-icon-picker">
+      <legend>分组图标</legend>
+      <div id={gridId} className="group-icon-choice-grid manager-icon-grid">
+        {visible.map((option) => (
+          <label key={option.value}
+            className={`group-icon-choice ${selected === option.value ? "selected" : ""}`}
+            title={option.label}
+          >
+            <input type="radio" name={`manager-icon-${groupId}`} checked={selected === option.value}
+              onChange={() => onChange(option.value)} />
+            <GroupIcon name={option.value} size={18} />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </div>
+      <button type="button" className="view-control-button group-icon-expand"
+        aria-expanded={expanded} aria-controls={gridId} onClick={() => setExpanded(value => !value)}
+      >
+        <CaretDown size={13} aria-hidden="true" />
+        {expanded ? "收起图标" : "展开全部图标"}
+      </button>
+    </fieldset>
   );
 }
 
@@ -209,10 +261,11 @@ export function GroupDialog({
   const titleId = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const roots = useMemo(() => getRootGroups(groups).sort((a, b) => a.order - b.order), [groups]);
-  const orderedGroups = useMemo(
-    () => roots.flatMap(group => [group, ...getChildGroups(groups, group.id)]),
+  const branches = useMemo(
+    () => roots.map(group => ({ group, children: getChildGroups(groups, group.id) })),
     [groups, roots],
   );
+  const orderedGroups = useMemo(() => branches.flatMap(({ group, children }) => [group, ...children]), [branches]);
   const selection = useGroupManagerSelection(open, orderedGroups);
   const [deleteRequested, setDeleteRequested] = useState(false);
   const [hierarchyDeleteId, setHierarchyDeleteId] = useState<string>();
@@ -406,12 +459,12 @@ export function GroupDialog({
   function requestDelete(group: SiteGroup) {
     if (group.parentId || getChildGroups(groups, group.id).length > 0) {
       setHierarchyDeleteId(group.id);
-      return;
+      return false;
     }
     if (armedDeleteGroupId === group.id) {
       clearArmedDelete();
       onDelete(group);
-      return;
+      return false;
     }
     clearArmedDelete();
     setArmedDeleteGroupId(group.id);
@@ -419,6 +472,7 @@ export function GroupDialog({
       armedDeleteTimerRef.current = null;
       setArmedDeleteGroupId(null);
     }, 2000);
+    return true;
   }
 
   useEffect(() => {
@@ -502,6 +556,28 @@ export function GroupDialog({
   const selectedDraft = selected
     ? (drafts[selected.id] ?? { name: selected.name, icon: selected.icon })
     : undefined;
+  const possibleParents = selected && !selected.isProtected && !selected.githubImportSource &&
+    !getChildGroups(groups, selected.id).length
+    ? roots.filter(group => group.id !== selected.id && canParentGroup(group, getGroupWorkspace(selected)))
+    : [];
+
+  function rowProps(group: SiteGroup): GroupRowProps {
+    return {
+      group,
+      count: siteCountByGroup.get(group.id) ?? 0,
+      checked: selection.selectedIds.includes(group.id),
+      selected: selected?.id === group.id,
+      onToggle: shift => {
+        clearArmedDelete();
+        selection.toggle(group.id, shift);
+      },
+      onSelect: () => {
+        clearArmedDelete();
+        setSelectedId(group.id);
+        setError("");
+      },
+    };
+  }
 
   function updateSelected(patch: Partial<GroupDraft>) {
     if (!selected || selected.isProtected) return;
@@ -600,6 +676,7 @@ export function GroupDialog({
                 className="group-manager-list"
                 aria-label="分组列表"
               >
+                <h3 className="group-manager-directory-title">分组目录</h3>
                 <DndContext
                   key={dndContextKey}
                   sensors={sensors}
@@ -625,23 +702,17 @@ export function GroupDialog({
                     items={roots.map((group) => group.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {orderedGroups.map((group) => (
-                      <SortableGroupItem
-                        key={group.id}
-                        group={group}
-                        count={
-                          siteCountByGroup.get(group.id) ?? 0
-                        }
-                        checked={selection.selectedIds.includes(group.id)}
-                        onToggle={shift => { clearArmedDelete(); selection.toggle(group.id, shift); }}
-                        selected={selected?.id === group.id}
-                        onSelect={() => {
-                          clearArmedDelete();
-                          setSelectedId(group.id);
-                          setError("");
-                        }}
-                      />
-                    ))}
+                    <ul className="group-manager-tree" role="list" aria-label="分组目录">
+                      {branches.map(({ group, children }) => (
+                        <SortableGroupBranch key={group.id} {...rowProps(group)}>
+                          {children.length > 0 && (
+                            <ul className="group-manager-tree-children" role="list" aria-label={`${group.name}的子分组`}>
+                              {children.map(child => <li key={child.id}><GroupManagerRow {...rowProps(child)} /></li>)}
+                            </ul>
+                          )}
+                        </SortableGroupBranch>
+                      ))}
+                    </ul>
                   </SortableContext>
                   {createPortal(
                     <DragOverlay dropAnimation={null}>
@@ -672,51 +743,18 @@ export function GroupDialog({
                     <span className="group-editor-icon large">
                       <GroupIcon name={selectedDraft.icon} size={22} />
                     </span>
-                    <div>
+                    <div className="group-editor-summary-copy">
                       <strong>{selectedDraft.name || "未命名分组"}</strong>
                       <span>
+                        {selected.parentId ? "子分组 · " : "一级分组 · "}
                         {siteCountByGroup.get(selected.id) ?? 0}
                         {" "}个网站
                       </span>
                     </div>
-                    <div className="group-editor-summary-actions">
-                      {selected.parentId && selected.id !== currentGroupId && (
-                        <button type="button" className="button secondary-button" onClick={() => onOpenChild(selected)}>
-                          进入子分组
-                        </button>
-                      )}
-                      {canParentGroup(selected, getGroupWorkspace(selected)) && (
-                        <button type="button" className="button secondary-button" onClick={() => onCreateChild(selected)}>
-                          创建子分组
-                        </button>
-                      )}
-                      <DataTransferActions group onImport={() => requestTransfer("import")} onExport={() => requestTransfer("export")} />
-                      {!selected.isProtected && (
-                        <button
-                          type="button"
-                          className={`button group-editor-delete ${
-                            armedDeleteGroupId === selected.id
-                              ? "is-delete-armed"
-                              : ""
-                          }`}
-                          data-delete-group-id={selected.id}
-                          aria-pressed={armedDeleteGroupId === selected.id}
-                          aria-label={
-                            armedDeleteGroupId === selected.id
-                              ? "再次点击删除这个分组"
-                              : "删除这个分组"
-                          }
-                          onClick={() => requestDelete(selected)}
-                        >
-                          <Trash size={17} />
-                          <span className="group-action-label">
-                            {armedDeleteGroupId === selected.id
-                              ? "确认删除"
-                              : "删除"}
-                          </span>
-                        </button>
-                      )}
-                    </div>
+                    <GroupManagerActions key={selected.id} groupId={selected.id}
+                      onImport={() => requestTransfer("import")} onExport={() => requestTransfer("export")}
+                      onDelete={selected.isProtected ? undefined : () => requestDelete(selected)}
+                      deleteArmed={armedDeleteGroupId === selected.id} clearDelete={clearArmedDelete} />
                   </div>
 
                   <label className="settings-field">
@@ -730,56 +768,44 @@ export function GroupDialog({
                     />
                   </label>
 
-                  {!selected.isProtected && !selected.githubImportSource &&
-                    !getChildGroups(groups, selected.id).length &&
-                    roots.some(group => group.id !== selected.id && canParentGroup(group, getGroupWorkspace(selected))) &&
+                  {possibleParents.length > 0 && (
                     <div className="settings-field">
-                    <span>所属一级分组</span>
-                    <SelectMenu
-                      ariaLabel="所属一级分组"
-                      menuLabel="所属一级分组"
-                      value={selectedDraft.parentId === null ? "" : selectedDraft.parentId ?? selected.parentId ?? ""}
-                      options={[
-                        { value: "", label: selected.parentId ? "提升为一级分组" : "一级分组" },
-                        ...roots.filter(group => group.id !== selected.id && canParentGroup(group, getGroupWorkspace(selected)))
-                          .map(group => ({ value: group.id, label: group.name })),
-                      ]}
-                      onChange={parentId => updateSelected({ parentId: parentId || null })}
-                    />
-                  </div>}
-
-                  <fieldset className="field-group">
-                    <legend>分组图标</legend>
-                    <div className="group-icon-choice-grid manager-icon-grid">
-                      {GROUP_ICON_OPTIONS.map((option) => (
-                        <label
-                          key={option.value}
-                          className={`group-icon-choice ${
-                            selectedDraft.icon === option.value ? "selected" : ""
-                          }`}
-                          title={option.label}
-                        >
-                          <input
-                            type="radio"
-                            name={`manager-icon-${selected.id}`}
-                            checked={selectedDraft.icon === option.value}
-                            disabled={selected.isProtected}
-                            onChange={() =>
-                              updateSelected({ icon: option.value })
-                            }
-                          />
-                          <GroupIcon name={option.value} size={20} />
-                          <span>{option.label}</span>
-                        </label>
-                      ))}
+                      <span>所属一级分组</span>
+                      <SelectMenu key={selected.id} className="group-editor-parent-select"
+                        ariaLabel="所属一级分组" menuLabel="所属一级分组" containEscape
+                        value={selectedDraft.parentId === null ? "" : selectedDraft.parentId ?? selected.parentId ?? ""}
+                        options={[
+                          { value: "", label: selected.parentId ? "提升为一级分组" : "一级分组" },
+                          ...possibleParents.map(group => ({ value: group.id, label: group.name })),
+                        ]}
+                        onChange={parentId => updateSelected({ parentId: parentId || null })}
+                      />
                     </div>
-                  </fieldset>
+                  )}
+
+                  {!selected.isProtected && <GroupIconPicker key={selected.id} groupId={selected.id}
+                    selected={selectedDraft.icon} onChange={icon => updateSelected({ icon })} />}
 
                   {selected.isProtected && (
                     <p className="protected-note">
                       <LockSimple size={16} />
                       “其他”是系统保底分组，不能改名、移动或删除。
                     </p>
+                  )}
+
+                  {selected.parentId && selected.id !== currentGroupId && (
+                    <div className="group-editor-footer">
+                      <button type="button" className="view-control-button" onClick={() => onOpenChild(selected)}>
+                        打开此分组 <ArrowRight size={15} aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                  {canParentGroup(selected, getGroupWorkspace(selected)) && (
+                    <div className="group-editor-footer">
+                      <button type="button" className="view-control-button" onClick={() => onCreateChild(selected)}>
+                        <FolderSimplePlus size={16} aria-hidden="true" />创建子分组
+                      </button>
+                    </div>
                   )}
                 </div>
               )}

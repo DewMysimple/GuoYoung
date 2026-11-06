@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react";
 import { CategoryIcon as GroupIcon } from "../components/category-icon";
 import { CardOpenAction, CardSurface } from "../components/card-primitives";
 import { Favicon } from "../components/favicon";
-import { getDescendantIds } from "../lib/bookmark-manager";
 import type { BrowserBookmarkTreeNode } from "../lib/browser-runtime";
 import type { CategoryIcon } from "../types";
 
@@ -47,7 +46,7 @@ function BookmarkCheckbox({
 interface BookmarkTileProps {
   node: BrowserBookmarkTreeNode;
   selectedIds: Set<string>;
-  searchActive: boolean;
+  disabled?: boolean;
   folderIcons: ReadonlyMap<string, CategoryIcon>;
   onToggleSelect: (node: BrowserBookmarkTreeNode) => void;
   onOpenFolder: (node: BrowserBookmarkTreeNode) => void;
@@ -56,12 +55,12 @@ interface BookmarkTileProps {
 export function BookmarkTile({
   node,
   selectedIds,
-  searchActive,
+  disabled = false,
   folderIcons,
   onToggleSelect,
   onOpenFolder,
 }: BookmarkTileProps) {
-  const selectableIds = searchActive ? getBookmarkSiteIds(node) : getDescendantIds(node);
+  const selectableIds = getBookmarkSiteIds(node);
   const selectedCount = selectableIds.filter((id) => selectedIds.has(id)).length;
   const checked = selectableIds.length > 0 && selectedCount === selectableIds.length;
   const indeterminate = selectedCount > 0 && !checked;
@@ -80,6 +79,7 @@ export function BookmarkTile({
           className="bookmark-tile-open"
           label={isFolder ? `打开书签文件夹 ${title}` : `选择 ${title}`}
           title={node.url || title}
+          disabled={disabled}
           onOpen={isFolder ? () => onOpenFolder(node) : undefined}
           onSelect={!isFolder ? () => onToggleSelect(node) : undefined}
         />
@@ -95,7 +95,7 @@ export function BookmarkTile({
       <BookmarkCheckbox
         checked={checked}
         indeterminate={indeterminate}
-        disabled={selectableIds.length === 0}
+        disabled={disabled || selectableIds.length === 0}
         label={`选择 ${title}`}
         onChange={() => onToggleSelect(node)}
       />

@@ -1,18 +1,20 @@
 import { HelpTip } from "./help-tip";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Database, DownloadSimple, FileArrowUp, FolderSimple, UploadSimple } from "@phosphor-icons/react";
+import { ArrowLeft, BookmarkSimple, Database, DownloadSimple, FileArrowUp, FolderSimple, UploadSimple } from "@phosphor-icons/react";
 import type { SiteCollectionState, SiteWorkspace } from "../types";
 import type { DataImportOperation } from "../hooks/use-site-hub";
 import type { LocalFontState } from "../hooks/use-local-font";
-import { applyDataImport, collectionTransferGroups, createSelectedGroupsExport, getTransferGroupCounts, getTransferSelection, parseTransferFile, type ImportRequest, type TransferFile, type TransferGroup } from "../lib/data-workspace";
+import { applyDataImport, collectionTransferGroups, createSelectedGroupsExport, getTransferGroupCounts, getTransferSelection, parseTransferFile, type FileImportRequest, type ImportRequest, type TransferFile, type TransferGroup } from "../lib/data-workspace";
+import { getChromiumExtensionApi, isExtensionEnvironment } from "../lib/browser-runtime";
 import { downloadExport, downloadJson } from "../lib/data-transfer";
 import { getGroupWorkspace } from "../lib/github-workspace";
 import { canParentGroup, getGroupPath, getGroupsInTreeOrder } from "../lib/group-hierarchy";
 import { SelectMenu } from "./select-menu";
 import { ConfirmDialog } from "./confirm-dialog";
+import { BookmarkDataWorkspace } from "./bookmark-data-workspace";
 import "./data-workspace.css";
 
-export interface DataWorkspaceContext { mode: "import" | "export"; groupId?: string }
+export interface DataWorkspaceContext { mode: "import" | "export" | "bookmarks"; groupId?: string }
 interface Props {
   state: SiteCollectionState; context: DataWorkspaceContext; onBack: () => void;
   onImport: (request: ImportRequest) => DataImportOperation;
@@ -42,6 +44,8 @@ function GroupChoices({ groups, selected, onChange, disabled = false }: { groups
 }
 
 export function DataWorkspace({ state, context, onBack, onImport, importOperation, onRetrySave, localFont, onOpenFontSettings }: Props) {
+  const extension = getChromiumExtensionApi();
+  const bookmarks = isExtensionEnvironment(extension) ? extension?.bookmarks : undefined;
   const [mode, setMode] = useState(context.mode);
   const [exportScope, setExportScope] = useState(context.groupId ? "groups" : "all");
   const [exportIds, setExportIds] = useState<string[]>(context.groupId ? [context.groupId] : []);
@@ -92,7 +96,7 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
   const sources = file ? getTransferSelection(file.groups, sourceIds) : [];
   const includesChildren = sources.some(group => getTransferGroupCounts(group.payload).groups > 1);
   const target = destination === "existing" ? state.groups.find(group => group.id === targetId) : undefined;
-  const request = useMemo<ImportRequest | null>(() => file ? ({ file, keys: sourceIds, destination: destination === "existing" ? { kind: "existing", groupId: targetId }
+  const request = useMemo<FileImportRequest | null>(() => file ? ({ file, keys: sourceIds, destination: destination === "existing" ? { kind: "existing", groupId: targetId }
     : destination === "replace" ? { kind: "replace" } : { kind: "new", name, workspace: workspace === "source" ? undefined : workspace } }) : null,
     [file, sourceIds, destination, targetId, name, workspace]);
   const preview = useMemo(() => {
@@ -116,7 +120,7 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
       if (token === generation.current) setNotice({ error: true, text: error instanceof Error ? error.message : "无法读取文件" });
     } finally { if (token === generation.current) setReading(false); }
   }
-  function switchMode(next: "import" | "export") {
+  function switchMode(next: DataWorkspaceContext["mode"]) {
     if (next === mode) return;
     generation.current++; submitted.current = false; setAttempt(null); setRestoredFont(null);
     setMode(next); setNotice(null); setFile(null); setFilename(""); setReading(false); setConfirming(false);
@@ -156,7 +160,9 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
     <div className="data-mode-switch" aria-label="数据操作">
       <button type="button" aria-pressed={mode === "import"} onClick={() => switchMode("import")}><UploadSimple size={19} />导入</button>
       <button type="button" aria-pressed={mode === "export"} onClick={() => switchMode("export")}><DownloadSimple size={19} />导出</button>
+      {(bookmarks || mode === "bookmarks") && <button type="button" aria-pressed={mode === "bookmarks"} onClick={() => switchMode("bookmarks")}><BookmarkSimple size={19} />浏览器书签</button>}
     </div>
+    {mode === "bookmarks" ? <BookmarkDataWorkspace api={bookmarks} state={state} onImport={onImport} importOperation={importOperation} onRetrySave={onRetrySave} /> : <>
     {notice && <div className={`data-notice ${notice.error ? "is-error" : ""}`} role={notice.error ? "alert" : "status"}>{notice.text}
       {activeImport?.status === "failed" && <button type="button" className="button secondary-button" onClick={() => void onRetrySave()}>重试保存导入结果</button>}
     </div>}
@@ -210,5 +216,6 @@ export function DataWorkspace({ state, context, onBack, onImport, importOperatio
     <ConfirmDialog destructive={destination === "replace"} open={confirming} title={destination === "replace" ? "导入并替换收藏？" : "导入分组资源？"} description={destination === "replace" ? `将替换当前 ${state.sites.length} 个收藏及外观设置，导入 ${result?.added ?? 0} 个网站。建议先导出全局备份。` : `新增 ${result?.added ?? 0} 个网站，跳过 ${result?.skipped ?? 0} 个重复或不符合工作区的链接，新建 ${result?.created ?? 0} 个分组。`} confirmLabel="确认导入" onOpenChange={setConfirming} onConfirm={() => {
       confirmImport();
     }} />
+    </>}
   </section>;
 }

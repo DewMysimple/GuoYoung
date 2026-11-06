@@ -3136,6 +3136,35 @@ select:focus-visible {
   background: var(--page);
 }
 
+.group-manager-directory-title {
+  margin: 4px 8px 2px;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.group-manager-tree,
+.group-manager-tree-children {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.group-manager-tree-children {
+  margin-block-start: 5px;
+  margin-inline-start: 22px;
+  padding-inline-start: 10px;
+  border-inline-start: 1px solid var(--border-strong);
+}
+
+.group-manager-branch.is-dragging > .group-manager-tree-children,
+.group-manager-branch.is-dragging > .group-manager-tree-children .group-manager-check {
+  visibility: hidden;
+}
+
 .group-list-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -3239,26 +3268,58 @@ select:focus-visible {
   background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface));
 }
 
-.group-editor-summary > div:not(.group-editor-summary-actions) {
+.group-editor-summary-copy {
   display: grid;
   min-width: 0;
-  gap: 2px;
+  gap: 4px;
 }
 
-.group-editor-summary-actions {
+.group-editor-menu .group-editor-menu-trigger {
+  width: 36px;
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.group-editor-menu-divider {
+  height: 1px;
+  margin: 3px 5px;
+  background-color: var(--border);
+}
+
+.group-editor-menu .group-editor-delete:not(.is-delete-armed) {
+  color: var(--ui-danger-text);
+}
+
+.group-editor-menu .group-editor-delete.is-delete-armed {
+  color: var(--ui-on-accent-text);
+  background-color: var(--danger-fill);
+}
+
+.group-editor-footer {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-left: auto;
-  flex-wrap: nowrap;
+  justify-content: flex-start;
+  margin-top: auto;
+  padding-top: 5px;
 }
 
-.group-editor-summary-actions .button {
-  min-height: 34px;
-  gap: 6px;
-  padding: 7px 9px;
+.group-editor-parent-select .select-menu-trigger {
+  width: 100%;
+}
+
+.group-editor-parent-select .select-menu-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.group-editor-parent-select .select-menu-popover {
+  inset-inline: 0;
+  min-width: 0;
+  max-height: min(240px, 40vh);
+}
+
+.group-editor-parent-select .select-menu-option-label {
+  overflow-wrap: anywhere;
 }
 
 .group-action-label {
@@ -3273,7 +3334,7 @@ select:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.group-editor-summary span {
+.group-editor-summary-copy span {
   color: var(--text-faint);
   font-size: 0.6875rem;
 }
@@ -3376,17 +3437,21 @@ select:focus-visible {
 }
 
 .manager-icon-grid .group-icon-choice {
-  min-height: 56px;
+  min-height: 50px;
 }
 
-.group-editor-delete {
-  flex: 0 0 auto;
-  align-self: center;
-  margin-left: auto;
-  white-space: nowrap;
-  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
-  color: var(--ui-danger-text);
-  background: var(--danger-soft);
+.manager-icon-grid .group-icon-choice:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.manager-icon-picker .group-icon-expand {
+  min-height: 30px;
+  margin-top: 10px;
+}
+
+.group-icon-expand[aria-expanded="true"] svg {
+  rotate: 180deg;
 }
 
 .protected-note {
@@ -3985,12 +4050,6 @@ select:focus-visible {
 .trash-empty-state {
   padding: 18px 8px;
   text-align: center;
-}
-
-.group-editor-delete.is-delete-armed {
-  color: var(--ui-on-accent-text);
-  border-color: var(--danger-fill);
-  background: var(--danger-fill);
 }
 
 .danger-zone {

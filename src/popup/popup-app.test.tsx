@@ -70,6 +70,11 @@ function installChromeMock(options: {
   return { set, remove, removeTree, get: chrome.storage.local.get, getTree: chrome.bookmarks.getTree };
 }
 
+async function chooseQuickGroup(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await screen.findByRole("button", { name: "收藏到分组" }));
+  await user.click(screen.getByRole("option", { name }));
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -82,14 +87,36 @@ describe("toolbar popup", () => {
     const { set } = installChromeMock({ state });
     const user = userEvent.setup();
     render(<PopupApp />);
-    const target = await screen.findByRole("radio", { name: "设计 / 灵感" });
-    await user.click(target);
-    const save = screen.getByRole("button", { name: "添加到主页" });
+    await chooseQuickGroup(user, "设计 / 灵感");
+    const save = screen.getByRole("button", { name: "收藏当前网页" });
     await user.click(save);
     await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
     const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
     expect(saved.groups.find(group => group.id === "child")?.parentId).toBe("design");
     expect(saved.sites.find(site => site.url === "https://platform.openai.com/docs")?.groupId).toBe("child");
+  });
+
+  it("remembers a child target on reopen without replacing the saved group of a known site", async () => {
+    const state = addGroupToState(createDefaultState(), "灵感", "palette", "child", undefined, undefined, "main", "design");
+    const user = userEvent.setup();
+    const first = installChromeMock({ state });
+    const initialPopup = render(<PopupApp />);
+    await chooseQuickGroup(user, "设计 / 灵感");
+    await user.click(screen.getByRole("button", { name: "收藏当前网页" }));
+    await waitFor(() => expect(first.set).toHaveBeenCalledTimes(1));
+    const saved: SiteCollectionState = JSON.parse(first.set.mock.calls[0][0][STORAGE_KEY]);
+    initialPopup.unmount();
+
+    installChromeMock({ state: saved, tab: { title: "新网页", url: "https://example.org/new-popup-page" } });
+    const nextPopup = render(<PopupApp />);
+    expect(await screen.findByRole("button", { name: "收藏到分组" })).toHaveTextContent("设计 / 灵感");
+    expect(screen.getByText("最近使用的分组")).toBeVisible();
+    nextPopup.unmount();
+
+    installChromeMock({ state: saved, tab: { title: "浏览器标题", url: state.sites[0].url } });
+    render(<PopupApp />);
+    expect(await screen.findByRole("button", { name: "收藏到分组" })).toHaveTextContent("搜索");
+    expect(screen.getByRole("button", { name: "保存修改" })).toBeVisible();
   });
 
   it("creates a group and adds the current page in one write based on the latest collection", async () => {
@@ -123,7 +150,7 @@ describe("toolbar popup", () => {
     expect(saved.sites.find(site => site.id === state.sites[0].id)?.note).toBe("保留已有备注");
     expect(saved.appearance.fontScale).toBe(105);
     expect(screen.queryByRole("textbox", { name: "新分组名称" })).not.toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "工作资料" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "收藏到分组" })).toHaveTextContent("工作资料");
   });
 
   it("cancels group drafts by button, Escape or selecting an existing group without writing", async () => {
@@ -142,10 +169,10 @@ describe("toolbar popup", () => {
     expect(trigger).toHaveFocus();
     await user.click(trigger);
     await user.type(screen.getByRole("textbox", { name: "新分组名称" }), "临时分组");
-    await user.click(screen.getByRole("radio", { name: "开发" }));
+    await chooseQuickGroup(user, "开发");
     expect(screen.queryByRole("textbox", { name: "新分组名称" })).not.toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "开发" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("button", { name: "添加到主页" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "收藏到分组" })).toHaveTextContent("开发");
+    expect(screen.getByRole("button", { name: "收藏当前网页" })).toBeEnabled();
     expect(set).not.toHaveBeenCalled();
   });
 
@@ -163,7 +190,8 @@ describe("toolbar popup", () => {
     await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("已经有同名分组");
     expect(screen.getByRole("textbox", { name: "新分组名称" })).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByRole("radio", { name: "My Team" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "收藏到分组" }));
+    expect(screen.getByRole("option", { name: "My Team" })).toBeInTheDocument();
     expect(set).not.toHaveBeenCalled();
   });
 
@@ -204,7 +232,7 @@ describe("toolbar popup", () => {
     expect(saved.sites).toHaveLength(state.sites.length);
     expect(saved.groups).toHaveLength(state.groups.length + 1);
     expect(saved.sites.find(site => site.id === existing.id)).toMatchObject({
-      name: "新的 Google 名称", groupId: group?.id, note: existing.note, clickCount: 9, createdAt: existing.createdAt,
+      name: existing.name, groupId: group?.id, note: existing.note, clickCount: 9, createdAt: existing.createdAt,
     });
   });
 
@@ -239,7 +267,9 @@ describe("toolbar popup", () => {
     await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
     expect(await screen.findByText("保存失败，请稍后重试。")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "新分组名称" })).toHaveValue("稍后重试");
-    expect(screen.queryByRole("radio", { name: "稍后重试" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "收藏到分组" }));
+    expect(screen.queryByRole("option", { name: "稍后重试" })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(set).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole("button", { name: "新建分组并添加" }));
     expect(await screen.findByText("已新建“稍后重试”，并添加当前网站。")).toBeInTheDocument();
@@ -256,7 +286,7 @@ describe("toolbar popup", () => {
     const { set } = installChromeMock({ tab: { title: "扩展", url: "chrome://extensions" } });
     render(<PopupApp />);
     expect(await screen.findByRole("button", { name: "新建分组" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "添加到主页" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "收藏当前网页" })).toBeDisabled();
     expect(set).not.toHaveBeenCalled();
   });
 
@@ -265,9 +295,9 @@ describe("toolbar popup", () => {
     set.mockRejectedValueOnce(new Error("write failed"));
     const user = userEvent.setup();
     render(<PopupApp />);
-    await user.click(await screen.findByRole("button", { name: "添加到主页" }));
+    await user.click(await screen.findByRole("button", { name: "收藏当前网页" }));
     expect(await screen.findByText("保存失败，请稍后重试。")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "添加到主页" }));
+    await user.click(screen.getByRole("button", { name: "收藏当前网页" }));
     await waitFor(() => expect(set).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("已添加到主页。")).toBeInTheDocument();
   });
@@ -285,7 +315,7 @@ describe("toolbar popup", () => {
     getTree.mockRejectedValue(new Error("bookmarks unavailable"));
     const user = userEvent.setup();
     render(<PopupApp />);
-    await user.click(await screen.findByRole("button", { name: "添加到主页" }));
+    await user.click(await screen.findByRole("button", { name: "收藏当前网页" }));
     await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
   });
   it("saves the current tab URL intact without mistaking a case variant for an existing bookmark", async () => {
@@ -298,7 +328,7 @@ describe("toolbar popup", () => {
     const user = userEvent.setup();
     render(<PopupApp />);
 
-    await user.click(await screen.findByRole("button", { name: "添加到主页" }));
+    await user.click(await screen.findByRole("button", { name: "收藏当前网页" }));
     await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
     const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
     expect(saved.sites.find((site) => site.name === "Anchored document")?.url).toBe(url);
@@ -320,16 +350,12 @@ describe("toolbar popup", () => {
     expect(await screen.findByRole("textbox", { name: /网站名称/ })).toHaveValue("OpenAI Developers");
     expect(screen.getByTestId("popup-target-icon").querySelector("img"))
       .toHaveAttribute("src", "https://platform.openai.com/favicon.ico");
-    const groupOptions = screen.getByRole("radiogroup", { name: "添加到分组" });
-    const searchGroup = within(groupOptions).getByRole("radio", { name: "搜索" });
-    const developmentGroup = within(groupOptions).getByRole("radio", { name: "开发" });
-    expect(searchGroup).toHaveAttribute("aria-checked", "true");
-    await user.click(developmentGroup);
-    expect(developmentGroup).toHaveAttribute("aria-checked", "true");
-    expect(searchGroup).toHaveAttribute("aria-checked", "false");
-    expect(screen.queryByText("当前网页")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "保存到网站收藏" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "添加到主页" }));
+    expect(screen.getByRole("button", { name: "收藏到分组" })).toHaveTextContent("搜索");
+    await chooseQuickGroup(user, "开发");
+    expect(screen.getByRole("button", { name: "收藏到分组" })).toHaveTextContent("开发");
+    expect(screen.getByRole("heading", { name: "当前网页" })).toBeVisible();
+    expect(screen.getByText("platform.openai.com", { exact: true })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "收藏当前网页" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
     const saved = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
     expect(saved.sites.find((site: { url: string }) => site.url === "https://platform.openai.com/docs")?.groupId).toBe("develop");
@@ -342,7 +368,7 @@ describe("toolbar popup", () => {
     const note = await screen.findByRole("textbox", { name: "网站备注" });
     expect(note).toHaveValue("");
     await user.type(note, "项目资料{Enter}第二行");
-    await user.click(screen.getByRole("button", { name: "添加到主页" }));
+    await user.click(screen.getByRole("button", { name: "收藏当前网页" }));
     await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
     const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
     expect(saved.sites.find(site => site.url === "https://example.com/design-notes")?.note).toBe("项目资料\n第二行");
@@ -352,6 +378,8 @@ describe("toolbar popup", () => {
     const state = createDefaultState();
     const existing = state.sites[0];
     existing.note = "原备注";
+    existing.customIconUrl = "https://example.com/saved-icon.png";
+    existing.iconSource = "custom";
     const { set } = installChromeMock({ state, tab: { title: "更新后的名称", url: existing.url } });
     const user = userEvent.setup();
     render(<PopupApp />);
@@ -359,12 +387,36 @@ describe("toolbar popup", () => {
     expect(note).toHaveValue("原备注");
     await user.clear(note);
     await user.type(note, "弹窗里更新的备注");
-    await user.click(screen.getByRole("button", { name: "更新已收藏网站" }));
-    expect(await screen.findByText(/再次确认会移动到当前分组并更新名称/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "确认移动并更新" }));
+    expect(screen.getByRole("textbox", { name: "网站名称" })).toHaveValue(existing.name);
+    expect(screen.getByRole("button", { name: "收藏到分组" })).toHaveTextContent("搜索");
+    await chooseQuickGroup(user, "开发");
+    await user.click(screen.getByRole("button", { name: "保存修改" }));
     await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
     const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
-    expect(saved.sites.find(site => site.id === existing.id)?.note).toBe("弹窗里更新的备注");
+    expect(saved.sites).toHaveLength(state.sites.length);
+    expect(saved.sites.find(site => site.id === existing.id)).toMatchObject({
+      name: existing.name, note: "弹窗里更新的备注", groupId: "develop",
+      customIconUrl: existing.customIconUrl, iconSource: "custom",
+    });
+  });
+
+  it("preserves the current stored group when another window moves a site during a note-only edit", async () => {
+    const state = createDefaultState();
+    const existing = state.sites[0];
+    const { get, set } = installChromeMock({ state, tab: { title: "Google", url: existing.url } });
+    const user = userEvent.setup();
+    render(<PopupApp />);
+    const note = await screen.findByRole("textbox", { name: "网站备注" });
+    await user.type(note, "新的备注");
+    const moved = { ...state, sites: state.sites.map(site => site.id === existing.id
+      ? { ...site, groupId: "media", name: "刚改过的名字" } : site) };
+    get.mockResolvedValue({ [STORAGE_KEY]: JSON.stringify(moved) });
+    await user.click(screen.getByRole("button", { name: "保存修改" }));
+    await waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+    const saved: SiteCollectionState = JSON.parse(set.mock.calls[0][0][STORAGE_KEY]);
+    expect(saved.sites.find(site => site.id === existing.id)).toMatchObject({
+      groupId: "media", name: "刚改过的名字", note: "新的备注",
+    });
   });
 
   it("opens bookmark folders as separate card views and uses the browser favicon", async () => {
@@ -389,29 +441,31 @@ describe("toolbar popup", () => {
     expect(screen.queryByTestId("bookmark-card-notion")).not.toBeInTheDocument();
   });
 
-  it("imports a selected bookmark folder and deletes it only after confirmation", async () => {
-    const { set, removeTree } = installChromeMock();
+  it("copies selected folder links into a chosen child and routes native management to the full page", async () => {
+    const state = addGroupToState(createDefaultState(), "灵感", "palette", "child", undefined, undefined, "main", "design");
+    const { set, remove, removeTree } = installChromeMock({ state });
     const user = userEvent.setup();
     render(<PopupApp />);
     await user.click(await screen.findByRole("button", { name: /浏览器书签/ }));
     await user.click(screen.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }));
     await user.click(screen.getByRole("checkbox", { name: "选择 工作" }));
-    await user.click(screen.getByRole("button", { name: /添加到主页/ }));
+    await user.click(screen.getByRole("button", { name: "导入到分组" }));
+    await user.click(screen.getByRole("option", { name: "设计 / 灵感" }));
+    await user.click(screen.getByRole("button", { name: "导入所选" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
     const imported = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
-    expect(imported.groups.some((group: { name: string }) => group.name === "工作")).toBe(true);
-
-    await user.click(screen.getByRole("checkbox", { name: "选择 工作" }));
-    await user.click(screen.getByRole("button", { name: "删除" }));
-    const confirm = screen.getByRole("alertdialog", { name: "删除浏览器原生书签？" });
-    expect(within(confirm).getByText(/1 个网站和 1 个文件夹/)).toBeInTheDocument();
+    expect(imported.groups).toHaveLength(state.groups.length);
+    expect(imported.sites.find((site: { url: string }) => site.url === "https://notion.so")?.groupId).toBe("child");
+    expect(screen.getByRole("link", { name: "完整书签管理" }))
+      .toHaveAttribute("href", "chrome-extension://test-extension/index.html?data=bookmarks");
+    expect(screen.queryByRole("button", { name: "删除" })).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
     expect(removeTree).not.toHaveBeenCalled();
-    await user.click(within(confirm).getByRole("button", { name: "确认删除" }));
-    await waitFor(() => expect(removeTree).toHaveBeenCalledWith("work"));
+    expect(JSON.parse(localStorage.getItem("site-hub:popup-preferences")!).lastBookmarkGroupId).toBe("child");
   });
 
   it("shows matching bookmarks as cards without expanding their parent folders", async () => {
-    const { remove, removeTree } = installChromeMock();
+    installChromeMock();
     const user = userEvent.setup();
     render(<PopupApp />);
     await user.click(await screen.findByRole("button", { name: "浏览器书签" }));
@@ -420,12 +474,8 @@ describe("toolbar popup", () => {
     expect(screen.queryByTestId("bookmark-card-work")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /展开|收起/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole("checkbox", { name: "选择 Notion" }));
-    await user.click(screen.getByRole("button", { name: "删除" }));
-    const confirm = screen.getByRole("alertdialog", { name: "删除浏览器原生书签？" });
-    expect(within(confirm).getByText(/1 个网站和 0 个文件夹/)).toBeInTheDocument();
-    await user.click(within(confirm).getByRole("button", { name: "确认删除" }));
-    await waitFor(() => expect(remove).toHaveBeenCalledWith("notion"));
-    expect(removeTree).not.toHaveBeenCalled();
+    expect(screen.getByText("已选择", { exact: false })).toHaveTextContent("已选择 1 项");
+    expect(screen.getByRole("button", { name: "导入所选" })).toBeEnabled();
   });
 
   it("detects a GitHub page and limits the destination to GitHub groups", async () => {
@@ -439,12 +489,12 @@ describe("toolbar popup", () => {
     render(<PopupApp />);
 
     expect(await screen.findByRole("textbox", { name: /网站名称/ })).toHaveValue("DewMysimple/GuoYoung");
-    const groupOptions = screen.getByRole("radiogroup", { name: "添加到 GitHub 分组" });
-    expect(within(groupOptions).getByRole("radio", { name: "其他" })).toBeInTheDocument();
-    expect(within(groupOptions).queryByRole("radio", { name: "开发" })).not.toBeInTheDocument();
-    await user.click(within(groupOptions).getByRole("radio", { name: "其他" }));
+    await user.click(screen.getByRole("button", { name: "收藏到 GitHub 分组" }));
+    expect(screen.getByRole("option", { name: "其他" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "开发" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "其他" }));
 
-    await user.click(screen.getByRole("button", { name: "添加到 GitHub" }));
+    await user.click(screen.getByRole("button", { name: "收藏当前网页" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
     const saved = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
     expect(saved.sites.find((site: { url: string }) => site.url.includes("DewMysimple"))?.groupId).toBe(
@@ -461,10 +511,10 @@ describe("toolbar popup", () => {
     render(<PopupApp />);
     await user.click(await screen.findByRole("button", { name: "浏览器书签" }));
     await user.click(screen.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }));
-    await user.click(screen.getByRole("button", { name: "默认分组" }));
+    await user.click(screen.getByRole("button", { name: "导入到分组" }));
     await user.click(screen.getByRole("option", { name: "开发" }));
     await user.click(screen.getByRole("checkbox", { name: "选择 普通网站" }));
-    await user.click(screen.getByRole("button", { name: /添加到主页/ }));
+    await user.click(screen.getByRole("button", { name: "导入所选" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
     const saved = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
     expect(saved.sites.find((site: { url: string }) => site.url === "https://example.org")?.groupId).toBe("develop");
@@ -478,8 +528,8 @@ describe("toolbar popup", () => {
     const user = userEvent.setup();
     render(<PopupApp />);
 
-    expect(await screen.findByRole("button", { name: "添加到主页" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "添加到主页" }));
+    expect(await screen.findByRole("button", { name: "收藏当前网页" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "收藏当前网页" }));
     await waitFor(() => expect(set).toHaveBeenCalled());
     const saved = JSON.parse(set.mock.calls.at(-1)![0][STORAGE_KEY]);
     expect(saved.sites.find((site: { url: string }) => site.url === "https://github.com")?.groupId).toBe(

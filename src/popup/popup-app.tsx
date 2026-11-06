@@ -3,11 +3,12 @@ import {
   ArrowLeft,
   ArrowSquareOut,
   BookmarkSimple,
-  Check,
+  CaretRight,
   FolderSimple,
   MagnifyingGlass,
+  PencilSimple,
   Plus,
-  Trash,
+  SquaresFour,
   Warning,
 } from "@phosphor-icons/react";
 import { useEffect, useId, useInsertionEffect, useMemo, useRef, useState } from "react";
@@ -23,7 +24,7 @@ import {
   isGithubHomeUrl,
   isGithubUrl,
 } from "../lib/github-workspace";
-import { getGroupPath, getGroupsInTreeOrder } from "../lib/group-hierarchy";
+import { getGroupPath, getGroupsInTreeOrder, getRootGroups } from "../lib/group-hierarchy";
 import { createSiteHubStore } from "../lib/state-store";
 import {
   findSiteByUrl,
@@ -32,23 +33,26 @@ import {
   addGroupToState,
   findGroupByName,
 } from "../lib/site-state";
-import { inferSiteName, normalizeUrl } from "../lib/site-utils";
-import type { SiteCollectionState, SiteWorkspace } from "../types";
+import { getHostname, inferSiteName, normalizeUrl } from "../lib/site-utils";
+import type { SiteCollectionState, SiteGroup, SiteWorkspace } from "../types";
 import { useTheme } from "../hooks/use-theme";
 import { useTextSelection } from "../hooks/use-text-selection";
-import { DEFAULT_APPEARANCE } from "../data/defaults";
+import { DEFAULT_APPEARANCE, DEFAULT_WALLPAPER } from "../data/defaults";
 import { BookmarkTile } from "./bookmark-tree";
 import { useBookmarkSession } from "./hooks/use-bookmark-session";
 import { SelectMenu } from "../components/select-menu";
 import { CategoryIcon as GroupIcon } from "../components/category-icon";
 import { Favicon } from "../components/favicon";
+import { wallpaperGlassStyle } from "../lib/wallpaper-glass";
 
 type PopupTab = "quick" | "bookmarks";
 
 const POPUP_PREFERENCES_KEY = "site-hub:popup-preferences";
 
 interface PopupPreferences {
+  lastMainGroupId?: string;
   lastGithubGroupId?: string;
+  lastBookmarkGroupId?: string;
 }
 
 function readPopupPreferences(): PopupPreferences {
@@ -56,9 +60,11 @@ function readPopupPreferences(): PopupPreferences {
     const raw = localStorage.getItem(POPUP_PREFERENCES_KEY);
     if (!raw) return {};
     const candidate = JSON.parse(raw) as Record<string, unknown>;
-    return typeof candidate.lastGithubGroupId === "string"
-      ? { lastGithubGroupId: candidate.lastGithubGroupId }
-      : {};
+    return {
+      lastMainGroupId: typeof candidate.lastMainGroupId === "string" ? candidate.lastMainGroupId : undefined,
+      lastGithubGroupId: typeof candidate.lastGithubGroupId === "string" ? candidate.lastGithubGroupId : undefined,
+      lastBookmarkGroupId: typeof candidate.lastBookmarkGroupId === "string" ? candidate.lastBookmarkGroupId : undefined,
+    };
   } catch {
     return {};
   }
@@ -66,7 +72,7 @@ function readPopupPreferences(): PopupPreferences {
 
 function savePopupPreferences(preferences: PopupPreferences) {
   try {
-    localStorage.setItem(POPUP_PREFERENCES_KEY, JSON.stringify(preferences));
+    localStorage.setItem(POPUP_PREFERENCES_KEY, JSON.stringify({ ...readPopupPreferences(), ...preferences }));
   } catch {
     // A restricted extension context should not block adding a site.
   }
@@ -76,6 +82,38 @@ function getQuickWorkspace(url: string | undefined): SiteWorkspace {
   return url && isGithubUrl(url) && !isGithubHomeUrl(url) ? "github" : "main";
 }
 
+function getDefaultQuickGroup(groups: readonly SiteGroup[], workspace: SiteWorkspace, state: SiteCollectionState) {
+  return (workspace === "github" ? groups.find(group => group.id === getGithubOtherGroupId(state)) : undefined)
+    ?? groups.find(group => !group.isProtected) ?? groups[0];
+}
+
+function PopupTargetSelect({ groups, value, onChange, label, disabled, placement }: {
+  groups: readonly SiteGroup[];
+  value: string;
+  onChange: (id: string) => void;
+  label: string;
+  disabled?: boolean;
+  placement?: "top" | "bottom";
+}) {
+  return <SelectMenu
+    ariaLabel={label}
+    value={value}
+    options={groups.map(group => ({
+      value: group.id,
+      label: getGroupPath(groups, group.id),
+      icon: <GroupIcon name={group.icon} size={16} />,
+    }))}
+    className="popup-target-select"
+    triggerClassName="popup-select-trigger"
+    menuClassName="popup-select-popover"
+    placement={placement}
+    disabled={disabled || !groups.length}
+    renderTrigger={option => <>{option?.icon ?? <FolderSimple size={16} />}
+      <span className="popup-target-label" title={option?.label}>{option?.label ?? "选择分组"}</span></>}
+    onChange={onChange}
+  />;
+}
+
 export function PopupApp() {
   const api = getChromiumExtensionApi();
   const store = useMemo(() => createSiteHubStore(api), [api]);
@@ -83,20 +121,34 @@ export function PopupApp() {
   const [state, setState] = useState<SiteCollectionState | null>(null);
   useTextSelection(state?.appearance.allowTextSelection ?? true);
   const typography = state?.appearance ?? DEFAULT_APPEARANCE;
+  const wallpaper = state?.wallpaper ?? DEFAULT_WALLPAPER;
   useLocalFont(typography);
   useInsertionEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--font-scale", String(typography.fontScale / 100));
     for (const [property, value] of Object.entries(typographyVariables(typography))) root.style.setProperty(property, value);
   }, [typography]);
+  useInsertionEffect(() => {
+    const root = document.documentElement;
+    root.dataset.glassSurface = "popup";
+    const properties = Object.entries(wallpaperGlassStyle(wallpaper));
+    for (const [property, value] of properties) root.style.setProperty(property, value);
+    return () => {
+      delete root.dataset.glassSurface;
+      for (const [property] of properties) root.style.removeProperty(property);
+    };
+  }, [wallpaper]);
   useTheme(state?.appearance.theme ?? DEFAULT_APPEARANCE.theme,
     state?.appearance.accentColor ?? DEFAULT_APPEARANCE.accentColor);
   const [activeBrowserTab, setActiveBrowserTab] = useState<BrowserTab | null>(null);
   const [quickWorkspace, setQuickWorkspace] = useState<SiteWorkspace>("main");
   const [quickName, setQuickName] = useState("");
   const [quickNote, setQuickNote] = useState("");
+  const quickNameEdited = useRef(false);
   const quickNoteEdited = useRef(false);
+  const quickGroupEdited = useRef(false);
   const [quickGroupId, setQuickGroupId] = useState("");
+  const [recentGroupId, setRecentGroupId] = useState("");
   const [creatingQuickGroup, setCreatingQuickGroup] = useState(false);
   const [quickGroupName, setQuickGroupName] = useState("");
   const [quickGroupError, setQuickGroupError] = useState("");
@@ -109,6 +161,7 @@ export function PopupApp() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadVersion, setLoadVersion] = useState(0);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string }>();
+  const bookmarkBreadcrumbRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (creatingQuickGroup && tab === "quick") quickGroupInput.current?.focus({ preventScroll: true });
@@ -126,16 +179,23 @@ export function PopupApp() {
   );
   const mainGroups = useMemo(() => state ? getGroupsInTreeOrder(getWorkspaceGroups(state.groups, "main")) : [], [state]);
   const {
-    bookmarkGroupId, selectedIds, bookmarkQuery, deleteSummary,
+    bookmarkGroupId, selectedIds, bookmarkQuery,
     folderIcons, bookmarkPathNodes, currentBookmarkFolder, visibleBookmarkTiles,
     visibleIds, selectedBookmarkCount, allVisibleSelected,
     initializeBookmarks, setBookmarkGroupId, toggleBookmarkSelection, openBookmarkFolder,
-    handleImportBookmarks, requestDeleteBookmarks, confirmDeleteBookmarks, refreshBookmarks,
-    changeBookmarkQuery, backBookmarkFolder, toggleVisibleBookmarks, cancelDeleteBookmarks,
+    handleImportBookmarks, refreshBookmarks,
+    changeBookmarkQuery, backBookmarkFolder, goToBookmarkAncestor, toggleVisibleBookmarks,
   } = useBookmarkSession({
     bookmarks: api?.bookmarks, state, mainGroups, loadState: store.load,
     saveNextState, setBusy, setNotice,
+    onImported: id => savePopupPreferences({ lastBookmarkGroupId: id }),
+    onCollectionRead: setState,
   });
+
+  useEffect(() => {
+    const path = bookmarkBreadcrumbRef.current;
+    if (path) path.scrollLeft = path.scrollWidth;
+  }, [bookmarkPathNodes, bookmarkQuery, tab]);
 
   useEffect(() => {
     let active = true;
@@ -173,28 +233,27 @@ export function PopupApp() {
         loaded.state.groups,
         detectedWorkspace,
       ));
-      const detectedGroup = detectedWorkspace === "github"
-        ? detectedGroups.find(
-            (group) => group.id === readPopupPreferences().lastGithubGroupId,
-          ) ?? detectedGroups.find((group) => group.id === getGithubOtherGroupId(loaded.state))
-        : undefined;
-      const initialGroup =
-        detectedGroup ??
-        detectedGroups.find((group) => !group.isProtected) ??
-        detectedGroups[0];
+      const preferences = readPopupPreferences();
+      const recentGroup = detectedGroups.find(group => group.id === (detectedWorkspace === "github"
+        ? preferences.lastGithubGroupId : preferences.lastMainGroupId));
+      const existing = normalizedCurrentUrl ? findSiteByUrl(loaded.state.sites, normalizedCurrentUrl) : undefined;
+      const initialGroup = detectedGroups.find(group => group.id === existing?.groupId)
+        ?? recentGroup ?? getDefaultQuickGroup(detectedGroups, detectedWorkspace, loaded.state);
+      setRecentGroupId(recentGroup?.id ?? "");
       setQuickGroupId(initialGroup?.id ?? "");
+      quickNameEdited.current = false;
       quickNoteEdited.current = false;
-      setQuickNote(normalizedCurrentUrl
-        ? findSiteByUrl(loaded.state.sites, normalizedCurrentUrl)?.note ?? ""
-        : "");
+      quickGroupEdited.current = false;
+      setQuickNote(existing?.note ?? "");
+      setQuickDuplicateId(undefined);
       const mainGroups = getGroupsInTreeOrder(getWorkspaceGroups(loaded.state.groups, "main"));
       setActiveBrowserTab(current);
       setQuickName(
-        current?.title?.trim() ||
+        existing?.name || current?.title?.trim() ||
           (current?.url ? inferSiteName(current.url) : "") ||
           "",
       );
-      initializeBookmarks(tree, mainGroups);
+      initializeBookmarks(tree, mainGroups, preferences.lastBookmarkGroupId);
     });
     return () => {
       active = false;
@@ -243,17 +302,32 @@ export function PopupApp() {
       const loaded = await store.load();
       if (loaded.recovered) throw new Error("Invalid stored collection");
       const freshGroups = getGroupsInTreeOrder(getWorkspaceGroups(loaded.state.groups, quickWorkspace));
-      if (newGroupName && findGroupByName(freshGroups, newGroupName)) {
+      if (newGroupName && findGroupByName(getRootGroups(freshGroups), newGroupName)) {
         setState(loaded.state);
         setQuickGroupError("已经有同名分组，请选择现有分组。");
         setQuickDuplicateId(undefined);
         return;
       }
       const existing = findSiteByUrl(loaded.state.sites, quickUrl);
-      if (existing && quickDuplicateId !== existing.id) {
+      if (duplicate && !existing) {
+        setState(loaded.state);
+        setQuickDuplicateId(undefined);
+        setNotice({ kind: "error", text: "该收藏已在其他窗口移除，确认目标分组后可重新收藏。" });
+        return;
+      }
+      if (existing && (newGroupName || duplicate?.id !== existing.id) && quickDuplicateId !== existing.id) {
         setState(loaded.state);
         setQuickDuplicateId(existing.id);
+        if (!quickNameEdited.current) setQuickName(existing.name);
         if (!quickNoteEdited.current) setQuickNote(existing.note ?? "");
+        return;
+      }
+      const chosenId = existing && !quickGroupEdited.current ? existing.groupId : quickGroupId;
+      const chosenGroup = freshGroups.find(group => group.id === chosenId);
+      if (!newGroupName && !chosenGroup) {
+        setState(loaded.state);
+        setQuickGroupId(getDefaultQuickGroup(freshGroups, quickWorkspace, loaded.state)?.id ?? "");
+        setNotice({ kind: "error", text: "目标分组已变更，请重新选择后保存。" });
         return;
       }
       // Stage both changes against the latest collection, then persist once.
@@ -265,37 +339,37 @@ export function PopupApp() {
         : loaded.state;
       const targetGroup = newGroupId
         ? base.groups.find((group) => group.id === newGroupId)
-        : freshGroups.find((group) => group.id === quickGroupId)
-        ?? (quickWorkspace === "github"
-          ? freshGroups.find((group) => group.id === getGithubOtherGroupId(loaded.state))
-          : undefined)
-        ?? freshGroups.find((group) => !group.isProtected)
-        ?? freshGroups[0];
+        : chosenGroup;
       if (!targetGroup) throw new Error("No destination group available");
       const values = {
-        name: quickName.trim(),
+        name: existing && !quickNameEdited.current ? existing.name : quickName.trim(),
         url: quickUrl,
         groupId: targetGroup.id,
-        note: quickNote.trim(),
-        customIconUrl: "",
-        iconSource: "auto" as const,
+        note: existing && !quickNoteEdited.current ? existing.note : quickNote.trim(),
+        customIconUrl: existing?.customIconUrl ?? "",
+        iconSource: existing?.iconSource ?? "auto" as const,
       };
       const next = existing
         ? updateSiteInState(base, existing.id, values)
         : addSiteToState(base, values);
       await saveNextState(next);
+      quickNameEdited.current = false;
       quickNoteEdited.current = false;
+      quickGroupEdited.current = false;
+      setQuickName(values.name);
+      setQuickNote(values.note ?? "");
       setQuickGroupId(targetGroup.id);
-      if (quickWorkspace === "github") {
-        savePopupPreferences({ lastGithubGroupId: targetGroup.id });
-      }
+      setRecentGroupId(targetGroup.id);
+      savePopupPreferences(quickWorkspace === "github"
+        ? { lastGithubGroupId: targetGroup.id } : { lastMainGroupId: targetGroup.id });
       cancelQuickGroup();
       setNotice({
         kind: "success",
         text: newGroupName
           ? existing ? `已新建“${newGroupName}”，并移动更新现有收藏。` : `已新建“${newGroupName}”，并添加当前网站。`
           : existing
-          ? quickWorkspace === "github"
+          ? existing.groupId === targetGroup.id ? "已更新现有收藏。"
+            : quickWorkspace === "github"
             ? "已移动并更新 GitHub 收藏。"
             : "已移动并更新现有收藏。"
           : quickWorkspace === "github"
@@ -321,51 +395,66 @@ export function PopupApp() {
     </main>;
   }
 
+  const homeUrl = api?.runtime?.getURL?.("/index.html") ?? "/index.html";
+  const managementUrl = `${homeUrl}?data=bookmarks`;
+  const targetLabel = quickWorkspace === "github" ? "收藏到 GitHub 分组" : "收藏到分组";
+
   return (
     <main className={`popup-shell is-${tab}`}>
       <header className="popup-header">
+        <div className="popup-brand-row">
+          <div className="popup-brand">
+            <span className="popup-brand-mark"><SquaresFour size={18} weight="bold" aria-hidden="true" /></span>
+            <span>Mysimple</span>
+          </div>
+          <a className="popup-open-home" href={homeUrl} target="_blank" rel="noopener noreferrer" aria-label="打开收藏主页">
+            管理 <ArrowSquareOut size={15} aria-hidden="true" />
+          </a>
+        </div>
         <nav className="popup-tabs" aria-label="工具栏功能">
           <button type="button" className={tab === "quick" ? "active" : ""} aria-current={tab === "quick" ? "page" : undefined} onClick={() => setTab("quick")}>
-            <Plus size={17} weight="bold" />快速添加
+            <Plus size={17} weight="bold" />快速收藏
           </button>
           <button type="button" className={tab === "bookmarks" ? "active" : ""} aria-current={tab === "bookmarks" ? "page" : undefined} onClick={() => setTab("bookmarks")}>
             <BookmarkSimple size={17} />浏览器书签
           </button>
         </nav>
-        <a className="popup-open-home" href={api?.runtime?.getURL?.("index.html") ?? "/index.html"} target="_blank" rel="noopener noreferrer" aria-label="打开收藏主页" title="打开收藏主页">
-          <ArrowSquareOut size={19} weight="bold" />
-        </a>
       </header>
 
       {notice && <div className={`popup-notice ${notice.kind}`} role="status">{notice.text}</div>}
 
       {tab === "quick" ? (
-        <section className="popup-page quick-page">
+        <section className="popup-page quick-page" aria-label="快速收藏">
           <div className="popup-form-card">
+            <div className="popup-card-heading">
+              <h1>当前网页</h1>
+              {duplicate && <span className="popup-status-chip">已收藏</span>}
+            </div>
             <div className="popup-site-identity" data-testid="popup-site-identity">
               {quickSitePreview && (
                 <span className="popup-target-icon" data-testid="popup-target-icon">
                   <Favicon site={quickSitePreview} size="large" />
                 </span>
               )}
-              <label className="popup-site-name">
-              <input
-                value={quickName}
-                aria-label="网站名称"
-                disabled={!quickUrl || busy}
-                maxLength={120}
-                placeholder={quickUrl ? "输入网站名称" : "此页面不可收藏"}
-                onChange={(event) => {
-                  setQuickName(event.target.value);
-                  setQuickDuplicateId(undefined);
-                }}
-              />
-              </label>
-              {duplicate && <small className="popup-status-chip">已收藏</small>}
+              <div className="popup-site-name">
+                <input
+                  value={quickName}
+                  aria-label="网站名称"
+                  disabled={!quickUrl || busy}
+                  maxLength={120}
+                  placeholder={quickUrl ? "输入网站名称" : "此页面不可收藏"}
+                  onChange={(event) => {
+                    quickNameEdited.current = true;
+                    setQuickName(event.target.value);
+                    setQuickDuplicateId(undefined);
+                  }}
+                />
+                {quickUrl && <span className="popup-site-domain" title={quickUrl}>{getHostname(quickUrl)}</span>}
+              </div>
             </div>
             <div className={`popup-group-picker ${creatingQuickGroup ? "is-creating" : ""}`}>
               <div className="popup-group-heading">
-                <span className="popup-group-label">{quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}</span>
+                <span className="popup-group-label">{targetLabel}</span>
                 <button type="button" ref={quickGroupTrigger} className="popup-new-group-trigger"
                   disabled={!quickUrl || busy} aria-expanded={creatingQuickGroup} aria-controls={quickGroupNameId}
                   onClick={() => {
@@ -379,6 +468,13 @@ export function PopupApp() {
                   <Plus size={13} weight="bold" />新建分组
                 </button>
               </div>
+              <PopupTargetSelect groups={groups} value={creatingQuickGroup ? "" : quickGroupId} label={targetLabel}
+                disabled={!quickUrl || busy} onChange={groupId => {
+                  cancelQuickGroup();
+                  quickGroupEdited.current = true;
+                  setQuickGroupId(groupId);
+                }} />
+              {!creatingQuickGroup && quickGroupId && quickGroupId === recentGroupId && <span className="popup-target-help">最近使用的分组</span>}
               {creatingQuickGroup && <div className="popup-new-group" id={quickGroupNameId}>
                 <div className="popup-new-group-row">
                   <label className="popup-field">
@@ -401,34 +497,6 @@ export function PopupApp() {
                 </div>
                 {quickGroupError && <p id={`${quickGroupNameId}-error`} className="popup-group-error" role="alert">{quickGroupError}</p>}
               </div>}
-              <div
-                className="popup-group-options"
-                role="radiogroup"
-                aria-label={quickWorkspace === "github" ? "添加到 GitHub 分组" : "添加到分组"}
-              >
-                {groups.map((group) => {
-                  const selected = !creatingQuickGroup && quickGroupId === group.id;
-                  return (
-                    <button
-                      key={group.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      className={`popup-group-option ${selected ? "is-selected" : ""}`}
-                      disabled={!quickUrl || busy}
-                      onClick={() => {
-                        cancelQuickGroup();
-                        setQuickGroupId(group.id);
-                        setQuickDuplicateId(undefined);
-                      }}
-                    >
-                      <span className="popup-group-option-icon"><GroupIcon name={group.icon} size={16} /></span>
-                      <span className="popup-group-option-name">{getGroupPath(groups, group.id)}</span>
-                      {selected && <Check className="popup-group-option-check" size={15} weight="bold" />}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
             <label className="popup-note-field">
               <span>网站备注</span>
@@ -443,8 +511,8 @@ export function PopupApp() {
               <div className="duplicate-popup-notice">
                 <Warning size={18} />
                 <span>已收藏在“{getGroupPath(state.groups, duplicate.groupId) || "其他"}”。{creatingQuickGroup
-                  ? `再次确认会新建“${quickGroupName.trim()}”并移动网站、更新名称。`
-                  : "再次确认会移动到当前分组并更新名称。"}</span>
+                  ? `再次确认会新建“${quickGroupName.trim()}”并移动网站。`
+                  : "再次确认会保存对现有收藏的修改。"}</span>
               </div>
             )}
             <button
@@ -453,21 +521,20 @@ export function PopupApp() {
               disabled={!quickUrl || !quickName.trim() || (creatingQuickGroup ? !quickGroupName.trim() : !quickGroupId) || busy}
               onClick={handleQuickAdd}
             >
-              <Plus size={18} weight="bold" />
+              {creatingQuickGroup ? <Plus size={18} weight="bold" />
+                : duplicate ? <PencilSimple size={17} /> : <BookmarkSimple size={17} weight="bold" />}
               {creatingQuickGroup
                 ? duplicate && quickDuplicateId ? "确认新建并移动" : "新建分组并添加"
                 : duplicate && quickDuplicateId
                 ? "确认移动并更新"
                 : duplicate
-                  ? "更新已收藏网站"
-                  : quickWorkspace === "github"
-                    ? "添加到 GitHub"
-                    : "添加到主页"}
+                  ? "保存修改"
+                  : "收藏当前网页"}
             </button>
           </div>
         </section>
       ) : (
-        <section className="popup-page bookmarks-page">
+        <section className="popup-page bookmarks-page" aria-label="浏览器书签">
           {!api?.bookmarks ? (
             <div className="popup-empty">扩展缺少书签权限，请重新加载扩展。</div>
           ) : (
@@ -477,18 +544,19 @@ export function PopupApp() {
                   <MagnifyingGlass size={16} />
                   <input
                     value={bookmarkQuery}
+                    disabled={busy}
                     onChange={(event) => changeBookmarkQuery(event.target.value)}
                     placeholder="搜索书签或网址"
                     aria-label="搜索书签或网址"
                   />
                 </label>
-                <button type="button" className="bookmark-refresh" title="刷新书签" aria-label="刷新书签" onClick={() => void refreshBookmarks()}>
+                <button type="button" className="bookmark-refresh" title="刷新书签" aria-label="刷新书签" disabled={busy} onClick={() => void refreshBookmarks()}>
                   <ArrowClockwise size={17} />
                 </button>
               </div>
               <div className="bookmark-list-heading">
                 <div className="bookmark-location">
-                  {bookmarkPathNodes.length > 0 && (
+                  {!bookmarkQuery.trim() && bookmarkPathNodes.length > 0 && (
                     <button
                       type="button"
                       className="bookmark-back"
@@ -499,17 +567,29 @@ export function PopupApp() {
                       <ArrowLeft size={15} />
                     </button>
                   )}
-                  <span title={currentBookmarkFolder?.title ?? "书签列表"}>
-                    {bookmarkQuery.trim() ? "搜索结果" : currentBookmarkFolder?.title || "书签列表"}
-                  </span>
+                  {bookmarkQuery.trim() ? <span>搜索结果</span> : (
+                    <nav className="bookmark-breadcrumbs" ref={bookmarkBreadcrumbRef} aria-label="书签文件夹路径">
+                      {bookmarkPathNodes.length > 0
+                        ? <button type="button" onClick={() => goToBookmarkAncestor(0)}>全部书签</button>
+                        : <span aria-current="page">全部书签</span>}
+                      {bookmarkPathNodes.map((node, index) => {
+                        const label = node.title || "未命名文件夹";
+                        return <span className="bookmark-crumb" key={node.id}>
+                          <CaretRight size={11} aria-hidden="true" />
+                          {index === bookmarkPathNodes.length - 1 ? <span title={label} aria-current="page">{label}</span>
+                            : <button type="button" title={label} onClick={() => goToBookmarkAncestor(index + 1)}>{label}</button>}
+                        </span>;
+                      })}
+                    </nav>
+                  )}
                 </div>
-                <span className={`bookmark-selection-count ${selectedIds.size ? "has-selection" : ""}`} aria-live="polite">
-                  已选择 <strong>{selectedIds.size}</strong> 项
+                <span className={`bookmark-selection-count ${selectedBookmarkCount ? "has-selection" : ""}`} aria-live="polite">
+                  已选择 <strong>{selectedBookmarkCount}</strong> 项
                 </span>
                 <button
                   type="button"
                   className="select-visible"
-                  disabled={visibleIds.size === 0}
+                  disabled={visibleIds.size === 0 || busy}
                   onClick={toggleVisibleBookmarks}
                 >
                   {allVisibleSelected ? "取消全选" : "全选结果"}
@@ -523,7 +603,7 @@ export function PopupApp() {
                         key={node.id}
                         node={node}
                         selectedIds={selectedIds}
-                        searchActive={Boolean(bookmarkQuery.trim())}
+                        disabled={busy}
                         folderIcons={folderIcons}
                         onToggleSelect={toggleBookmarkSelection}
                         onOpenFolder={openBookmarkFolder}
@@ -533,30 +613,17 @@ export function PopupApp() {
                 ) : <div className="popup-empty">{bookmarkQuery.trim() ? "没有匹配的浏览器书签" : currentBookmarkFolder ? "此文件夹中没有书签" : "没有浏览器书签"}</div>}
               </div>
               <div className="bookmark-footer">
-                <div className="bookmark-destination popup-field">
-                  <SelectMenu
-                    ariaLabel="默认分组"
-                    value={bookmarkGroupId}
-                    options={mainGroups.map((group) => ({ value: group.id, label: getGroupPath(mainGroups, group.id) }))}
-                    className="view-control"
-                    triggerClassName="view-control-button popup-select-trigger"
-                    menuClassName="popup-select-popover"
-                    placement="top"
-                    renderTrigger={(option) => (
-                      <>
-                        <FolderSimple size={16} />
-                        <span className="bookmark-destination-label">{option?.label ?? "默认分组"}</span>
-                      </>
-                    )}
-                    onChange={setBookmarkGroupId}
-                  />
+                <div className="bookmark-destination">
+                  <span className="popup-group-label">导入到分组</span>
+                  <PopupTargetSelect groups={mainGroups} value={bookmarkGroupId} label="导入到分组"
+                    disabled={busy} placement="top" onChange={setBookmarkGroupId} />
                 </div>
                 <div className="bookmark-footer-actions">
-                  <button className="popup-danger" disabled={!selectedIds.size || busy} onClick={requestDeleteBookmarks}>
-                    <Trash size={16} />删除
-                  </button>
-                  <button className="popup-primary compact" disabled={!selectedBookmarkCount || busy} onClick={handleImportBookmarks}>
-                    <Plus size={16} />添加到主页
+                  <a className="popup-bookmark-manage" href={managementUrl} target="_blank" rel="noopener noreferrer">
+                    完整书签管理 <ArrowSquareOut size={14} aria-hidden="true" />
+                  </a>
+                  <button type="button" className="popup-primary compact" disabled={!selectedBookmarkCount || !bookmarkGroupId || busy} onClick={handleImportBookmarks}>
+                    <Plus size={16} />导入所选
                   </button>
                 </div>
               </div>
@@ -565,19 +632,7 @@ export function PopupApp() {
         </section>
       )}
 
-      {deleteSummary && (
-        <div className="popup-confirm-backdrop" role="presentation">
-          <section className="popup-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-bookmarks-title">
-            <span className="confirm-warning"><Warning size={24} /></span>
-            <h2 id="delete-bookmarks-title">删除浏览器原生书签？</h2>
-            <p>将删除 {deleteSummary.bookmarkCount} 个网站和 {deleteSummary.folderCount} 个文件夹。主页收藏不会受到影响。</p>
-            <div>
-              <button onClick={cancelDeleteBookmarks}>取消</button>
-              <button className="popup-danger filled" disabled={busy} onClick={confirmDeleteBookmarks}>确认删除</button>
-            </div>
-          </section>
-        </div>
-      )}
+      <footer className="popup-footer">{tab === "quick" ? "收藏保存在本机" : "导入只复制链接 · 保留目录可在完整书签管理中预览"}</footer>
     </main>
   );
 }

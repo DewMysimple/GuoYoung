@@ -53,7 +53,16 @@ test.describe("desktop folders", () => {
     await page.keyboard.press("Space");
     await expect(title(page)).toHaveText("UI 灵感");
     await expect(title(page)).toBeFocused();
-    await expect(page.getByRole("navigation", { name: "收藏路径" })).toHaveText("全部网站/设计/UI 灵感");
+    const path = page.getByRole("navigation", { name: "收藏路径" });
+    await expect(path).toHaveText("全部网站/设计/UI 灵感");
+    const back = page.getByRole("button", { name: "返回设计", exact: true });
+    const [backBox, titleBox, pathBox, homeCrumb] = await Promise.all([
+      back.boundingBox(), title(page).boundingBox(), path.boundingBox(), path.getByRole("button", { name: "全部网站" }).boundingBox(),
+    ]);
+    expect(backBox!.x).toBe(titleBox!.x);
+    expect(backBox!.x + backBox!.width).toBeLessThan(homeCrumb!.x);
+    expect(pathBox!.height).toBe(homeCrumb!.height);
+    expect(titleBox!.y).toBe(pathBox!.y + pathBox!.height + 4);
     await expect(design(page)).toHaveAttribute("aria-selected", "true");
     for (const index of [1, 2, 3]) {
       await page.getByRole("button", { name: "在UI 灵感分组添加网站" }).click();
@@ -106,6 +115,11 @@ test.describe("desktop folders", () => {
         await page.goBack();
         await expect(title(page)).toHaveText("全部网站");
         await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(scrollTop, 0);
+        await page.goForward();
+        await expect(title(page)).toHaveText("UI 灵感");
+        await page.getByRole("button", { name: "返回全部", exact: true }).click();
+        await expect(title(page)).toHaveText("全部网站");
+        await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(scrollTop, 0);
       }
     }
     await folder(page, "UI 灵感").press("Enter");
@@ -148,11 +162,13 @@ test.describe("desktop folders", () => {
     await page.getByRole("tab", { name: /^学习/ }).click();
     await folder(page, "设计资料").click();
     await manage(page);
-    await manager(page).getByRole("button", { name: "删除这个分组" }).click();
+    await manager(page).getByRole("button", { name: "更多分组操作" }).click();
+    await manager(page).getByRole("menuitem", { name: "删除这个分组" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "连同网站删除…" }).click();
     await expect(page.getByRole("alertdialog")).toHaveAccessibleName("确认删除“设计资料”？");
     await page.getByRole("alertdialog").getByRole("button", { name: "取消", exact: true }).click();
-    await manager(page).getByRole("button", { name: "删除这个分组" }).click();
+    await manager(page).getByRole("button", { name: "更多分组操作" }).click();
+    await manager(page).getByRole("menuitem", { name: "删除这个分组" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "保留网站并删除文件夹" }).click();
     await expect(title(page)).toHaveText("学习");
     await expect(folder(page, "设计资料")).toHaveCount(0);
@@ -160,7 +176,8 @@ test.describe("desktop folders", () => {
     await design(page).click();
     await createChild(page, "晋升资料");
     await manage(page);
-    await manager(page).getByRole("button", { name: "删除这个分组" }).click();
+    await manager(page).getByRole("button", { name: "更多分组操作" }).click();
+    await manager(page).getByRole("menuitem", { name: "删除这个分组" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "解散分组" }).click();
     await expect(page.getByRole("tab", { name: /^晋升资料/ })).toBeVisible();
     await expect(design(page)).toHaveCount(0);

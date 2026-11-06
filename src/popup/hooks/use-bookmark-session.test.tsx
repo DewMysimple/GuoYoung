@@ -102,7 +102,7 @@ describe("popup bookmark session", () => {
   it("shows filtered site cards without unmatched ancestors and selects only matching site ids", () => {
     const h = setup();
     act(() => h.result.current.toggleBookmarkSelection(folder));
-    expect([...h.result.current.selectedIds]).toEqual(["team", "a", "deep", "b"]);
+    expect([...h.result.current.selectedIds]).toEqual(["a", "b"]);
     act(() => h.result.current.changeBookmarkQuery("  needle  "));
     expect(h.result.current.bookmarkPathNodes).toEqual([]);
     expect(h.result.current.selectedIds.size).toBe(0);
@@ -127,13 +127,13 @@ describe("popup bookmark session", () => {
     expect(h.result.current.bookmarkPathNodes.map(node => node.id)).toEqual(["bar", "team"]);
   });
 
-  it("toggles visible ids without losing hidden selections and counts sites separately from folder ids", () => {
+  it("toggles visible links without losing hidden selections", () => {
     const h = setup();
     act(() => h.result.current.openBookmarkFolder(bar));
     act(() => h.result.current.toggleBookmarkSelection(loose));
     act(() => h.result.current.openBookmarkFolder(folder));
     act(() => h.result.current.toggleVisibleBookmarks());
-    expect([...h.result.current.selectedIds]).toEqual(["loose", "a", "deep", "b"]);
+    expect([...h.result.current.selectedIds]).toEqual(["loose", "a", "b"]);
     expect(h.result.current.selectedBookmarkCount).toBe(3);
     expect(h.result.current.allVisibleSelected).toBe(true);
     act(() => h.result.current.toggleVisibleBookmarks());
@@ -186,7 +186,7 @@ describe("popup bookmark session", () => {
     expect(h.setNotice).toHaveBeenLastCalledWith({ kind: "success", text: "新增 1 个，跳过 0 个，失败 0 个。" });
   });
 
-  it("falls back to fresh main groups when a chosen destination disappears and reports mixed import counts", async () => {
+  it("keeps selection for retargeting when a destination disappears and reports mixed import counts", async () => {
     const h = setup();
     const existing = h.initial.sites[0];
     const mixed: BrowserBookmarkTreeNode[] = [{ id: "root", title: "", children: [{ id: "bar", title: "Bookmarks", children: [loose,
@@ -197,8 +197,13 @@ describe("popup bookmark session", () => {
     act(() => h.result.current.setBookmarkGroupId("deleted"));
     act(() => h.result.current.toggleVisibleBookmarks());
     await act(async () => h.result.current.handleImportBookmarks());
-    const main = getWorkspaceGroups(h.initial.groups, "main");
-    expect(h.persisted().sites.find(site => site.url === loose.url)?.groupId).toBe((main.find(group => !group.isProtected) ?? main[0]).id);
+    expect(h.save).not.toHaveBeenCalled();
+    expect(h.result.current.selectedBookmarkCount).toBe(3);
+    expect(h.result.current.bookmarkGroupId).toBe("");
+    expect(h.setNotice).toHaveBeenLastCalledWith({ kind: "error", text: "目标分组已变更，请重新选择后导入。" });
+    act(() => h.result.current.setBookmarkGroupId("design"));
+    await act(async () => h.result.current.handleImportBookmarks());
+    expect(h.persisted().sites.find(site => site.url === loose.url)?.groupId).toBe("design");
     expect(h.persisted().sites.filter(site => site.url === existing.url)).toHaveLength(1);
     expect(h.save).toHaveBeenCalledTimes(1);
     expect(h.setNotice).toHaveBeenLastCalledWith({ kind: "error", text: "新增 1 个，跳过 1 个，失败 1 个。" });
@@ -210,19 +215,22 @@ describe("popup bookmark session", () => {
     act(() => h.result.current.toggleBookmarkSelection(folder));
     await act(async () => h.result.current.handleImportBookmarks());
     expect(h.persisted()).toBe(h.initial);
-    expect([...h.result.current.selectedIds]).toEqual(["team", "a", "deep", "b"]);
+    expect([...h.result.current.selectedIds]).toEqual(["a", "b"]);
     expect(h.setNotice).toHaveBeenLastCalledWith({ kind: "error", text: "导入失败，主页收藏没有被修改。" });
     await act(async () => h.result.current.handleImportBookmarks());
     expect(h.loadState).toHaveBeenCalledTimes(2);
     expect(h.save).toHaveBeenCalledTimes(2);
-    expect(h.persisted().groups.filter(group => group.name === "Team")).toHaveLength(1);
+    expect(h.persisted().groups).toEqual(h.initial.groups);
     expect(h.persisted().sites.filter(site => site.url === a.url)).toHaveLength(1);
     expect(h.persisted().sites.filter(site => site.url === b.url)).toHaveLength(1);
     expect(h.result.current.selectedIds.size).toBe(0);
     act(() => h.result.current.toggleBookmarkSelection(folder));
     await act(async () => h.result.current.handleImportBookmarks());
     expect(h.setNotice).toHaveBeenLastCalledWith({ kind: "success", text: "新增 0 个，跳过 2 个，失败 0 个。" });
-    expect(h.persisted().groups.filter(group => group.name === "Team")).toHaveLength(1);
+    expect(h.save).toHaveBeenCalledTimes(2);
+    expect(h.remove).not.toHaveBeenCalled();
+    expect(h.removeTree).not.toHaveBeenCalled();
+    expect(h.persisted().groups).toEqual(h.initial.groups);
   });
 
   it.each(["rejected", "recovered"] as const)("does not save or clear selection after a %s latest collection read", async failure => {
@@ -237,59 +245,22 @@ describe("popup bookmark session", () => {
     expect(h.setNotice).toHaveBeenLastCalledWith({ kind: "error", text: "导入失败，主页收藏没有被修改。" });
   });
 
-  it("opens a deletion summary without writes and cancels without calling native api", async () => {
+  it("returns to the browsed folder after clearing search and follows a chosen ancestor", () => {
     const h = setup();
-    act(() => h.result.current.toggleBookmarkSelection(folder));
-    act(() => h.result.current.requestDeleteBookmarks());
-    expect(h.result.current.deleteSummary).toMatchObject({ bookmarkCount: 2, folderCount: 2, roots: [folder] });
-    expect(h.removeTree).not.toHaveBeenCalled();
-    act(() => h.result.current.cancelDeleteBookmarks());
-    await act(async () => h.result.current.confirmDeleteBookmarks());
-    expect(h.remove).not.toHaveBeenCalled();
-    expect(h.removeTree).not.toHaveBeenCalled();
-    expect(h.save).not.toHaveBeenCalled();
-    expect(h.result.current.selectedIds.size).toBe(4);
-  });
-
-  it("preserves native partial deletion accounting, reloads once and leaves collection storage untouched", async () => {
-    const h = setup();
-    act(() => h.result.current.toggleBookmarkSelection(folder));
-    act(() => h.result.current.toggleBookmarkSelection(loose));
-    act(() => h.result.current.requestDeleteBookmarks());
-    h.remove.mockRejectedValue(new Error("native rejection"));
-    h.getTree.mockResolvedValue([{ ...bar, children: [loose] }]);
-    await act(async () => h.result.current.confirmDeleteBookmarks());
-    expect(h.removeTree).toHaveBeenCalledExactlyOnceWith("team");
-    expect(h.remove).toHaveBeenCalledExactlyOnceWith("loose");
-    expect(h.getTree).toHaveBeenCalledTimes(1);
-    expect(h.result.current.selectedIds.size).toBe(0);
-    expect(h.result.current.deleteSummary).toBeNull();
-    expect(h.setNotice).toHaveBeenLastCalledWith({ kind: "error", text: "已删除 1 项，1 项删除失败。" });
-    expect(h.loadState).not.toHaveBeenCalled();
-    expect(h.save).not.toHaveBeenCalled();
-    expect(h.persisted()).toBe(h.initial);
-  });
-
-  it("retains prior selection and path if reloading after native deletion rejects, while closing confirmation", async () => {
-    const h = setup();
-    act(() => h.result.current.openBookmarkFolder(folder));
-    act(() => h.result.current.toggleBookmarkSelection(a));
-    act(() => h.result.current.requestDeleteBookmarks());
-    h.getTree.mockRejectedValue(new Error("reload denied"));
-    await act(async () => h.result.current.confirmDeleteBookmarks());
-    expect(h.remove).toHaveBeenCalledExactlyOnceWith("a");
-    expect(h.result.current.currentBookmarkFolder?.id).toBe("team");
-    expect([...h.result.current.selectedIds]).toEqual(["a"]);
-    expect(h.result.current.deleteSummary).toBeNull();
-    expect(h.setBusy.mock.calls).toEqual([[true], [false]]);
-    expect(h.setNotice).toHaveBeenLastCalledWith({ kind: "error", text: "删除失败，浏览器书签未完全修改。" });
+    act(() => h.result.current.openBookmarkFolder(deep));
+    act(() => h.result.current.changeBookmarkQuery("Needle"));
+    expect(h.result.current.visibleBookmarkTiles.map(node => node.id)).toEqual(["a"]);
+    act(() => h.result.current.changeBookmarkQuery(""));
+    expect(h.result.current.currentBookmarkFolder?.id).toBe("deep");
+    expect(h.result.current.visibleBookmarkTiles).toEqual([b]);
+    act(() => h.result.current.goToBookmarkAncestor(1));
+    expect(h.result.current.currentBookmarkFolder?.id).toBe("bar");
+    expect(h.result.current.visibleBookmarkTiles).toEqual([folder, loose]);
   });
 
   it("does not perform initial reads and keeps missing-api or missing-collection paths harmless", async () => {
     const h = setup({ withoutApi: true, withoutState: true });
     act(() => h.result.current.toggleBookmarkSelection(loose));
-    act(() => h.result.current.requestDeleteBookmarks());
-    await act(async () => h.result.current.confirmDeleteBookmarks());
     await act(async () => h.result.current.handleImportBookmarks());
     expect(h.getTree).not.toHaveBeenCalled();
     expect(h.loadState).not.toHaveBeenCalled();

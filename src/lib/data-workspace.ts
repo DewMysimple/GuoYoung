@@ -8,6 +8,8 @@ import { getGroupWorkspace, isGithubHomeUrl, isGithubUrl, routeGithubSitesInStat
 import { canParentGroup, commitGroupEntriesToState, folderEntryId, getGroupEntries, getGroupPath, getGroupsInTreeOrder, normalizeCollectionHierarchy, siteEntryId } from "./group-hierarchy";
 import { addGroupToState, mergeGroupImportIntoState } from "./site-state";
 import { comparableSiteUrl, getSitesInGroup } from "./site-utils";
+import { importSelectedBookmarks, type BookmarkImportMapping, type BookmarkImportOptions } from "./bookmark-manager";
+import type { BrowserBookmarkTreeNode } from "./browser-runtime";
 
 export interface TransferGroup {
   key: string;
@@ -22,7 +24,31 @@ export interface TransferFile {
 }
 export type ImportDestination = { kind: "new"; name?: string; workspace?: SiteWorkspace }
   | { kind: "existing"; groupId: string } | { kind: "replace" };
-export interface ImportRequest { file: TransferFile; keys: string[]; destination: ImportDestination }
+export interface FileImportRequest { file: TransferFile; keys: string[]; destination: ImportDestination }
+
+export interface BookmarkImportRequest {
+  bookmarks: {
+    roots: readonly BrowserBookmarkTreeNode[];
+    selectedIds: ReadonlySet<string>;
+    targetGroupId: string;
+    mode: NonNullable<BookmarkImportOptions["mode"]>;
+  };
+}
+
+export type ImportRequest = FileImportRequest | BookmarkImportRequest;
+
+export interface DataImportResult {
+  state: SiteCollectionState;
+  added: number;
+  skipped: number;
+  created: number;
+  bookmarkStats?: {
+    failed: number;
+    createdRoots: number;
+    createdChildren: number;
+    mappings: BookmarkImportMapping[];
+  };
+}
 
 export function collectionTransferGroups(state: SiteCollectionState): TransferGroup[] {
   const groups = getGroupsInTreeOrder(state.groups.slice().sort((a, b) => a.order - b.order));
@@ -139,7 +165,12 @@ export function importGroupPackage(state: SiteCollectionState, targetId: string,
 }
 
 /** One transaction, shared by preview and commit. Never mutates the supplied snapshot. */
-export function applyDataImport(state: SiteCollectionState, request: ImportRequest) {
+export function applyDataImport(state: SiteCollectionState, request: ImportRequest): DataImportResult {
+  if ("bookmarks" in request) {
+    const { roots, selectedIds, targetGroupId, mode } = request.bookmarks;
+    const { state: next, added, skipped, ...bookmarkStats } = importSelectedBookmarks(state, roots, selectedIds, targetGroupId, { mode });
+    return { state: next, added, skipped, created: bookmarkStats.createdRoots + bookmarkStats.createdChildren, bookmarkStats };
+  }
   const { file, keys, destination } = request;
   if (destination.kind === "replace") {
     if (!file.backup) throw new Error("只有整库备份可以替换全局数据");

@@ -31,6 +31,8 @@ jobs:
         run: npm.cmd run test:architecture
       - name: Check module architecture
         run: npm.cmd run architecture:check
+      - name: Check shared glass surfaces
+        run: npm.cmd run lint:glass
       - name: Type check
         run: npm.cmd run typecheck
       - name: Unit and component tests

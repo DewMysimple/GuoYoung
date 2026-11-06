@@ -1566,11 +1566,13 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "管理分组" }));
     const dialog = screen.getByRole("dialog", { name: "管理分组" });
     await user.type(within(dialog).getByLabelText("分组名称"), "草稿");
-    await user.click(within(dialog).getByRole("button", { name: "导出资源" }));
+    await user.click(within(dialog).getByRole("button", { name: "更多分组操作" }));
+    await user.click(within(dialog).getByRole("menuitem", { name: "导出资源" }));
     expect(screen.getByRole("alertdialog", { name: "放弃未保存的分组修改？" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(within(dialog).getByLabelText("分组名称")).toHaveValue("搜索草稿");
-    await user.click(within(dialog).getByRole("button", { name: "导出资源" }));
+    await user.click(within(dialog).getByRole("button", { name: "更多分组操作" }));
+    await user.click(within(dialog).getByRole("menuitem", { name: "导出资源" }));
     await user.click(screen.getByRole("button", { name: "放弃并继续" }));
     expect(screen.getByRole("region", { name: "数据页面" })).toBeInTheDocument();
   });
@@ -1802,10 +1804,13 @@ describe("App", () => {
 
     const dialog = screen.getByRole("dialog", { name: "管理分组" });
     expect(within(dialog).getByDisplayValue("设计")).toBeEnabled();
+    expect(within(dialog).getAllByRole("radio")).toHaveLength(12);
+    await user.click(within(dialog).getByRole("button", { name: "展开全部图标" }));
     expect(within(dialog).getAllByRole("radio")).toHaveLength(48);
+    await user.click(within(dialog).getByRole("button", { name: "更多分组操作" }));
     expect(
       within(dialog)
-        .getByRole("button", { name: "删除这个分组" })
+        .getByRole("menuitem", { name: "删除这个分组" })
         .closest(".group-editor-summary"),
     ).toBeInTheDocument();
   });
@@ -1836,7 +1841,8 @@ describe("App", () => {
     render(<App />);
     await user.click(screen.getByRole("button", { name: "管理分组" }));
     const dialog = screen.getByRole("dialog", { name: "管理分组" });
-    await user.click(within(dialog).getByRole("button", { name: "导入资源" }));
+    await user.click(within(dialog).getByRole("button", { name: "更多分组操作" }));
+    await user.click(within(dialog).getByRole("menuitem", { name: "导入资源" }));
     const importInput = screen.getByLabelText("选择要导入的数据文件");
     Object.defineProperty(importInput, "files", {
       configurable: true,
@@ -1873,7 +1879,8 @@ describe("App", () => {
     expect(
       within(dialog).getByRole("button", { name: "受保护分组不能移动" }),
     ).toBeDisabled();
-    expect(within(dialog).queryByRole("button", { name: "删除这个分组" })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "更多分组操作" }));
+    expect(within(dialog).queryByRole("menuitem", { name: "删除这个分组" })).not.toBeInTheDocument();
   });
 
   it("lets one site use its official brand icon", async () => {
@@ -1922,19 +1929,20 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "管理分组" }));
     dialog = screen.getByRole("dialog", { name: "管理分组" });
     await user.click(within(dialog).getByRole("button", { name: /临时 1 个网站/ }));
+    await user.click(within(dialog).getByRole("button", { name: "更多分组操作" }));
     await user.click(
-      within(dialog).getByRole("button", { name: "删除这个分组" }),
+      within(dialog).getByRole("menuitem", { name: "删除这个分组" }),
     );
     expect(
       screen.queryByRole("alertdialog", { name: "删除这个分组？" }),
     ).not.toBeInTheDocument();
     expect(
-      within(dialog).getByRole("button", {
+      within(dialog).getByRole("menuitem", {
         name: "再次点击删除这个分组",
       }),
     ).toHaveClass("is-delete-armed");
     await user.click(
-      within(dialog).getByRole("button", {
+      within(dialog).getByRole("menuitem", {
         name: "再次点击删除这个分组",
       }),
     );
@@ -1962,11 +1970,12 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "管理分组" }));
     const dialog = screen.getByRole("dialog", { name: "管理分组" });
     await user.click(within(dialog).getByRole("button", { name: /学习 2 个网站/ }));
+    await user.click(within(dialog).getByRole("button", { name: "更多分组操作" }));
     await user.click(
-      within(dialog).getByRole("button", { name: "删除这个分组" }),
+      within(dialog).getByRole("menuitem", { name: "删除这个分组" }),
     );
     await user.click(
-      within(dialog).getByRole("button", {
+      within(dialog).getByRole("menuitem", {
         name: "再次点击删除这个分组",
       }),
     );
@@ -1993,29 +2002,30 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "管理分组" }));
     dialog = screen.getByRole("dialog", { name: "管理分组" });
     await user.click(within(dialog).getByRole("button", { name: /空分组 0 个网站/ }));
+    await user.click(within(dialog).getByRole("button", { name: "更多分组操作" }));
     vi.useFakeTimers();
     try {
       fireEvent.click(
-        within(dialog).getByRole("button", { name: "删除这个分组" }),
+        within(dialog).getByRole("menuitem", { name: "删除这个分组" }),
       );
       expect(
-        within(dialog).getByRole("button", {
+        within(dialog).getByRole("menuitem", {
           name: "再次点击删除这个分组",
         }),
       ).toHaveClass("is-delete-armed");
       await act(() => vi.advanceTimersByTimeAsync(2001));
       expect(
-        within(dialog).getByRole("button", { name: "删除这个分组" }),
+        within(dialog).getByRole("menuitem", { name: "删除这个分组" }),
       ).not.toHaveClass("is-delete-armed");
     } finally {
       vi.useRealTimers();
     }
 
     await user.click(
-      within(dialog).getByRole("button", { name: "删除这个分组" }),
+      within(dialog).getByRole("menuitem", { name: "删除这个分组" }),
     );
     await user.click(
-      within(dialog).getByRole("button", {
+      within(dialog).getByRole("menuitem", {
         name: "再次点击删除这个分组",
       }),
     );

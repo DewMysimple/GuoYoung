@@ -1,23 +1,23 @@
 import type { Locator, Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, screenshotPath, test } from "./fixtures";
 
 const wallpaperURL = "https://interaction-surfaces.example/wallpaper.svg";
 const darkWallpaper = '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="1920" height="1080" fill="#101827"/><path d="M0 180H1920M0 220H1920M0 260H1920M0 300H1920" stroke="#557a9a" stroke-width="14"/></svg>';
 const brightWallpaper = darkWallpaper.replace('</svg>', '<rect x="1250" y="120" width="670" height="300" fill="#e6d7aa"/><path d="M1250 180H1920M1250 260H1920" stroke="#9f7143" stroke-width="18"/></svg>');
 
-async function seed(page: Page, theme: "light" | "dark", wallpaper: "none" | "dark" | "bright") {
+async function seed(page: Page, theme: "light" | "dark", wallpaper: "none" | "dark" | "bright", popoverTransparency = 25) {
   await page.route(wallpaperURL, route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper === "bright" ? brightWallpaper : darkWallpaper }));
-  await page.evaluate(({ theme, wallpaper, wallpaperURL }) => {
+  await page.evaluate(({ theme, wallpaper, wallpaperURL, popoverTransparency }) => {
     const key = "site-hub:v1", state = JSON.parse(localStorage.getItem(key)!);
     state.appearance = { ...state.appearance, theme, interfaceScale: 100, fontScale: 100 };
     state.wallpaper = { ...state.wallpaper, source: wallpaper === "none" ? "none" : "url", url: wallpaperURL,
-      glassTransparency: 60, glassControlTransparency: 60, glassPopoverTransparency: 25,
+      glassTransparency: 60, glassControlTransparency: 60, glassPopoverTransparency: popoverTransparency,
       glassBlur: 8, glassSaturation: 100, glassHighlight: 18, overlay: 0 };
     state.sortModeByWorkspace.main = "manual";
     state.displayModeByWorkspace.main = "flat";
     state.trashRetentionDays = 30;
     localStorage.setItem(key, JSON.stringify(state));
-  }, { theme, wallpaper, wallpaperURL });
+  }, { theme, wallpaper, wallpaperURL, popoverTransparency });
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   await expect(page.getByRole("button", { name: "显示", exact: true })).toBeVisible();
@@ -155,6 +155,43 @@ test("keeps plain view buttons and disabled selectors independent of settings po
   await expect(panel).toBeVisible();
   await expect(settingsSelect).toBeFocused();
 });
+
+for (const [theme, wallpaper, transparency] of [["light", "bright", 25], ["dark", "dark", 55], ["dark", "none", 25]] as const) {
+  test(`uses the shared material in the body portal: ${theme}/${wallpaper}/${transparency}`, async ({ page }) => {
+    await seed(page, theme, wallpaper, transparency);
+    const mainMenu = page.getByRole("button", { name: "显示", exact: true });
+    const mainTriggerMaterial = await material(mainMenu);
+    await mainMenu.click();
+    const mainPopoverMaterial = await material(page.getByRole("menu", { name: "显示方式" }));
+    await page.keyboard.press("Escape");
+    await page.getByRole("tab", { name: /^设计/ }).click();
+    await page.getByRole("button", { name: "管理分组", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: "管理分组" });
+    expect(await dialog.evaluate(element => element.parentElement === document.body)).toBe(true);
+    const parent = dialog.getByRole("button", { name: "所属一级分组", exact: true });
+    await page.mouse.move(0, 0);
+    const trigger = await material(parent);
+    expect(trigger.background).toEqual(mainTriggerMaterial.background);
+    expect(trigger.image).toBe(mainTriggerMaterial.image);
+    await parent.press("ArrowDown");
+    const menu = dialog.getByRole("listbox", { name: "所属一级分组" });
+    await expect(menu.getByRole("option", { selected: true })).toBeFocused();
+    const menuMaterial = await material(menu);
+    expect(menuMaterial.background).toEqual(mainPopoverMaterial.background);
+    expect(menuMaterial.image).toBe(mainPopoverMaterial.image);
+    expect(menuMaterial.filter).toBe(mainPopoverMaterial.filter);
+    if (wallpaper !== "none") {
+      expect(menuMaterial.background[3]).toBeCloseTo(255 * (100 - transparency) / 100, 0);
+      expect(menuMaterial.filter).toContain("blur(8px)");
+    }
+    await page.screenshot({ path: screenshotPath(`manager-parent-glass-${theme}-${wallpaper}.png`) });
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+    await expect(parent).toBeFocused();
+  });
+}
 
 test("uses the intentional reduced-transparency material without changing saved preferences", async ({ page }) => {
   await seed(page, "dark", "dark");

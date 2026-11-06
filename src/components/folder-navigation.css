@@ -22,6 +22,15 @@
   color: var(--text);
 }
 
+.folder-breadcrumb .folder-return {
+  display: inline-grid;
+  flex: none;
+  align-self: stretch;
+  min-width: 26px;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
 .new-group-dialog.move-sites-dialog {
   width: min(calc(100vw - 32px), 560px);
   height: auto;

@@ -20,51 +20,11 @@ html:has(.app-shell.has-wallpaper) {
 .app-shell.has-wallpaper { padding-left: var(--page-scrollbar-width, 0px); }
 .has-wallpaper .topbar { margin-left: calc(-1 * var(--page-scrollbar-width, 0px)); }
 
-:root:has(.app-shell.has-wallpaper) {
-  --glass-fill: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent);
-  --glass-fill-low: var(--glass-fill);
-  --glass-fill-high: color-mix(in srgb, var(--glass-fill) 92%, var(--surface));
-  --glass-fill-control: color-mix(in srgb, var(--surface) var(--glass-control-opacity), transparent);
-  --glass-fill-panel: color-mix(in srgb, var(--surface) var(--glass-panel-opacity), transparent);
-  --glass-fill-popover: color-mix(in srgb, var(--surface) var(--glass-popover-opacity), transparent);
-  --glass-fill-nested: color-mix(in srgb, var(--surface) 9%, transparent);
-  --glass-fill-accent: color-mix(in srgb, var(--accent) 70%, transparent);
-  --glass-edge: rgb(255 255 255 / var(--glass-highlight));
-  --glass-edge-soft: rgb(255 255 255 / calc(var(--glass-highlight) * .65));
-  --glass-sheen: rgb(255 255 255 / calc(var(--glass-highlight) * .24));
-  --glass-flare: rgb(255 255 255 / calc(var(--glass-highlight) * .15));
-  --glass-reflection: rgb(255 255 255 / var(--glass-highlight));
-  --glass-rim: inset 0 1px 0 var(--glass-edge-soft);
-  --glass-shadow: 0 4px 14px rgb(var(--glass-shadow-color) / calc(.16 * var(--glass-shadow-strength))), var(--glass-rim);
-  --glass-control-shadow: 0 2px 6px rgb(var(--glass-shadow-color) / calc(.1 * var(--glass-shadow-strength))), var(--glass-rim);
-  --glass-elevated-shadow: 0 12px 32px rgb(var(--glass-shadow-color) / calc(.28 * var(--glass-shadow-strength))), var(--glass-rim);
-  --glass-surface-image:
-    linear-gradient(142deg, var(--glass-sheen), transparent 46%),
-    radial-gradient(ellipse at 14% 0%, var(--glass-flare), transparent 58%);
-}
-
 .has-wallpaper .topbar {
   isolation: isolate;
   border-bottom-color: transparent;
   background: transparent;
   backdrop-filter: none;
-}
-
-/* SelectMenu owns state consumption; this container only supplies material.
-   Plain view buttons use the same inputs; SettingsSelect owns its own surface. */
-.has-wallpaper :where(.select-menu-root, .view-control-button) {
-  --select-fill: var(--glass-fill-control);
-  --select-hover-fill: color-mix(in srgb, var(--glass-fill-control) 92%, var(--surface));
-  --select-active-fill: color-mix(in srgb, var(--accent) 20%, var(--glass-fill-control));
-  --select-edge: var(--glass-edge-soft);
-  --select-hover-edge: var(--glass-edge);
-  --select-image: var(--glass-surface-image);
-  --select-filter: var(--glass-filter);
-  --select-shadow: var(--glass-control-shadow);
-  --select-active-shadow: var(--glass-control-shadow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
-  --select-menu-fill: var(--glass-fill-popover);
-  --select-menu-shadow: var(--glass-elevated-shadow);
-  --select-option-fill: color-mix(in srgb, var(--accent) 12%, var(--glass-fill-low));
 }
 
 /* Data menus retain their own 18px blur instead of inheriting the panel's.
@@ -489,7 +449,6 @@ body:has(.app-shell.has-wallpaper) :is(.settings-panel, .dialog-content) :is(.se
 }
 
 body:has(.app-shell.has-wallpaper) .dialog-content .button.secondary-button,
-body:has(.app-shell.has-wallpaper) .dialog-content .group-editor-delete:not(.is-delete-armed),
 body:has(.app-shell.has-wallpaper) .confirm-content .button.secondary-button,
 body:has(.app-shell.has-wallpaper) .settings-panel .button.secondary-button,
 body:has(.app-shell.has-wallpaper) .settings-panel .icon-button,
@@ -507,7 +466,6 @@ body:has(.app-shell.has-wallpaper) .dialog-content .group-icon-choice {
 }
 
 body:has(.app-shell.has-wallpaper) .dialog-content .button.secondary-button:hover,
-body:has(.app-shell.has-wallpaper) .dialog-content .group-editor-delete:not(.is-delete-armed):hover,
 body:has(.app-shell.has-wallpaper) .confirm-content .button.secondary-button:hover,
 body:has(.app-shell.has-wallpaper) .settings-panel .button.secondary-button:hover,
 body:has(.app-shell.has-wallpaper) .settings-panel .icon-button:hover,
@@ -620,14 +578,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 }
 
 @supports not (backdrop-filter: blur(1px)) {
-  .has-wallpaper :where(.select-menu-root, .select-menu-trigger, .view-control-button) {
-    --select-fill: var(--surface);
-    --select-hover-fill: var(--surface);
-    --select-active-fill: var(--accent-soft);
-    --select-menu-fill: var(--surface);
-    --select-image: none;
-    --select-filter: none;
-  }
   :root:has(.app-shell.has-wallpaper) :is(.site-card, .add-site-card) {
     --card-glass-fill: var(--surface) !important;
     --card-glass-image: none !important;
@@ -669,21 +619,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .has-wallpaper :where(.select-menu-root, .select-menu-trigger, .view-control-button) {
-    --select-image: none;
-    --select-filter: none;
-  }
-  /* Change the shared material fill inputs, not arbitrary DOM backgrounds.
-     Both roots publish saved inline tokens; the preference wins in CSS while
-     those saved values remain available when the preference is turned off. */
-  :root:has(.app-shell.has-wallpaper),
-  .app-shell.has-wallpaper {
-    --glass-opacity: 96% !important;
-    --glass-control-opacity: 96% !important;
-    --glass-panel-opacity: 96% !important;
-    --glass-popover-opacity: 96% !important;
-    --glass-fill-accent: color-mix(in srgb, var(--accent) 96%, transparent);
-  }
   /* Cover current and future surfaces, including body portals and nested
      badges, without a separate opt-out list for every material owner. */
   body:has(.app-shell.has-wallpaper) *,

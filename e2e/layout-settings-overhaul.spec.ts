@@ -339,11 +339,11 @@ test("bounds two-column square spacing without stretching cards or spreading a p
   expect(measured.cards.at(-1)!.x).toBeCloseTo(measured.left, 0);
 });
 
-test("recalculates square slots at desktop scales in fixed/full width and overlay/push settings without saving preview data", async ({ page }) => {
-  for (const [width, scale, mode, presentation] of [
-    [1440, 75, "full", "overlay"], [1720, 100, "fixed", "push"],
-    [1920, 125, "full", "push"], [1720, 150, "fixed", "overlay"],
-  ] as const) {
+for (const [width, scale, mode, presentation] of [
+  [1440, 75, "full", "overlay"], [1720, 100, "fixed", "push"],
+  [1920, 125, "full", "push"], [1720, 150, "fixed", "overlay"],
+] as const) {
+  test(`recalculates square slots without saving preview data at ${width}px / ${scale}% / ${mode} / ${presentation}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1100 });
     await seedAlignmentGroups(page, { interfaceScale: scale, contentWidthMode: mode, settingsPresentation: presentation });
     const grid = page.locator('[data-group-sort-section-id="layout-b"] .grouped-site-track');
@@ -360,8 +360,8 @@ test("recalculates square slots at desktop scales in fixed/full width and overla
     await page.reload();
     await expectSquareGrid(grid, before.tracks);
     expect((await gridGeometry(grid)).gap).toBeCloseTo(before.gap, 1);
-  }
-});
+  });
+}
 
 test("sorts square cards with the keyboard and transfers a mouse-dragged card across groups after gap distribution", async ({ page }) => {
   await page.setViewportSize({ width: 1720, height: 1100 });

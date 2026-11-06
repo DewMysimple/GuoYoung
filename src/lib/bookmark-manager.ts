@@ -3,20 +3,20 @@ import type {
   BrowserBookmarksApi,
 } from "./browser-runtime";
 import type { SiteCollectionState } from "../types";
-import { inferSiteName, normalizeUrl } from "./site-utils";
+import { comparableSiteUrl, inferSiteName, normalizeUrl } from "./site-utils";
 import {
   addGroupToState,
-  addSiteToState,
   findGroupByName,
-  findSiteByUrl,
+  mergeGroupImportIntoState,
 } from "./site-state";
-import { getWorkspaceGroups } from "./github-workspace";
-import { getRootGroups } from "./group-hierarchy";
+import type { GroupExportSite } from "./data-transfer";
+import { getGithubOtherGroupId, getGroupWorkspace, isGithubHomeUrl, isGithubUrl } from "./github-workspace";
+import { getGroupPath } from "./group-hierarchy";
 
 export interface IndexedBookmarkNode {
   node: BrowserBookmarkTreeNode;
   ancestorIds: string[];
-  mappedGroupName?: string;
+  folderPath: string[];
   systemRoot: boolean;
 }
 
@@ -25,7 +25,19 @@ export interface BookmarkImportResult {
   added: number;
   skipped: number;
   failed: number;
+  createdRoots: number;
+  createdChildren: number;
+  mappings: BookmarkImportMapping[];
 }
+
+export interface BookmarkImportMapping {
+  sourcePath: string[];
+  targetPath: string;
+  links: number;
+  combined: boolean;
+}
+
+export interface BookmarkImportOptions { mode?: "preserve" | "target" }
 
 export interface BookmarkDeleteSummary {
   roots: BrowserBookmarkTreeNode[];
@@ -33,35 +45,40 @@ export interface BookmarkDeleteSummary {
   folderCount: number;
 }
 
-export function indexBookmarkTree(
-  roots: BrowserBookmarkTreeNode[],
-): Map<string, IndexedBookmarkNode> {
+export function getBrowserBookmarkRoots(tree: readonly BrowserBookmarkTreeNode[]): BrowserBookmarkTreeNode[] {
+  if (tree.length === 1) {
+    const [root] = tree;
+    if (!root.url && !root.parentId && (root.id === "0" || root.id === "root" || !root.title.trim())) {
+      return root.children ?? [];
+    }
+  }
+  return [...tree];
+}
+
+export function indexBookmarkTree(roots: readonly BrowserBookmarkTreeNode[]): Map<string, IndexedBookmarkNode> {
   const indexed = new Map<string, IndexedBookmarkNode>();
   const systemRootIds = new Set(roots.map((root) => root.id));
 
   function visit(
     node: BrowserBookmarkTreeNode,
     ancestorIds: string[],
-    mappedGroupName?: string,
+    folderPath: string[],
   ) {
     const systemRoot = systemRootIds.has(node.id);
-    const nextMappedGroup =
-      mappedGroupName ??
-      (!node.url && !systemRoot
-        ? node.title.trim() || undefined
-        : undefined);
+    const nextFolderPath = !node.url && !systemRoot
+      ? [...folderPath, node.title.trim() || "未命名文件夹"] : folderPath;
     indexed.set(node.id, {
       node,
       ancestorIds,
-      mappedGroupName: nextMappedGroup,
+      folderPath: nextFolderPath,
       systemRoot,
     });
     for (const child of node.children ?? []) {
-      visit(child, [...ancestorIds, node.id], nextMappedGroup);
+      visit(child, [...ancestorIds, node.id], nextFolderPath);
     }
   }
 
-  for (const root of roots) visit(root, []);
+  for (const root of roots) visit(root, [], []);
   return indexed;
 }
 
@@ -74,57 +91,102 @@ export function getDescendantIds(node: BrowserBookmarkTreeNode): string[] {
 
 export function importSelectedBookmarks(
   state: SiteCollectionState,
-  roots: BrowserBookmarkTreeNode[],
-  selectedIds: Set<string>,
+  roots: readonly BrowserBookmarkTreeNode[],
+  selectedIds: ReadonlySet<string>,
   fallbackGroupId: string,
+  { mode = "preserve" }: BookmarkImportOptions = {},
 ): BookmarkImportResult {
-  const indexed = indexBookmarkTree(roots);
+  const fallback = state.groups.find(group => group.id === fallbackGroupId && getGroupWorkspace(group) === "main");
+  if (!fallback) throw new Error("目标分组已不存在，请重新选择");
   let next = state;
   let added = 0;
   let skipped = 0;
   let failed = 0;
+  let createdRoots = 0;
+  let createdChildren = 0;
+  const existingUrls = new Set(state.sites.map(site => comparableSiteUrl(site.url)));
+  const githubOtherId = getGithubOtherGroupId(state);
+  const batches = new Map<string, GroupExportSite[]>();
+  const mappings = new Map<string, BookmarkImportMapping>();
+  const folderTargets = new Map<string, string>();
 
-  const selectedBookmarks = [...selectedIds]
-    .map((id) => indexed.get(id))
-    .filter(
-      (entry): entry is IndexedBookmarkNode => Boolean(entry?.node.url),
-    );
+  function ensureGroup(label: string, parentId?: string) {
+    const siblings = next.groups.filter(group => getGroupWorkspace(group) === "main" && group.parentId === parentId);
+    const ordinary = siblings.filter(group => !group.isProtected && !group.githubImportSource);
+    let name = label;
+    for (let suffix = 2; ; suffix++) {
+      const matched = findGroupByName(ordinary, name);
+      if (matched) return matched.id;
+      if (!findGroupByName(siblings, name)) break;
+      name = `${label} (${suffix})`;
+    }
+    const id = crypto.randomUUID();
+    next = addGroupToState(next, name, "stack", id, undefined, undefined, "main", parentId);
+    if (parentId) createdChildren++;
+    else createdRoots++;
+    return id;
+  }
 
-  for (const entry of selectedBookmarks) {
+  function mapFolder(path: string[]): string {
+    if (mode === "target" || !path.length) return fallbackGroupId;
+    const key = JSON.stringify(path);
+    const cached = folderTargets.get(key);
+    if (cached) return cached;
+    // Preserve every deeper component in a two-level collection's child name.
+    // Escape the separator so a literal folder name cannot alias a deeper path.
+    const groupId = path.length === 1 ? ensureGroup(path[0])
+      : ensureGroup(path.slice(1).map(part => part.replaceAll("\\", "\\\\").replaceAll("›", "\\›")).join(" › "), mapFolder([path[0]]));
+    folderTargets.set(key, groupId);
+    return groupId;
+  }
+
+  function recordMapping(folderPath: string[], groupId: string, links: number) {
+    const key = JSON.stringify([folderPath, groupId]);
+    const existing = mappings.get(key);
+    if (existing) existing.links += links;
+    else mappings.set(key, {
+      sourcePath: folderPath,
+      targetPath: groupId === githubOtherId ? `GitHub / ${getGroupPath(next.groups, groupId)}` : getGroupPath(next.groups, groupId),
+      links,
+      combined: mode === "preserve" && folderPath.length > 2 && groupId !== githubOtherId,
+    });
+  }
+
+  for (const [id, { node, folderPath, systemRoot }] of indexBookmarkTree(roots)) {
+    if (!selectedIds.has(id)) continue;
+    if (!node.url) {
+      if (mode === "preserve" && !systemRoot && !node.children?.length) {
+        recordMapping(folderPath, mapFolder(folderPath), 0);
+      }
+      continue;
+    }
     let url: string;
     try {
-      url = normalizeUrl(entry.node.url!);
+      url = normalizeUrl(node.url);
     } catch {
       failed += 1;
       continue;
     }
-    if (findSiteByUrl(next.sites, url)) {
+    const key = comparableSiteUrl(url);
+    if (existingUrls.has(key)) {
       skipped += 1;
       continue;
     }
 
-    let groupId = fallbackGroupId;
-    if (entry.mappedGroupName) {
-      let group = findGroupByName(getRootGroups(getWorkspaceGroups(next.groups, "main")), entry.mappedGroupName);
-      if (!group) {
-        next = addGroupToState(next, entry.mappedGroupName, "stack");
-        group = findGroupByName(getRootGroups(getWorkspaceGroups(next.groups, "main")), entry.mappedGroupName);
-      }
-      if (group) groupId = group.id;
-    }
-
-    const name = entry.node.title.trim() || inferSiteName(url) || "新网站";
-    next = addSiteToState(next, {
-      name,
-      url,
-      groupId,
-      customIconUrl: "",
-      iconSource: "auto",
-    });
-    added += 1;
+    existingUrls.add(key);
+    const groupId = isGithubUrl(url) && !isGithubHomeUrl(url) ? githubOtherId : mapFolder(folderPath);
+    const batch = batches.get(groupId) ?? [];
+    batch.push({ name: node.title.trim() || inferSiteName(url) || "新网站", url, iconSource: "auto", order: batch.length });
+    batches.set(groupId, batch);
+    recordMapping(folderPath, groupId, 1);
   }
-
-  return { state: next, added, skipped, failed };
+  for (const [groupId, sites] of batches) {
+    const result = mergeGroupImportIntoState(next, groupId, { sites });
+    next = result.state;
+    added += result.added;
+    skipped += result.skipped;
+  }
+  return { state: next, added, skipped, failed, createdRoots, createdChildren, mappings: [...mappings.values()] };
 }
 
 export function summarizeBookmarkDeletion(
@@ -168,7 +230,7 @@ export async function deleteBookmarkSelection(
   summary: BookmarkDeleteSummary,
 ): Promise<{ deleted: number; failed: number }> {
   const results = await Promise.allSettled(
-    summary.roots.map((node) =>
+    summary.roots.map(async (node) =>
       node.url ? api.remove(node.id) : api.removeTree(node.id),
     ),
   );

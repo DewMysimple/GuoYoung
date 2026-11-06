@@ -526,14 +526,15 @@ export function useSiteHub(preparedStore?: SiteHubStore): SiteHubApi {
   const importData = useCallback((request: ImportRequest) => {
     const before = stateRef.current;
     const applied = applyDataImport(before, request);
+    const replace = "destination" in request && request.destination.kind === "replace";
     // Even a no-op import owns its acknowledgement rather than reusing an
     // unrelated previously saved operation for the same object reference.
     const result = applied.state === before ? { ...applied, state: { ...applied.state } } : applied;
     supersedeDataImport();
     setState(result.state);
     importLineage.current = {
-      sites: result.state.sites.filter(site => request.destination.kind === "replace" || !before.sites.some(previous => previous.id === site.id)).map(site => site.id),
-      groups: result.state.groups.filter(group => request.destination.kind === "replace" || !before.groups.some(previous => previous.id === group.id)).map(group => group.id),
+      sites: result.state.sites.filter(site => replace || !before.sites.some(previous => previous.id === site.id)).map(site => site.id),
+      groups: result.state.groups.filter(group => replace || !before.groups.some(previous => previous.id === group.id)).map(group => group.id),
     };
     const operation: DataImportOperation = { id: ++importSequence.current, result, status: "saving" };
     setDataImport(operation);

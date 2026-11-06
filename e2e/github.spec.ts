@@ -5,8 +5,9 @@ test("keeps a deleted default GitHub group deleted after reload and workspace re
   await page.getByRole("tab", { name: /仓库/ }).click();
   await page.getByRole("button", { name: "管理分组", exact: true }).click();
   const manager = page.getByRole("dialog", { name: "管理分组", exact: true });
-  await manager.getByRole("button", { name: "删除这个分组" }).click();
-  await manager.getByRole("button", { name: "再次点击删除这个分组" }).click();
+  await manager.getByRole("button", { name: "更多分组操作" }).click();
+  await manager.getByRole("menuitem", { name: "删除这个分组" }).click();
+  await manager.getByRole("menuitem", { name: "再次点击删除这个分组" }).click();
   await expect(manager).toBeHidden();
   await page.reload();
   await expect(page.getByText("本地数据无法读取")).toHaveCount(0);

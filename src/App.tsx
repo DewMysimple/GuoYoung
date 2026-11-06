@@ -105,6 +105,7 @@ import { useSweepSelection } from "./hooks/use-sweep-selection";
 import { useTheme } from "./hooks/use-theme";
 import { useWallpaper } from "./hooks/use-wallpaper";
 import { dismissWallpaperStartup } from "./lib/wallpaper-startup";
+import { getChromiumExtensionApi, isExtensionEnvironment } from "./lib/browser-runtime";
 import {
   requestHistoryPermission,
   type BrowserHistoryPermissionResult,
@@ -162,6 +163,11 @@ function readCollectionLocation(historyState: unknown): CollectionHistoryLocatio
 function replaceCollectionLocation(location: CollectionHistoryLocation | undefined) {
   window.history.replaceState({ ...window.history.state, collectionLocation: location }, "");
 }
+
+function hasBookmarkImportLink() {
+  return new URLSearchParams(window.location.search).get("data") === "bookmarks";
+}
+
 const SORT_OPTIONS: Array<{ value: SiteSortMode; label: string }> = [
   { value: "manual", label: "手动排列" },
   { value: "name-asc", label: "名称 A–Z" },
@@ -264,7 +270,11 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }>();
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [managedGroupId, setManagedGroupId] = useState<string>();
-  const [dataContext, setDataContext] = useState<DataWorkspaceContext | null>(null);
+  const extension = getChromiumExtensionApi();
+  const hasBrowserBookmarks = isExtensionEnvironment(extension) && Boolean(extension?.bookmarks);
+  const [dataContext, setDataContext] = useState<DataWorkspaceContext | null>(
+    () => hasBrowserBookmarks && hasBookmarkImportLink() ? { mode: "bookmarks" } : null,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] =
     useState<SettingsSection>();
@@ -341,8 +351,9 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     state.sortModeByWorkspace[activeWorkspace] ?? state.sortMode ?? "manual";
 
   const handlePopState = useLatestEvent((event: PopStateEvent) => {
-      if (event.state?.siteHubLayer === "data") {
-        setDataContext(event.state.dataContext ?? { mode: "import" });
+      const layer = event.state?.siteHubLayer;
+      if (layer === "data" || (!layer && hasBrowserBookmarks && hasBookmarkImportLink())) {
+        setDataContext(layer === "data" ? event.state.dataContext ?? { mode: "import" } : { mode: "bookmarks" });
         setBrowserHistoryOpen(false);
         return;
       }
@@ -1020,7 +1031,7 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
     setNewGroupInsertionContext(undefined);
   }
 
-  function openData(mode: "import" | "export" = "import", groupId?: string) {
+  function openData(mode: DataWorkspaceContext["mode"] = "import", groupId?: string) {
     setGroupDialogOpen(false);
     setSettingsOpen(false);
     setSettingsPreview(null);
@@ -1081,11 +1092,13 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
   }
 
   function dismissBrowserHistoryLayer() {
-    if (window.history.state?.siteHubLayer) {
+    if (window.history.state?.siteHubLayer || hasBookmarkImportLink()) {
+      const url = new URL(window.location.href);
+      if (hasBookmarkImportLink()) url.searchParams.delete("data");
       window.history.replaceState(
         { ...(window.history.state ?? {}), siteHubLayer: undefined },
         "",
-        window.location.href,
+        url,
       );
     }
     setBrowserHistoryOpen(false);
@@ -1354,6 +1367,10 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
                       <small>整理一组网站</small>
                     </span>
                   </button>
+                  {hasBrowserBookmarks && <button type="button" role="menuitem" onClick={() => openData("bookmarks")}>
+                    <span className="topbar-add-menu-icon"><FolderOpen size={18} /></span>
+                    <span><strong>导入浏览器书签</strong><small>预览并保留文件夹层级</small></span>
+                  </button>}
                 </div>
               )}
             </div>
@@ -1617,6 +1634,10 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
             <div>
               {activeParent && !isSearching && (
                 <nav aria-label="收藏路径" className="folder-breadcrumb">
+                  <button type="button" className="folder-return" aria-label={`返回${folderReturnLabel}`}
+                    title={`返回${folderReturnLabel}`} onClick={returnFromFolder}>
+                    <ArrowLeft size={14} aria-hidden="true" />
+                  </button>
                   <button type="button" onClick={() => selectGroup("all")}>
                     {activeWorkspace === "github" ? "全部 GitHub" : "全部网站"}
                   </button>
@@ -1628,16 +1649,12 @@ export function App({ store }: { store?: SiteHubStore } = {}) {
               )}
               <h2 id="collection-title" ref={collectionTitleRef} tabIndex={activeParent ? -1 : undefined}>{collectionTitle}</h2>
               <p>
-                {isSearching
-                  ? `找到 ${visibleSites.length} 个结果`
+                {isSearching ? `找到 ${visibleSites.length} 个结果`
+                  : activeParent ? `${siteCounts.get(activeGroupId) ?? 0} 个网站`
                   : `${activeGroup ? siteCounts.get(activeGroup.id) ?? 0 : workspaceSites.length} 个收藏`}
                 </p>
             </div>
             <div className="collection-view-controls">
-              {activeParent && !isSearching && <button type="button" className="view-control-button" onClick={returnFromFolder}>
-                <ArrowLeft size={16} />
-                <span>返回{folderReturnLabel}</span>
-              </button>}
               {multiSelectMode && selectedSiteIds.size > 0 && <button
                 type="button" className="view-control-button" data-selection-surface="move"
                 onClick={() => setSitesToMove(selectableSiteIds.filter(id => selectedSiteIds.has(id)))}

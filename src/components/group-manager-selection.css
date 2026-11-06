@@ -9,12 +9,8 @@
 .group-manager-check.site-selection-toggle:disabled { opacity: .3; }
 .group-manager-check.site-selection-toggle::before { inset: -4px; }
 .group-list-item.has-selection .group-list-select { gap: 7px; padding-left: 4px; }
-.group-list-item.is-child-group .group-list-select { padding-left: 16px; }
 .group-manager-list { flex-shrink: 0; }
 @media (max-width: 599px) {
   .group-manager-batchbar { position: sticky; top: 0; z-index: 2; background: var(--surface); padding-bottom: 6px; }
-  .group-manager-editor .group-editor-summary { grid-template-columns: auto minmax(0, 1fr); }
-  .group-editor-summary > div { min-width: 0; }
-  .group-editor-summary > div > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .group-manager-editor .group-editor-summary-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .group-editor-summary-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }

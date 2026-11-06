@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "../data/defaults";
 import { createSiteHubStore, type SiteHubStore } from "../lib/state-store";
 import { createGroupExportPayload, serializeExport } from "../lib/data-transfer";
-import { parseTransferFile, type ImportRequest } from "../lib/data-workspace";
+import { parseTransferFile, type FileImportRequest } from "../lib/data-workspace";
 import type { SiteCollectionState } from "../types";
 import type { ChromiumExtensionApi } from "../lib/browser-runtime";
 import { STORAGE_KEY } from "../lib/storage";
@@ -23,7 +23,7 @@ function setupStore() {
   return { initial, save, receive: (state: typeof initial.state) => receive({ state, recovered: false }) };
 }
 
-function importRequest(name = "Imported collection"): ImportRequest {
+function importRequest(name = "Imported collection"): FileImportRequest {
   const payload = createGroupExportPayload(createDefaultState(), "design");
   payload.group.name = name;
   payload.sites = [{ name: "Synthetic report", url: "https://import.example/Private/Report?view=AbC#section-2", order: 0 },
