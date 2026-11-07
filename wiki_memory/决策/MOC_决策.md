@@ -1,7 +1,7 @@
 ---
 type: moc
 status: active
-updated: 2026-10-31
+updated: 2026-11-08
 topic: decision-index
 ---
 
@@ -24,6 +24,7 @@ topic: decision-index
 - [[决策/ADR-014.md|ADR-014 图标契约按平台候选顺序和实际缓存语义维护]] — active · 决策/ADR-014
 - [[决策/ADR-016.md|ADR-016 外观保留简洁方案并增加尺寸与恢复入口]] — active · 决策/ADR-016
 - [[决策/ADR-017.md|ADR-017 采用唯一记忆根、五页当前状态与单一日志索引]] — active · project-memory-architecture
+- [[决策/ADR-018.md|ADR-018 卡片与浮窗采用独立参数及分层磨砂绘制]] — active · independent-glass-materials
 
 ## 历史与替代
 

@@ -2,9 +2,9 @@
    arranges the content; it does not redefine normal/selected material. */
 .settings-option,
 .settings-option-input {
-  --option-fill: var(--glass-fill-nested, color-mix(in srgb, var(--surface) 9%, transparent));
+  --option-fill: var(--overlay-nested-fill);
   --option-edge: color-mix(in srgb, var(--border-strong) 70%, var(--glass-edge-soft, transparent));
-  --option-selected-fill: color-mix(in srgb, var(--accent) 20%, var(--glass-fill-control, transparent));
+  --option-selected-fill: color-mix(in srgb, var(--accent) 20%, var(--overlay-control-fill));
   --option-selected-edge: color-mix(in srgb, var(--accent) 44%, var(--glass-edge, var(--border-strong)));
   border: 1px solid var(--option-edge);
   background: var(--option-fill);

@@ -1,6 +1,7 @@
 import { CaretDown, Check } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import "./select-menu.css";
+import { usePopoverLayout } from "../hooks/use-popover-layout";
 
 export interface SelectMenuOption<Value extends string = string> {
   value: Value;
@@ -49,6 +50,8 @@ export function SelectMenu<Value extends string>({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const layout = usePopoverLayout(open, rootRef, menuRef, placement);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const menuId = `select-menu-${useId()}`;
   const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
@@ -126,7 +129,10 @@ export function SelectMenu<Value extends string>({
     <div
       ref={rootRef}
       className={`select-menu-root ${className}`.trim()}
-      data-placement={placement}
+      data-placement={layout.placement}
+      onBlur={event => {
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
     >
       <button
         ref={triggerRef}
@@ -147,6 +153,8 @@ export function SelectMenu<Value extends string>({
       {open && (
         <div
           id={menuId}
+          ref={menuRef}
+          style={{ maxHeight: layout.maxHeight }}
           className={`select-menu-popover ${menuClassName}`.trim()}
           role={popoverRole}
           aria-label={menuLabel ?? ariaLabel}

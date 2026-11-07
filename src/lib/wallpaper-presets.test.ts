@@ -12,6 +12,7 @@ describe("wallpaper appearance presets", () => {
     expect(pickGlass(WALLPAPER_PRESETS[0].values)).toEqual({
       glassTransparency: 100, glassControlTransparency: 100, glassPanelTransparency: 100, glassPopoverTransparency: 100,
       glassShadow: 72, glassBlur: 21, glassSaturation: 100, glassHighlight: 18,
+      overlayTransparency: 30, overlayBlur: 24, overlayBackdropDim: 30, overlayReadabilityProtection: true,
     });
     for (const preset of WALLPAPER_PRESETS) {
       const next = { ...DEFAULT_WALLPAPER, ...applyWallpaperPreset(DEFAULT_WALLPAPER, preset.values) };
@@ -56,7 +57,7 @@ describe("wallpaper appearance presets", () => {
     const original = { ...state, version, wallpaper: { ...wallpaper, glassShadow: 17, topbarTransparency: 37 } };
     const loaded = parseStoredState(JSON.stringify(original));
     expect(loaded.recovered).toBe(false);
-    expect(loaded.state).toEqual({ ...original, version: 29,
+    expect(loaded.state).toEqual({ ...original, version: 30,
       wallpaper: { ...original.wallpaper, presetIncludesPanels: true, customPresets: [null, null] } });
     expect(parseStoredState(JSON.stringify(loaded.state)).state).toEqual(loaded.state);
   });

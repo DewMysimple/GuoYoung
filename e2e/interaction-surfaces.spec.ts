@@ -12,7 +12,8 @@ async function seed(page: Page, theme: "light" | "dark", wallpaper: "none" | "da
     state.appearance = { ...state.appearance, theme, interfaceScale: 100, fontScale: 100 };
     state.wallpaper = { ...state.wallpaper, source: wallpaper === "none" ? "none" : "url", url: wallpaperURL,
       glassTransparency: 60, glassControlTransparency: 60, glassPopoverTransparency: popoverTransparency,
-      glassBlur: 8, glassSaturation: 100, glassHighlight: 18, overlay: 0 };
+      glassBlur: 8, glassSaturation: 100, glassHighlight: 18, overlay: 0,
+      overlayTransparency: popoverTransparency, overlayBlur: 17, overlayReadabilityProtection: false };
     state.sortModeByWorkspace.main = "manual";
     state.displayModeByWorkspace.main = "flat";
     state.trashRetentionDays = 30;
@@ -172,8 +173,8 @@ for (const [theme, wallpaper, transparency] of [["light", "bright", 25], ["dark"
     const parent = dialog.getByRole("button", { name: "所属一级分组", exact: true });
     await page.mouse.move(0, 0);
     const trigger = await material(parent);
-    expect(trigger.background).toEqual(mainTriggerMaterial.background);
-    expect(trigger.image).toBe(mainTriggerMaterial.image);
+    expect(trigger.color).toEqual(mainTriggerMaterial.color);
+    expect(trigger.filter, "Inner controls do not stack another backdrop layer").toBe("none");
     await parent.press("ArrowDown");
     const menu = dialog.getByRole("listbox", { name: "所属一级分组" });
     await expect(menu.getByRole("option", { selected: true })).toBeFocused();
@@ -183,7 +184,7 @@ for (const [theme, wallpaper, transparency] of [["light", "bright", 25], ["dark"
     expect(menuMaterial.filter).toBe(mainPopoverMaterial.filter);
     if (wallpaper !== "none") {
       expect(menuMaterial.background[3]).toBeCloseTo(255 * (100 - transparency) / 100, 0);
-      expect(menuMaterial.filter).toContain("blur(8px)");
+      expect(menuMaterial.filter).toBe("blur(17px)");
     }
     await page.screenshot({ path: screenshotPath(`manager-parent-glass-${theme}-${wallpaper}.png`) });
     await page.keyboard.press("Escape");

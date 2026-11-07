@@ -708,7 +708,7 @@ describe("App", () => {
     await waitFor(() => {
       const stored = localStorage.getItem(STORAGE_KEY);
       expect(stored).toContain("OpenAI");
-      expect(stored).toContain('"version":29');
+      expect(stored).toContain('"version":30');
     });
   });
 
@@ -981,7 +981,7 @@ describe("App", () => {
 
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-      expect(stored.version).toBe(29);
+      expect(stored.version).toBe(30);
       expect(
         stored.sites.find((site: { id: string }) => site.id === "github")
           .clickCount,
@@ -1492,6 +1492,57 @@ describe("App", () => {
     await waitFor(() => {
       expect(localStorage.getItem(STORAGE_KEY)).toContain('"cardWidth":140');
     });
+  });
+
+  it("previews independent card and overlay drafts, cancels both and saves both together", async () => {
+    const user = userEvent.setup();
+    const state = createDefaultState();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    render(<App />);
+    const root = document.documentElement;
+    const read = (prefix: string) => Object.fromEntries(Array.from(root.style)
+      .filter(key => key.startsWith(prefix)).map(key => [key, root.style.getPropertyValue(key)]));
+    const originalCard = read("--card-glass-");
+    const originalOverlay = read("--overlay-");
+    const open = async () => {
+      await user.click(screen.getByRole("button", { name: "打开设置" }));
+      const panel = within(screen.getByRole("dialog", { name: "设置" }));
+      await user.click(panel.getByRole("tab", { name: "壁纸" }));
+      const summary = panel.getByText("玻璃外观", { exact: true }).closest("summary")!;
+      if (!summary.parentElement!.hasAttribute("open")) await user.click(summary);
+      return panel;
+    };
+    const edit = (panel: ReturnType<typeof within>, label: string, value: string) =>
+      fireEvent.change(panel.getByRole("slider", { name: label }), { target: { value } });
+    let panel = await open();
+    edit(panel, "链接卡片透明度", "100");
+    edit(panel, "链接卡片磨砂", "0");
+    expect(read("--overlay-")).toEqual(originalOverlay);
+    const draftCard = read("--card-glass-");
+    expect(draftCard).not.toEqual(originalCard);
+    edit(panel, "浮窗透明度", "100");
+    edit(panel, "浮窗磨砂", "7");
+    edit(panel, "背景遮罩强度", "0");
+    await user.click(panel.getByRole("checkbox", { name: "智能可读性保护" }));
+    expect(read("--card-glass-")).toEqual(draftCard);
+    expect(root.style.getPropertyValue("--overlay-glass-filter")).toBe("blur(7px)");
+    expect(root.style.getPropertyValue("--overlay-glass-opacity")).toBe("0%");
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).wallpaper).toEqual(state.wallpaper);
+    await user.click(panel.getByRole("button", { name: "取消" }));
+    expect(read("--card-glass-")).toEqual(originalCard);
+    expect(read("--overlay-")).toEqual(originalOverlay);
+    panel = await open();
+    edit(panel, "链接卡片透明度", "100");
+    edit(panel, "链接卡片磨砂", "0");
+    edit(panel, "浮窗透明度", "61");
+    edit(panel, "浮窗磨砂", "7");
+    await user.click(panel.getByRole("button", { name: "保存设置" }));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).wallpaper).toMatchObject({
+      glassTransparency: 100, glassBlur: 0, overlayTransparency: 61, overlayBlur: 7,
+    }));
+    panel = await open();
+    for (const [label, value] of [["链接卡片透明度", "100"], ["链接卡片磨砂", "0"], ["浮窗透明度", "61"], ["浮窗磨砂", "7"]])
+      expect(panel.getByRole("slider", { name: label })).toHaveValue(value);
   });
 
   it("previews continuous wallpaper position, zoom, and topbar material", async () => {

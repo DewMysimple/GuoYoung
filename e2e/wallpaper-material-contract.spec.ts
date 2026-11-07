@@ -80,11 +80,11 @@ async function remainingFilters(page: Page) {
   });
 }
 
-async function backgroundAlpha(locator: Locator) {
-  return locator.evaluate(element => {
-    const color = getComputedStyle(element).backgroundColor;
+async function backgroundAlpha(locator: Locator, pseudo = false) {
+  return locator.evaluate((element, pseudo) => {
+    const color = getComputedStyle(element, pseudo ? '::before' : null).backgroundColor;
     return Number(color.match(/\/\s*([\d.]+)\)$/)?.[1] ?? color.match(/^rgba\(.+,\s*([\d.]+)\)$/)?.[1] ?? 1);
-  });
+  }, pseudo);
 }
 
 test('data import menus keep their own blur through material refreshes', async ({ page, context }, info) => {
@@ -93,18 +93,18 @@ test('data import menus keep their own blur through material refreshes', async (
   const menu = await openImportMenu(page);
   for (let pass = 0; pass < 3; pass++) {
     await refreshMaterial(page);
-    expect(await menu.evaluate(readGlassMaterial, false), `Refresh ${pass}: the menu must not inherit the enclosing 24px panel blur`)
-      .toMatchObject({ sampling: 'backdrop', blur: 18 });
+    expect(await menu.evaluate(readGlassMaterial, false), `Refresh ${pass}: the menu must retain independent overlay blur`)
+      .toMatchObject({ sampling: 'backdrop', blur: 24 });
   }
   const dataCard = page.locator('.data-card').first();
-  expect(await backgroundAlpha(dataCard)).toBeCloseTo(.1, 4);
+  expect(await backgroundAlpha(dataCard, true)).toBeCloseTo(.1, 4);
   const session = await context.newCDPSession(page);
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'reduce' }] });
   await expect.poll(() => remainingFilters(page)).toEqual([]);
-  expect(await backgroundAlpha(dataCard)).toBeGreaterThanOrEqual(.96);
+  expect(await backgroundAlpha(dataCard, true)).toBeGreaterThanOrEqual(.96);
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }] });
-  await expect.poll(() => backgroundAlpha(dataCard)).toBeCloseTo(.1, 4);
-  await expect.poll(() => menu.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 18 });
+  await expect.poll(() => backgroundAlpha(dataCard, true)).toBeCloseTo(.1, 4);
+  await expect.poll(() => menu.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 24 });
   await session.detach();
 });
 
@@ -133,11 +133,12 @@ test('reduced transparency disables all visible collection glass and restores it
   await session.detach();
 });
 
-test('native menu filters retain their original values without wallpaper', async ({ page }, info) => {
+test('menus use the solid theme fallback without wallpaper', async ({ page }, info) => {
   test.skip(info.project.name !== 'chromium', 'Desktop native material contract');
   await expect(page.locator('.app-shell')).not.toHaveClass(/has-wallpaper/);
   const menu = await openImportMenu(page);
-  await expect.poll(() => menu.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 18 });
+  await expect.poll(() => menu.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'none', blur: 0 });
+  expect(await backgroundAlpha(menu)).toBe(1);
   await expect.poll(() => page.getByRole('button', { name: '导入方式', exact: true }).evaluate(readGlassMaterial, false))
     .toMatchObject({ sampling: 'backdrop', blur: 12 });
 });
@@ -232,12 +233,12 @@ test('native glass preserves topbar pseudo surfaces and the settings portal', as
   await page.getByRole('button', { name: '打开设置', exact: true }).click();
   const panel = page.getByRole('dialog', { name: '设置', exact: true });
   expect(await panel.evaluate(element => element.closest('.app-shell'))).toBeNull();
-  await expect.poll(() => panel.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 8 });
+  await expect.poll(() => panel.evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'backdrop', blur: 24 });
   const session = await context.newCDPSession(page);
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'reduce' }] });
   await expect.poll(() => remainingFilters(page)).toEqual([]);
   await session.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: 'no-preference' }] });
-  await expect.poll(() => panel.evaluate(readGlassMaterial, false)).toMatchObject({ sampling: 'backdrop', blur: 8 });
+  await expect.poll(() => panel.evaluate(readGlassMaterial, true)).toMatchObject({ sampling: 'backdrop', blur: 24 });
   await expect.poll(() => page.locator('.topbar').evaluate(readGlassMaterial, true))
     .toMatchObject({ sampling: 'backdrop', blur: 4, saturation: 1 });
   await session.detach();

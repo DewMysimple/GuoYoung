@@ -178,9 +178,9 @@
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   color: var(--text);
-  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  background: var(--overlay-popover-fill);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(18px);
+  backdrop-filter: var(--overlay-material-filter);
   pointer-events: auto;
 }
 

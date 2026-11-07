@@ -1,6 +1,7 @@
 import { DotsThree, DownloadSimple, Trash, UploadSimple } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import "./select-menu.css";
+import { usePopoverLayout } from "../hooks/use-popover-layout";
 
 interface GroupManagerActionsProps {
   groupId: string;
@@ -17,6 +18,7 @@ export function GroupManagerActions({ groupId, onImport, onExport, onDelete, del
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const layout = usePopoverLayout(open, rootRef, menuRef);
   const focusLast = useRef(false);
   const menuId = useId();
 
@@ -66,7 +68,7 @@ export function GroupManagerActions({ groupId, onImport, onExport, onDelete, del
   }
 
   return (
-    <div className="select-menu-root group-editor-menu" ref={rootRef}
+    <div className="select-menu-root group-editor-menu" ref={rootRef} data-placement={layout.placement}
       onBlur={event => {
         if (!event.relatedTarget || event.currentTarget.contains(event.relatedTarget)) return;
         clearDelete();
@@ -91,7 +93,7 @@ export function GroupManagerActions({ groupId, onImport, onExport, onDelete, del
         <DotsThree size={22} weight="bold" aria-hidden="true" />
       </button>
       {open && (
-        <div ref={menuRef} id={menuId} className="select-menu-popover" role="menu"
+        <div ref={menuRef} id={menuId} className="select-menu-popover" role="menu" style={{ maxHeight: layout.maxHeight }}
           aria-label="分组操作" onKeyDown={moveFocus}
         >
           <button type="button" tabIndex={-1} role="menuitem" className="select-menu-option"

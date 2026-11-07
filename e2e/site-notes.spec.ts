@@ -17,6 +17,12 @@ test("website notes remain visible outside heat sorting and can be edited, hidde
   await expect(editor.getByLabel("网站备注", { exact: true })).toHaveValue("项目交互设计资料");
   const noteEditor = editor.getByLabel("网站备注", { exact: true });
   await noteEditor.fill("项目交互设计资料 v2\n".repeat(20));
+  // The dialog enters at scale(.98). Measure final field geometry only after
+  // its real animation completes; the 82px containment contract stays exact.
+  await editor.evaluate(async element => {
+    await Promise.all(element.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity)
+      .map(animation => animation.finished.catch(() => {})));
+  });
   const editorBounds = await noteEditor.evaluate(element => {
     const field = element.closest(".input-shell")!.getBoundingClientRect();
     const input = element.getBoundingClientRect();

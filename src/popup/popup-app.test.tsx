@@ -75,6 +75,27 @@ async function chooseQuickGroup(user: ReturnType<typeof userEvent.setup>, name: 
   await user.click(screen.getByRole("option", { name }));
 }
 
+it("applies the shared independent overlay material in both popup tabs with clear zero-blur cards", async () => {
+  const user = userEvent.setup();
+  const state = createDefaultState();
+  state.wallpaper = { ...state.wallpaper, glassTransparency: 100, glassBlur: 0,
+    glassSaturation: 100, overlayTransparency: 42, overlayBlur: 17,
+    overlayBackdropDim: 0, overlayReadabilityProtection: false };
+  installChromeMock({ state });
+  render(<PopupApp />);
+  await screen.findByRole("textbox", { name: "网站名称" });
+  const root = document.documentElement;
+  expect(root.dataset.glassSurface).toBe("popup");
+  expect(root.style.getPropertyValue("--card-glass-filter")).toBe("none");
+  expect(root.style.getPropertyValue("--card-glass-opacity")).toBe("0%");
+  expect(root.style.getPropertyValue("--overlay-glass-filter")).toBe("blur(17px)");
+  expect(root.style.getPropertyValue("--overlay-glass-opacity")).toBe("58%");
+  await user.click(screen.getByRole("button", { name: "浏览器书签" }));
+  await screen.findByRole("button", { name: "导入到分组" });
+  expect(root.style.getPropertyValue("--overlay-glass-filter")).toBe("blur(17px)");
+  expect(root.style.getPropertyValue("--overlay-glass-opacity")).toBe("58%");
+});
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

@@ -5,6 +5,56 @@ import ts from "typescript";
 const fixedPaint = /#[\da-f]{3,8}\b|\b(?:black|white|gray|grey|silver|navy|red)\b|\b(?:rgba?|hsla?|hwb|(?:ok)?(?:lab|lch))\((?!\s*var\()/i;
 const fixedUtility = /(?:^|[\s:"'`])bg-(?:black\b|white\b|(?:slate|gray|zinc|neutral|stone)-\d+\b|\[(?:#|rgba?\(|hsla?\(|oklch\(|black\]|white\]))/;
 const paintDeclaration = /(?:^|[;{])\s*(background(?:-color|-image)?|--[\w-]*(?:background|fill|surface)[\w-]*)\s*:\s*([^;}]+)/gi;
+const floatingClass = /\.(?:dialog-content|confirm-content|settings-panel|popup-form-card|bookmark-tree|help-tip-bubble|[\w-]+-(?:popover|menu))(?![\w-])/;
+const cardReference = /--(?:card-glass-[\w-]+|shell-glass-[\w-]+|glass-(?:filter|opacity|fill(?:-[\w-]+)?))(?![\w-])/;
+const declarations = /(?:^|;)\s*([\w-]+)\s*:\s*([^;]+)/g;
+
+function checkMaterialRules(file, css) {
+  const errors = [];
+  const lineAt = index => `${file}:${css.slice(0, index).split("\n").length}`;
+  const aliases = new Map();
+  for (const [, name, value] of css.matchAll(/(--[\w-]+)\s*:\s*([^;}]+)/g)) {
+    aliases.set(name, [...(aliases.get(name) ?? []), value]);
+  }
+  function reachesCard(value, seen = new Set()) {
+    if (cardReference.test(value)) return true;
+    return [...value.matchAll(/var\(\s*(--[\w-]+)/g)].some(([, name]) => {
+      if (seen.has(name)) return false;
+      const next = new Set(seen).add(name);
+      return aliases.get(name)?.some(alias => reachesCard(alias, next));
+    });
+  }
+  for (const [name, values] of aliases) {
+    if (name.startsWith("--overlay-") && values.some(value => reachesCard(value))) {
+      errors.push(`${file} ${name} depends on card/shell material. Overlay settings must be independent.`);
+    }
+  }
+  if (/--glass-filter\b/.test(css)) errors.push(`${file} retires --glass-filter; use a card, shell or overlay filter explicitly.`);
+  for (const rule of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const [, selector, body] = rule;
+    if (!floatingClass.test(selector) || /^\s*@/.test(selector)) continue;
+    const subject = selector.trim().split(/\s+/).at(-1);
+    const ownsSurface = floatingClass.test(subject);
+    for (const declaration of body.matchAll(declarations)) {
+      const [, property, value] = declaration;
+      const location = lineAt(rule.index + selector.length + 1 + declaration.index);
+      if (/^(?:background(?:-color|-image)?|(?:-webkit-)?backdrop-filter|--select-(?:filter|menu-fill))$/.test(property)) {
+        if (reachesCard(value)) errors.push(`${location} Floating surface consumes card/shell material (${property}).`);
+        const neutral = /^(?:transparent|none|inherit|initial|unset)(?:\s*!important)?$/.test(value.trim());
+        if (ownsSurface && !neutral && !/--overlay-/.test(value) && !/is-(?:selected|delete-armed)|danger/.test(subject)) {
+          errors.push(`${location} Floating ${property} must use overlay material tokens.`);
+        }
+      }
+      if (ownsSurface && property === "opacity" && !/^1(?:\.0+)?(?:\s*!important)?\s*$/.test(value)) {
+        errors.push(`${location} Do not fade a floating shell's text with opacity.`);
+      }
+      if (ownsSurface && property === "filter" && /blur\(/.test(value)) {
+        errors.push(`${location} Blur the backdrop, never the floating foreground.`);
+      }
+    }
+  }
+  return errors;
+}
 
 // Exact exemptions cover intentional color samples and existing shared feedback.
 const paintExceptions = {
@@ -33,6 +83,7 @@ export function checkGlassSource(file, source) {
   if (file.endsWith(".css")) {
     if (file === "src/theme.css") return errors; // Shared theme owns base colors.
     const css = source.replace(/\/\*[\s\S]*?\*\//g, comment => comment.replace(/[^\r\n]/g, " "));
+    errors.push(...checkMaterialRules(file, css));
     for (const match of css.matchAll(paintDeclaration)) {
       const [, property, value] = match;
       const paint = value.trim().replace(/\s+/g, " ");
@@ -44,7 +95,7 @@ export function checkGlassSource(file, source) {
     return errors;
   }
 
-  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   function report(node, message) {
     const { line } = tree.getLineAndCharacterOfPosition(node.getStart(tree));
     errors.push(`${file}:${line + 1} ${message}`);
@@ -56,6 +107,24 @@ export function checkGlassSource(file, source) {
     ts.forEachChild(node, checkInlineStyle);
   }
   function visit(node) {
+    if (ts.isCallExpression(node) && /\.setProperty$/.test(node.expression.getText(tree)) &&
+        node.arguments[0] && ts.isStringLiteral(node.arguments[0]) && /^--(?:overlay-|card-glass-)/.test(node.arguments[0].text) &&
+        file !== "src/lib/wallpaper-glass.ts") {
+      report(node, "Generate material preferences only in wallpaperGlassStyle(), then reuse its output.");
+    }
+    if (ts.isPropertyAssignment(node) && /^['"]--(?:overlay-|card-glass-)/.test(node.name.getText(tree)) && file !== "src/lib/wallpaper-glass.ts") {
+      report(node, "Generate material preferences only in wallpaperGlassStyle(), then reuse its output.");
+    }
+    if (ts.isCallExpression(node) && /(?:localStorage|sessionStorage)\.setItem$/.test(node.expression.getText(tree)) &&
+        node.arguments[0] && ts.isStringLiteral(node.arguments[0]) && /(?:theme|glass|appearance)/i.test(node.arguments[0].text)) {
+      report(node, "Keep appearance in the existing collection settings, not a competing preference store.");
+    }
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && /(?:Dialog|AlertDialog)\.Content$/.test(node.tagName.getText(tree))) {
+      const className = node.attributes.properties.find(attribute => ts.isJsxAttribute(attribute) && attribute.name.getText(tree) === "className");
+      if (!className?.initializer || !/\b(?:dialog-content|confirm-content|settings-panel)\b/.test(className.initializer.getText(tree))) {
+        report(node, "Dialog content must reuse a shared overlay shell.");
+      }
+    }
     if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(tree) === "select") {
       report(node, "Use the shared SelectMenu for themed selects.");
     }
@@ -76,14 +145,14 @@ async function main() {
   const root = new URL("../", import.meta.url);
   const files = (await readdir(new URL("src/", root), { recursive: true, withFileTypes: false }))
     .map(file => `src/${file.replaceAll("\\", "/")}`)
-    .filter(file => file.endsWith(".css") || (/\.tsx$/.test(file) && !/\.test\.tsx$/.test(file)))
+    .filter(file => /\.(?:css|tsx?)$/.test(file) && !/\.test\.|\.d\.ts$/.test(file))
     .sort();
   const result = (await Promise.all(files.map(async file => checkGlassSource(file, await readFile(new URL(file, root), "utf8"))))).flat();
   if (result.length) {
     console.error(result.join("\n"));
     process.exitCode = 1;
   } else {
-    console.log(`Glass surface checks passed (${files.length} CSS and JSX files).`);
+    console.log(`Glass surface checks passed (${files.length} production CSS/TS/JSX files).`);
   }
 }
 

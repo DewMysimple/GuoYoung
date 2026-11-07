@@ -8,6 +8,9 @@ import { SettingsDisclosure } from "./settings-disclosure";
 import { pickGlass } from "../lib/wallpaper-presets";
 import { WallpaperPresets } from "./wallpaper-presets";
 import { SettingsChoiceGroup, SettingsOption } from "./settings-options";
+import { SettingsToggle } from "./settings-toggle";
+import { GlassMaterialPreview } from "./glass-material-preview";
+import { resolveGlassSettings } from "../lib/wallpaper-glass";
 import "./settings-editors.css";
 
 const BASIC_DEFAULTS = {
@@ -31,6 +34,7 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
 }) {
   const file = useRef<HTMLInputElement>(null);
   const enabled = value.source !== "none";
+  const overlay = resolveGlassSettings(value).overlay;
   return <div className="settings-section wallpaper-settings">
     <section className="appearance-card wallpaper-source-card" aria-label="壁纸来源">
       <div className="wallpaper-thumbnail">
@@ -82,15 +86,33 @@ export function WallpaperSettingsEditor({ value, imageUrl, error, processing, ed
         onClick={() => onChange(BASIC_DEFAULTS)}>恢复基础默认</button>
     </SettingsDisclosure>
 
-    <SettingsDisclosure help="公共玻璃用于卡片、按钮、面板和菜单；顶栏或侧栏选择“跟随公共”时也使用这里的材质。透明度越高，越能看见壁纸；阴影设为 0 可关闭投影。" title="玻璃外观" summary="透明度、磨砂与高光">
+    <SettingsDisclosure help="透明度 100% = 完全透明背景。磨砂沿用 0–30px 尺度，30px 为最强；透明度不会关闭磨砂。链接卡片设置不会影响弹窗，浮窗使用独立的玻璃设置。" title="玻璃外观" summary="卡片与浮窗独立调节">
 
       {!enabled && <p className="appearance-description">选择壁纸后可在页面预览以下效果。</p>}
-      <RangeControl label="玻璃透明度" min={0} max={100} value={value.glassTransparency} unit="%" onChange={(glassTransparency) => onChange({ glassTransparency })} />
-      <RangeControl label="按钮透明度" min={0} max={100} value={value.glassControlTransparency} unit="%" onChange={(glassControlTransparency) => onChange({ glassControlTransparency })} />
-      <RangeControl label="面板透明度" min={0} max={100} value={value.glassPanelTransparency} unit="%" onChange={(glassPanelTransparency) => onChange({ glassPanelTransparency })} />
-      <RangeControl label="菜单透明度" min={0} max={100} value={value.glassPopoverTransparency} unit="%" onChange={(glassPopoverTransparency) => onChange({ glassPopoverTransparency })} />
+      <p className="appearance-description">透明度 100% = 完全透明背景。链接卡片设置不会影响弹窗；浮窗使用独立的玻璃设置。磨砂范围均为 0–30px。</p>
+      <section className="glass-settings-group" aria-label="链接卡片玻璃">
+        <h3>链接卡片玻璃</h3>
+        <RangeControl label="链接卡片透明度" min={0} max={100} value={value.glassTransparency} unit="%" onChange={(glassTransparency) => onChange({ glassTransparency })} />
+        <RangeControl label="链接卡片磨砂" min={0} max={30} value={value.glassBlur} onChange={(glassBlur) => onChange({ glassBlur })} />
+        <GlassMaterialPreview value={value} material="card" />
+        <button type="button" className="button secondary-button" onClick={() => onChange({ glassTransparency: DEFAULT_WALLPAPER.glassTransparency, glassBlur: DEFAULT_WALLPAPER.glassBlur })}>恢复卡片默认</button>
+      </section>
+      <section className="glass-settings-group" aria-label="浮窗与弹窗玻璃">
+        <h3>浮窗与弹窗玻璃</h3>
+        <RangeControl label="浮窗透明度" min={0} max={100} value={value.overlayTransparency} unit="%" onChange={(overlayTransparency) => onChange({ overlayTransparency })} />
+        <RangeControl label="浮窗磨砂" min={0} max={30} value={value.overlayBlur} onChange={(overlayBlur) => onChange({ overlayBlur })} />
+        <RangeControl label="背景遮罩强度" min={0} max={100} value={value.overlayBackdropDim} unit="%" onChange={(overlayBackdropDim) => onChange({ overlayBackdropDim })} />
+        <SettingsToggle label="智能可读性保护" checked={value.overlayReadabilityProtection}
+          help="开启后，低磨砂时保留更多背景填充，菜单比弹窗更清晰；保存的透明度数值保持不变。关闭后完全按所设透明度显示。"
+          onChange={overlayReadabilityProtection => onChange({ overlayReadabilityProtection })} />
+        <p className="glass-readability-note" role="status">{overlay.readabilityProtection
+          ? `可读性保护已开启：弹窗有效透明度 ${overlay.effectiveTransparency}%，菜单 ${overlay.effectivePopoverTransparency}%。设置值 ${overlay.transparency}% 会完整保留。`
+          : "可读性保护已关闭，弹窗与菜单使用所设透明度；高透明、低磨砂时会透出背景内容。"}</p>
+        <GlassMaterialPreview value={value} material="overlay" />
+        <button type="button" className="button secondary-button" onClick={() => onChange({ overlayTransparency: DEFAULT_WALLPAPER.overlayTransparency, overlayBlur: DEFAULT_WALLPAPER.overlayBlur,
+          overlayBackdropDim: DEFAULT_WALLPAPER.overlayBackdropDim, overlayReadabilityProtection: DEFAULT_WALLPAPER.overlayReadabilityProtection })}>恢复浮窗建议设置</button>
+      </section>
       <RangeControl label="阴影强度" min={0} max={100} value={value.glassShadow} unit="%" onChange={(glassShadow) => onChange({ glassShadow })} />
-      <RangeControl label="玻璃磨砂" min={0} max={30} value={value.glassBlur} onChange={(glassBlur) => onChange({ glassBlur })} />
       <RangeControl label="色彩饱和度" min={100} max={200} value={value.glassSaturation} unit="%" onChange={(glassSaturation) => onChange({ glassSaturation })} />
       <RangeControl label="边缘高光" min={0} max={100} value={value.glassHighlight} unit="%" onChange={(glassHighlight) => onChange({ glassHighlight })} />
       <button type="button" className="button secondary-button" onClick={() => onChange(pickGlass(DEFAULT_WALLPAPER))}>恢复玻璃默认</button>

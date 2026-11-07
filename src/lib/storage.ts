@@ -925,11 +925,17 @@ function upgradeToVersion28(legacy: Record<string, unknown> | SiteCollectionStat
 }
 
 function upgradeToVersion29(legacy: Record<string, unknown> | SiteCollectionState, sourceAppearance: unknown): SiteCollectionState | undefined {
-  const base = legacy.version === STATE_VERSION ? legacy : upgradeToVersion28(legacy, sourceAppearance);
+  const base = legacy.version === 29 ? legacy : upgradeToVersion28(legacy, sourceAppearance);
   if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
   // Hierarchy fields are optional. The common read boundary normalizes them
   // after compatibility repairs, without renumbering old site or group orders.
-  return { ...(base as SiteCollectionState), version: STATE_VERSION };
+  return { ...(base as SiteCollectionState), version: 29 };
+}
+
+function upgradeToVersion30(legacy: Record<string, unknown> | SiteCollectionState, sourceAppearance: unknown): SiteCollectionState | undefined {
+  const base = legacy.version === STATE_VERSION ? legacy : upgradeToVersion29(legacy, sourceAppearance);
+  if (!base || !baseStateIsValid(base as Record<string, unknown>, true)) return undefined;
+  return { ...(base as SiteCollectionState), version: STATE_VERSION, wallpaper: normalizeWallpaper(base.wallpaper) };
 }
 
 function normalizeMigratedGroups(groups: SiteGroup[]): SiteGroup[] {
@@ -1045,7 +1051,7 @@ export function parseStoredState(raw: string | null): LoadedState {
     const value: unknown = JSON.parse(raw);
     if (value && typeof value === "object") {
       const candidate = value as Record<string, unknown>;
-      const baseCandidate =
+      const baseCandidate = candidate.version === 29 ? candidate :
         candidate.version === STATE_VERSION || candidate.version === 28 || candidate.version === 27 || candidate.version === 26 || candidate.version === 25 || candidate.version === 24 || candidate.version === 23 || candidate.version === 22 || candidate.version === 21 || candidate.version === 20 || candidate.version === 19 ||
           candidate.version === 18 ||
           candidate.version === 17 ||
@@ -1062,7 +1068,7 @@ export function parseStoredState(raw: string | null): LoadedState {
             ? upgradeToVersion10(candidate)
           : migrateLegacy(candidate);
       const migrated = baseCandidate
-        ? upgradeToVersion29(baseCandidate, candidate.appearance)
+        ? upgradeToVersion30(baseCandidate, candidate.appearance)
         : undefined;
       if (migrated) {
         // Current-version input also crosses the untrusted storage boundary.
@@ -1109,7 +1115,7 @@ export function parseStoredState(raw: string | null): LoadedState {
         };
         // The duplicate-Other repair only applies to legacy snapshots. A
         // same-name folder promoted in v29 must survive the next read.
-        const collection = candidate.version === STATE_VERSION ? normalized : repairDuplicateOtherGroups(normalized);
+        const collection = typeof candidate.version === "number" && candidate.version >= 29 ? normalized : repairDuplicateOtherGroups(normalized);
         return {
           state: purgeExpiredTrashFromState(normalizeCollectionHierarchy(collection)),
           recovered: false,

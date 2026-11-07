@@ -77,13 +77,14 @@
   gap: 3px;
   overflow: auto;
   padding: 7px;
-  border: 1px solid var(--select-hover-edge, var(--border-strong));
+  border: 1px solid var(--overlay-edge);
   border-radius: 13px;
   color: var(--text);
-  background-color: var(--select-menu-fill, color-mix(in srgb, var(--surface) 96%, transparent));
-  background-image: var(--select-image, none);
-  box-shadow: var(--select-menu-shadow, var(--shadow-dialog));
-  backdrop-filter: var(--select-filter, blur(18px));
+  background-color: var(--overlay-popover-fill);
+  background-image: var(--overlay-material-image);
+  box-shadow: var(--overlay-shadow);
+  backdrop-filter: var(--overlay-material-filter);
+  -webkit-backdrop-filter: var(--overlay-material-filter);
   animation: select-menu-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 

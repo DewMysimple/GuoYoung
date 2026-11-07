@@ -1,8 +1,12 @@
 import type { CustomWallpaperPresets, WallpaperGlassSettings, WallpaperSettings } from "../types";
 
+export const OVERLAY_GLASS_KEYS = [
+  "overlayTransparency", "overlayBlur", "overlayBackdropDim", "overlayReadabilityProtection",
+] as const;
 export const GLASS_KEYS = [
   "glassTransparency", "glassControlTransparency", "glassPanelTransparency",
   "glassPopoverTransparency", "glassShadow", "glassBlur", "glassSaturation", "glassHighlight",
+  ...OVERLAY_GLASS_KEYS,
 ] as const;
 export const PANEL_GLASS_KEYS = [
   "topbarStyle", "topbarTransparency", "topbarBlur", "sidebarStyle", "sidebarTransparency", "sidebarBlur",
@@ -22,24 +26,28 @@ export const WALLPAPER_PRESETS = [
   { id: "clear", label: "清透磨砂", description: "通透底色 · 柔化背景", values: {
     glassTransparency: 100, glassControlTransparency: 100, glassPanelTransparency: 100, glassPopoverTransparency: 100,
     glassShadow: 72, glassBlur: 21, glassSaturation: 100, glassHighlight: 18,
+    overlayTransparency: 30, overlayBlur: 24, overlayBackdropDim: 30, overlayReadabilityProtection: true,
     topbarStyle: "glass", topbarTransparency: 100, topbarBlur: 21,
     sidebarStyle: "glass", sidebarTransparency: 100, sidebarBlur: 21,
   } },
   { id: "light", label: "轻盈透景", description: "清晰壁纸 · 无影薄边", values: {
     glassTransparency: 96, glassControlTransparency: 94, glassPanelTransparency: 90, glassPopoverTransparency: 78,
     glassShadow: 0, glassBlur: 0, glassSaturation: 100, glassHighlight: 24,
+    overlayTransparency: 25, overlayBlur: 18, overlayBackdropDim: 25, overlayReadabilityProtection: true,
     topbarStyle: "glass", topbarTransparency: 100, topbarBlur: 0,
     sidebarStyle: "glass", sidebarTransparency: 90, sidebarBlur: 0,
   } },
   { id: "soft", label: "柔光薄雾", description: "轻柔磨砂 · 日常均衡", values: {
     glassTransparency: 80, glassControlTransparency: 86, glassPanelTransparency: 70, glassPopoverTransparency: 58,
     glassShadow: 22, glassBlur: 12, glassSaturation: 110, glassHighlight: 36,
+    overlayTransparency: 25, overlayBlur: 22, overlayBackdropDim: 30, overlayReadabilityProtection: true,
     topbarStyle: "glass", topbarTransparency: 82, topbarBlur: 12,
     sidebarStyle: "glass", sidebarTransparency: 70, sidebarBlur: 16,
   } },
   { id: "frost", label: "凝霜静读", description: "厚实衬底 · 繁景易读", values: {
     glassTransparency: 42, glassControlTransparency: 56, glassPanelTransparency: 32, glassPopoverTransparency: 22,
     glassShadow: 16, glassBlur: 26, glassSaturation: 100, glassHighlight: 28,
+    overlayTransparency: 20, overlayBlur: 28, overlayBackdropDim: 35, overlayReadabilityProtection: true,
     topbarStyle: "glass", topbarTransparency: 44, topbarBlur: 26,
     sidebarStyle: "glass", sidebarTransparency: 32, sidebarBlur: 28,
   } },

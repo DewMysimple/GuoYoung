@@ -19,7 +19,7 @@ export function WallpaperPresets({ value, onChange }: {
 }) {
   const selected = getWallpaperPreset(value);
   return <SettingsDisclosure title="外观预设" summary={selected?.label ?? "已自定义"} className="wallpaper-presets"
-    help="四套内置预设、两个自定义槽位。选择即刻预览；保存当前参数会记录公共玻璃、顶栏和侧栏，随页面底部“保存设置”一起保存。参数请在下方各外观分组调节。">
+    help="四套内置预设、两个自定义槽位。选择即刻预览卡片和浮窗的独立材质；保存当前参数同时记录两组玻璃及顶栏、侧栏，随底部“保存设置”一起保存。">
     <SettingsToggle label="预设同时应用顶栏和侧栏" checked={value.presetIncludesPanels}
       onChange={presetIncludesPanels => onChange({ presetIncludesPanels })} />
     <p className="appearance-description preset-scope-help">关闭时保留顶栏和侧栏设置；处于“跟随公共”的部分仍会随公共玻璃变化。</p>

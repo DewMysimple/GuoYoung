@@ -1,6 +1,28 @@
-/* One source for the saved glass controls, including body portals and popup.
-   The popup supplies its own painted backdrop; the app uses its wallpaper. */
-:where(:root:has(.app-shell.has-wallpaper), :root[data-glass-surface="popup"]) {
+/* Numeric preferences and filters come only from wallpaperGlassStyle().
+   Solid theme surfaces are the no-wallpaper fallback, including body portals. */
+:where(:root) {
+  --overlay-glass-fill: var(--surface);
+  --overlay-popover-fill: var(--surface);
+  --overlay-control-fill: color-mix(in srgb, var(--surface) 18%, transparent);
+  --overlay-nested-fill: color-mix(in srgb, var(--surface) 9%, transparent);
+  --overlay-material-filter: none;
+  --overlay-material-image: none;
+  --overlay-edge: var(--border-strong);
+  --overlay-shadow: var(--shadow-dialog);
+  --overlay-backdrop-fill: rgb(var(--wallpaper-overlay-color) / var(--overlay-backdrop-opacity, .3));
+}
+
+/* The popup supplies a local painted canvas, never the browser page outside it. */
+:where(:root:has(.app-shell.has-wallpaper), :root[data-glass-surface="popup"], .glass-material-preview) {
+  --card-glass-fill: color-mix(in srgb, var(--surface) var(--card-glass-opacity), transparent);
+  --overlay-glass-fill: color-mix(in srgb, var(--surface) var(--overlay-glass-opacity), transparent);
+  --overlay-popover-fill: color-mix(in srgb, var(--surface) var(--overlay-popover-opacity), transparent);
+  --overlay-control-fill: color-mix(in srgb, var(--surface) var(--overlay-control-opacity), transparent);
+  --overlay-nested-fill: color-mix(in srgb, var(--surface) var(--overlay-nested-opacity), transparent);
+  --overlay-material-filter: var(--overlay-glass-filter);
+  --overlay-material-image: linear-gradient(145deg, var(--dialog-rim), transparent 60%);
+  --overlay-edge: color-mix(in srgb, var(--border-strong) 75%, transparent);
+  --overlay-shadow: var(--shadow-dialog), inset 0 1px 0 var(--dialog-rim);
   --glass-fill: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent);
   --glass-fill-low: var(--glass-fill);
   --glass-fill-high: color-mix(in srgb, var(--glass-fill) 92%, var(--surface));
@@ -33,15 +55,75 @@
   --select-edge: var(--glass-edge-soft);
   --select-hover-edge: var(--glass-edge);
   --select-image: var(--glass-surface-image);
-  --select-filter: var(--glass-filter);
+  --select-filter: var(--shell-glass-filter);
   --select-shadow: var(--glass-control-shadow);
   --select-active-shadow: var(--glass-control-shadow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
-  --select-menu-fill: var(--glass-fill-popover);
-  --select-menu-shadow: var(--glass-elevated-shadow);
-  --select-option-fill: color-mix(in srgb, var(--accent) 12%, var(--glass-fill-low));
+  --select-option-fill: color-mix(in srgb, var(--accent) 12%, var(--overlay-popover-fill));
+}
+
+/* A sibling paint layer owns the main blur. Keeping the content container out
+   of the backdrop-root chain lets its menus also blur intervening text/icons.
+   Isolation only orders this layer; it is not a Backdrop Root. */
+:root :is(.dialog-content, .confirm-content, .settings-panel, .popup-form-card, .bookmark-tree) {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-color: var(--overlay-edge);
+}
+
+/* Dialogs and the drawer keep their existing viewport positioning. */
+:root :is(.dialog-content, .confirm-content, .settings-panel) { position: fixed; }
+
+:root :is(.dialog-content, .confirm-content, .settings-panel, .popup-form-card, .bookmark-tree)::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--overlay-glass-fill);
+  background-image: var(--overlay-material-image);
+  backdrop-filter: var(--overlay-material-filter);
+  -webkit-backdrop-filter: var(--overlay-material-filter);
+  content: "";
+  pointer-events: none;
+}
+
+/* Every actual floating menu, including body-ported help/color surfaces. */
+:root :is(.topbar-add-menu, .search-history, .history-range-menu, .group-add-menu,
+  .github-home-entry-menu-popover, .color-picker-popover, .help-tip-bubble) {
+  border-color: var(--overlay-edge);
+  background-color: var(--overlay-popover-fill);
+  background-image: var(--overlay-material-image);
+  box-shadow: var(--overlay-shadow);
+  backdrop-filter: var(--overlay-material-filter);
+  -webkit-backdrop-filter: var(--overlay-material-filter);
+}
+
+:root :is(.dialog-content, .confirm-content, .settings-panel) :where(.primary-button, .secondary-button, .icon-button) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root :is(.dialog-overlay, .settings-outside-dismiss-layer) {
+  background: var(--overlay-backdrop-fill);
+}
+
+:root :is(.dialog-content, .confirm-content, .settings-panel) :where(.select-menu-root, .view-control-button) {
+  --select-fill: var(--overlay-control-fill);
+  --select-hover-fill: color-mix(in srgb, var(--overlay-control-fill) 92%, var(--surface));
+  --select-active-fill: color-mix(in srgb, var(--accent) 20%, var(--overlay-control-fill));
+  --select-filter: none;
+  --select-option-fill: color-mix(in srgb, var(--accent) 12%, var(--overlay-popover-fill));
 }
 
 @supports not (backdrop-filter: blur(1px)) {
+  :root {
+    --overlay-glass-fill: var(--surface) !important;
+    --overlay-popover-fill: var(--surface) !important;
+    --overlay-material-filter: none !important;
+    --overlay-material-image: none !important;
+  }
   :is(:root:has(.app-shell.has-wallpaper), :root[data-glass-surface="popup"])
     :where(.select-menu-root, .select-menu-trigger, .view-control-button) {
     --select-fill: var(--surface);
@@ -54,7 +136,7 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  :where(:root:has(.app-shell.has-wallpaper), :root[data-glass-surface="popup"]),
+  :where(:root:has(.app-shell.has-wallpaper), :root[data-glass-surface="popup"], .glass-material-preview),
   .app-shell.has-wallpaper {
     --glass-opacity: 96% !important;
     --glass-control-opacity: 96% !important;
@@ -62,7 +144,14 @@
     --glass-popover-opacity: 96% !important;
     --glass-fill-accent: color-mix(in srgb, var(--accent) 96%, transparent);
     --glass-surface-image: none;
-    --glass-filter: none !important;
+    --card-glass-filter: none !important;
+    --card-glass-opacity: 96% !important;
+    --card-glass-image: none !important;
+    --shell-glass-filter: none !important;
+    --overlay-glass-fill: color-mix(in srgb, var(--surface) 96%, transparent);
+    --overlay-popover-fill: color-mix(in srgb, var(--surface) 96%, transparent);
+    --overlay-material-filter: none;
+    --overlay-material-image: none;
   }
 
   :is(:root:has(.app-shell.has-wallpaper), :root[data-glass-surface="popup"])

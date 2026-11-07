@@ -227,8 +227,23 @@ export function CustomColorPicker({
         setOpen(false);
       }
     };
+    // Radix listens on document before React's bubbling handler. Contain the
+    // inner Escape in capture so closing this picker cannot close its drawer.
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || !wrapperRef.current?.contains(event.target as Node)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancel();
+      hexEdited.current = false;
+      setOpen(false);
+      wrapperRef.current.querySelector<HTMLButtonElement>("button")?.focus();
+    };
     window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
+    window.addEventListener("keydown", escape, true);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", escape, true);
+    };
   }, [open, cancel]);
 
   function commit(next: HsvColor) {
@@ -300,13 +315,7 @@ export function CustomColorPicker({
   const color = hsvToHex(hsv);
 
   return (
-    <div className="custom-color-picker" ref={wrapperRef} onKeyDown={event => {
-      if (event.key !== "Escape" || !open) return;
-      event.preventDefault();
-      event.stopPropagation();
-      cancel();
-      setOpen(false);
-    }}>
+    <div className="custom-color-picker" ref={wrapperRef}>
       <SettingsOption
         variant="swatch"
         className="accent-swatch custom-accent-swatch"

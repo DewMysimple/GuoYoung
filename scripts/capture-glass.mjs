@@ -220,7 +220,7 @@ async function inspect(context, extension, theme, enabled) {
     if (await section.getAttribute("open") === null) await section.locator(":scope > summary").click();
   }
   await panel.getByRole("slider", { name: "面板透明度" }).fill("74");
-  await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("5");
+  await panel.getByRole("slider", { name: "链接卡片磨砂" }).fill("5");
   if (enabled) {
     await expect(panel).toHaveCSS("backdrop-filter", "blur(5px) saturate(1.3)");
     await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(5px) saturate(1.3)");

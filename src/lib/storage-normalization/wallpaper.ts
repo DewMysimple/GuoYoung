@@ -6,7 +6,7 @@ import type {
   WallpaperSettings,
   WallpaperSource,
 } from "../../types";
-import { WALLPAPER_GLASS_KEYS } from "../wallpaper-presets";
+import { OVERLAY_GLASS_KEYS, WALLPAPER_GLASS_KEYS } from "../wallpaper-presets";
 import { clamp } from "./number";
 
 const wallpaperSources: WallpaperSource[] = ["none", "url", "local"];
@@ -109,6 +109,12 @@ function normalizeWallpaperGlass(candidate: LegacyWallpaperSettings): WallpaperG
     glassBlur: clamp(candidate.glassBlur, 0, 30, DEFAULT_WALLPAPER.glassBlur),
     glassSaturation: clamp(candidate.glassSaturation, 100, 200, DEFAULT_WALLPAPER.glassSaturation),
     glassHighlight: clamp(candidate.glassHighlight, 0, 100, DEFAULT_WALLPAPER.glassHighlight),
+    // Old panel/popover values must not seed the new floating material.
+    overlayTransparency: clamp(candidate.overlayTransparency, 0, 100, DEFAULT_WALLPAPER.overlayTransparency),
+    overlayBlur: clamp(candidate.overlayBlur, 0, 30, DEFAULT_WALLPAPER.overlayBlur),
+    overlayBackdropDim: clamp(candidate.overlayBackdropDim, 0, 100, DEFAULT_WALLPAPER.overlayBackdropDim),
+    overlayReadabilityProtection: typeof candidate.overlayReadabilityProtection === "boolean"
+      ? candidate.overlayReadabilityProtection : DEFAULT_WALLPAPER.overlayReadabilityProtection,
   };
 }
 
@@ -117,7 +123,9 @@ function normalizeCustomWallpaperPresets(value: unknown): CustomWallpaperPresets
     if (!slot || typeof slot !== "object" || Array.isArray(slot)) return null;
     const candidate = slot as Record<string, unknown>;
     // Incomplete or malformed snapshots are empty slots, never invented presets.
-    if (!WALLPAPER_GLASS_KEYS.every(key => key === "topbarStyle" || key === "sidebarStyle"
+    // Complete legacy snapshots remain valid. Only the new fields may be
+    // missing; the same safe normalization fills them without losing a slot.
+    if (!WALLPAPER_GLASS_KEYS.filter(key => !OVERLAY_GLASS_KEYS.some(overlay => overlay === key)).every(key => key === "topbarStyle" || key === "sidebarStyle"
       ? candidate[key] === "shared" || candidate[key] === "glass"
       : typeof candidate[key] === "number" && Number.isFinite(candidate[key]))) return null;
     return normalizeWallpaperGlass(candidate as LegacyWallpaperSettings);

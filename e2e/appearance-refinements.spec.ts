@@ -20,7 +20,8 @@ test("keeps custom navigation colors and uses direct topbar controls without a r
   await expect(input).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(input).toHaveCSS("outline-style", "none");
   await expect(input).toHaveCSS("box-shadow", "none");
-  await expect(page.locator(".input-shell")).toHaveCSS("background-color", /\/ 0\.18\)/);
+  // The floating input follows the independent overlay tint, not card controls.
+  await expect(page.locator(".input-shell")).toHaveCSS("background-color", /\/ 0\.16\)/);
   await expect(page.locator(".input-shell")).toHaveCSS("border-top-color", "rgb(51, 103, 214)");
   await page.getByRole("button", { name: "取消", exact: true }).click();
   await page.getByRole("button", { name: "打开设置" }).click();

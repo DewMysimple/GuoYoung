@@ -143,7 +143,7 @@ test("previews and persists a custom brand without changing the extension name",
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("site-hub:v1")!),
   );
-  expect(saved.version).toBe(29);
+  expect(saved.version).toBe(30);
   expect(saved.brand).toMatchObject({
     name: "Studio North",
     showLogo: false,
@@ -435,6 +435,11 @@ test("keeps the color picker and brand errors usable inside the appearance drawe
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("button", { name: "自定义强调色" }).click();
   const picker = page.getByRole("dialog", { name: "选择自定义颜色" });
+  await page.keyboard.press("Escape");
+  await expect(picker).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole("button", { name: "自定义强调色" })).toBeFocused();
+  await panel.getByRole("button", { name: "自定义强调色" }).click();
   await picker.scrollIntoViewIfNeeded();
   const panelBox = (await panel.boundingBox())!;
   const pickerBox = (await picker.boundingBox())!;

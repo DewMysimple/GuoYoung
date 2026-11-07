@@ -209,6 +209,10 @@ export const DEFAULT_WALLPAPER: WallpaperSettings = {
   glassBlur: 12,
   glassSaturation: 130,
   glassHighlight: 45,
+  overlayTransparency: 25,
+  overlayBlur: 24,
+  overlayBackdropDim: 30,
+  overlayReadabilityProtection: true,
 };
 
 export const DEFAULT_GROUPS: SiteGroup[] = [
@@ -329,7 +333,7 @@ export const DEFAULT_SITES: SiteItem[] = [
   ),
 ];
 
-export const STATE_VERSION = 29;
+export const STATE_VERSION = 30;
 
 export function createDefaultState(): SiteCollectionState {
   return {

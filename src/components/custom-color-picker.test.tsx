@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { CustomColorPicker } from "./custom-color-picker";
+import * as Dialog from "@radix-ui/react-dialog";
 
 let frames: Map<number, FrameRequestCallback>;
 beforeEach(() => {
@@ -40,6 +41,26 @@ function capture(control: Element) {
   vi.spyOn(control, "hasPointerCapture").mockImplementation(() => captured);
   return vi.spyOn(control, "releasePointerCapture").mockImplementation(() => { captured = false; });
 }
+
+it("contains Escape before the parent Radix drawer, restores focus and discards pending HEX text", () => {
+  const changed = vi.fn(), closed = vi.fn();
+  render(<Dialog.Root open onOpenChange={closed}><Dialog.Portal>
+    <Dialog.Content className="dialog-content" aria-describedby={undefined}>
+      <Dialog.Title>设置</Dialog.Title>
+      <CustomColorPicker value="#ff0000" onChange={changed} />
+    </Dialog.Content>
+  </Dialog.Portal></Dialog.Root>);
+  open();
+  const hex = screen.getByLabelText("十六进制颜色");
+  hex.focus();
+  fireEvent.change(hex, { target: { value: "00ff00" } });
+  fireEvent.keyDown(hex, { key: "Escape" });
+  expect(closed).not.toHaveBeenCalled();
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.queryByRole("dialog", { name: "选择自定义颜色" })).toBeNull();
+  expect(screen.getByRole("dialog", { name: "设置" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "自定义强调色" })).toHaveFocus();
+});
 
 it("keeps pointer samples local, previews once per frame and commits the final release point once", () => {
   const changed = vi.fn(), preview = vi.fn(), parentRendered = vi.fn();

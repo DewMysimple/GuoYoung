@@ -121,7 +121,7 @@ async function inspect(context, extensionURL, theme, enabled) {
   await glass.locator(":scope > summary").click();
   await expect(glass.getByRole("slider")).toHaveCount(8);
   await expect(glass.locator("details")).toHaveCount(0);
-  await glass.getByRole("slider", { name: "玻璃透明度", exact: true }).fill("61");
+  await glass.getByRole("slider", { name: "链接卡片透明度", exact: true }).fill("61");
   await glass.scrollIntoViewIfNeeded();
   await capture(page, `${name}-glass-single-disclosure`);
   await panel.getByRole("button", { name: "取消", exact: true }).click();

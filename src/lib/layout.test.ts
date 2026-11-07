@@ -412,7 +412,7 @@ describe("layout geometry", () => {
       cardWidth: 319, cardHeight: 203, cardColumns: 7 };
     const loaded = parseStoredState(JSON.stringify(state));
     expect(loaded.recovered).toBe(false);
-    expect(loaded.state.version).toBe(29);
+    expect(loaded.state.version).toBe(30);
     const original = { ...loaded.state.appearance };
     for (const appearance of [loaded.state.appearance, parseImportFile(serializeExport(state)).appearance]) {
       expect(appearance).toEqual(original);

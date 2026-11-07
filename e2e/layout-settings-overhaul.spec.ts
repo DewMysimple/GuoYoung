@@ -241,7 +241,7 @@ test("keeps rendered cards square and honors a saved row count in flat, focused 
   await page.reload();
   await expectSquareGrid(page.locator(".site-grid"), 6);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
-  expect(saved.version).toBe(29);
+  expect(saved.version).toBe(30);
   expect(saved.appearance).toMatchObject({ cardShape: "square", cardLayout: "columns", cardColumns: 6 });
   expect(saved.appearance).toMatchObject({ cardWidth: 132, cardHeight: 160 });
 
@@ -459,7 +459,7 @@ test("edits a compact square side in columns mode, shares height with free and p
   await expectSquareGrid(grid, 6);
   expect((await gridGeometry(grid)).cards[0].width).toBeCloseTo(200, 0);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
-  expect(saved.version).toBe(29);
+  expect(saved.version).toBe(30);
   expect(saved.appearance).toEqual({ ...original.appearance, cardShape: "square", cardHeight: 200, layoutPreset: "custom" });
   expect(saved.sites).toEqual(original.sites);
   expect(saved.groups).toEqual(original.groups);

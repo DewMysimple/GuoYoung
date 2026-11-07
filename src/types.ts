@@ -231,6 +231,11 @@ export interface WallpaperGlassSettings {
   glassBlur: number;
   glassSaturation: number;
   glassHighlight: number;
+  /** Floating UI has independent values; blur retains the existing 0–30px scale. */
+  overlayTransparency: number;
+  overlayBlur: number;
+  overlayBackdropDim: number;
+  overlayReadabilityProtection: boolean;
 }
 
 export type CustomWallpaperPresets = [WallpaperGlassSettings | null, WallpaperGlassSettings | null];

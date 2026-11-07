@@ -106,16 +106,26 @@ test("manager displays a nested directory and separates editing, actions, and fo
   const handle = await branch.getByRole("button", { name: "拖动 设计" }).boundingBox();
   const listBox = await dialog.locator(".group-manager-list").boundingBox();
   if (!handle || !listBox) throw new Error("Directory drag geometry is unavailable");
+  const session = await page.context().newCDPSession(page);
+  const pointerClickGuards = async () => (await session.send("Runtime.evaluate", {
+    expression: "(getEventListeners(document).click ?? []).filter(({listener, useCapture}) => useCapture && listener.name === 'stopPropagation').length",
+    includeCommandLineAPI: true, returnByValue: true,
+  })).result.value;
   await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
   await page.mouse.down();
   await page.mouse.move(handle.x + handle.width / 2, listBox.y + 8, { steps: 14 });
   await expect(page.locator(".group-list-item-drag-preview")).toBeVisible();
+  await expect.poll(pointerClickGuards).toBe(1);
   const sourceChildren = dialog.locator(".group-manager-branch.is-dragging .group-manager-tree-children");
   await expect(sourceChildren).toHaveCSS("visibility", "hidden");
   await expect(sourceChildren.locator(".group-manager-check")).toHaveCSS("visibility", "hidden");
   await page.screenshot({ path: screenshotPath("group-manager-directory-branch-drag.png") });
   await page.mouse.up();
   await expect(directory.locator(":scope > li").first().getByRole("list", { name: "设计的子分组" })).toBeVisible();
+  // dnd-kit intentionally retains its capture listener for 50ms after release.
+  // Observe actual teardown before issuing a new pointer gesture, without sleep.
+  await expect.poll(pointerClickGuards).toBe(0);
+  await session.detach();
 
   const child = childList.getByRole("button", { name: "设计资料 子分组 · 0 个网站" });
   await child.click();
@@ -165,7 +175,7 @@ test("creates a group, selects it, and keeps it after refresh", async ({ page })
   await page.getByRole("button", { name: "新建分组" }).click();
   const dialog = page.getByRole("dialog", { name: "新建分组" });
   const overlay = page.locator(".group-dialog-overlay");
-  await expect(overlay).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(overlay).toHaveCSS("background-color", "rgba(244, 246, 249, 0.3)");
   await expect(overlay).toHaveCSS("backdrop-filter", "none");
   const dialogChrome = await dialog.evaluate((element) => {
     const style = getComputedStyle(element);
@@ -239,7 +249,7 @@ test("opens group management without automatic help and supports every entry", a
   await expect(dialog.getByRole("button", { name: "返回收藏主页" })).toBeVisible();
   await expect(page.locator(".group-dialog-overlay")).toHaveCSS(
     "background-color",
-    "rgba(0, 0, 0, 0)",
+    "rgba(244, 246, 249, 0.3)",
   );
   await expect(page.locator(".group-dialog-overlay")).toHaveCSS(
     "backdrop-filter",

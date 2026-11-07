@@ -241,7 +241,7 @@ test("selects the inclusive site range with the native Shift gesture", async ({
   });
 });
 
-test("uses two-step site deletion and transparent modal overlays", async ({
+test("uses two-step site deletion and themed modal dimming", async ({
   page,
 }, testInfo) => {
   const google = page.getByTestId("site-card-google");
@@ -254,7 +254,7 @@ test("uses two-step site deletion and transparent modal overlays", async ({
   await page.getByRole("button", { name: "添加", exact: true }).click();
   await page.getByRole("menuitem", { name: /添加网站/ }).click();
   const overlay = page.locator(".dialog-overlay");
-  await expect(overlay).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(overlay).toHaveCSS("background-color", "rgba(244, 246, 249, 0.3)");
   await expect(overlay).toHaveCSS("backdrop-filter", "none");
   await page.screenshot({
     path: screenshotPath(`dialog-transparent-${testInfo.project.name}.png`),

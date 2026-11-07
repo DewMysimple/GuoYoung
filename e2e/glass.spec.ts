@@ -4,7 +4,7 @@ import { expect, test, screenshotPath } from "./fixtures";
 
 test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
 
-test("shares glass layers across group tools, menus and panels without nested card or footer tiles", async ({ page }, info) => {
+test("keeps overlay layers independent of group tools and cards without nested card or footer tiles", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop material regression");
   await page.route("https://wallpaper.example/sea.svg", route => route.fulfill({ contentType: "image/svg+xml", body: wallpaper }));
   await page.evaluate(() => {
@@ -34,33 +34,39 @@ test("shares glass layers across group tools, menus and panels without nested ca
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  for (const [name, value] of [["按钮透明度", "90"], ["面板透明度", "72"], ["菜单透明度", "65"], ["阴影强度", "0"]]) {
+  const toolFill = await tool.evaluate(el => getComputedStyle(el).backgroundColor);
+  await panel.getByRole("checkbox", { name: "智能可读性保护" }).uncheck();
+  for (const [name, value] of [["浮窗透明度", "72"], ["浮窗磨砂", "17"], ["阴影强度", "0"]]) {
     await panel.getByRole("slider", { name }).fill(value);
   }
-  await expect.poll(() => panel.evaluate(el => getComputedStyle(el).backgroundColor)).toContain("0.28");
-  await expect.poll(() => tool.evaluate(el => getComputedStyle(el).backgroundColor)).toContain("0.1");
+  await expect.poll(() => panel.evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toContain("0.28");
+  await expectGlassMaterial(panel, { blur: 17 }, true);
+  await expect(tool).toHaveCSS("background-color", toolFill);
   await expect(card).toHaveCSS("box-shadow", /rgba\(24, 43, 70, 0\)/);
   await panel.getByRole("button", { name: "取消", exact: true }).click();
   await page.getByRole("button", { name: "打开设置" }).click();
   await expect(panel.getByRole("tab", { name: /壁纸/ })).toHaveAttribute("aria-selected", "true");
   await expect(panel.getByRole("slider", { name: "阴影强度" })).toBeVisible();
   await expect(panel.getByRole("slider", { name: "阴影强度" })).toHaveValue("35");
-  await panel.getByRole("slider", { name: "面板透明度" }).fill("72");
-  await panel.getByRole("slider", { name: "菜单透明度" }).fill("65");
+  await panel.getByRole("checkbox", { name: "智能可读性保护" }).uncheck();
+  await panel.getByRole("slider", { name: "浮窗透明度" }).fill("72");
+  await panel.getByRole("slider", { name: "浮窗磨砂" }).fill("17");
   await panel.getByRole("slider", { name: "阴影强度" }).fill("0");
   await panel.getByRole("button", { name: "保存设置" }).click();
   await page.reload();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).wallpaper)).toMatchObject({
-    glassPanelTransparency: 72, glassPopoverTransparency: 65, glassShadow: 0,
+    overlayTransparency: 72, overlayBlur: 17, overlayReadabilityProtection: false, glassShadow: 0,
   });
   await page.getByRole("button", { name: "管理分组", exact: true }).click();
   const manager = page.getByRole("dialog", { name: "管理分组", exact: true });
-  await expect.poll(() => manager.evaluate(el => getComputedStyle(el).backgroundColor)).toContain("0.28");
-  await expect.poll(() => page.locator(".group-manager-editor").evaluate(el => getComputedStyle(el).backgroundColor)).toContain("0.09");
+  await expect.poll(() => manager.evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toContain("0.28");
+  await expectGlassMaterial(manager, { blur: 17 }, true);
+  await expect.poll(() => page.locator(".group-manager-editor").evaluate(el => getComputedStyle(el).backgroundColor)).toContain("0.064");
   await page.screenshot({ path: screenshotPath("glass-group-manager-layers.png"), animations: "disabled" });
   await manager.getByRole("button", { name: "关闭", exact: true }).click();
   await page.getByRole("button", { name: "显示", exact: true }).click();
-  await expect.poll(() => page.locator(".display-popover").evaluate(el => getComputedStyle(el).backgroundColor)).toContain("0.35");
+  await expect.poll(() => page.locator(".display-popover").evaluate(el => getComputedStyle(el).backgroundColor)).toContain("0.28");
+  await expectGlassMaterial(page.locator(".display-popover"), { blur: 17 });
 });
 
 const wallpaper = `<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000"><defs><linearGradient id="sky" x2="1" y2="1"><stop stop-color="#468aad"/><stop offset=".5" stop-color="#b6e4df"/><stop offset="1" stop-color="#456a9b"/></linearGradient><pattern id="ripples" width="150" height="90" patternUnits="userSpaceOnUse"><path d="M-30 35Q20 0 75 35T180 35M-30 65Q30 25 90 65T210 65" fill="none" stroke="#eaffff" stroke-opacity=".6" stroke-width="3"/></pattern></defs><path fill="url(#sky)" d="M0 0h1440v1000H0z"/><path fill="url(#ripples)" d="M0 0h1440v1000H0z"/></svg>`;
@@ -164,8 +170,8 @@ test("uses shared glass for tab, group and site drags over wallpaper", async ({ 
   await page.mouse.down();
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2 + 16);
   const managerPreview = page.locator(".group-list-item-drag-preview");
-  await expectGlassMaterial(managerPreview, { blur: 8 });
-  await expect(managerPreview).toHaveCSS("background-color", /\/ 0\.12\)/);
+  await expectGlassMaterial(managerPreview, { blur: 24 });
+  await expect(managerPreview).toHaveCSS("background-color", /\/ 0\.75\)/);
   expect(await managerPreview.evaluate(el => el.closest(".app-shell"))).toBeNull();
   await page.screenshot({ path: screenshotPath("glass-manager-portal-drag.png") });
   await page.keyboard.press("Escape");
@@ -233,8 +239,8 @@ test("previews glass, restores cancelled drafts and persists material controls",
   const panel = page.getByRole("dialog", { name: "设置", exact: true });
   await panel.getByRole("tab", { name: /壁纸/ }).click();
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.getByRole("slider", { name: "玻璃透明度" }).fill("94");
-  await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
+  await panel.getByRole("slider", { name: "链接卡片透明度" }).fill("94");
+  await panel.getByRole("slider", { name: "链接卡片磨砂" }).fill("2");
   await expectGlassMaterial(card, { blur: 2 });
   await expect.poll(() => card.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(initial);
   await panel.locator("summary").filter({ hasText: /^顶栏外观/ }).click();
@@ -253,8 +259,8 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await page.getByRole("button", { name: "打开设置" }).click();
   await expect(panel.getByRole("tab", { name: /壁纸/ })).toHaveAttribute("aria-selected", "true");
   await expect(panel.getByRole("slider", { name: "阴影强度" })).toBeVisible();
-  await panel.getByRole("slider", { name: "玻璃透明度" }).fill("88");
-  await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("2");
+  await panel.getByRole("slider", { name: "链接卡片透明度" }).fill("88");
+  await panel.getByRole("slider", { name: "链接卡片磨砂" }).fill("2");
   await panel.getByRole("slider", { name: "色彩饱和度" }).fill("175");
   await panel.getByRole("slider", { name: "边缘高光" }).fill("20");
   await panel.getByRole("button", { name: "保存设置" }).click();
@@ -276,7 +282,7 @@ test("previews glass, restores cancelled drafts and persists material controls",
   await panel.getByRole("tab", { name: /壁纸/ }).click();
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
   await panel.getByRole("button", { name: "恢复玻璃默认" }).click();
-  await expect(panel.getByRole("slider", { name: "玻璃透明度" })).toHaveValue("78");
+  await expect(panel.getByRole("slider", { name: "链接卡片透明度" })).toHaveValue("78");
   await expect(panel.getByRole("checkbox", { name: /玻璃折射/, hidden: true })).toHaveCount(0);
   await panel.getByRole("button", { name: "清除壁纸" }).click();
   await expect(shell).not.toHaveClass(/has-wallpaper/);
@@ -323,10 +329,10 @@ test("offers six standalone appearance presets with the reference material and o
   await expect(page.locator(".app-shell")).toHaveCSS("--glass-opacity", "0%");
   await expectGlassMaterial(page.locator(".site-card").first(), { blur: 21, saturation: 1 });
   await expect.poll(() => page.locator(".topbar").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(7px)");
-  await expect(panel).toHaveCSS("backdrop-filter", "blur(9px)");
+  await expectGlassMaterial(panel, { blur: 24 }, true);
   await scope.check(); // A scope change alone does not apply a preset.
   await expect(presets.locator('[aria-pressed="true"]')).toHaveCount(0);
-  await expect(panel).toHaveCSS("backdrop-filter", "blur(9px)");
+  await expectGlassMaterial(panel, { blur: 24 }, true);
   const names = [["清透磨砂", "0%", 21], ["轻盈透景", "4%", 0], ["柔光薄雾", "20%", 12], ["凝霜静读", "58%", 26]] as const;
   for (const [name, opacity, blur] of names) {
     const option = section.getByRole("button", { name: new RegExp(`^${name}`) });
@@ -339,8 +345,8 @@ test("offers six standalone appearance presets with the reference material and o
   await presets.nth(0).click();
   await page.screenshot({ path: screenshotPath("appearance-six-presets.png") });
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  for (const [label, value] of [["玻璃透明度", "100"], ["按钮透明度", "100"], ["面板透明度", "100"], ["菜单透明度", "100"],
-    ["阴影强度", "72"], ["玻璃磨砂", "21"], ["色彩饱和度", "100"], ["边缘高光", "18"]]) {
+  for (const [label, value] of [["链接卡片透明度", "100"], ["浮窗透明度", "30"], ["浮窗磨砂", "24"],
+    ["阴影强度", "72"], ["链接卡片磨砂", "21"], ["色彩饱和度", "100"], ["边缘高光", "18"]]) {
     await expect(panel.getByRole("slider", { name: label, exact: true })).toHaveValue(value);
   }
   await panel.getByRole("slider", { name: "阴影强度" }).fill("17");
@@ -407,7 +413,7 @@ test("custom appearance slots save, apply, overwrite and cancel within the setti
   expect(saved.wallpaper.presetIncludesPanels).toBe(false);
   expect(saved.wallpaper.customPresets).toHaveLength(2);
   expect(saved.wallpaper.customPresets.map((preset: { glassShadow: number }) => preset.glassShadow)).toEqual([29, 17]);
-  expect(Object.keys(saved.wallpaper.customPresets[0])).toHaveLength(14);
+  expect(Object.keys(saved.wallpaper.customPresets[0])).toHaveLength(18);
   expect(saved.sites).toEqual(original.sites);
   await open();
   await expect(presets.getByRole("checkbox")).not.toBeChecked();

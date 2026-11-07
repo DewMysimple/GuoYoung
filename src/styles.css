@@ -393,9 +393,9 @@ select:focus-visible {
   border: 1px solid var(--border-strong);
   border-radius: 14px;
   color: var(--text);
-  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  background: var(--overlay-popover-fill);
   box-shadow: var(--shadow-dialog);
-  backdrop-filter: blur(18px);
+  backdrop-filter: var(--overlay-material-filter);
   animation: color-picker-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -559,9 +559,9 @@ select:focus-visible {
   padding: 7px;
   border: 1px solid var(--border-strong);
   border-radius: 15px;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  background: var(--overlay-popover-fill);
   box-shadow: var(--shadow-dialog);
-  backdrop-filter: blur(18px);
+  backdrop-filter: var(--overlay-material-filter);
 }
 
 .search-history-header {
@@ -779,9 +779,9 @@ select:focus-visible {
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   color: var(--text);
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  background: var(--overlay-popover-fill);
   box-shadow: var(--shadow-dialog);
-  backdrop-filter: blur(18px);
+  backdrop-filter: var(--overlay-material-filter);
   animation: color-picker-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1443,7 +1443,7 @@ select:focus-visible {
   padding: 6px;
   border: 1px solid var(--border-strong);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--overlay-popover-fill);
   box-shadow: var(--shadow-dialog);
 }
 
@@ -2645,7 +2645,6 @@ select:focus-visible {
   border: 1px solid var(--border-strong);
   border-radius: 18px;
   color: var(--text);
-  background: var(--surface);
   box-shadow: var(--shadow-dialog);
   transform: translate(-50%, -50%);
   animation: dialog-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -3590,9 +3589,7 @@ select:focus-visible {
   padding: 22px;
   border-left: 1px solid var(--border-strong);
   color: var(--text);
-  background: color-mix(in srgb, var(--surface) 97%, transparent);
   box-shadow: none;
-  backdrop-filter: blur(22px);
   animation: settings-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
   --brand-font-scale: 1;
   --card-font-scale: 1;
@@ -3753,7 +3750,7 @@ select:focus-visible {
   border: 1px solid var(--border-strong);
   border-radius: 15px;
   color: var(--text);
-  background: var(--surface);
+  background: var(--overlay-popover-fill);
   box-shadow: var(--shadow-dialog);
   animation: color-picker-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }

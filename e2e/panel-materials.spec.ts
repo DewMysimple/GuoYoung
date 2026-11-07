@@ -7,7 +7,8 @@ test("topbar and sidebar share aligned controls, follow public glass and retain 
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
     state.wallpaper = { ...state.wallpaper, source: "url", url: "https://panels.example/background.svg",
-      topbarStyle: "shared", sidebarStyle: "shared", topbarTransparency: 63, topbarBlur: 7, sidebarTransparency: 81, sidebarBlur: 9 };
+      glassPanelTransparency: 73, topbarStyle: "shared", sidebarStyle: "shared", topbarTransparency: 63, topbarBlur: 7, sidebarTransparency: 81, sidebarBlur: 9 };
+    state.displayModeByWorkspace.main = "grouped";
     localStorage.setItem("site-hub:v1", JSON.stringify(state));
   });
   await page.reload();
@@ -26,14 +27,15 @@ test("topbar and sidebar share aligned controls, follow public glass and retain 
   await expect(panel.getByRole("checkbox", { name: /玻璃折射/, hidden: true })).toHaveCount(0);
   await expect(panel.getByRole("slider", { name: "折射强度", hidden: true })).toHaveCount(0);
   await panel.locator("summary").filter({ hasText: /^玻璃外观/ }).click();
-  await panel.getByRole("slider", { name: "面板透明度" }).fill("73");
-  await panel.getByRole("slider", { name: "玻璃磨砂" }).fill("5");
+  await panel.getByRole("slider", { name: "链接卡片磨砂" }).fill("5");
   await panel.getByRole("slider", { name: "色彩饱和度" }).fill("160");
   const topbar = page.locator(".topbar");
-  await expect(panel).toHaveCSS("backdrop-filter", "blur(5px) saturate(1.6)");
+  const sidebar = page.locator(".group-section-nav-panel");
+  await expect.poll(() => panel.evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(24px)");
+  await expect(sidebar).toHaveCSS("backdrop-filter", "blur(5px) saturate(1.6)");
   await expect.poll(() => topbar.evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(5px) saturate(1.6)");
   await expect.poll(() => topbar.evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toContain("0.27");
-  expect(await topbar.evaluate(el => getComputedStyle(el, "::before").backgroundImage)).toBe(await panel.evaluate(el => getComputedStyle(el).backgroundImage));
+  expect(await topbar.evaluate(el => getComputedStyle(el, "::before").backgroundImage)).toBe(await sidebar.evaluate(el => getComputedStyle(el).backgroundImage));
   for (const [index, label, transparency, blur] of [[0, "顶栏", "63", "7"], [1, "侧栏", "81", "9"]] as const) {
     const section = sections[index];
     await section.getByRole("button", { name: "独立玻璃底板" }).click();
@@ -42,8 +44,9 @@ test("topbar and sidebar share aligned controls, follow public glass and retain 
     await section.getByRole("slider", { name: `${label}透明度` }).fill("100");
     await section.getByRole("slider", { name: "模糊强度" }).fill("0");
   }
-  await expect(panel).toHaveCSS("backdrop-filter", "none");
-  await expect(panel).toHaveCSS("background-image", "none");
+  await expect(sidebar).toHaveCSS("backdrop-filter", "none");
+  await expect(sidebar).toHaveCSS("background-image", "none");
+  await expect.poll(() => panel.evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(24px)");
   await expect.poll(() => topbar.evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("none");
   await expect.poll(() => topbar.evaluate(el => getComputedStyle(el, "::before").backgroundImage)).toBe("none");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!))).toEqual(original);
@@ -84,6 +87,6 @@ test("legacy enabled optics are removed while independent topbar and collection 
   await panel.getByRole("button", { name: "保存设置" }).click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!));
   const { topbarOpacity: _opacity, glassRefraction: _optics, glassRefractionStrength: _strength, ...wallpaper } = legacy.wallpaper;
-  expect(saved).toEqual({ ...legacy, version: 29, wallpaper: { ...wallpaper, topbarStyle: "glass", topbarTransparency: 63 } });
+  expect(saved).toEqual({ ...legacy, version: 30, wallpaper: { ...wallpaper, topbarStyle: "glass", topbarTransparency: 63 } });
   await expect(page.locator("filter, feDisplacementMap")).toHaveCount(0);
 });

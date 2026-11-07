@@ -8,7 +8,8 @@ test("previews themes, rolls back, persists explicit choice and follows live sys
   await expect(panel.getByRole("button", { name: "跟随系统", exact: true })).toHaveAttribute("aria-pressed", "true");
   await panel.getByRole("button", { name: "深色", exact: true }).click();
   await expect(root).toHaveAttribute("data-theme", "dark");
-  await expect(panel).toHaveCSS("background-color", "color(srgb 0.12549 0.141176 0.176471 / 0.97)");
+  await expect(panel).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect.poll(() => panel.evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toBe("rgb(32, 36, 45)");
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("site-hub:v1")!).appearance.theme)).toBe("system");
   await page.screenshot({ path: screenshotPath(`theme-dark-settings-${testInfo.project.name}.png`), animations: "disabled" });
   await panel.getByRole("button", { name: "取消", exact: true }).click();
@@ -45,7 +46,8 @@ test("previews themes, rolls back, persists explicit choice and follows live sys
 
   await page.getByRole("button", { name: "管理分组", exact: true }).click();
   const manager = page.getByRole("dialog", { name: "管理分组", exact: true });
-  await expect(manager).toHaveCSS("background-color", "rgb(32, 36, 45)");
+  await expect(manager).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect.poll(() => manager.evaluate(el => getComputedStyle(el, "::before").backgroundColor)).toBe("rgb(32, 36, 45)");
   await page.screenshot({ path: screenshotPath(`theme-dark-manager-${testInfo.project.name}.png`), animations: "disabled" });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);

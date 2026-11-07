@@ -44,7 +44,7 @@ button { cursor: pointer; }
 :where(.popup-tabs, .popup-open-home, .popup-bookmark-manage, .bookmark-refresh, .popup-new-group-cancel,
   .popup-field input, .bookmark-search, .popup-note-field textarea) {
   border: 1px solid color-mix(in srgb, var(--glass-edge-soft, var(--border)) 55%, var(--border));
-  background-color: var(--glass-fill-control, var(--surface));
+  background-color: var(--overlay-control-fill);
   background-image: var(--glass-surface-image, none);
   box-shadow: var(--glass-control-shadow, none);
 }
@@ -98,7 +98,7 @@ button { cursor: pointer; }
 .popup-tabs button.active {
   color: var(--ui-accent-text);
   border-color: color-mix(in srgb, var(--accent) 26%, var(--border));
-  background-color: color-mix(in srgb, var(--accent-soft) 66%, var(--glass-fill-control, var(--surface)));
+  background-color: color-mix(in srgb, var(--accent-soft) 66%, var(--overlay-control-fill));
   box-shadow: var(--glass-control-shadow, none);
 }
 
@@ -127,10 +127,11 @@ button { cursor: pointer; }
 
 .popup-form-card, .bookmark-tree {
   border: 1px solid color-mix(in srgb, var(--glass-edge-soft, var(--border)) 58%, var(--border));
-  background-color: var(--glass-fill-panel, var(--surface));
-  background-image: var(--glass-surface-image, none);
+  background-color: var(--overlay-glass-fill);
+  background-image: var(--overlay-material-image);
   box-shadow: var(--glass-shadow, none);
-  backdrop-filter: var(--glass-filter, none);
+  isolation: isolate;
+  backdrop-filter: none;
 }
 
 .popup-form-card {
@@ -153,7 +154,7 @@ button { cursor: pointer; }
   height: 44px;
   overflow: hidden;
   border-radius: 11px;
-  background: var(--glass-fill-control, var(--surface-raised));
+  background: var(--overlay-control-fill);
 }
 .popup-target-icon .favicon-frame, .popup-target-icon .favicon-fallback { width: 44px; height: 44px; flex-basis: 44px; border-radius: 11px; }
 .popup-target-icon .favicon-frame img, .popup-target-icon .favicon-frame svg { width: 82%; height: 82%; object-fit: contain; transform: none; }
@@ -283,7 +284,7 @@ button { cursor: pointer; }
 .bookmark-breadcrumbs button:hover { background: var(--accent-soft); }
 .bookmark-breadcrumbs button:focus-visible { outline-offset: -1px; }
 .bookmark-crumb { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 3px; }
-.bookmark-selection-count { display: inline-flex; min-height: 22px; align-items: center; gap: 3px; padding-inline: 6px; border-radius: 7px; background: var(--glass-fill-control, var(--surface-raised)); white-space: nowrap; }
+.bookmark-selection-count { display: inline-flex; min-height: 22px; align-items: center; gap: 3px; padding-inline: 6px; border-radius: 7px; background: var(--overlay-control-fill); white-space: nowrap; }
 .bookmark-selection-count.has-selection { color: var(--ui-accent-text); background: var(--accent-soft); }
 .select-visible { padding: 2px 0; border: 0; color: var(--ui-accent-text); background: transparent; font-size: .625rem; font-weight: 720; }
 
@@ -300,11 +301,11 @@ button { cursor: pointer; }
   padding: 5px 29px 5px 7px;
   border: 1px solid color-mix(in srgb, var(--glass-edge-soft, var(--border)) 50%, var(--border));
   border-radius: 9px;
-  background-color: var(--glass-fill-control, var(--surface));
+  background-color: var(--overlay-control-fill);
   cursor: pointer;
 }
-.bookmark-tile:is(:hover, :focus-within) { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); background-color: color-mix(in srgb, var(--accent-soft) 35%, var(--glass-fill-control, var(--surface))); }
-.bookmark-tile:is(.is-selected, .is-partial) { border-color: var(--accent); background-color: color-mix(in srgb, var(--accent-soft) 64%, var(--glass-fill-control, var(--surface))); }
+.bookmark-tile:is(:hover, :focus-within) { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); background-color: color-mix(in srgb, var(--accent-soft) 35%, var(--overlay-control-fill)); }
+.bookmark-tile:is(.is-selected, .is-partial) { border-color: var(--accent); background-color: color-mix(in srgb, var(--accent-soft) 64%, var(--overlay-control-fill)); }
 .bookmark-tile-open { position: absolute; z-index: 1; inset: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
 .bookmark-tile-open:focus-visible { outline-offset: -3px; }
 .bookmark-tile-footer { display: flex; flex: 1; min-width: 0; align-items: center; gap: 3px; pointer-events: none; }

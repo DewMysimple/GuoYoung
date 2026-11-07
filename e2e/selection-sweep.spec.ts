@@ -250,15 +250,15 @@ test("public glass controls open in one disclosure and keep draft/save behavior"
   await glass.locator(":scope > summary").click();
   await expect(glass.getByRole("slider")).toHaveCount(8);
   await expect(glass.locator("details")).toHaveCount(0);
-  await glass.getByRole("slider", { name: "玻璃透明度", exact: true }).fill("61");
+  await glass.getByRole("slider", { name: "链接卡片透明度", exact: true }).fill("61");
   await glass.locator(":scope > summary").click();
   await glass.locator(":scope > summary").click();
-  await expect(glass.getByRole("slider", { name: "玻璃透明度", exact: true })).toHaveValue("61");
+  await expect(glass.getByRole("slider", { name: "链接卡片透明度", exact: true })).toHaveValue("61");
   await page.screenshot({ path: screenshotPath("glass-single-disclosure.png") });
   await panel.getByRole("button", { name: "保存设置", exact: true }).click();
   await page.reload();
   await page.getByRole("button", { name: "打开设置" }).click();
   await panel.getByRole("tab", { name: "壁纸", exact: true }).click();
   await glass.locator(":scope > summary").click();
-  await expect(glass.getByRole("slider", { name: "玻璃透明度", exact: true })).toHaveValue("61");
+  await expect(glass.getByRole("slider", { name: "链接卡片透明度", exact: true })).toHaveValue("61");
 });

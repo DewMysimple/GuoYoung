@@ -1,7 +1,7 @@
 ---
 type: moc
 status: active
-updated: 2026-11-01
+updated: 2026-11-08
 topic: memory-navigation
 ---
 
@@ -25,7 +25,7 @@ topic: memory-navigation
 - [[当前状态/系统架构.md|系统架构]] — active
 - [[当前状态/项目概览.md|项目概览]] — active
 
-- [[决策/MOC_决策.md|工程决策目录]] — 17 页，按主题或模块检索。
+- [[决策/MOC_决策.md|工程决策目录]] — 18 页，按主题或模块检索。
 - [[知识/MOC_知识.md|稳定知识目录]] — 13 页，按主题或模块检索。
 
 <!-- wiki-memory:auto:end -->

@@ -68,7 +68,7 @@ test("paints saved local wallpaper before the app and covers GitHub entry surfac
   await expect(entry).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expectGlassMaterial(entry, { blur: 8, saturation: 1.3 }, true);
   await page.getByRole("button", { name: "管理 GitHub 官方主页" }).click();
-  await expectGlassMaterial(page.getByRole("menu"), { blur: 8 });
+  await expectGlassMaterial(page.getByRole("menu"), { blur: 24 });
   await page.screenshot({ path: screenshotPath(`github-glass-startup-${info.project.name}.png`) });
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "打开设置" }).click();

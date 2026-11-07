@@ -19,7 +19,7 @@ export function PanelGlassSettings({ label, style, transparency, blur, onStyle, 
   onBlur: (value: number) => void;
 }) {
   return <SettingsDisclosure title={`${label}外观`} summary={MODES.find(mode => mode.value === style)?.label}
-    help="跟随公共时使用公共面板的透明度、磨砂和高光；独立模式可调节透明度和模糊强度。透明度 100%、模糊强度 0 时完全透出壁纸。">
+    help={`用于${label === "侧栏" ? "主页常驻分组定位侧栏" : "主页顶栏"}。跟随公共时沿用页面材质；独立模式可调节透明度和磨砂。透明度 100%、磨砂 0 时完全透出壁纸，设置面板始终使用独立浮窗玻璃。`}>
     <SettingsChoiceGroup label={`${label}样式`} className="segmented-control" value={style} options={MODES} onChange={onStyle} />
     {style === "glass" && <>
       <RangeControl label="模糊强度" min={0} max={30} value={blur} onChange={onBlur} />

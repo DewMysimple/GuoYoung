@@ -14,7 +14,7 @@ describe("website notes", () => {
     const legacy = { ...state, version: 27, appearance };
     const loaded = parseStoredState(JSON.stringify(legacy));
     expect(loaded.recovered).toBe(false);
-    expect(loaded.state.version).toBe(29);
+    expect(loaded.state.version).toBe(30);
     expect(loaded.state.appearance.showSiteNotes).toBe(true);
     expect(loaded.state.sites).toEqual(state.sites);
     expect(loaded.state.groups).toEqual(state.groups);

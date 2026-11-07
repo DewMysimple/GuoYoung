@@ -119,7 +119,8 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("site-hub:v1")!);
     state.appearance.theme = "dark";
-    state.wallpaper = { ...state.wallpaper, glassBlur: 7, glassSaturation: 118, glassPanelTransparency: 44 };
+    state.wallpaper = { ...state.wallpaper, glassBlur: 0, glassTransparency: 100, glassSaturation: 118,
+      glassPanelTransparency: 44, overlayBlur: 17, overlayTransparency: 25 };
     state.groups.push({ ...state.groups[0], id: "popup-design-child", parentId: "design", name: "资源收藏", icon: "folder" });
     localStorage.setItem("popup-test-collection", JSON.stringify(state));
     localStorage.setItem("popup-native-deletes", "0");
@@ -164,7 +165,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   await expect(page.locator("html")).toHaveAttribute("data-glass-surface", "popup");
   await expect(page.locator(".popup-shell")).toHaveCSS("background-image", /radial-gradient.*linear-gradient/);
   await expect(page.locator(".popup-site-name input")).toHaveCSS("color", "rgb(232, 236, 243)");
-  await expect(page.locator(".popup-form-card")).toHaveCSS("backdrop-filter", "blur(7px) saturate(1.18)");
+  await expect.poll(() => page.locator(".popup-form-card").evaluate(el => getComputedStyle(el, "::before").backdropFilter)).toBe("blur(17px)");
   const quickLayout = await page.locator(".popup-shell").evaluate(shell => {
     const rect = (selector: string) => shell.querySelector(selector)!.getBoundingClientRect();
     return {
@@ -191,7 +192,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   expect(quickLayout.footerTop - quickLayout.submitBottom).toBeLessThanOrEqual(23);
   await page.getByRole("button", { name: "收藏到分组" }).click();
   const quickList = page.getByRole("listbox", { name: "收藏到分组" });
-  await expect(quickList).toHaveCSS("backdrop-filter", "blur(7px) saturate(1.18)");
+  await expect(quickList).toHaveCSS("backdrop-filter", "blur(17px)");
   await expect(quickList.getByRole("option", { name: "搜索" })).toHaveAttribute("aria-selected", "true");
   await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-quick-groups-${testInfo.project.name}.png`), animations: "disabled" });
   await quickList.getByRole("option", { name: "设计 / 资源收藏" }).click();
@@ -229,7 +230,7 @@ test("saves a current page and imports browser bookmarks from the popup", async 
   expect(menuBounds!.y).toBeGreaterThanOrEqual(popupBounds!.y);
   expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(popupBounds!.y + popupBounds!.height);
   await expect(bookmarkGroupMenu).toHaveCSS("border-radius", "13px");
-  await expect(bookmarkGroupMenu).toHaveCSS("backdrop-filter", "blur(7px) saturate(1.18)");
+  await expect(bookmarkGroupMenu).toHaveCSS("backdrop-filter", "blur(17px)");
   await page.locator(".popup-shell").screenshot({ path: screenshotPath(`popup-bookmark-select-${testInfo.project.name}.png`), animations: "disabled" });
   await bookmarkGroupMenu.getByRole("option", { name: "设计 / 资源收藏" }).click();
   await page.getByRole("button", { name: "打开书签文件夹 收藏夹栏" }).click();
