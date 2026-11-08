@@ -27,7 +27,7 @@
   background-color: var(--overlay-popover-fill); background-image: var(--overlay-material-image); backdrop-filter: var(--overlay-material-filter); -webkit-backdrop-filter: var(--overlay-material-filter); box-shadow: var(--overlay-shadow); font-size: .6875rem; }
 .glass-material-preview figcaption { margin-top: 7px; font-size: .625rem; line-height: 1.5; color: var(--text-soft); }
 .glass-settings-group { display: grid; gap: 15px; min-width: 0; padding-block: 6px 16px; }
-.glass-settings-group + .glass-settings-group { border-top: 1px solid var(--border); padding-top: 20px; }
+.glass-settings-group + .glass-settings-group { padding-top: 20px; }
 .glass-settings-group h3 { margin: 0; font-size: .875rem; }
 .glass-settings-group > .button { justify-self: start; }
 .glass-readability-note { margin: 0; color: var(--text-soft); font-size: .6875rem; line-height: 1.65; }

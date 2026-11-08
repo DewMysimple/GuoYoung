@@ -2656,9 +2656,6 @@ select:focus-visible {
   max-height: none;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
-  box-shadow:
-    0 28px 80px color-mix(in srgb, #18233a 22%, transparent),
-    0 0 0 1px var(--dialog-rim);
 }
 
 .confirm-content {
@@ -3092,9 +3089,6 @@ select:focus-visible {
   max-height: none;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  box-shadow:
-    0 28px 80px color-mix(in srgb, #18233a 22%, transparent),
-    0 0 0 1px var(--dialog-rim);
 }
 
 .group-dialog-scroll {
@@ -3476,9 +3470,6 @@ select:focus-visible {
   max-height: none;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
-  box-shadow:
-    0 28px 80px color-mix(in srgb, #18233a 22%, transparent),
-    0 0 0 1px var(--dialog-rim);
 }
 
 .new-group-dialog-form {
@@ -4058,7 +4049,7 @@ select:focus-visible {
   justify-content: flex-end;
   gap: 9px;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--overlay-divider);
 }
 
 @keyframes overlay-in {
@@ -4067,23 +4058,22 @@ select:focus-visible {
   }
 }
 
+/* The ::before glass must sample the page throughout the motion. Fading
+   its host creates a different sampling boundary until the animation ends. */
 @keyframes dialog-in {
   from {
-    opacity: 0;
     transform: translate(-50%, calc(-50% + 14px)) scale(0.98);
   }
 }
 
 @keyframes settings-in {
   from {
-    opacity: 0;
     transform: translateX(32px);
   }
 }
 
 @keyframes color-picker-in {
   from {
-    opacity: 0;
     transform: translateY(-5px) scale(0.98);
   }
 }

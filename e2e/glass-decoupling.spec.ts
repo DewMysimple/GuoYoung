@@ -218,6 +218,10 @@ test("protects zero-blur overlays and supports explicit custom transparency plus
   await expect.poll(() => paint(manager(page), true)).toMatchObject({ filter: "none", image: "none" });
   expect((await paint(manager(page), true)).fill).toContain("0.96");
   await cdp.send("Emulation.setEmulatedMedia", { features: [] });
+  // Media emulation acknowledgement is not a painted-frame barrier. Leave the
+  // reduced-transparency branch before independently testing unsupported CSS.
+  await expect.poll(() => page.evaluate(() => matchMedia("(prefers-reduced-transparency: reduce)").matches)).toBe(false);
+  await expectGlassMaterial(manager(page), { blur: 30 }, true);
   // Chrome supports backdrop-filter. Activate the actual authored @supports
   // fallback rules in CSSOM, retaining their contents rather than faking paint.
   const count = await page.evaluate(() => {
@@ -236,9 +240,7 @@ test("protects zero-blur overlays and supports explicit custom transparency plus
     return count;
   });
   expect(count).toBeGreaterThanOrEqual(2);
-  const fallback = await paint(manager(page), true);
-  expect(fallback).toMatchObject({ filter: "none", image: "none" });
-  expect(fallback.fill).toBe("rgb(32, 36, 45)");
+  await expect.poll(() => paint(manager(page), true)).toMatchObject({ filter: "none", image: "none", fill: "rgb(32, 36, 45)" });
   expect(await page.evaluate(() => localStorage.getItem("site-hub:v1"))).toBe(saved);
   await cdp.detach();
 });

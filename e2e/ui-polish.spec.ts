@@ -67,7 +67,13 @@ test("wallpaper controls share translucent surfaces and hover keeps card geometr
   await expect(card).toHaveCSS("transform", "none");
   expect(await card.boundingBox()).toEqual(before);
   await page.locator(".view-control-button").filter({ hasText: "显示" }).click();
-  await expect(page.locator(".view-popover")).toHaveCSS("animation-name", "none");
+  const popover = page.locator(".view-popover");
+  await expect(popover).toHaveCSS("animation-name", "select-menu-in");
+  await expect(popover).toHaveCSS("animation-duration", "0.16s");
+  await expect(popover).toHaveCSS("opacity", "1");
+  // The pointer-containment check uses the settled geometry. First-frame
+  // material is covered separately without finishing the tested animation.
+  await popover.evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
   const hit = await page.locator(".view-popover").evaluate(el => {
     const rect = el.getBoundingClientRect();
     return el.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.bottom - 12));

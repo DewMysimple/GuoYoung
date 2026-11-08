@@ -288,8 +288,7 @@ body:has(.app-shell.has-wallpaper) .settings-panel .primary-button:hover {
 .has-wallpaper .group-add-menu,
 .has-wallpaper .color-picker-popover,
 body:has(.app-shell.has-wallpaper) .settings-panel .color-picker-popover {
-  animation: none;
-  border-color: var(--glass-edge);
+  border-color: var(--overlay-edge);
   background-color: var(--overlay-popover-fill);
   background-image: var(--overlay-material-image);
   box-shadow: var(--overlay-shadow);
@@ -568,11 +567,6 @@ body:has(.app-shell.has-wallpaper) :is(.dialog-footer, .settings-footer) {
   background: transparent;
 }
 
-/* Settings is an overlay. Sidebar preferences belong to group navigation. */
-body:has(.app-shell.has-wallpaper) .settings-panel {
-  box-shadow: none;
-}
-
 /* Card tools use the card's material, without three nested glass tiles. */
 .has-wallpaper .card-actions .icon-button {
   border: 0;
@@ -703,7 +697,6 @@ body:has(.app-shell.has-wallpaper) .settings-panel {
 
 /* Keep menus above grouped sections and their composited glass cards. */
 .has-wallpaper .collection-heading { position: relative; z-index: 15; }
-body:has(.app-shell.has-wallpaper) .select-menu-popover { animation: none; }
 body:has(.app-shell.has-wallpaper) .group-manager-check:is([aria-pressed="true"], [data-indeterminate="true"]) {
   background: color-mix(in srgb, var(--accent) 65%, transparent);
   border-color: var(--glass-edge);

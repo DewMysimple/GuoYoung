@@ -8,6 +8,142 @@ const paintDeclaration = /(?:^|[;{])\s*(background(?:-color|-image)?|--[\w-]*(?:
 const floatingClass = /\.(?:dialog-content|confirm-content|settings-panel|popup-form-card|bookmark-tree|help-tip-bubble|[\w-]+-(?:popover|menu))(?![\w-])/;
 const cardReference = /--(?:card-glass-[\w-]+|shell-glass-[\w-]+|glass-(?:filter|opacity|fill(?:-[\w-]+)?))(?![\w-])/;
 const declarations = /(?:^|;)\s*([\w-]+)\s*:\s*([^;]+)/g;
+const sampledShell = /\.(?:dialog-content|confirm-content|settings-panel)(?![\w-])/;
+
+function withoutComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, comment => comment.replace(/[^\r\n]/g, " "));
+}
+
+// This scanner only needs authored blocks and top-level selector/value tokens.
+// It respects strings and functions so commas in :is(), timing functions and
+// quoted content do not turn descendants or keyframe bodies into shell rules.
+function splitTopLevel(source, separator) {
+  const parts = [];
+  let start = 0, depth = 0, quote = "";
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index];
+    if (quote) {
+      if (char === "\\") index++;
+      else if (char === quote) quote = "";
+    } else if (char === '"' || char === "'") quote = char;
+    else if (char === "(" || char === "[") depth++;
+    else if (char === ")" || char === "]") depth--;
+    else if (depth === 0 && separator.test(char)) {
+      parts.push(source.slice(start, index)); start = index + 1;
+    }
+  }
+  parts.push(source.slice(start));
+  return parts.map(part => part.trim()).filter(Boolean);
+}
+
+function closesAt(source, start, opening, closing) {
+  let depth = 1, quote = "";
+  for (let index = start + 1; index < source.length; index++) {
+    const char = source[index];
+    if (quote) {
+      if (char === "\\") index++;
+      else if (char === quote) quote = "";
+    } else if (char === '"' || char === "'") quote = char;
+    else if (char === opening) depth++;
+    else if (char === closing && --depth === 0) return index;
+  }
+  return source.length;
+}
+
+function* cssBlocks(css, start = 0, end = css.length) {
+  let headerStart = start;
+  for (let index = start; index < end; index++) {
+    const char = css[index];
+    if (char === '"' || char === "'") {
+      const quote = char;
+      while (++index < end) {
+        if (css[index] === "\\") index++;
+        else if (css[index] === quote) break;
+      }
+    } else if (char === "(" || char === "[") index = closesAt(css, index, char, char === "(" ? ")" : "]");
+    else if (char === ";") headerStart = index + 1;
+    else if (char === "{") {
+      const close = closesAt(css, index, "{", "}");
+      yield { header: css.slice(headerStart, index).trim(), start: index + 1, end: close, body: css.slice(index + 1, close) };
+      headerStart = close + 1; index = close;
+    }
+  }
+}
+
+function* authoredRules(css, start = 0, end = css.length) {
+  for (const block of cssBlocks(css, start, end)) {
+    if (/^@(?:media|supports|container|layer|scope)\b/.test(block.header)) yield* authoredRules(css, block.start, block.end);
+    else yield block;
+  }
+}
+
+function ownsSampledShell(selector) {
+  return splitTopLevel(selector, /,/).some(part => {
+    const compound = splitTopLevel(part, /[\s>+~]/).at(-1) ?? "";
+    let plain = "", positiveFunction = false;
+    for (let index = 0; index < compound.length; index++) {
+      if (compound[index] === "[") { index = closesAt(compound, index, "[", "]"); continue; }
+      if (compound[index] === "(") {
+        const close = closesAt(compound, index, "(", ")");
+        const name = plain.match(/:([\w-]+)$/)?.[1];
+        if (name === "is" || name === "where") positiveFunction ||= ownsSampledShell(compound.slice(index + 1, close));
+        index = close; continue;
+      }
+      plain += compound[index];
+    }
+    return !plain.includes("::") && (sampledShell.test(plain) || positiveFunction);
+  });
+}
+
+function collectKeyframes(sources) {
+  const frames = new Map();
+  for (const { file, source } of sources) {
+    const css = withoutComments(source);
+    for (const block of authoredRules(css)) {
+      const name = block.header.match(/^@(?:-webkit-)?keyframes\s+(?:"([^"]+)"|'([^']+)'|([\w-]+))$/)?.slice(1).find(Boolean);
+      if (!name) continue;
+      for (const frame of cssBlocks(css, block.start, block.end)) for (const declaration of frame.body.matchAll(declarations)) {
+        const [, property, value] = declaration;
+        const opacity = value.trim().match(/^([+-]?(?:\d*\.)?\d+)\s*(%)?(?:\s*!important)?$/);
+        if (property !== "opacity" || !opacity || Number(opacity[1]) >= (opacity[2] ? 100 : 1)) continue;
+        const line = css.slice(0, frame.start + declaration.index + declaration[0].indexOf(property)).split("\n").length;
+        frames.set(name, [...(frames.get(name) ?? []), `${file}:${line} (${frame.header}: opacity ${value.trim()})`]);
+      }
+    }
+  }
+  return frames;
+}
+
+function checkSampledShellAnimations(file, css, frames) {
+  const errors = [];
+  for (const block of authoredRules(css)) {
+    if (!ownsSampledShell(block.header)) continue;
+    for (const declaration of block.body.matchAll(declarations)) {
+      const [, property, raw] = declaration;
+      const value = raw.trim().replace(/\s*!important$/, "");
+      const location = `${file}:${css.slice(0, block.start + declaration.index + declaration[0].indexOf(property)).split("\n").length}`;
+      if (/^(?:-webkit-)?animation(?:-name)?$/.test(property)) {
+        const names = splitTopLevel(value, /[\s,]/).map(token => token.replace(/^(['"])(.*)\1$/, "$2"));
+        for (const name of new Set(names)) if (frames.has(name)) {
+          errors.push(`${location} Sampled glass shell animation ${name} changes ancestor opacity below 1; keep its backdrop sampling boundary stable. Keyframe: ${frames.get(name).join(", ")}.`);
+        }
+      }
+      if (property === "will-change" && splitTopLevel(value, /,/).some(token => token === "opacity" || token === "filter")) {
+        errors.push(`${location} Sampled glass shell will-change must not establish an opacity/filter sampling boundary.`);
+      }
+      if (property === "transition-property" && splitTopLevel(value, /,/).some(token => token === "all" || token === "opacity") ||
+          property === "transition" && splitTopLevel(value, /,/).some(transition => {
+            const tokens = splitTopLevel(transition, /\s/);
+            return tokens.some(token => token === "all" || token === "opacity") || tokens.every(token =>
+              /^[\d.]+m?s$/.test(token) || /^(?:ease(?:-in(?:-out)?|-out)?|linear|step-start|step-end|normal|allow-discrete)$/.test(token) ||
+              /^(?:cubic-bezier|steps|linear)\(/.test(token));
+          })) {
+        errors.push(`${location} Sampled glass shell transition must name safe properties; all/opacity can change its backdrop sampling boundary.`);
+      }
+    }
+  }
+  return errors;
+}
 
 function checkMaterialRules(file, css) {
   const errors = [];
@@ -78,12 +214,13 @@ const paintExceptions = {
   ],
 };
 
-export function checkGlassSource(file, source) {
+export function checkGlassSource(file, source, frames) {
   const errors = [];
   if (file.endsWith(".css")) {
     if (file === "src/theme.css") return errors; // Shared theme owns base colors.
-    const css = source.replace(/\/\*[\s\S]*?\*\//g, comment => comment.replace(/[^\r\n]/g, " "));
+    const css = withoutComments(source);
     errors.push(...checkMaterialRules(file, css));
+    errors.push(...checkSampledShellAnimations(file, css, frames ?? collectKeyframes([{ file, source }])));
     for (const match of css.matchAll(paintDeclaration)) {
       const [, property, value] = match;
       const paint = value.trim().replace(/\s+/g, " ");
@@ -141,13 +278,22 @@ export function checkGlassSource(file, source) {
   return errors;
 }
 
+// The production entry checks the whole source set so an animation defined in
+// a different CSS module cannot bypass the same-shell keyframe check. Static
+// rules cannot establish arbitrary runtime ancestor chains or prove pixels.
+export function checkGlassSources(sources) {
+  const frames = collectKeyframes(sources.filter(({ file }) => file.endsWith(".css")));
+  return sources.flatMap(({ file, source }) => checkGlassSource(file, source, frames));
+}
+
 async function main() {
   const root = new URL("../", import.meta.url);
   const files = (await readdir(new URL("src/", root), { recursive: true, withFileTypes: false }))
     .map(file => `src/${file.replaceAll("\\", "/")}`)
     .filter(file => /\.(?:css|tsx?)$/.test(file) && !/\.test\.|\.d\.ts$/.test(file))
     .sort();
-  const result = (await Promise.all(files.map(async file => checkGlassSource(file, await readFile(new URL(file, root), "utf8"))))).flat();
+  const sources = await Promise.all(files.map(async file => ({ file, source: await readFile(new URL(file, root), "utf8") })));
+  const result = checkGlassSources(sources);
   if (result.length) {
     console.error(result.join("\n"));
     process.exitCode = 1;

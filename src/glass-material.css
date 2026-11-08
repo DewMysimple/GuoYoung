@@ -8,6 +8,10 @@
   --overlay-material-filter: none;
   --overlay-material-image: none;
   --overlay-edge: var(--border-strong);
+  --overlay-divider: var(--border);
+  --overlay-control-edge: color-mix(in srgb, var(--border-strong) 70%, transparent);
+  --overlay-control-hover-edge: var(--border-strong);
+  --overlay-rim: transparent;
   --overlay-shadow: var(--shadow-dialog);
   --overlay-backdrop-fill: rgb(var(--wallpaper-overlay-color) / var(--overlay-backdrop-opacity, .3));
 }
@@ -20,9 +24,13 @@
   --overlay-control-fill: color-mix(in srgb, var(--surface) var(--overlay-control-opacity), transparent);
   --overlay-nested-fill: color-mix(in srgb, var(--surface) var(--overlay-nested-opacity), transparent);
   --overlay-material-filter: var(--overlay-glass-filter);
-  --overlay-material-image: linear-gradient(145deg, var(--dialog-rim), transparent 60%);
-  --overlay-edge: color-mix(in srgb, var(--border-strong) 75%, transparent);
-  --overlay-shadow: var(--shadow-dialog), inset 0 1px 0 var(--dialog-rim);
+  --overlay-rim: color-mix(in srgb, var(--dialog-rim) 35%, transparent);
+  --overlay-material-image: linear-gradient(145deg, var(--overlay-rim), transparent 60%);
+  --overlay-edge: color-mix(in srgb, var(--border-strong) 28%, transparent);
+  --overlay-divider: color-mix(in srgb, var(--border) 28%, transparent);
+  --overlay-control-edge: color-mix(in srgb, var(--border-strong) 32%, transparent);
+  --overlay-control-hover-edge: color-mix(in srgb, var(--border-strong) 50%, transparent);
+  --overlay-shadow: 0 18px 48px rgb(var(--glass-shadow-color) / .18);
   --glass-fill: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent);
   --glass-fill-low: var(--glass-fill);
   --glass-fill-high: color-mix(in srgb, var(--glass-fill) 92%, var(--surface));
@@ -74,7 +82,18 @@
 }
 
 /* Dialogs and the drawer keep their existing viewport positioning. */
-:root :is(.dialog-content, .confirm-content, .settings-panel) { position: fixed; }
+:root :is(.dialog-content, .confirm-content, .settings-panel) {
+  position: fixed;
+}
+
+:root :is(.dialog-content, .confirm-content) {
+  box-shadow: var(--overlay-shadow);
+}
+
+/* The plain-theme drawer retains its original shadow-free boundary. */
+:root:has(.app-shell.has-wallpaper) .settings-panel {
+  box-shadow: var(--overlay-shadow);
+}
 
 :root :is(.dialog-content, .confirm-content, .settings-panel, .popup-form-card, .bookmark-tree)::before {
   position: absolute;
@@ -113,6 +132,11 @@
   --select-fill: var(--overlay-control-fill);
   --select-hover-fill: color-mix(in srgb, var(--overlay-control-fill) 92%, var(--surface));
   --select-active-fill: color-mix(in srgb, var(--accent) 20%, var(--overlay-control-fill));
+  --select-edge: var(--overlay-control-edge);
+  --select-hover-edge: var(--overlay-control-hover-edge);
+  --select-image: none;
+  --select-shadow: none;
+  --select-active-shadow: none;
   --select-filter: none;
   --select-option-fill: color-mix(in srgb, var(--accent) 12%, var(--overlay-popover-fill));
 }
@@ -158,5 +182,20 @@
     :where(.select-menu-root, .select-menu-trigger, .view-control-button) {
     --select-image: none;
     --select-filter: none;
+  }
+}
+
+/* Decorative glass edges yield to system boundaries; focus remains a separate
+   outline rather than reintroducing a second permanent ring. */
+@media (forced-colors: active) {
+  :root,
+  .glass-material-preview {
+    --overlay-edge: CanvasText;
+    --overlay-divider: GrayText;
+    --overlay-control-edge: ButtonBorder;
+    --overlay-control-hover-edge: Highlight;
+    --overlay-rim: transparent;
+    --overlay-shadow: none;
+    --overlay-material-image: none;
   }
 }

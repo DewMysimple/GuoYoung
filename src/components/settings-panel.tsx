@@ -122,6 +122,7 @@ export function SettingsPanel({
   localFontError,
 }: SettingsPanelProps) {
   const titleId = useId();
+  const returnFocus = useRef<HTMLElement | null>(null);
   const wallpaperDragState = useRef<{
     pointerId: number;
     startClientX: number;
@@ -561,6 +562,16 @@ export function SettingsPanel({
           className="settings-panel"
           aria-labelledby={titleId}
           style={{ width: physicalPanelWidth, "--interface-scale": String(panelInterfaceScale) } as CSSProperties}
+          onOpenAutoFocus={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
+          onCloseAutoFocus={(event) => {
+            // This non-modal drawer has an external toolbar button rather
+            // than a Dialog.Trigger. Keep keyboard focus at that entry point.
+            event.preventDefault();
+            // A data workspace or nested dialog may already have moved focus
+            // during this close. Respect that destination instead of stealing it.
+            if (document.activeElement !== document.body && document.activeElement !== document.documentElement) return;
+            if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true });
+          }}
           onEscapeKeyDown={() => onPreview(null)}
           onInteractOutside={(event) => event.preventDefault()}
         >

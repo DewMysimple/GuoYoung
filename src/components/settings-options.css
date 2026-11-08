@@ -3,9 +3,9 @@
 .settings-option,
 .settings-option-input {
   --option-fill: var(--overlay-nested-fill);
-  --option-edge: color-mix(in srgb, var(--border-strong) 70%, var(--glass-edge-soft, transparent));
+  --option-edge: var(--overlay-control-edge);
   --option-selected-fill: color-mix(in srgb, var(--accent) 20%, var(--overlay-control-fill));
-  --option-selected-edge: color-mix(in srgb, var(--accent) 44%, var(--glass-edge, var(--border-strong)));
+  --option-selected-edge: color-mix(in srgb, var(--accent) 44%, var(--overlay-control-hover-edge));
   border: 1px solid var(--option-edge);
   background: var(--option-fill);
   color: var(--text-soft);
@@ -37,7 +37,7 @@
 
 .settings-option:where(:hover):not(:disabled) {
   color: var(--text);
-  border-color: var(--border-strong);
+  border-color: var(--overlay-control-hover-edge);
   background: color-mix(in srgb, var(--accent) 8%, var(--option-fill));
 }
 
@@ -106,3 +106,10 @@
 /* SelectMenu supplies interaction; settings supply its selectable surface. */
 .select-menu-trigger.settings-option { justify-content: flex-start; }
 .select-menu-option.settings-option { justify-content: flex-start; text-align: left; }
+
+@media (forced-colors: active) {
+  .settings-option:is([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"], .is-selected),
+  .settings-option-input:checked { border-color: Highlight; }
+  .settings-option:focus-visible,
+  .settings-option-input:focus-visible { outline-color: Highlight; }
+}

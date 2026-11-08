@@ -33,7 +33,7 @@ test("keeps the palette discoverable in theme mode and preserves inline picker e
   await expect(page.locator(".site-name").first()).toHaveCSS("color", "rgb(23, 28, 38)");
 });
 
-test("plain themes retain semantic colors and selected font dividers stay distinct", async ({ page }, info) => {
+test("plain themes retain semantic colors and font choices use one edge with separate keyboard focus", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium", "Desktop typography settings");
   for (const theme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: theme });
@@ -44,16 +44,40 @@ test("plain themes retain semantic colors and selected font dividers stay distin
     await page.getByRole("button", { name: "打开设置" }).click();
     const panel = page.getByRole("dialog", { name: "设置", exact: true });
     await panel.getByRole("tab", { name: "字体调节" }).click();
-    for (const font of ["默认字体", "系统字体", "霞鹜文楷"]) {
+    for (const font of ["默认字体", "系统字体", "宋体 / 衬线", "霞鹜文楷", "等宽字体", "本地字体"]) {
       const button = panel.getByRole("button", { name: font, exact: true });
+      // Exercise the same font in normal and hovered states before selecting it.
+      if (await button.getAttribute("aria-pressed") === "true") {
+        await panel.getByRole("button", { name: font === "默认字体" ? "系统字体" : "默认字体", exact: true }).click();
+      }
+      await expect(button).toHaveAttribute("aria-pressed", "false");
+      const label = button.locator(".typography-font-label");
+      await expect(label).toHaveCSS("border-top-width", "0px");
+      await expect(button).toHaveCSS("border-top-width", "1px");
+      await button.hover();
+      await expect(button).toHaveAttribute("aria-pressed", "false");
+      await expect(label).toHaveCSS("border-top-width", "0px");
       await button.click();
-      const divider = button.locator(".typography-font-label");
-      await expect(divider).toHaveCSS("border-top-width", "1px");
-      const style = await divider.evaluate(el => ({ line: getComputedStyle(el).borderTopColor, edge: getComputedStyle(el.parentElement!).borderTopColor, background: getComputedStyle(el.parentElement!).backgroundColor }));
-      expect(style.line).toBe(style.edge);
-      expect(style.line).not.toBe(style.background);
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(label).toHaveCSS("border-top-width", "0px");
+      await expect(button).toHaveCSS("border-top-width", "1px");
+      const style = await button.evaluate(el => ({ edge: getComputedStyle(el).borderTopColor, background: getComputedStyle(el).backgroundColor }));
+      expect(style.edge).not.toBe(style.background);
+      // Hover must retain the selected outer edge without restoring a divider.
+      await button.hover();
+      await expect(label).toHaveCSS("border-top-width", "0px");
+      await expect(button).toHaveCSS("border-top-color", style.edge);
+      // A real keyboard round trip activates focus-visible independently of
+      // selection, while the two lines of text still share an undivided card.
+      await button.press("Tab");
+      await page.keyboard.press("Shift+Tab");
+      await expect(button).toBeFocused();
+      await expect(button).toHaveCSS("outline-style", "solid");
+      await expect(button).toHaveCSS("outline-width", "2px");
+      await expect(button).toHaveCSS("border-top-color", style.edge);
+      await expect(label).toHaveCSS("border-top-width", "0px");
     }
-    await page.screenshot({ path: screenshotPath(`font-divider-${theme}.png`), animations: "disabled" });
+    await page.screenshot({ path: screenshotPath(`font-choices-${theme}.png`), animations: "disabled" });
     await panel.getByRole("button", { name: "取消", exact: true }).click();
   }
 });
